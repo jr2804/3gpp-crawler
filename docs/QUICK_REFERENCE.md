@@ -76,11 +76,34 @@ uv run tdoc-crawler query-meetings [OPTIONS]
 
 List stored meeting metadata.
 
-- `-w, --working-group WG` – Filter by working group.
+- `-w, --working-group WG` – Filter by working group. Supports aliases: `RP` (RAN), `SP` (SA), `CP` (CT).
+- `-s, --sub-group SG` – Filter by sub-working group (repeatable). Supports aliases like `S4` (SA4), `R1` (RAN1), `RP` (RAN Plenary).
 - `-o, --output {table,json,yaml}` – Choose output format.
 - `-l, --limit INT` – Cap results.
 - `--order {asc,desc}` – Sort by start date.
 - `--include-without-files` – Include meetings lacking FTP links.
+
+**Supported Subgroup Aliases:**
+
+- **SA:** `S1`→`SA1`, `S2`→`SA2`, `S3`→`SA3`, `S4`→`SA4`, `S5`→`SA5`, `S6`→`SA6`, `SP`→`SA Plenary`
+- **RAN:** `R1`→`RAN1`, `R2`→`RAN2`, `R3`→`RAN3`, `R4`→`RAN4`, `R5`→`RAN5`, `R6`→`RAN6`, `RP`→`RAN Plenary`
+- **CT:** `C1`→`CT1`, `C2`→`CT2`, `C3`→`CT3`, `C4`→`CT4`, `C5`→`CT5`, `C6`→`CT6`, `CP`→`CT Plenary`
+
+**Examples:**
+
+```bash
+# Filter by SA working group and SA4 subgroup (using alias)
+uv run tdoc-crawler query-meetings -w SA -s S4 --limit 5
+
+# Filter RAN Plenary meetings (using working group alias)
+uv run tdoc-crawler query-meetings -w RP -s "RAN Plenary" --limit 5
+
+# Filter multiple subgroups
+uv run tdoc-crawler query-meetings -w RAN -s R1 -s R2 --limit 10
+
+# Combine aliases
+uv run tdoc-crawler query-meetings -w SP -s S4 --limit 5
+```
 
 ### `stats`
 

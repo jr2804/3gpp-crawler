@@ -65,6 +65,51 @@ MEETING_CODE_REGISTRY: dict[WorkingGroup, list[tuple[str, str | None]]] = {
 }
 
 
+def normalize_working_group_alias(alias: str) -> str:
+    """Normalize working group aliases to canonical names.
+
+    Supports: RP→RAN, SP→SA, CP→CT, and their reverse mappings.
+    """
+    alias_upper = alias.strip().upper()
+    # Plenary aliases
+    if alias_upper in ("RP", "RAN PLENARY"):
+        return "RAN"
+    if alias_upper in ("SP", "SA PLENARY"):
+        return "SA"
+    if alias_upper in ("CP", "CT PLENARY"):
+        return "CT"
+    # Standard working groups
+    if alias_upper in ("RAN", "SA", "CT"):
+        return alias_upper
+    # If not recognized, return as-is (will be validated later)
+    return alias_upper
+
+
+def normalize_subgroup_alias(alias: str) -> list[str]:
+    """Normalize subgroup aliases to canonical names.
+
+    Returns a list of possible matching subgroup names.
+    Supports: R1→RAN1, S4→SA4, C3→CT3, RP→RAN Plenary, etc.
+    """
+    alias_upper = alias.strip().upper()
+    matches: list[str] = []
+
+    # Check all registries for matches
+    for _working_group, codes in MEETING_CODE_REGISTRY.items():
+        for code, subgroup in codes:
+            if code.upper() == alias_upper:
+                if subgroup:
+                    matches.append(subgroup)
+            elif subgroup and subgroup.upper() == alias_upper:
+                matches.append(subgroup)
+
+    # If no matches found, return the alias as-is (might be exact name)
+    if not matches:
+        matches.append(alias_upper)
+
+    return matches
+
+
 @dataclass(slots=True, frozen=True)
 class TDocCrawlResult:
     """Summary of a TDoc crawl run."""

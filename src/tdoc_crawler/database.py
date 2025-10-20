@@ -337,6 +337,12 @@ class TDocDatabase:
             clauses.append(f"working_group IN ({placeholders})")
             params.extend([wg.value for wg in config.working_groups])
 
+        if config.subgroups:
+            # Use UPPER() for case-insensitive comparison
+            placeholders = ",".join(["?"] * len(config.subgroups))
+            clauses.append(f"UPPER(subgroup) IN ({placeholders})")
+            params.extend([sg.upper() for sg in config.subgroups])
+
         if not config.include_without_files:
             clauses.append("files_url IS NOT NULL AND files_url != ''")
 

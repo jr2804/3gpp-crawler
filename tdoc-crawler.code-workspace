@@ -61,6 +61,64 @@
 					"--limit-meetings",
 					"10"
 				]
+			},
+			{
+				"name": "Debug: query-meetings",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"query-meetings",
+					"--cache-dir",
+					"./tests/test-cache"
+				]
+			},
+			{
+				"name": "Debug: query-meetings (specific WG - SA)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"query-meetings",
+					"--cache-dir",
+					"./tests/test-cache",
+					"-w",
+					"SA"
+				]
+			},
+			{
+				"name": "Debug: query-meetings (SP - SA Plenary)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"query-meetings",
+					"--cache-dir",
+					"./tests/test-cache",
+					"-w",
+					"SP"
+				]
+			},
+			{
+				"name": "Debug: query-meetings (JSON output)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"query-meetings",
+					"--cache-dir",
+					"./tests/test-cache",
+					"--format",
+					"json"
+				]
 			}
 		]
 	}

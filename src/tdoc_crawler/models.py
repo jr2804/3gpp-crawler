@@ -337,6 +337,7 @@ class MeetingQueryConfig(BaseConfigModel):
 
     cache_dir: Path = Field(default_factory=lambda: DEFAULT_CACHE_DIR, description="Cache directory path")
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
+    subgroups: list[str] | None = Field(None, description="Filter by sub-working group")
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to start date")
     include_without_files: bool = Field(False, description="Include meetings without associated files URL")
@@ -352,6 +353,15 @@ class MeetingQueryConfig(BaseConfigModel):
         for item in value:
             normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
         return normalized
+
+    @field_validator("subgroups", mode="before")
+    @classmethod
+    def _normalize_subgroups(cls, value: Iterable[str] | None) -> list[str] | None:
+        """Normalize subgroup names (uppercase and strip whitespace)."""
+
+        if value is None:
+            return None
+        return [str(item).strip().upper() for item in value]
 
 
 CrawlConfig = TDocCrawlConfig

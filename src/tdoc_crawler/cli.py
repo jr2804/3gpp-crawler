@@ -48,12 +48,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 
 def _parse_working_groups(values: list[str] | None) -> list[WorkingGroup]:
+    """Parse and normalize working group names, expanding plenary aliases."""
+    from tdoc_crawler.crawler import normalize_working_group_alias
+
     if not values:
         return [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
     resolved: list[WorkingGroup] = []
     for item in values:
+        # Try alias normalization first (RP->RAN, SP->SA, CP->CT)
+        normalized = normalize_working_group_alias(item)
         try:
-            resolved.append(WorkingGroup(item.upper()))
+            resolved.append(WorkingGroup(normalized.upper()))
         except ValueError as exc:
             console.print(f"[red]Unknown working group: {item}")
             raise typer.Exit(code=2) from exc
@@ -61,6 +66,32 @@ def _parse_working_groups(values: list[str] | None) -> list[WorkingGroup]:
         console.print("[red]No valid working groups specified")
         raise typer.Exit(code=2)
     return resolved
+
+
+def _parse_subgroups(values: list[str] | None) -> list[str] | None:
+    """Parse and normalize subgroup names, expanding aliases to canonical names."""
+    from tdoc_crawler.crawler import normalize_subgroup_alias
+
+    if not values:
+        return None
+
+    resolved: list[str] = []
+    for item in values:
+        normalized = normalize_subgroup_alias(item)
+        if not normalized:
+            console.print(f"[red]Unknown subgroup: {item}")
+            raise typer.Exit(code=2)
+        resolved.extend(normalized)
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_resolved = []
+    for name in resolved:
+        if name not in seen:
+            seen.add(name)
+            unique_resolved.append(name)
+
+    return unique_resolved if unique_resolved else None
 
 
 def _build_limits(
@@ -413,12 +444,14 @@ def query(
 def query_meetings(
     cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
     working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Filter by working group"),
+    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s", help="Filter by sub-working group"),
     output_format: str = typer.Option(OutputFormat.TABLE.value, "--output", "-o", help="Output format"),
     limit: int | None = typer.Option(None, "--limit", "-l", help="Maximum number of rows"),
     order: str = typer.Option(SortOrder.DESC.value, "--order", help="Sort order (asc|desc)"),
     include_without_files: bool = typer.Option(False, "--include-without-files", help="Include meetings without files URLs"),
 ) -> None:
     working_groups = _parse_working_groups(working_group)
+    subgroups = _parse_subgroups(subgroup)
     try:
         sort_order_meetings = SortOrder(order.lower())
     except ValueError as exc:
@@ -428,6 +461,7 @@ def query_meetings(
     config = MeetingQueryConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
+        subgroups=subgroups,
         limit=limit,
         order=sort_order_meetings,
         include_without_files=include_without_files,

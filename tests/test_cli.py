@@ -223,6 +223,116 @@ class TestQueryMeetingsCommand:
         assert result.exit_code == 0
         assert "No meetings found" in result.stdout
 
+    @patch("tdoc_crawler.cli.TDocDatabase")
+    def test_query_meetings_with_subgroup_filter(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test query-meetings with subgroup filter."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_meetings.return_value = []
+
+        result = runner.invoke(
+            app,
+            ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "SA4"],
+        )
+
+        assert result.exit_code == 0
+        # Verify that query_meetings was called with subgroups parameter
+        call_args = mock_db.query_meetings.call_args[0][0]
+        assert call_args.subgroups == ["SA4"]
+
+    @patch("tdoc_crawler.cli.TDocDatabase")
+    def test_query_meetings_with_subgroup_alias(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test query-meetings with subgroup alias (S4 -> SA4)."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_meetings.return_value = []
+
+        result = runner.invoke(
+            app,
+            ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "S4"],
+        )
+
+        assert result.exit_code == 0
+        # Verify that S4 alias was expanded to SA4
+        call_args = mock_db.query_meetings.call_args[0][0]
+        assert "SA4" in call_args.subgroups
+
+    @patch("tdoc_crawler.cli.TDocDatabase")
+    def test_query_meetings_with_plenary_alias(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test query-meetings with plenary subgroup alias (RP -> RAN Plenary)."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_meetings.return_value = []
+
+        result = runner.invoke(
+            app,
+            ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "RP"],
+        )
+
+        assert result.exit_code == 0
+        # Verify that RP alias was expanded to RAN Plenary (uppercased by validator)
+        call_args = mock_db.query_meetings.call_args[0][0]
+        assert "RAN PLENARY" in call_args.subgroups
+
+    @patch("tdoc_crawler.cli.TDocDatabase")
+    def test_query_meetings_with_working_group_alias(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test query-meetings with working group alias (SP -> SA)."""
+        from tdoc_crawler.models import WorkingGroup
+
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_meetings.return_value = []
+
+        result = runner.invoke(
+            app,
+            ["query-meetings", "--cache-dir", str(test_cache_dir), "-w", "SP"],
+        )
+
+        assert result.exit_code == 0
+        # Verify that SP alias was expanded to SA
+        call_args = mock_db.query_meetings.call_args[0][0]
+        assert WorkingGroup.SA in call_args.working_groups
+
+    @patch("tdoc_crawler.cli.TDocDatabase")
+    def test_query_meetings_combined_filters(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test query-meetings with combined working group and subgroup filters."""
+        from tdoc_crawler.models import WorkingGroup
+
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_meetings.return_value = []
+
+        result = runner.invoke(
+            app,
+            ["query-meetings", "--cache-dir", str(test_cache_dir), "-w", "SA", "-s", "S4"],
+        )
+
+        assert result.exit_code == 0
+        # Verify both filters were applied
+        call_args = mock_db.query_meetings.call_args[0][0]
+        assert WorkingGroup.SA in call_args.working_groups
+        assert "SA4" in call_args.subgroups
+
 
 class TestStatsCommand:
     """Tests for stats command."""
