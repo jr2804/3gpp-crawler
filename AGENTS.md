@@ -232,7 +232,6 @@ The CLI should provide these main functionalities:
   - Handle cases where no results are found gracefully.
   - Provide options for output formatting (e.g., pretty-printing JSON, selecting specific fields to display).
 
-
 ## Usage of uv and project management
 
 - Use `uv` for creating isolated Python environments instead of `virtualenv` or `venv`. This ensures consistency across different development setups and simplifies dependency management.

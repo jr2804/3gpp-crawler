@@ -32,6 +32,10 @@ uv pip install tdoc-crawler
 git clone https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git
 cd tdoc-crawler
 uv sync
+
+# Optional: Set up environment variables for ETSI Online credentials
+cp .env.example .env
+# Edit .env and add your credentials
 ```
 
 ### Using pip
@@ -39,6 +43,25 @@ uv sync
 ```bash
 pip install tdoc-crawler
 ```
+
+## Configuration
+
+### Environment Variables
+
+For accessing certain 3GPP resources that require authentication, you can configure ETSI Online (EOL) credentials:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env and add your credentials:
+# EOL_USERNAME=your_username
+# EOL_PASSWORD=your_password
+```
+
+Alternatively, you can:
+- Pass credentials via CLI options: `--eol-username` and `--eol-password`
+- Let the tool prompt you interactively when needed
 
 ## Quick Start
 
