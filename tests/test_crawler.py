@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from tdoc_crawler.crawler import EXCLUDED_DIRS, TDOC_PATTERN, TDocCrawler
+from bs4 import BeautifulSoup
+
+from tdoc_crawler.crawler import EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler, TDocCrawler
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import QueryConfig, TDocCrawlConfig, WorkingGroup
 
@@ -175,6 +178,59 @@ class TestTDocCrawler:
             assert result.updated == 0
             stored = database.query_tdocs(QueryConfig(cache_dir=test_db_path.parent))
             assert {record.tdoc_id for record in stored} == {"R1-2301234"}
+
+
+class TestMeetingCrawler:
+    """Tests for MeetingCrawler class."""
+
+    def test_parse_single_date(self, test_db_path: Path) -> None:
+        """Verify single date parsing from text."""
+
+        with TDocDatabase(test_db_path) as database:
+            crawler = MeetingCrawler(database)
+            # Regular hyphen-minus (U+002D)
+            assert crawler._parse_single_date("2025-10-20") == date(2025, 10, 20)
+            assert crawler._parse_single_date("Meeting on 2025-10-20") == date(2025, 10, 20)
+            # Non-breaking hyphen (U+2011) - intentionally testing Unicode characters
+            assert crawler._parse_single_date("2027\u201109\u201120") == date(2027, 9, 20)
+            # En dash (U+2013) - intentionally testing Unicode characters
+            assert crawler._parse_single_date("2026\u201303\u201315") == date(2026, 3, 15)
+            # Empty/invalid cases
+            assert crawler._parse_single_date("") is None
+            assert crawler._parse_single_date("No date here") is None
+
+    def test_parse_meeting_row_with_separate_date_columns(self, test_db_path: Path) -> None:
+        """Verify meeting row parsing with start and end dates in separate columns."""
+
+        html = """
+        <tr>
+            <td><a href="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345">SA4#134</a></td>
+            <td>Meeting Title</td>
+            <td>Paris, France</td>
+            <td>2025-10-20</td>
+            <td>2025-10-24</td>
+            <td>Info</td>
+            <td><a href="https://www.3gpp.org/ftp/tsg_sa/WG4_Codec/TSGS4_134/Docs/">Files</a></td>
+            <td>Extra</td>
+        </tr>
+        """
+        soup = BeautifulSoup(html, "lxml")
+        row = soup.find("tr")
+        assert row is not None
+        cells = row.find_all("td")
+
+        with TDocDatabase(test_db_path) as database:
+            crawler = MeetingCrawler(database)
+            meeting = crawler._parse_meeting_row(cells, WorkingGroup.SA, "SA4")
+
+            assert meeting.meeting_id == 12345
+            assert meeting.short_name == "SA4#134"
+            assert meeting.title == "Meeting Title"
+            assert meeting.start_date == date(2025, 10, 20)
+            assert meeting.end_date == date(2025, 10, 24)
+            assert meeting.location == "Paris, France"
+            assert meeting.working_group == WorkingGroup.SA
+            assert meeting.subgroup == "SA4"
 
 
 if __name__ == "__main__":

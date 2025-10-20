@@ -1,0 +1,67 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Debug TDoc Crawler",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": []
+			},
+			{
+				"name": "Debug: crawl-meetings (max. 5)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"crawl-meetings",
+					"--cache-dir",
+					"./tests/test-cache",
+					"--limit-meetings",
+					"5"
+				]
+			},
+			{
+				"name": "Debug: crawl-meetings (full)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"crawl-meetings",
+					"--cache-dir",
+					"./tests/test-cache"
+				]
+			},
+			{
+				"name": "Debug: crawl-meetings (single WG)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"crawl-meetings",
+					"--cache-dir",
+					"./tests/test-cache",
+					"--limit-wgs",
+					"1",
+					"--limit-meetings",
+					"10"
+				]
+			}
+		]
+	}
+}

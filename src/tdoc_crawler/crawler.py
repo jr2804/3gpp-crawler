@@ -32,7 +32,7 @@ EXCLUDED_DIRS_NORMALIZED = {entry.upper() for entry in EXCLUDED_DIRS}
 FTP_HOST = "ftp.3gpp.org"
 MEETINGS_BASE_URL = "https://www.3gpp.org/dynareport?code=Meetings-{code}.htm"
 PORTAL_BASE_URL = "https://portal.3gpp.org"
-DATE_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2})")
+DATE_PATTERN = re.compile(r"(\d{4}[\-\u2010-\u2015]\d{2}[\-\u2010-\u2015]\d{2})")
 
 MEETING_CODE_REGISTRY: dict[WorkingGroup, list[tuple[str, str | None]]] = {
     WorkingGroup.RAN: [
@@ -445,10 +445,16 @@ class MeetingCrawler:
     ) -> MeetingMetadata:
         short_name, portal_url, meeting_id = self._extract_meeting_reference(cells[0])
         title = cells[1].get_text(strip=True) if len(cells) > 1 else None
-        date_text = cells[2].get_text(" ", strip=True) if len(cells) > 2 else ""
-        start_date, end_date = self._parse_dates(date_text)
-        location = cells[3].get_text(" ", strip=True) if len(cells) > 3 else None
-        files_url = self._extract_first_link(cells[-1])
+
+        start_date_text = cells[3].get_text(" ", strip=True) if len(cells) >= 4 else ""
+        end_date_text = cells[4].get_text(" ", strip=True) if len(cells) >= 5 else start_date_text
+
+        start_date = self._parse_single_date(start_date_text)
+        end_date = self._parse_single_date(end_date_text)
+
+        location = cells[2].get_text(" ", strip=True) if len(cells) > 2 else "TBC"
+        files_url = self._extract_first_link(cells[-3])
+
         return MeetingMetadata(
             meeting_id=meeting_id,
             working_group=working_group,
@@ -489,12 +495,38 @@ class MeetingCrawler:
         return href if href.startswith("http") else urljoin("https://www.3gpp.org", href)
 
     def _parse_dates(self, text: str) -> tuple[date | None, date | None]:
+        """Parse start and end dates from text containing one or more dates.
+
+        Handles various Unicode dash/hyphen characters by normalizing to ASCII.
+        """
         matches = DATE_PATTERN.findall(text)
         if not matches:
             return None, None
-        start = date.fromisoformat(matches[0])
-        end = date.fromisoformat(matches[-1]) if len(matches) > 1 else start
+        # Normalize Unicode dashes to ASCII hyphen-minus
+        start_normalized = matches[0].translate(str.maketrans("\u2010\u2011\u2012\u2013\u2014\u2015", "------"))
+        start = date.fromisoformat(start_normalized)
+        if len(matches) > 1:
+            end_normalized = matches[-1].translate(str.maketrans("\u2010\u2011\u2012\u2013\u2014\u2015", "------"))
+            end = date.fromisoformat(end_normalized)
+        else:
+            end = start
         return start, end
+
+    def _parse_single_date(self, text: str) -> date | None:
+        """Parse a single date from text in YYYY-MM-DD format.
+
+        Handles various Unicode dash/hyphen characters (U+002D, U+2010-U+2015)
+        by normalizing them to ASCII hyphen-minus before parsing.
+        """
+        if not text:
+            return None
+        match = DATE_PATTERN.search(text)
+        if match is None:
+            return None
+        # Normalize Unicode dashes to ASCII hyphen-minus for ISO format parsing
+        date_str = match.group(1)
+        normalized = date_str.translate(str.maketrans("\u2010\u2011\u2012\u2013\u2014\u2015", "------"))
+        return date.fromisoformat(normalized)
 
     def _apply_limits(self, meetings: list[MeetingMetadata], limits: CrawlLimits) -> list[MeetingMetadata]:
         if not meetings:

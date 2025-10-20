@@ -113,8 +113,7 @@ class TDocDatabase:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS meetings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                meeting_id INTEGER NOT NULL UNIQUE,
+                meeting_id INTEGER PRIMARY KEY  NOT NULL UNIQUE,
                 working_group TEXT NOT NULL,
                 subgroup TEXT,
                 short_name TEXT NOT NULL,
