@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
-from tdoc_crawler.crawler import MeetingCrawler, TDocCrawlResult, TDocCrawler
+from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler, TDocCrawlResult
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import (
     CrawlLimits,
@@ -49,7 +49,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 def _parse_working_groups(values: list[str] | None) -> list[WorkingGroup]:
     """Parse and normalize working group names, expanding plenary aliases."""
-    from tdoc_crawler.crawler import normalize_working_group_alias
+    from tdoc_crawler.crawlers import normalize_working_group_alias
 
     if not values:
         return [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
@@ -70,7 +70,7 @@ def _parse_working_groups(values: list[str] | None) -> list[WorkingGroup]:
 
 def _parse_subgroups(values: list[str] | None) -> list[str] | None:
     """Parse and normalize subgroup names, expanding aliases to canonical names."""
-    from tdoc_crawler.crawler import normalize_subgroup_alias
+    from tdoc_crawler.crawlers import normalize_subgroup_alias
 
     if not values:
         return None

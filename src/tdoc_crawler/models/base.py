@@ -1,0 +1,63 @@
+"""Base configuration classes and shared utilities."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from enum import StrEnum
+from pathlib import Path
+
+from pydantic import BaseModel
+
+DEFAULT_CACHE_DIR = Path.home() / ".tdoc-crawler"
+
+
+def utc_now() -> datetime:
+    """Return the current UTC timestamp as an aware datetime."""
+
+    return datetime.now(UTC)
+
+
+def _normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
+    """Uppercase and strip whitespace from TDoc identifiers."""
+
+    return [str(value).strip().upper() for value in ids]
+
+
+class OutputFormat(StrEnum):
+    """Supported output formats for CLI responses."""
+
+    TABLE = "table"
+    JSON = "json"
+    YAML = "yaml"
+
+
+class SortOrder(StrEnum):
+    """Sort orders accepted by query operations."""
+
+    ASC = "asc"
+    DESC = "desc"
+
+
+class BaseConfigModel(BaseModel):
+    """Shared configuration base enabling attribute parsing and whitespace handling."""
+
+    model_config = {"str_strip_whitespace": True, "use_enum_values": False}
+
+
+class PortalCredentials(BaseModel):
+    """Credentials required for ETSI Online Account (EOL) protected resources."""
+
+    username: str
+    password: str
+
+
+__all__ = [
+    "DEFAULT_CACHE_DIR",
+    "BaseConfigModel",
+    "OutputFormat",
+    "PortalCredentials",
+    "SortOrder",
+    "_normalize_tdoc_ids",
+    "utc_now",
+]

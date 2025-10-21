@@ -328,11 +328,20 @@ class TDocCrawler:
             meeting=meeting,
             meeting_id=None,
             file_size=file_size,
+            title=None,
+            contact=None,
+            tdoc_type=None,
+            for_purpose=None,
+            agenda_item=None,
+            status=None,
+            is_revision_of=None,
             document_type=None,
             checksum=None,
             source_path=f"{full_path}/{name}",
             date_created=None,
             date_retrieved=datetime.now(UTC),
+            validated=False,
+            validation_failed=False,
         )
         collected.append(metadata)
         seen_ids.add(tdoc_id)
@@ -500,8 +509,18 @@ class MeetingCrawler:
         location = cells[2].get_text(" ", strip=True) if len(cells) > 2 else "TBC"
         files_url = self._extract_first_link(cells[-3])
 
+        # Get tbid from working group, subtb from database lookup if subgroup is available
+        tbid = working_group.tbid
+        subtb: int | None = None
+        if subgroup:
+            subgroup_data = self.database.get_subgroup_by_code(subgroup)
+            if subgroup_data:
+                subtb = subgroup_data["subtb"]
+
         return MeetingMetadata(
             meeting_id=meeting_id,
+            tbid=tbid,
+            subtb=subtb,
             working_group=working_group,
             subgroup=subgroup,
             short_name=short_name,

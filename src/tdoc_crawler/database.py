@@ -110,10 +110,82 @@ class TDocDatabase:
             (SCHEMA_VERSION,),
         )
 
+        # Reference table for working groups
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS working_groups (
+                tbid INTEGER PRIMARY KEY NOT NULL,
+                code TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                ftp_root TEXT NOT NULL
+            )
+            """
+        )
+
+        # Populate working groups
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO working_groups (tbid, code, name, ftp_root)
+            VALUES
+                (373, 'RAN', 'RAN', '/tsg_ran'),
+                (375, 'SA', 'SA', '/tsg_sa'),
+                (649, 'CT', 'CT', '/tsg_ct')
+            """
+        )
+
+        # Reference table for subworking groups
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS subworking_groups (
+                subtb INTEGER PRIMARY KEY NOT NULL,
+                tbid INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                FOREIGN KEY (tbid) REFERENCES working_groups(tbid)
+            )
+            """
+        )
+
+        # Populate subworking groups
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO subworking_groups (subtb, tbid, code, name)
+            VALUES
+                -- SA Subgroups
+                (375, 375, 'SP', 'SA Plenary'),
+                (384, 375, 'S1', 'SA1'),
+                (385, 375, 'S2', 'SA2'),
+                (386, 375, 'S3', 'SA3'),
+                (387, 375, 'S4', 'SA4'),
+                (388, 375, 'S5', 'SA5'),
+                (825, 375, 'S6', 'SA6'),
+                -- CT Subgroups
+                (649, 649, 'CP', 'CT Plenary'),
+                (651, 649, 'C1', 'CT1'),
+                (652, 649, 'C2', 'CT2'),
+                (653, 649, 'C3', 'CT3'),
+                (654, 649, 'C4', 'CT4'),
+                (655, 649, 'C5', 'CT5'),
+                (656, 649, 'C6', 'CT6'),
+                -- RAN Subgroups
+                (373, 373, 'RP', 'RAN Plenary'),
+                (379, 373, 'R1', 'RAN1'),
+                (380, 373, 'R2', 'RAN2'),
+                (381, 373, 'R3', 'RAN3'),
+                (382, 373, 'R4', 'RAN4'),
+                (657, 373, 'R5', 'RAN5'),
+                (843, 373, 'R6', 'RAN6')
+            """
+        )
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_subworking_groups_tbid ON subworking_groups(tbid)")
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS meetings (
                 meeting_id INTEGER PRIMARY KEY  NOT NULL UNIQUE,
+                tbid INTEGER NOT NULL,
+                subtb INTEGER,
                 working_group TEXT NOT NULL,
                 subgroup TEXT,
                 short_name TEXT NOT NULL,
@@ -125,12 +197,16 @@ class TDocDatabase:
                 portal_url TEXT,
                 last_synced TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (tbid) REFERENCES working_groups(tbid),
+                FOREIGN KEY (subtb) REFERENCES subworking_groups(subtb)
             )
             """
         )
 
         conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_wg ON meetings(working_group)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_tbid ON meetings(tbid)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_subtb ON meetings(subtb)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_start_date ON meetings(start_date)")
 
         conn.execute(
@@ -144,12 +220,21 @@ class TDocDatabase:
                 meeting TEXT,
                 meeting_id INTEGER,
                 file_size INTEGER,
+                title TEXT,
+                contact TEXT,
+                tdoc_type TEXT,
+                for_purpose TEXT,
+                agenda_item TEXT,
+                status TEXT,
+                is_revision_of TEXT,
                 document_type TEXT,
                 checksum TEXT,
                 source_path TEXT,
                 date_created TEXT,
                 date_retrieved TEXT NOT NULL,
                 date_updated TEXT NOT NULL,
+                validated BOOLEAN DEFAULT 0,
+                validation_failed BOOLEAN DEFAULT 0,
                 FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
             )
             """
@@ -158,6 +243,8 @@ class TDocDatabase:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_wg ON tdocs(working_group)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_meeting_id ON tdocs(meeting_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_date ON tdocs(date_retrieved)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_validated ON tdocs(validated)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_validation_failed ON tdocs(validation_failed)")
 
         conn.execute(
             """
@@ -240,12 +327,14 @@ class TDocDatabase:
                 cursor.execute(
                     """
                     INSERT INTO meetings (
-                        meeting_id, working_group, subgroup, short_name, title, start_date, end_date,
+                        meeting_id, tbid, subtb, working_group, subgroup, short_name, title, start_date, end_date,
                         location, files_url, portal_url, last_synced, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         record.meeting_id,
+                        record.tbid,
+                        record.subtb,
                         record.working_group.value,
                         record.subgroup,
                         record.short_name,
@@ -264,6 +353,8 @@ class TDocDatabase:
                 return True, False
 
             changed = any((
+                existing["tbid"] != record.tbid,
+                existing["subtb"] != record.subtb,
                 existing["working_group"] != record.working_group.value,
                 existing["subgroup"] != record.subgroup,
                 existing["short_name"] != record.short_name,
@@ -279,7 +370,9 @@ class TDocDatabase:
                 cursor.execute(
                     """
                     UPDATE meetings
-                       SET working_group = ?,
+                       SET tbid = ?,
+                           subtb = ?,
+                           working_group = ?,
                            subgroup = ?,
                            short_name = ?,
                            title = ?,
@@ -293,6 +386,8 @@ class TDocDatabase:
                      WHERE meeting_id = ?
                     """,
                     (
+                        record.tbid,
+                        record.subtb,
                         record.working_group.value,
                         record.subgroup,
                         record.short_name,
@@ -382,9 +477,10 @@ class TDocDatabase:
                     """
                     INSERT INTO tdocs (
                         tdoc_id, url, working_group, subgroup, meeting, meeting_id,
-                        file_size, document_type, checksum, source_path, date_created,
-                        date_retrieved, date_updated
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        file_size, title, contact, tdoc_type, for_purpose, agenda_item,
+                        status, is_revision_of, document_type, checksum, source_path,
+                        date_created, date_retrieved, date_updated, validated, validation_failed
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         record.tdoc_id,
@@ -394,12 +490,21 @@ class TDocDatabase:
                         record.meeting,
                         record.meeting_id,
                         record.file_size,
+                        record.title,
+                        record.contact,
+                        record.tdoc_type,
+                        record.for_purpose,
+                        record.agenda_item,
+                        record.status,
+                        record.is_revision_of,
                         record.document_type,
                         record.checksum,
                         record.source_path,
                         self._datetime_to_text(record.date_created),
                         record.date_retrieved.isoformat(),
                         now,
+                        1 if record.validated else 0,
+                        1 if record.validation_failed else 0,
                     ),
                 )
                 self.connection.commit()
@@ -414,11 +519,20 @@ class TDocDatabase:
                 existing["meeting"] != record.meeting,
                 existing["meeting_id"] != record.meeting_id,
                 existing["file_size"] != record.file_size,
+                existing["title"] != record.title,
+                existing["contact"] != record.contact,
+                existing["tdoc_type"] != record.tdoc_type,
+                existing["for_purpose"] != record.for_purpose,
+                existing["agenda_item"] != record.agenda_item,
+                existing["status"] != record.status,
+                existing["is_revision_of"] != record.is_revision_of,
                 existing["document_type"] != record.document_type,
                 existing["checksum"] != record.checksum,
                 existing["source_path"] != record.source_path,
                 existing["date_created"] != new_date_created,
                 existing["date_retrieved"] != new_date_retrieved,
+                existing["validated"] != (1 if record.validated else 0),
+                existing["validation_failed"] != (1 if record.validation_failed else 0),
             ))
 
             if changed:
@@ -431,12 +545,21 @@ class TDocDatabase:
                            meeting = ?,
                            meeting_id = ?,
                            file_size = ?,
+                           title = ?,
+                           contact = ?,
+                           tdoc_type = ?,
+                           for_purpose = ?,
+                           agenda_item = ?,
+                           status = ?,
+                           is_revision_of = ?,
                            document_type = ?,
                            checksum = ?,
                            source_path = ?,
                            date_created = ?,
                            date_retrieved = ?,
-                           date_updated = ?
+                           date_updated = ?,
+                           validated = ?,
+                           validation_failed = ?
                      WHERE tdoc_id = ?
                     """,
                     (
@@ -446,12 +569,21 @@ class TDocDatabase:
                         record.meeting,
                         record.meeting_id,
                         record.file_size,
+                        record.title,
+                        record.contact,
+                        record.tdoc_type,
+                        record.for_purpose,
+                        record.agenda_item,
+                        record.status,
+                        record.is_revision_of,
                         record.document_type,
                         record.checksum,
                         record.source_path,
                         new_date_created,
                         new_date_retrieved,
                         now,
+                        1 if record.validated else 0,
+                        1 if record.validation_failed else 0,
                         record.tdoc_id,
                     ),
                 )
@@ -551,6 +683,130 @@ class TDocDatabase:
 
         return {int(row["meeting_id"]) for row in rows}
 
+    def get_processed_meetings(
+        self,
+        working_groups: Iterable[WorkingGroup] | None = None,
+        subgroups: Iterable[str] | None = None,
+    ) -> set[int]:
+        """Get meeting IDs that have already been crawled for TDocs.
+
+        A meeting is considered processed if there are TDocs in the database
+        associated with that meeting_id.
+
+        Args:
+            working_groups: Optional filter by working groups
+            subgroups: Optional filter by subgroups
+
+        Returns:
+            Set of meeting IDs that have been processed
+        """
+        query = "SELECT DISTINCT meeting_id FROM tdocs"
+        clauses: list[str] = []
+        params: list[Any] = []
+
+        if working_groups:
+            working_groups_list = [wg.value for wg in working_groups]
+            placeholders = ["?"] * len(working_groups_list)
+            clauses.append(f"working_group IN ({','.join(placeholders)})")
+            params.extend(working_groups_list)
+
+        if subgroups:
+            subgroups_list = list(subgroups)
+            placeholders = ["?"] * len(subgroups_list)
+            clauses.append(f"subgroup IN ({','.join(placeholders)})")
+            params.extend(subgroups_list)
+
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+
+        with self._cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+        return {int(row["meeting_id"]) for row in rows}
+
+    def cache_invalid_tdoc(self, tdoc_id: str, url: str, working_group: WorkingGroup, subgroup: str) -> None:
+        """Cache a TDoc that failed portal validation.
+
+        Stores a minimal TDoc record with validation_failed=True to avoid
+        re-checking this TDoc in future crawls.
+
+        Args:
+            tdoc_id: The TDoc identifier (case-insensitive)
+            url: The FTP/HTTP URL where the file was found
+            working_group: The working group this TDoc belongs to
+            subgroup: The subgroup identifier
+        """
+        now = datetime.now(UTC).isoformat()
+        tdoc_id_upper = tdoc_id.upper()
+
+        with self._cursor() as cursor:
+            cursor.execute(
+                "SELECT tdoc_id FROM tdocs WHERE tdoc_id = ?",
+                (tdoc_id_upper,),
+            )
+            if cursor.fetchone() is not None:
+                return
+
+            cursor.execute(
+                """
+                INSERT INTO tdocs (
+                    tdoc_id, url, working_group, subgroup, meeting, meeting_id,
+                    file_size, document_type, checksum, source_path,
+                    date_created, date_retrieved, date_updated,
+                    validated, validation_failed
+                ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?, 0, 1)
+                """,
+                (
+                    tdoc_id_upper,
+                    url,
+                    working_group.value,
+                    subgroup,
+                    now,
+                    now,
+                ),
+            )
+            self.connection.commit()
+
+    def get_cached_invalid_tdocs(self) -> set[str]:
+        """Get all TDoc IDs that have been cached as invalid.
+
+        Returns:
+            Set of TDoc IDs (uppercase) that failed portal validation
+        """
+        with self._cursor() as cursor:
+            cursor.execute("SELECT tdoc_id FROM tdocs WHERE validation_failed = 1")
+            rows = cursor.fetchall()
+
+        return {str(row["tdoc_id"]).upper() for row in rows}
+
+    def get_subgroup_by_code(self, code: str) -> dict[str, Any] | None:
+        """Look up a subworking group by its code.
+
+        Args:
+            code: The subgroup code (e.g., 'S4', 'R1', 'CP')
+
+        Returns:
+            Dictionary with subgroup data (subtb, tbid, code, name)
+            or None if not found
+        """
+        with self._cursor() as cursor:
+            cursor.execute(
+                "SELECT subtb, tbid, code, name FROM subworking_groups WHERE code = ?",
+                (code.upper(),),
+            )
+            row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "subtb": row["subtb"],
+            "tbid": row["tbid"],
+            "code": row["code"],
+            "name": row["name"],
+        }
+
     def get_statistics(self) -> dict[str, Any]:
         stats: dict[str, Any] = {}
         with self._cursor() as cursor:
@@ -590,11 +846,20 @@ class TDocDatabase:
                 meeting=row["meeting"],
                 meeting_id=row["meeting_id"],
                 file_size=row["file_size"],
+                title=row["title"],
+                contact=row["contact"],
+                tdoc_type=row["tdoc_type"],
+                for_purpose=row["for_purpose"],
+                agenda_item=row["agenda_item"],
+                status=row["status"],
+                is_revision_of=row["is_revision_of"],
                 document_type=row["document_type"],
                 checksum=row["checksum"],
                 source_path=row["source_path"],
                 date_created=TDocDatabase._text_to_datetime(row["date_created"]),
                 date_retrieved=TDocDatabase._text_to_datetime_required(row["date_retrieved"]),
+                validated=bool(row["validated"]) if row["validated"] is not None else False,
+                validation_failed=bool(row["validation_failed"]) if row["validation_failed"] is not None else False,
             )
         except (ValueError, ValidationError) as exc:
             raise DatabaseError.parse_failure("tdoc", f"{row['tdoc_id']}|{exc}") from exc
@@ -604,6 +869,8 @@ class TDocDatabase:
         try:
             return MeetingMetadata(
                 meeting_id=row["meeting_id"],
+                tbid=row["tbid"],
+                subtb=row["subtb"],
                 working_group=WorkingGroup(row["working_group"]),
                 subgroup=row["subgroup"],
                 short_name=row["short_name"],

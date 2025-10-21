@@ -128,11 +128,20 @@ class TestTDocDatabase:
                 meeting="RAN1#99",
                 meeting_id=None,
                 file_size=512000,
+                title=None,
+                contact=None,
+                tdoc_type=None,
+                for_purpose=None,
+                agenda_item=None,
+                status=None,
+                is_revision_of=None,
                 document_type=None,
                 checksum=None,
                 source_path="/tsg_ran/RAN1/R1-2301234.zip",
                 date_created=None,
                 date_retrieved=datetime(2023, 1, 17),
+                validated=False,
+                validation_failed=False,
             )
             created, changed = db.upsert_tdoc(updated_tdoc)
             assert created is False
@@ -160,6 +169,8 @@ class TestTDocDatabase:
 
         meeting = MeetingMetadata(
             meeting_id=12345,
+            tbid=373,
+            subtb=379,
             working_group=WorkingGroup.RAN,
             subgroup="RAN1",
             short_name="RAN1#98",
@@ -180,6 +191,7 @@ class TestTDocDatabase:
                 MeetingQueryConfig(
                     cache_dir=test_db_path.parent,
                     working_groups=None,
+                    subgroups=None,
                     limit=None,
                     order=SortOrder.DESC,
                     include_without_files=False,
@@ -193,6 +205,8 @@ class TestTDocDatabase:
 
         meeting = MeetingMetadata(
             meeting_id=6789,
+            tbid=375,
+            subtb=387,
             working_group=WorkingGroup.SA,
             subgroup="SA4",
             short_name="SA4#134",

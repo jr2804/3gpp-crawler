@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from bs4 import BeautifulSoup
 
-from tdoc_crawler.crawler import EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler, TDocCrawler
+from tdoc_crawler.crawlers import EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler, TDocCrawler
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import QueryConfig, TDocCrawlConfig, WorkingGroup
 
@@ -59,7 +59,7 @@ class TestTDocCrawler:
         assert not TDOC_PATTERN.search("README.txt")
         assert not TDOC_PATTERN.search("data.csv")
 
-    @patch("tdoc_crawler.crawler.FTP")
+    @patch("tdoc_crawler.crawlers.tdocs.FTP")
     def test_crawl_connection_failure(
         self,
         mock_ftp_class: MagicMock,
@@ -86,7 +86,7 @@ class TestTDocCrawler:
         assert result.updated == 0
         assert result.errors
 
-    @patch("tdoc_crawler.crawler.FTP")
+    @patch("tdoc_crawler.crawlers.tdocs.FTP")
     def test_crawl_collects_tdocs(
         self,
         mock_ftp_class: MagicMock,
@@ -133,7 +133,7 @@ class TestTDocCrawler:
             assert stored[0].tdoc_id == "R1-2301234"
             assert stored[0].file_size == 2048
 
-    @patch("tdoc_crawler.crawler.FTP")
+    @patch("tdoc_crawler.crawlers.tdocs.FTP")
     def test_crawl_targets_specific_ids(
         self,
         mock_ftp_class: MagicMock,
