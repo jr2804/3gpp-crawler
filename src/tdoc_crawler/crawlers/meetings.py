@@ -250,7 +250,7 @@ class MeetingCrawler:
         raw_href = link.get("href")
         if raw_href is None:
             return None
-        href = str(raw_href)
+        href = str(raw_href).replace("\\", "/").replace("//", "/")
         return href if href.startswith("http") else urljoin("https://www.3gpp.org", href)
 
     def _parse_dates(self, text: str) -> tuple[date | None, date | None]:
