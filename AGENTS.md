@@ -5,6 +5,24 @@ description: General Guidelines
 alwaysApply: true
 ---
 
+## Quick Start for Coding Assistants
+
+Before implementing features, review these critical sections:
+
+1. **Project Structure** - Understand the models/ and crawlers/ submodule organization
+2. **Database Schema** - Review the 5-table structure with foreign keys
+3. **CLI Commands** - Study the exact command signatures and defaults
+4. **Implementation Patterns** - Learn targeted fetch, validation caching, alias normalization
+5. **Test Patterns** - Use standard fixtures and mock patterns
+
+**Key Files to Examine First:**
+
+- `src/tdoc_crawler/cli.py` - All 6 CLI commands
+- `src/tdoc_crawler/database.py` - Schema and queries
+- `src/tdoc_crawler/models/__init__.py` - All data models
+- `src/tdoc_crawler/crawlers/__init__.py` - Crawler implementations
+- `tests/conftest.py` - Shared test fixtures
+
 ## General Coding Guidelines
 
 ### Instructions
@@ -147,6 +165,48 @@ Each table row contains several meeting-specific data and URLs:
 - The column "Files" contains an entry "Files" with a link to the TDoc FTP directory.
 - If the column "Files" is empty, it means that the meeting is not yet setup and no TDocs are available for this meeting. Skip these meetings when crawling TDocs later.
 
+## Project Structure
+
+The project follows a modular architecture with clear separation of concerns:
+
+### Source Code Organization
+
+```
+src/tdoc_crawler/
+├── models/              # Data models and configuration
+│   ├── __init__.py      # Re-exports all public symbols for backward compatibility
+│   ├── base.py          # BaseConfigModel, utilities, enums (OutputFormat, SortOrder)
+│   ├── working_groups.py  # WorkingGroup enum with tbid/ftp_root properties
+│   ├── subworking_groups.py  # SubworkingGroup model
+│   ├── crawl_limits.py  # CrawlLimits configuration
+│   ├── tdocs.py         # TDocMetadata, TDocRecord, TDocCrawlConfig, QueryConfig
+│   └── meetings.py      # MeetingMetadata, MeetingRecord, MeetingCrawlConfig
+├── crawlers/            # Web scraping and FTP crawling logic
+│   ├── __init__.py      # Re-exports all public symbols (includes TDOC_PATTERN, EXCLUDED_DIRS)
+│   ├── tdocs.py         # TDocCrawler - FTP directory traversal, TDoc discovery
+│   └── meetings.py      # MeetingCrawler - HTML parsing, date extraction
+├── database.py          # SQLite persistence layer with typed wrappers
+├── cli.py               # Typer-based CLI with 6 commands
+├── __init__.py          # Package initialization
+└── __main__.py          # Entry point for `python -m tdoc_crawler`
+```
+
+### Module Design Principles
+
+1. **Submodule Re-exports**: Both `models/` and `crawlers/` use `__init__.py` to re-export all public symbols, maintaining backward compatibility
+2. **Single Responsibility**: Each file focuses on one concern (e.g., `models/tdocs.py` only contains TDoc-related models)
+3. **Type Safety**: All modules use comprehensive type hints with `from __future__ import annotations`
+4. **Import Pattern**: Other modules import from `tdoc_crawler.models` and `tdoc_crawler.crawlers`, not from submodules directly
+
+### File Size Guidelines
+
+When splitting modules:
+- Base utilities: 20-70 lines
+- Model files: 80-150 lines
+- Crawler files: 150-350 lines
+- CLI file: 600+ lines (acceptable due to command definitions)
+- Database file: 900+ lines (acceptable due to schema + queries)
+
 ## Task
 
 ### Main Functionalities
@@ -256,6 +316,294 @@ All other fields are optional and may be added as needed.
   - Handle cases where no results are found gracefully.
   - Provide options for output formatting (e.g., pretty-printing JSON, selecting specific fields to display).
 
+## CLI Commands Implementation
+
+The CLI provides 6 commands implemented using Typer. Here are the exact signatures and key parameters:
+
+### 1. `query` (Default Command)
+
+Query TDoc metadata from the database. If TDoc is not found, automatically triggers targeted fetch.
+
+```python
+@app.command()
+def query(
+    tdoc_ids: Annotated[list[str], typer.Argument(...)],
+    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
+    output_format: Annotated[OutputFormat, typer.Option("--format", "-f")] = OutputFormat.TABLE,
+    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
+    db_file: Annotated[Path | None, typer.Option(...)] = None,
+    eol_username: Annotated[str | None, typer.Option(...)] = None,
+    eol_password: Annotated[str | None, typer.Option(...)] = None,
+)
+```
+
+**Key Features**:
+- Accepts multiple TDoc IDs (case-insensitive)
+- Supports filtering by working group(s)
+- Output formats: `table`, `json`, `yaml`, `csv`
+- Auto-fetch: If TDoc not in DB, triggers targeted fetch
+
+### 2. `crawl`
+
+Crawl TDocs from FTP directories based on meeting metadata.
+
+```python
+@app.command()
+def crawl(
+    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
+    sub_group: Annotated[list[str] | None, typer.Option("--sub-group", "-s")] = None,
+    meeting_ids: Annotated[list[int] | None, typer.Option("--meeting-ids")] = None,
+    start_date: Annotated[str | None, typer.Option(...)] = None,
+    end_date: Annotated[str | None, typer.Option(...)] = None,
+    limit_meetings: Annotated[int | None, typer.Option(...)] = None,
+    limit_tdocs: Annotated[int | None, typer.Option(...)] = None,
+    workers: Annotated[int, typer.Option(...)] = 4,
+    force_revalidate: Annotated[bool, typer.Option("--force-revalidate")] = False,
+    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
+    db_file: Annotated[Path | None, typer.Option(...)] = None,
+    eol_username: Annotated[str | None, typer.Option(...)] = None,
+    eol_password: Annotated[str | None, typer.Option(...)] = None,
+)
+```
+
+**Key Features**:
+- Filters: working group, subgroup, meeting IDs, date range
+- Limits: meetings and TDocs per crawl
+- Parallel processing: `--workers` (default: 4)
+- Force revalidation: Re-check existing TDocs
+- Requires meetings DB to be populated first
+
+### 3. `crawl-meetings`
+
+Crawl meeting metadata from 3GPP portal.
+
+```python
+@app.command(name="crawl-meetings")
+def crawl_meetings(
+    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
+    limit_meetings: Annotated[int | None, typer.Option(...)] = None,
+    limit_meetings_per_wg: Annotated[int | None, typer.Option(...)] = None,
+    force_update: Annotated[bool, typer.Option("--force-update")] = False,
+    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
+    db_file: Annotated[Path | None, typer.Option(...)] = None,
+    eol_username: Annotated[str | None, typer.Option(...)] = None,
+    eol_password: Annotated[str | None, typer.Option(...)] = None,
+)
+```
+
+**Key Features**:
+- Filter by working group(s)
+- Limit total meetings or per working group
+- Incremental updates: Skip existing unless `--force-update`
+- Prerequisite for `crawl` command
+
+### 4. `query-meetings`
+
+Query meeting metadata from database.
+
+```python
+@app.command(name="query-meetings")
+def query_meetings(
+    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
+    sub_group: Annotated[list[str] | None, typer.Option("--sub-group", "-s")] = None,
+    meeting_ids: Annotated[list[int] | None, typer.Option("--meeting-ids")] = None,
+    start_date: Annotated[str | None, typer.Option(...)] = None,
+    end_date: Annotated[str | None, typer.Option(...)] = None,
+    output_format: Annotated[OutputFormat, typer.Option("--format", "-f")] = OutputFormat.TABLE,
+    sort_by: Annotated[str, typer.Option(...)] = "start_date",
+    sort_order: Annotated[SortOrder, typer.Option(...)] = SortOrder.DESC,
+    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
+    db_file: Annotated[Path | None, typer.Option(...)] = None,
+)
+```
+
+**Key Features**:
+- Filters: working group, subgroup, meeting IDs, date range
+- Sorting: By any field, ascending/descending
+- Output formats: `table`, `json`, `yaml`, `csv`
+
+### 5. `open`
+
+Download, unzip, and open a TDoc file.
+
+```python
+@app.command()
+def open_tdoc(
+    tdoc_id: Annotated[str, typer.Argument(...)],
+    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
+    db_file: Annotated[Path | None, typer.Option(...)] = None,
+    eol_username: Annotated[str | None, typer.Option(...)] = None,
+    eol_password: Annotated[str | None, typer.Option(...)] = None,
+)
+```
+
+**Key Features**:
+- Downloads TDoc from FTP if not cached
+- Unzips to cache directory (deletes .zip after)
+- Opens in system default application
+- Case-insensitive TDoc ID
+
+### 6. `stats`
+
+Display database statistics.
+
+```python
+@app.command()
+def stats(
+    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
+    db_file: Annotated[Path | None, typer.Option(...)] = None,
+)
+```
+
+**Key Features**:
+- Shows: Total TDocs, validated TDocs, meetings, working groups
+- Displays breakdown by working group
+- Shows recent crawling activity
+
+### Common Patterns
+
+**Default Values**:
+
+| Parameter | Default | Environment Variable |
+|-----------|---------|---------------------|
+| `cache_dir` | `./cache` | `TDOC_CACHE_DIR` |
+| `db_file` | `{cache_dir}/tdoc_crawler.db` | `TDOC_DB_FILE` |
+| `eol_username` | None | `EOL_USERNAME` |
+| `eol_password` | None | `EOL_PASSWORD` |
+| `output_format` | `table` | - |
+| `workers` | 4 | - |
+
+**Helper Functions**:
+- `resolve_cache_dir()`: Resolves cache directory from CLI/env/default
+- `resolve_db_file()`: Resolves database file path
+- `get_credentials()`: Gets credentials from CLI/env/prompt
+
+**Credential Handling**:
+1. Check CLI parameters (`--eol-username`, `--eol-password`)
+2. Check environment variables (`EOL_USERNAME`, `EOL_PASSWORD`)
+3. Prompt user interactively if not found
+
+## Implementation Patterns
+
+### Working Group Alias Handling
+
+Users often refer to plenary groups using shorthand codes. Normalize these:
+
+```python
+# In crawlers/meetings.py
+PLENARY_ALIASES = {
+    "RP": "RAN",  # RAN Plenary
+    "SP": "SA",   # SA Plenary
+    "CP": "CT",   # CT Plenary
+}
+
+def normalize_working_group_alias(value: str) -> str:
+    """Expand plenary alias (RP→RAN) or return uppercase input."""
+    upper = value.upper().strip()
+    return PLENARY_ALIASES.get(upper, upper)
+
+def normalize_subgroup_alias(value: str) -> str:
+    """Expand plenary alias and validate against known subgroups."""
+    normalized = normalize_working_group_alias(value)
+    # If it's a plenary alias, append "P" (RP→RP, SP→SP, CP→CP)
+    if value.upper() in PLENARY_ALIASES:
+        return value.upper()  # Keep original form
+    return normalized
+```
+
+Usage in CLI:
+
+```python
+# User types: --working-group RP
+# Parsed as: WorkingGroup.RAN
+
+# User types: --sub-group RP
+# Stored as: "RP" (RAN Plenary code)
+```
+
+### FTP Directory Filtering
+
+Exclude non-meeting directories when crawling:
+
+```python
+# In crawlers/tdocs.py
+EXCLUDED_DIRS = ["Inbox", "Outbox", "Archive", "Old"]
+TDOC_PATTERN = re.compile(r"^[RSTC]\d+-\d+", re.IGNORECASE)
+
+def _should_skip_directory(dir_name: str) -> bool:
+    """Check if directory should be excluded from crawl."""
+    return any(excl.lower() in dir_name.lower() for excl in EXCLUDED_DIRS)
+
+def _is_tdoc_file(filename: str) -> bool:
+    """Check if filename matches TDoc pattern."""
+    stem = Path(filename).stem
+    return TDOC_PATTERN.match(stem) is not None
+```
+
+### Meeting Date Parsing
+
+Handle multiple date formats from 3GPP portal HTML:
+
+```python
+# In crawlers/meetings.py
+DATE_PATTERN = re.compile(
+    r"(\d{1,2})\s*(?:-\s*(\d{1,2}))?\s+"
+    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+"
+    r"(\d{4})"
+)
+
+MONTH_MAP = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+def _parse_meeting_date(date_str: str) -> tuple[date | None, date | None]:
+    """
+    Parse date string into (start_date, end_date).
+
+    Examples:
+        "15-19 Jan 2024" → (2024-01-15, 2024-01-19)
+        "15 Jan 2024" → (2024-01-15, None)
+        "15 January - 19 January 2024" → (2024-01-15, 2024-01-19)
+    """
+    match = DATE_PATTERN.search(date_str)
+    if not match:
+        return (None, None)
+
+    start_day, end_day, month_str, year = match.groups()
+    month = MONTH_MAP[month_str.lower()[:3]]
+
+    start_date = date(int(year), month, int(start_day))
+    end_date = date(int(year), month, int(end_day)) if end_day else None
+
+    return (start_date, end_date)
+```
+
+### TDoc ID Normalization
+
+Always normalize TDoc IDs to uppercase for case-insensitive matching:
+
+```python
+def normalize_tdoc_id(tdoc_id: str) -> str:
+    """Normalize TDoc ID to uppercase for case-insensitive lookup."""
+    return tdoc_id.upper().strip()
+```
+
+Usage:
+
+```python
+# In database.py
+def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
+    """Get TDoc by ID (case-insensitive)."""
+    normalized_id = normalize_tdoc_id(tdoc_id)
+    # Database uses COLLATE NOCASE for case-insensitive matching
+    cursor = self.conn.execute(
+        "SELECT * FROM tdocs WHERE tdoc_id = ?",
+        (normalized_id,)
+    )
+    # ...
+```
+
 ## Usage of uv and project management
 
 - Use `uv` for creating isolated Python environments instead of `virtualenv` or `venv`. This ensures consistency across different development setups and simplifies dependency management.
@@ -302,6 +650,8 @@ All other fields are optional and may be added as needed.
 
 ## Database Guidelines
 
+### General Database Principles
+
 - Use SQLite as the database for storing TDoc and meeting metadata.
 - Design the database schema to efficiently store and query TDoc and meeting metadata.
 - Use appropriate indexing to optimize query performance.
@@ -309,6 +659,160 @@ All other fields are optional and may be added as needed.
 - Implement database migration scripts to handle schema changes over time.
 - Use `pydantic` dataclasses to define the database schema and ensure data integrity.
 - Use `pydantic` models to represent database entities and ensure data integrity.
+
+### Complete Database Schema
+
+The database consists of five tables with proper foreign key relationships:
+
+#### 1. Reference Tables: `working_groups` and `subworking_groups`
+
+```sql
+CREATE TABLE IF NOT EXISTS working_groups (
+    tbid INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    ftp_identifier TEXT NOT NULL UNIQUE,
+    meetings_code TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS subworking_groups (
+    sub_tb INTEGER PRIMARY KEY,
+    tbid INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    FOREIGN KEY (tbid) REFERENCES working_groups(tbid)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subworking_groups_tbid_name
+    ON subworking_groups(tbid, name);
+```
+
+**Purpose**: Store the static hierarchy of 3GPP working groups and their subgroups.
+
+**Initialization**: These tables are populated at application startup from the `WorkingGroup` enum and `SUBWORKING_GROUPS` list in `models/working_groups.py` and `models/subworking_groups.py`.
+
+#### 2. Meetings Table: `meetings`
+
+```sql
+CREATE TABLE IF NOT EXISTS meetings (
+    meeting_id INTEGER PRIMARY KEY,
+    sub_tb INTEGER NOT NULL,
+    meeting_name TEXT NOT NULL,
+    start_date TEXT,
+    end_date TEXT,
+    location TEXT,
+    files_url TEXT,
+    last_crawled TEXT,
+    FOREIGN KEY (sub_tb) REFERENCES subworking_groups(sub_tb)
+);
+
+CREATE INDEX IF NOT EXISTS idx_meetings_sub_tb ON meetings(sub_tb);
+CREATE INDEX IF NOT EXISTS idx_meetings_dates ON meetings(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_meetings_last_crawled ON meetings(last_crawled);
+```
+
+**Key Fields**:
+- `meeting_id`: 3GPP's unique meeting identifier (integer)
+- `sub_tb`: Foreign key to subworking_groups
+- `files_url`: HTTP URL to FTP directory containing TDocs
+- `last_crawled`: ISO timestamp when meeting was last processed for TDocs
+
+#### 3. TDocs Table: `tdocs`
+
+```sql
+CREATE TABLE IF NOT EXISTS tdocs (
+    tdoc_id TEXT PRIMARY KEY COLLATE NOCASE,
+    meeting_id INTEGER NOT NULL,
+    title TEXT,
+    contact TEXT,
+    tdoc_type TEXT,
+    for_value TEXT,
+    agenda_item TEXT,
+    status TEXT,
+    is_revision_of TEXT COLLATE NOCASE,
+    file_url TEXT NOT NULL,
+    validated BOOLEAN NOT NULL DEFAULT 0,
+    last_validated TEXT,
+    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
+    FOREIGN KEY (is_revision_of) REFERENCES tdocs(tdoc_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tdocs_meeting_id ON tdocs(meeting_id);
+CREATE INDEX IF NOT EXISTS idx_tdocs_validated ON tdocs(validated);
+CREATE INDEX IF NOT EXISTS idx_tdocs_last_validated ON tdocs(last_validated);
+CREATE INDEX IF NOT EXISTS idx_tdocs_is_revision_of ON tdocs(is_revision_of);
+```
+
+**Key Fields**:
+- `tdoc_id`: TDoc identifier (e.g., "R1-2301234"), case-insensitive primary key
+- `validated`: Boolean flag indicating if metadata was successfully retrieved from portal
+- `last_validated`: ISO timestamp of last validation attempt
+- `is_revision_of`: Reference to previous TDoc version (self-referencing FK)
+
+**Critical Design Decisions**:
+- `COLLATE NOCASE` ensures case-insensitive uniqueness and lookups
+- `validated=False` indicates either not yet validated OR validation failed (negative caching)
+- Self-referencing foreign key for revision tracking
+
+#### 4. Crawl Log Table: `crawl_log`
+
+```sql
+CREATE TABLE IF NOT EXISTS crawl_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    meeting_id INTEGER NOT NULL,
+    tdocs_discovered INTEGER NOT NULL DEFAULT 0,
+    tdocs_validated INTEGER NOT NULL DEFAULT 0,
+    tdocs_failed INTEGER NOT NULL DEFAULT 0,
+    duration_seconds REAL,
+    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_crawl_log_meeting_id ON crawl_log(meeting_id);
+CREATE INDEX IF NOT EXISTS idx_crawl_log_timestamp ON crawl_log(timestamp);
+```
+
+**Purpose**: Track crawling operations for statistics and diagnostics.
+
+### Pydantic Models
+
+Each table has corresponding Pydantic models:
+
+- **Record Models** (e.g., `TDocRecord`, `MeetingRecord`): Represent database rows with all fields, used for database I/O
+- **Metadata Models** (e.g., `TDocMetadata`, `MeetingMetadata`): Represent domain entities, used for API responses and business logic
+
+**Example Pattern**:
+
+```python
+class TDocRecord(BaseModel):
+    """Database row representation with all fields"""
+    tdoc_id: str
+    meeting_id: int
+    title: str | None = None
+    # ... all database columns
+
+class TDocMetadata(BaseModel):
+    """Domain entity with computed/joined fields"""
+    tdoc_id: str
+    meeting_name: str  # Joined from meetings table
+    working_group: WorkingGroup  # Computed from sub_tb
+    # ... business logic fields
+```
+
+### Database Helper Methods
+
+The `TDocDatabase` class provides typed wrappers for all database operations:
+
+**Key Methods**:
+- `initialize_reference_tables()`: Populate working_groups and subworking_groups
+- `insert_meeting()` / `get_meeting()`: Meeting CRUD operations
+- `insert_tdoc()` / `get_tdoc()`: TDoc CRUD operations with case-insensitive lookup
+- `mark_tdoc_validated()`: Update validation status after portal check
+- `query_tdocs()`: Complex queries with filters (working group, meeting, date range)
+- `get_stats()`: Aggregated statistics for CLI `stats` command
+
+**Critical Patterns**:
+- Always use parameterized queries (never string interpolation)
+- Return Pydantic models, not raw tuples
+- Handle case-insensitive TDoc IDs via `COLLATE NOCASE` and `.upper()` normalization
 
 ## Testing
 
@@ -328,6 +832,149 @@ All other fields are optional and may be added as needed.
 - Use the following cache directory and database file for testing purposes:
   - Cache directory: `./tests/test-cache`
   - Database file: `./tests/test-cache/tdoc_crawler.db`
+
+### Test Structure
+
+The test suite is organized into several categories:
+
+1. **Unit Tests** (`test_models.py`, `test_database.py`): Test individual functions and classes in isolation
+2. **Integration Tests** (`test_crawler.py`): Test crawler logic with mocked FTP/HTTP
+3. **End-to-End Tests** (`test_cli.py`): Test full CLI commands using `typer.testing.CliRunner`
+4. **Feature Tests** (`test_targeted_fetch.py`): Test complex features like targeted fetch
+
+### Standard Test Fixtures
+
+All tests share common fixtures defined in `conftest.py`:
+
+```python
+@pytest.fixture
+def test_cache_dir(tmp_path: Path) -> Path:
+    """Create a temporary cache directory for tests.
+
+    Returns:
+        Path to test cache directory (e.g., /tmp/pytest-xxx/test-cache)
+    """
+    cache_dir = tmp_path / "test-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+@pytest.fixture
+def test_db_path(test_cache_dir: Path) -> Path:
+    """Get test database path.
+
+    Returns:
+        Path to test database (test-cache/tdoc_crawler.db)
+    """
+    return test_cache_dir / "tdoc_crawler.db"
+
+@pytest.fixture
+def sample_tdocs() -> list[TDocMetadata]:
+    """Create sample TDoc metadata for testing.
+
+    Returns:
+        List of 2 sample TDocMetadata instances with realistic data
+    """
+    return [
+        TDocMetadata(
+            tdoc_id="R1-2301234",
+            url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/.../R1-2301234.zip",
+            working_group="RAN",
+            subgroup="RAN1",
+            title="Sample TDoc Title",
+            # ... other fields
+        ),
+        # ... more samples
+    ]
+```
+
+### Mock Patterns
+
+#### Mocking FTP Connections
+
+**CRITICAL**: After module refactoring, FTP must be patched at `tdoc_crawler.crawlers.tdocs.FTP` (NOT `tdoc_crawler.crawler.FTP`)
+
+```python
+from unittest.mock import MagicMock, patch
+
+@patch("tdoc_crawler.crawlers.tdocs.FTP")
+def test_crawl_collects_tdocs(
+    mock_ftp_class: MagicMock,
+    test_db_path: Path,
+) -> None:
+    """Test FTP crawling with mocked connection."""
+    # Setup mock FTP responses
+    listing = ["-rw-r--r-- 1 ftp ftp 2048 Jan 01 2024 R1-2301234.zip"]
+
+    ftp_instance = MagicMock()
+    def retrlines(command: str, callback) -> None:
+        if command != "LIST":
+            raise AssertionError
+        for entry in listing:
+            callback(entry)
+
+    ftp_instance.retrlines.side_effect = retrlines
+    mock_ftp_class.return_value = ftp_instance
+
+    # Run test
+    with TDocDatabase(test_db_path) as database:
+        crawler = TDocCrawler(database)
+        config = TDocCrawlConfig(
+            cache_dir=test_db_path.parent,
+            working_groups=[WorkingGroup.RAN],
+            incremental=False,
+        )
+        result = crawler.crawl(config)
+
+    assert result.processed == 1
+```
+
+#### Mocking Database
+
+```python
+@patch("tdoc_crawler.cli.TDocDatabase")
+def test_query_command(
+    mock_db_class: MagicMock,
+    test_cache_dir: Path,
+    sample_tdocs: list[TDocMetadata],
+) -> None:
+    """Test CLI query command with mocked database."""
+    mock_db_instance = MagicMock()
+    mock_db_instance.query_tdocs.return_value = sample_tdocs
+    mock_db_class.return_value.__enter__.return_value = mock_db_instance
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["query", "R1-2301234", "--cache-dir", str(test_cache_dir)],
+    )
+
+    assert result.exit_code == 0
+    assert "R1-2301234" in result.stdout
+```
+
+### Coverage Goals
+
+- Aim for 70%+ overall coverage
+- Prioritize critical paths (crawlers, database operations)
+- CLI commands: 60%+ (some branches are error paths)
+- Models: 90%+ (Pydantic validation)
+- Database: 70%+ (complex queries, error handling)
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest -v
+
+# Run with coverage
+uv run pytest --cov=src/tdoc_crawler --cov-report=term-missing
+
+# Run specific test file
+uv run pytest tests/test_cli.py -v
+
+# Run specific test
+uv run pytest tests/test_cli.py::TestQueryCommand::test_query_specific_tdoc -v
+```
 
 ## Documentation
 
@@ -410,5 +1057,5 @@ Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_M
 The actual update of AGENTS.md will be done only after explicit user confirmation and after a prompt similar to this one:
 
 ```markdown
-Based on the review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated AGENTS.md reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible.
+Based on the review findings in the file #file:REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md (`docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`), please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated AGENTS.md reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible. You might move the current section regarding "Reviews of AGENTS.md" to a different place, but keep it unchanged.
 ```
