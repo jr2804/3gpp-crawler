@@ -204,11 +204,23 @@ uv run ty check
 
 ## Architecture
 
-The project consists of three main modules:
+The project follows a modular structure:
 
-1. **`models.py`**: Pydantic models for data validation and configuration
-2. **`database.py`**: SQLite database interface for storing and querying TDoc metadata
-3. **`crawler.py`**: Web crawler for retrieving TDoc links from 3GPP FTP server
+1. **`models/`**: Pydantic models for data validation and configuration
+   - `base.py`: Base configuration models, enums (OutputFormat, SortOrder)
+   - `working_groups.py`: WorkingGroup enum with tbid/ftp_root properties
+   - `subworking_groups.py`: SubworkingGroup reference data
+   - `tdocs.py`: TDoc metadata models and crawl/query configurations
+   - `meetings.py`: Meeting metadata models and configurations
+   - `crawl_limits.py`: Crawl throttling configuration
+
+2. **`crawlers/`**: Web scraping and FTP crawling logic
+   - `tdocs.py`: TDocCrawler - FTP directory traversal, TDoc discovery
+   - `meetings.py`: MeetingCrawler - HTML parsing from 3GPP portal
+   - `portal.py`: Portal authentication and metadata extraction
+
+3. **`database.py`**: SQLite database interface with typed wrappers
+
 4. **`cli.py`**: Command-line interface using Typer and Rich
 
 ## License
