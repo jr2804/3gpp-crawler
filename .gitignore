@@ -215,4 +215,7 @@ __marimo__/
 
 # secrets
 /.env
+
+# test cache/database
 /tests/test-cache
+/cache
