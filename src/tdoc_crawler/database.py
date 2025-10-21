@@ -186,8 +186,6 @@ class TDocDatabase:
                 meeting_id INTEGER PRIMARY KEY  NOT NULL UNIQUE,
                 tbid INTEGER NOT NULL,
                 subtb INTEGER,
-                working_group TEXT NOT NULL,
-                subgroup TEXT,
                 short_name TEXT NOT NULL,
                 title TEXT,
                 start_date TEXT,
@@ -204,7 +202,6 @@ class TDocDatabase:
             """
         )
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_wg ON meetings(working_group)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_tbid ON meetings(tbid)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_subtb ON meetings(subtb)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_meetings_start_date ON meetings(start_date)")
@@ -327,16 +324,14 @@ class TDocDatabase:
                 cursor.execute(
                     """
                     INSERT INTO meetings (
-                        meeting_id, tbid, subtb, working_group, subgroup, short_name, title, start_date, end_date,
+                        meeting_id, tbid, subtb, short_name, title, start_date, end_date,
                         location, files_url, portal_url, last_synced, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         record.meeting_id,
                         record.tbid,
                         record.subtb,
-                        record.working_group.value,
-                        record.subgroup,
                         record.short_name,
                         record.title,
                         self._date_to_text(record.start_date),
@@ -355,8 +350,6 @@ class TDocDatabase:
             changed = any((
                 existing["tbid"] != record.tbid,
                 existing["subtb"] != record.subtb,
-                existing["working_group"] != record.working_group.value,
-                existing["subgroup"] != record.subgroup,
                 existing["short_name"] != record.short_name,
                 existing["title"] != record.title,
                 existing["start_date"] != self._date_to_text(record.start_date),
@@ -372,8 +365,6 @@ class TDocDatabase:
                     UPDATE meetings
                        SET tbid = ?,
                            subtb = ?,
-                           working_group = ?,
-                           subgroup = ?,
                            short_name = ?,
                            title = ?,
                            start_date = ?,
@@ -388,8 +379,6 @@ class TDocDatabase:
                     (
                         record.tbid,
                         record.subtb,
-                        record.working_group.value,
-                        record.subgroup,
                         record.short_name,
                         record.title,
                         self._date_to_text(record.start_date),
@@ -429,26 +418,36 @@ class TDocDatabase:
 
         if config.working_groups:
             placeholders = ",".join(["?"] * len(config.working_groups))
-            clauses.append(f"working_group IN ({placeholders})")
-            params.extend([wg.value for wg in config.working_groups])
+            clauses.append(f"wg.tbid IN ({placeholders})")
+            # Convert WorkingGroup enum to tbid
+            params.extend([wg.tbid for wg in config.working_groups])
 
         if config.subgroups:
-            # Use UPPER() for case-insensitive comparison
+            # Use UPPER() for case-insensitive comparison on subgroup code
             placeholders = ",".join(["?"] * len(config.subgroups))
-            clauses.append(f"UPPER(subgroup) IN ({placeholders})")
+            clauses.append(f"UPPER(swg.code) IN ({placeholders})")
             params.extend([sg.upper() for sg in config.subgroups])
 
         if not config.include_without_files:
-            clauses.append("files_url IS NOT NULL AND files_url != ''")
+            clauses.append("m.files_url IS NOT NULL AND m.files_url != ''")
 
-        query_parts = ["SELECT * FROM meetings"]
+        # Join with working_groups and subworking_groups to get names
+        query_parts = [
+            """
+            SELECT m.*, wg.code as wg_code, swg.code as swg_code
+            FROM meetings m
+            INNER JOIN working_groups wg ON m.tbid = wg.tbid
+            LEFT JOIN subworking_groups swg ON m.subtb = swg.subtb
+            """
+        ]
+
         if clauses:
             query_parts.append("WHERE " + " AND ".join(clauses))
 
         if config.order == SortOrder.ASC:
-            query_parts.append("ORDER BY start_date ASC, meeting_id ASC")
+            query_parts.append("ORDER BY m.start_date ASC, m.meeting_id ASC")
         else:
-            query_parts.append("ORDER BY start_date DESC, meeting_id DESC")
+            query_parts.append("ORDER BY m.start_date DESC, m.meeting_id DESC")
 
         if config.limit is not None:
             query_parts.append("LIMIT ?")
@@ -672,9 +671,10 @@ class TDocDatabase:
         params: list[Any] = []
 
         if working_groups:
-            working_groups_list = [wg.value for wg in working_groups]
+            # Filter by tbid instead of working_group text column
+            working_groups_list = [wg.tbid for wg in working_groups]
             placeholders = ["?"] * len(working_groups_list)
-            query += f" WHERE working_group IN ({','.join(placeholders)})"
+            query += f" WHERE tbid IN ({','.join(placeholders)})"
             params.extend(working_groups_list)
 
         with self._cursor() as cursor:
@@ -867,12 +867,23 @@ class TDocDatabase:
     @staticmethod
     def _row_to_meeting_metadata(row: sqlite3.Row) -> MeetingMetadata:
         try:
+            # Resolve working_group from wg_code (code column from working_groups table)
+            wg_code = row["wg_code"]
+            working_group = WorkingGroup(wg_code)
+
+            # Resolve subgroup from swg_code from JOIN (can be None)
+            # Use dict-style access with fallback since LEFT JOIN can produce NULL
+            try:
+                subgroup = row["swg_code"]
+            except (KeyError, IndexError):
+                subgroup = None
+
             return MeetingMetadata(
                 meeting_id=row["meeting_id"],
                 tbid=row["tbid"],
                 subtb=row["subtb"],
-                working_group=WorkingGroup(row["working_group"]),
-                subgroup=row["subgroup"],
+                working_group=working_group,
+                subgroup=subgroup,
                 short_name=row["short_name"],
                 title=row["title"],
                 start_date=TDocDatabase._text_to_date(row["start_date"]),

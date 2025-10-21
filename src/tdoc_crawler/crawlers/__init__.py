@@ -10,6 +10,13 @@ from .meetings import (
     normalize_subgroup_alias,
     normalize_working_group_alias,
 )
+from .portal import (
+    PortalAuthenticationError,
+    PortalParsingError,
+    PortalSession,
+    fetch_tdoc_metadata,
+    parse_tdoc_portal_page,
+)
 from .tdocs import EXCLUDED_DIRS, TDOC_PATTERN, TDocCrawler, TDocCrawlResult
 
 __all__ = [
@@ -17,9 +24,14 @@ __all__ = [
     "MEETING_CODE_REGISTRY",
     "MeetingCrawler",
     "MeetingCrawlResult",
+    "PortalAuthenticationError",
+    "PortalParsingError",
+    "PortalSession",
     "TDOC_PATTERN",
     "TDocCrawler",
     "TDocCrawlResult",
+    "fetch_tdoc_metadata",
     "normalize_subgroup_alias",
     "normalize_working_group_alias",
+    "parse_tdoc_portal_page",
 ]

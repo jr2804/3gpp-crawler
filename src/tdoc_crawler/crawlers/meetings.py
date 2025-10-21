@@ -23,31 +23,31 @@ DATE_PATTERN = re.compile(r"(\d{4}[\-\u2010-\u2015]\d{2}[\-\u2010-\u2015]\d{2})"
 
 MEETING_CODE_REGISTRY: dict[WorkingGroup, list[tuple[str, str | None]]] = {
     WorkingGroup.RAN: [
-        ("RP", "RAN Plenary"),
-        ("R1", "RAN1"),
-        ("R2", "RAN2"),
-        ("R3", "RAN3"),
-        ("R4", "RAN4"),
-        ("R5", "RAN5"),
-        ("R6", "RAN6"),
+        ("RP", "RP"),  # RAN Plenary
+        ("R1", "R1"),
+        ("R2", "R2"),
+        ("R3", "R3"),
+        ("R4", "R4"),
+        ("R5", "R5"),
+        ("R6", "R6"),
     ],
     WorkingGroup.SA: [
-        ("SP", "SA Plenary"),
-        ("S1", "SA1"),
-        ("S2", "SA2"),
-        ("S3", "SA3"),
-        ("S4", "SA4"),
-        ("S5", "SA5"),
-        ("S6", "SA6"),
+        ("SP", "SP"),  # SA Plenary
+        ("S1", "S1"),
+        ("S2", "S2"),
+        ("S3", "S3"),
+        ("S4", "S4"),
+        ("S5", "S5"),
+        ("S6", "S6"),
     ],
     WorkingGroup.CT: [
-        ("CP", "CT Plenary"),
-        ("C1", "CT1"),
-        ("C2", "CT2"),
-        ("C3", "CT3"),
-        ("C4", "CT4"),
-        ("C5", "CT5"),
-        ("C6", "CT6"),
+        ("CP", "CP"),  # CT Plenary
+        ("C1", "C1"),
+        ("C2", "C2"),
+        ("C3", "C3"),
+        ("C4", "C4"),
+        ("C5", "C5"),
+        ("C6", "C6"),
     ],
 }
 

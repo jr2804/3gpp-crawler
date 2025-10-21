@@ -54,6 +54,33 @@ class WorkingGroup(StrEnum):
         }
         return mapping[self]
 
+    @classmethod
+    def from_tbid(cls, tbid: int) -> WorkingGroup:
+        """Resolve WorkingGroup from technical body ID."""
+        mapping: dict[int, WorkingGroup] = {
+            373: WorkingGroup.RAN,
+            375: WorkingGroup.SA,
+            649: WorkingGroup.CT,
+        }
+        if tbid not in mapping:
+            msg = f"Unknown tbid: {tbid}"
+            raise ValueError(msg)
+        return mapping[tbid]
+
+    @classmethod
+    def from_ftp_identifier(cls, ftp_id: str) -> WorkingGroup:
+        """Resolve WorkingGroup from FTP identifier."""
+        mapping: dict[str, WorkingGroup] = {
+            "ran": WorkingGroup.RAN,
+            "sa": WorkingGroup.SA,
+            "ct": WorkingGroup.CT,
+        }
+        key = ftp_id.lower()
+        if key not in mapping:
+            msg = f"Unknown FTP identifier: {ftp_id}"
+            raise ValueError(msg)
+        return mapping[key]
+
 
 class SubworkingGroup(BaseModel):
     """Metadata for a 3GPP subworking group."""
@@ -228,8 +255,6 @@ class MeetingRecord:
     meeting_id: int
     tbid: int
     subtb: int | None
-    working_group: WorkingGroup
-    subgroup: str | None
     short_name: str
     title: str | None
     start_date: date | None
@@ -247,8 +272,6 @@ class MeetingRecord:
             meeting_id=metadata.meeting_id,
             tbid=metadata.tbid,
             subtb=metadata.subtb,
-            working_group=metadata.working_group,
-            subgroup=metadata.subgroup,
             short_name=metadata.short_name,
             title=metadata.title,
             start_date=metadata.start_date,

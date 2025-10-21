@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
-from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler, TDocCrawlResult
+from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler, TDocCrawlResult, fetch_tdoc_metadata
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import (
     CrawlLimits,
@@ -221,28 +221,170 @@ def _launch_file(path: Path) -> None:
         raise typer.Exit(code=1) from exc
 
 
-def _fetch_missing_tdocs(database: TDocDatabase, cache_dir: Path, missing_ids: list[str]) -> TDocCrawlResult:
-    working_groups = _infer_working_groups_from_ids(missing_ids)
-    config = TDocCrawlConfig(
-        cache_dir=cache_dir,
-        working_groups=working_groups,
-        incremental=False,
-        max_retries=3,
-        timeout=30,
-        verbose=False,
-        limits=_build_limits(None, None, None, None),
-        target_ids=missing_ids,
+_logger = logging.getLogger(__name__)
+
+
+def _normalize_portal_meeting_name(portal_meeting: str) -> str:
+    """Normalize portal meeting name to database format.
+
+    The portal uses format like "SA4#133-e" while the database uses "S4-133-e".
+    This function converts portal format to database format.
+
+    Args:
+        portal_meeting: Meeting name from portal (e.g., "SA4#133-e")
+
+    Returns:
+        Normalized meeting name (e.g., "S4-133-e")
+    """
+    # Replace "SA4#" with "S4-", "RAN1#" with "R1-", etc.
+    normalized = portal_meeting.replace("#", "-")
+
+    # Handle full working group names (SA, RAN, CT)
+    for full_name, short_prefix in [("SA", "S"), ("RAN", "R"), ("CT", "C")]:
+        # Match patterns like "SA4-" and replace with "S4-"
+        if normalized.startswith(f"{full_name}"):
+            # Extract the subgroup number if present
+            for i, char in enumerate(normalized[len(full_name) :]):
+                if not char.isdigit():
+                    subgroup_num = normalized[len(full_name) : len(full_name) + i] if i > 0 else ""
+                    rest = normalized[len(full_name) + i :]
+                    if subgroup_num:
+                        normalized = f"{short_prefix}{subgroup_num}{rest}"
+                    break
+            break
+
+    return normalized
+
+
+def _resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
+    """Resolve meeting name to meeting_id from database.
+
+    Args:
+        database: Database connection
+        meeting_name: Meeting identifier (e.g., "SA4#133-e" or "S4-133-e")
+
+    Returns:
+        Meeting ID if found, None otherwise
+    """
+    # Try original name first
+    cursor = database.connection.execute(
+        "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
+        (meeting_name,),
     )
-    crawler = TDocCrawler(database)
-    crawl_id = database.log_crawl_start("tdoc", config.working_groups, config.incremental)
-    result = crawler.crawl(config)
-    database.log_crawl_end(
-        crawl_id,
-        items_added=result.inserted,
-        items_updated=result.updated,
-        errors_count=len(result.errors),
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+
+    # Try normalized name
+    normalized = _normalize_portal_meeting_name(meeting_name)
+    if normalized != meeting_name:
+        cursor = database.connection.execute(
+            "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
+            (normalized,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+
+    return None
+
+
+def _fetch_missing_tdocs(
+    database: TDocDatabase,
+    cache_dir: Path,
+    missing_ids: list[str],
+    credentials: PortalCredentials | None = None,
+) -> TDocCrawlResult:
+    """Fetch missing TDocs using portal authentication.
+
+    Args:
+        database: Database connection
+        cache_dir: Cache directory path
+        missing_ids: List of TDoc IDs to fetch
+        credentials: Portal credentials (optional)
+
+    Returns:
+        TDocCrawlResult with inserted/updated counts and errors
+    """
+    errors = []
+
+    if not credentials:
+        errors.append("Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD.")
+        return TDocCrawlResult(processed=len(missing_ids), inserted=0, updated=0, errors=errors)
+
+    inserted_count = 0
+    updated_count = 0
+
+    for tdoc_id in missing_ids:
+        try:
+            # Fetch metadata from portal
+            portal_data = fetch_tdoc_metadata(tdoc_id, credentials)
+
+            if not portal_data:
+                errors.append(f"Portal returned no data for {tdoc_id}")
+                continue
+
+            # Resolve meeting_id from meeting name
+            meeting_id = None
+            meeting_name = portal_data.get("meeting")
+            if meeting_name:
+                meeting_id = _resolve_meeting_id(database, meeting_name)
+                if not meeting_id:
+                    _logger.warning(f"Could not resolve meeting '{meeting_name}' to meeting_id for {tdoc_id}")
+
+            # Infer working group from TDoc ID
+            tdoc_prefix = tdoc_id[0].upper()
+            working_group_map = {"R": WorkingGroup.RAN, "S": WorkingGroup.SA, "C": WorkingGroup.CT, "T": WorkingGroup.CT}
+            working_group = working_group_map.get(tdoc_prefix, WorkingGroup.RAN)
+
+            # Build TDoc URL (using meeting info if available)
+            # For now, use a placeholder URL since we're fetching from portal
+            url = f"https://www.3gpp.org/ftp/tsg_{working_group.value.lower()}/.../{tdoc_id}.zip"
+
+            # Create TDocMetadata object (all fields without defaults must be provided)
+            metadata = TDocMetadata(
+                tdoc_id=tdoc_id.upper(),
+                url=url,
+                working_group=working_group,
+                subgroup=None,
+                meeting=meeting_name,
+                meeting_id=meeting_id,
+                file_size=None,
+                title=portal_data.get("title"),
+                contact=portal_data.get("contact"),
+                tdoc_type=portal_data.get("tdoc_type"),
+                for_purpose=portal_data.get("for_purpose"),
+                agenda_item=portal_data.get("agenda_item"),
+                status=portal_data.get("status"),
+                is_revision_of=portal_data.get("is_revision_of"),
+                document_type=None,
+                checksum=None,
+                source_path=None,
+                date_created=None,
+                validated=True,
+                validation_failed=False,
+            )
+
+            # Insert/update in database
+            inserted, updated = database.upsert_tdoc(metadata)
+            if inserted:
+                inserted_count += 1
+            elif updated:
+                updated_count += 1
+
+            _logger.info(f"Successfully fetched and stored {tdoc_id}")
+
+        except Exception as exc:
+            error_msg = f"Failed to fetch {tdoc_id}: {exc}"
+            _logger.error(error_msg)
+            errors.append(error_msg)
+
+    return TDocCrawlResult(
+        processed=len(missing_ids),
+        inserted=inserted_count,
+        updated=updated_count,
+        errors=errors,
     )
-    return result
 
 
 def _maybe_fetch_missing_tdocs(
@@ -250,6 +392,7 @@ def _maybe_fetch_missing_tdocs(
     cache_dir: Path,
     config: QueryConfig,
     results: list[TDocMetadata],
+    credentials: PortalCredentials | None = None,
 ) -> list[TDocMetadata]:
     if not config.tdoc_ids:
         return results
@@ -260,7 +403,7 @@ def _maybe_fetch_missing_tdocs(
         return results
 
     console.print(f"[cyan]Fetching missing TDocs: {', '.join(missing)}[/cyan]")
-    fetch_result = _fetch_missing_tdocs(database, cache_dir, missing)
+    fetch_result = _fetch_missing_tdocs(database, cache_dir, missing, credentials)
     if fetch_result.errors:
         console.print(f"[yellow]{len(fetch_result.errors)} issues detected during targeted crawl[/yellow]")
         for error in fetch_result.errors[:3]:
@@ -296,12 +439,19 @@ def crawl(
     config = TDocCrawlConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
+        subgroups=None,
+        meeting_ids=None,
+        start_date=None,
+        end_date=None,
         incremental=incremental,
+        force_revalidate=False,
+        workers=4,
         max_retries=max_retries,
         timeout=timeout,
         verbose=verbose,
         limits=limits,
         target_ids=None,
+        credentials=None,
     )
 
     database_path = _database_path(config.cache_dir)
@@ -393,6 +543,9 @@ def query(
     order: str = typer.Option(SortOrder.DESC.value, "--order", help="Sort order (asc|desc)"),
     start_date: str | None = typer.Option(None, "--start-date", help="Filter from ISO timestamp"),
     end_date: str | None = typer.Option(None, "--end-date", help="Filter until ISO timestamp"),
+    no_fetch: bool = typer.Option(False, "--no-fetch", help="Disable automatic fetching of missing TDocs from portal"),
+    eol_username: str | None = typer.Option(None, "--eol-username", help="ETSI Online Account username"),
+    eol_password: str | None = typer.Option(None, "--eol-password", help="ETSI Online Account password"),
 ) -> None:
     working_groups = _parse_working_groups(working_group)
     try:
@@ -423,10 +576,16 @@ def query(
         order=sort_order,
     )
 
+    # Resolve credentials (only if --no-fetch is not set)
+    credentials = None
+    if not no_fetch:
+        credentials = _resolve_credentials(eol_username, eol_password, prompt=True)
+
     database_path = _database_path(config.cache_dir)
     with TDocDatabase(database_path) as database:
         results = database.query_tdocs(config)
-        results = _maybe_fetch_missing_tdocs(database, config.cache_dir, config, results)
+        if not no_fetch:
+            results = _maybe_fetch_missing_tdocs(database, config.cache_dir, config, results, credentials)
 
     if not results:
         console.print("[yellow]No TDocs found[/yellow]")
