@@ -1,65 +1,345 @@
 # Review and Improvements for AGENTS.md
 
-**Date:** October 21, 2025
-**Reviewer:** GitHub Copilot
-**Context:** Post module refactoring (models/ and crawlers/ submodules created)
+**Date**: 2025-10-22
+**Reviewer**: AI Assistant
+**Purpose**: Comprehensive review of AGENTS.md coding instructions to ensure accurate code regeneration
 
 ---
 
 ## Executive Summary
 
-After reviewing the current codebase against AGENTS.md, I've identified significant gaps between the documentation and the actual implementation. The main issues are:
+The current AGENTS.md file requires significant updates to reflect recent architectural changes and implementation details. The document still references obsolete FTP-based patterns and lacks critical information about:
 
-1. **Module Structure** - Recent refactoring created `models/` and `crawlers/` submodules not documented in AGENTS.md
-2. **Database Schema** - Recent updates added reference tables and foreign keys not described
-3. **Missing Implementation Details** - Many critical patterns are missing (targeted fetch, validation caching, etc.)
-4. **CLI Commands** - Actual command structure differs from described functionality
-5. **Test Patterns** - Shared fixtures and mocking patterns not documented
+1. HTTP-based implementation with requests/BeautifulSoup
+2. Subdirectory detection and crawling (Docs/)
+3. Fuzzy meeting name matching patterns
+4. Portal authentication module (portal.py)
+5. Simplified TDoc pattern specification
+6. Updated test mocking patterns
+
+**Impact**: A coding assistant following current AGENTS.md would regenerate code with FTP instead of HTTP, miss subdirectory crawling, and lack fuzzy matching capabilities.
 
 ---
 
-## Critical Missing Information
+## Critical Issues (High Priority)
 
-### 1. Module Structure (CRITICAL)
+### 1. HTTP Implementation Not Documented
 
-**Current Reality:**
-```
-src/tdoc_crawler/
-├── models/          # ← NEW: Submodule structure
-│   ├── __init__.py
-│   ├── base.py
-│   ├── working_groups.py
-│   ├── subworking_groups.py
-│   ├── crawl_limits.py
-│   ├── tdocs.py
-│   └── meetings.py
-├── crawlers/        # ← NEW: Submodule structure
-│   ├── __init__.py
-│   ├── tdocs.py
-│   └── meetings.py
-├── database.py
-├── cli.py
-├── __init__.py
-└── __main__.py
+**Issue**: AGENTS.md section "Implementation Patterns > FTP Directory Filtering" still references FTP patterns and uses obsolete terminology.
+
+**Current Text** (Line 491-502):
+```markdown
+### FTP Directory Filtering
+
+Exclude non-meeting directories when crawling:
+
+```python
+# In crawlers/tdocs.py
+EXCLUDED_DIRS = ["Inbox", "Outbox", "Archive", "Old"]
+TDOC_PATTERN = re.compile(r"^[RSTC]\d+-\d+", re.IGNORECASE)
 ```
 
-**What AGENTS.md Says:**
-- Mentions `models.py` (singular file) - OUTDATED
-- Mentions `crawler.py` (singular file) - OUTDATED
-- No mention of submodule structure at all
+**Problems**:
+- Title says "FTP Directory Filtering" but implementation is HTTP-based
+- TDoc pattern shown is obsolete (should be `r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)"`)
+- No mention of HTTP session management
+- Missing BeautifulSoup HTML parsing patterns
 
-**Proposed Addition to AGENTS.md:**
+**Proposed Fix**:
+```markdown
+### HTTP Directory Crawling and File Detection
 
-Add new section "Project Structure" before "Task":
+**HTTP Session Management**:
+
+```python
+# In crawlers/tdocs.py
+def _create_session(self, config: TDocCrawlConfig) -> requests.Session:
+    """Create HTTP session with retry logic and timeout configuration."""
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+
+    session = requests.Session()
+
+    # Configure retry strategy
+    retry_strategy = Retry(
+        total=config.max_retries,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    return session
+```
+
+**HTML Directory Parsing**:
+
+```python
+# Parse HTML directory listings
+response = session.get(directory_url, timeout=config.timeout)
+response.raise_for_status()
+soup = BeautifulSoup(response.text, "html.parser")
+
+# Extract file links
+for link in soup.find_all("a"):
+    href = link.get("href")
+    if not href or not isinstance(href, str):
+        continue
+
+    # Check if it's a TDoc file
+    match = TDOC_PATTERN.search(href)
+    if match:
+        tdoc_id = match.group(1).upper()
+        # ... process TDoc
+```
+
+**TDoc Pattern** (Simplified):
+
+```python
+# TDoc filename pattern: [RSC][1-6P] followed by 4-10 chars, then extension
+TDOC_PATTERN = re.compile(r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)", re.IGNORECASE)
+
+# Directories to exclude from crawling
+EXCLUDED_DIRS = {"Inbox", "Draft", "Drafts", "Agenda", "Invitation", "Report"}
+EXCLUDED_DIRS_NORMALIZED = {entry.upper() for entry in EXCLUDED_DIRS}
+```
+
+**Pattern Explanation**:
+- First character: `[RSC]` - Working group (R=RAN, S=SA, C=CT)
+- Second character: `[1-6P]` - Subgroup (1-6) or Plenary (P)
+- Following: `.{4,10}` - 4 to 10 characters (any valid filename characters)
+- Extension: `\.(zip|txt|pdf)` - Must end with .zip, .txt, or .pdf
+- Case-insensitive via `re.IGNORECASE` flag
+```
+
+---
+
+### 2. Subdirectory Detection Missing
+
+**Issue**: AGENTS.md does not document subdirectory detection and crawling, which is critical for finding TDocs.
+
+**Current State**: No mention of subdirectory patterns or the fact that TDocs are typically in "Docs/" subdirectories.
+
+**Proposed Addition** (New section after "HTTP Directory Crawling"):
 
 ```markdown
-## Project Structure
+### Subdirectory Detection and Crawling
 
-The project follows a modular architecture with clear separation of concerns:
+**Problem**: TDocs are typically stored in subdirectories like "Docs/", not in the base meeting directory.
 
-### Source Code Organization
+**Solution**: Detect and crawl TDoc-specific subdirectories:
 
+```python
+# In crawlers/tdocs.py
+
+# Subdirectories that may contain TDocs (case-insensitive matching)
+TDOC_SUBDIRS = {"Docs", "Documents", "Tdocs", "TDocs", "DOCS"}
+TDOC_SUBDIRS_NORMALIZED = {entry.upper() for entry in TDOC_SUBDIRS}
+
+def _crawl_meeting(
+    self,
+    session: requests.Session,
+    meeting,  # MeetingMetadata
+    config: TDocCrawlConfig,
+    collected: list[TDocMetadata],
+    seen_ids: set[str],
+    existing_ids: set[str],
+    targets: set[str] | None,
+) -> None:
+    """Crawl a specific meeting's HTTP directory for TDocs.
+
+    This method first scans the base meeting directory for TDoc subdirectories
+    (like "Docs/") and crawls those. If no subdirectories are found, it scans
+    the base directory directly.
+    """
+    base_url = meeting.files_url
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    # Fetch base directory listing
+    response = session.get(base_url, timeout=config.timeout)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Look for TDoc subdirectories (e.g., "Docs/")
+    subdirs_found = []
+    for link in soup.find_all("a"):
+        href = link.get("href")
+        if not href or not isinstance(href, str):
+            continue
+
+        # Skip query strings and parent directory links
+        if href.startswith(("?", "..")):
+            continue
+
+        # Extract directory name from href
+        dir_name = href.rstrip("/").split("/")[-1]
+
+        # Check if this is a TDoc subdirectory
+        if dir_name.upper() in TDOC_SUBDIRS_NORMALIZED:
+            # Build full URL
+            if href.startswith("http"):
+                subdir_url = href if href.endswith("/") else href + "/"
+            else:
+                subdir_url = base_url + href.lstrip("/")
+                if not subdir_url.endswith("/"):
+                    subdir_url += "/"
+            subdirs_found.append(subdir_url)
+
+    # Crawl subdirectories if found, otherwise crawl base directory
+    if subdirs_found:
+        for subdir_url in subdirs_found:
+            self._scan_directory_for_tdocs(session, subdir_url, meeting, ...)
+    else:
+        self._scan_directory_for_tdocs(session, base_url, meeting, ...)
 ```
+
+**Key Points**:
+- Always check for subdirectories first
+- Handle both full URLs and relative paths
+- Ensure all URLs end with "/"
+- Fall back to base directory if no subdirectories found
+```
+
+---
+
+### 3. Fuzzy Meeting Name Matching Not Documented
+
+**Issue**: AGENTS.md does not document the fuzzy matching algorithm for resolving meeting names from portal to database.
+
+**Current State**: No mention of meeting name variations or resolution strategy.
+
+**Proposed Addition** (New section in "Implementation Patterns"):
+
+```markdown
+### Fuzzy Meeting Name Matching
+
+**Problem**: Meeting names from the portal (e.g., "SA4#133-e") don't always match database format (e.g., "S4-133-e" or "3GPPSA4-e (AH) Audio SWG post 130").
+
+**Solution**: Multi-stage fuzzy matching with SQL optimization:
+
+```python
+# In cli.py
+
+def _normalize_portal_meeting_name(portal_meeting: str) -> str:
+    """Normalize portal meeting name to database format.
+
+    Examples:
+        "SA4#133-e" → "S4-133-e"
+        "RAN1#98" → "R1-98"
+    """
+    # Replace "#" with "-"
+    normalized = portal_meeting.replace("#", "-")
+
+    # Handle full working group names (SA, RAN, CT)
+    for full_name, short_prefix in [("SA", "S"), ("RAN", "R"), ("CT", "C")]:
+        if normalized.startswith(f"{full_name}"):
+            # Extract the subgroup number if present
+            for i, char in enumerate(normalized[len(full_name):]):
+                if not char.isdigit():
+                    break
+            else:
+                i += 1
+            if i > 0:
+                subgroup_num = normalized[len(full_name):len(full_name) + i]
+                rest = normalized[len(full_name) + i:]
+                normalized = f"{short_prefix}{subgroup_num}{rest}"
+                break
+
+    return normalized
+
+def _resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
+    """Resolve meeting name to meeting_id using fuzzy matching.
+
+    Strategy (in order):
+    1. Exact match (case-insensitive)
+    2. Normalized name match
+    3. SQL LIKE patterns for prefix/suffix matching
+    4. Full table scan for reverse prefix/suffix matching
+
+    Args:
+        database: Database connection
+        meeting_name: Meeting identifier from portal
+
+    Returns:
+        Meeting ID if found, None otherwise
+    """
+    # 1. Try exact match (case-insensitive)
+    cursor = database.connection.execute(
+        "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
+        (meeting_name,),
+    )
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+
+    # 2. Try normalized name
+    normalized = _normalize_portal_meeting_name(meeting_name)
+    if normalized != meeting_name:
+        cursor = database.connection.execute(
+            "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
+            (normalized,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+
+    # 3. SQL LIKE patterns (use database indexes)
+    candidate_lower = meeting_name.lower()
+    normalized_lower = normalized.lower()
+
+    for pattern in [
+        f"{candidate_lower}%",  # candidate is prefix of cached
+        f"%{candidate_lower}",  # candidate is suffix of cached
+    ]:
+        cursor = database.connection.execute(
+            "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
+            (pattern,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+
+    # Try with normalized candidate
+    if normalized_lower != candidate_lower:
+        for pattern in [
+            f"{normalized_lower}%",
+            f"%{normalized_lower}",
+        ]:
+            cursor = database.connection.execute(
+                "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
+                (pattern,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+
+    # 4. Reverse patterns: cached is prefix/suffix of candidate (full scan)
+    cursor = database.connection.execute("SELECT meeting_id, short_name FROM meetings")
+    for meeting_id, cached_name in cursor.fetchall():
+        cached_lower = cached_name.lower()
+        if candidate_lower.startswith(cached_lower) or candidate_lower.endswith(cached_lower):
+            return meeting_id
+        if normalized_lower != candidate_lower:
+            if normalized_lower.startswith(cached_lower) or normalized_lower.endswith(cached_lower):
+                return meeting_id
+
+    return None
+```
+
+**Important**: Do NOT use substring matching (e.g., `%candidate%`) as it matches fragments and causes false positives. Only use prefix/suffix matching.
+```
+
+---
+
+### 4. Portal Authentication Module Missing
+
+**Issue**: AGENTS.md project structure section does not list `crawlers/portal.py`, which is a critical module.
+
+**Current Structure** (Lines 181-193):
+```markdown
 src/tdoc_crawler/
 ├── models/              # Data models and configuration
 │   ├── __init__.py      # Re-exports all public symbols for backward compatibility
@@ -73,858 +353,114 @@ src/tdoc_crawler/
 │   ├── __init__.py      # Re-exports all public symbols (includes TDOC_PATTERN, EXCLUDED_DIRS)
 │   ├── tdocs.py         # TDocCrawler - FTP directory traversal, TDoc discovery
 │   └── meetings.py      # MeetingCrawler - HTML parsing, date extraction
+```
+
+**Proposed Fix**:
+```markdown
+src/tdoc_crawler/
+├── models/              # Data models and configuration
+│   ├── __init__.py      # Re-exports all public symbols for backward compatibility
+│   ├── base.py          # BaseConfigModel, utilities, enums, PortalCredentials
+│   ├── working_groups.py  # WorkingGroup enum with tbid/ftp_root properties
+│   ├── subworking_groups.py  # SubworkingGroup model
+│   ├── crawl_limits.py  # CrawlLimits configuration
+│   ├── tdocs.py         # TDocMetadata, TDocRecord, TDocCrawlConfig, QueryConfig
+│   └── meetings.py      # MeetingMetadata, MeetingRecord, MeetingCrawlConfig
+├── crawlers/            # Web scraping and HTTP crawling logic
+│   ├── __init__.py      # Re-exports all public symbols (includes TDOC_PATTERN, EXCLUDED_DIRS, TDOC_SUBDIRS)
+│   ├── tdocs.py         # TDocCrawler - HTTP directory traversal, TDoc discovery, subdirectory detection
+│   ├── meetings.py      # MeetingCrawler - HTML parsing, date extraction
+│   └── portal.py        # PortalSession - 3GPP portal authentication, TDoc metadata fetching
 ├── database.py          # SQLite persistence layer with typed wrappers
-├── cli.py               # Typer-based CLI with 6 commands
+├── cli.py               # Typer-based CLI with 6 commands, fuzzy matching helpers
 ├── __init__.py          # Package initialization
 └── __main__.py          # Entry point for `python -m tdoc_crawler`
 ```
 
-### Module Design Principles
-
-1. **Submodule Re-exports**: Both `models/` and `crawlers/` use `__init__.py` to re-export all public symbols, maintaining backward compatibility
-2. **Single Responsibility**: Each file focuses on one concern (e.g., `models/tdocs.py` only contains TDoc-related models)
-3. **Type Safety**: All modules use comprehensive type hints with `from __future__ import annotations`
-4. **Import Pattern**: Other modules import from `tdoc_crawler.models` and `tdoc_crawler.crawlers`, not from submodules directly
-
-### File Size Guidelines
-
-When splitting modules:
-- Base utilities: 20-70 lines
-- Model files: 80-150 lines
-- Crawler files: 150-350 lines
-- CLI file: 600+ lines (acceptable due to command definitions)
-- Database file: 900+ lines (acceptable due to schema + queries)
-```
-
----
-
-### 2. Database Schema (CRITICAL)
-
-**Current Reality:**
-
-The database has **5 tables** with foreign key relationships:
-
-```sql
--- Reference tables
-working_groups (tbid PK, code, name, ftp_root)
-subworking_groups (subtb PK, tbid FK, code, name)
-
--- Data tables
-meetings (meeting_id PK, tbid FK, subtb FK, ...)
-tdocs (id PK AUTOINCREMENT, tdoc_id UNIQUE, meeting_id FK, ...)
-crawl_log (id PK AUTOINCREMENT, ...)
-```
-
-**What AGENTS.md Says:**
-- Vague "Design the database schema to efficiently store..."
-- No mention of reference tables
-- No mention of foreign keys
-- No mention of validation caching columns
-
-**Proposed Addition to AGENTS.md:**
-
-Replace "Database Guidelines" section with:
+**New Section to Add** (After "Module Design Principles"):
 
 ```markdown
-## Database Guidelines
+### Portal Authentication Module
 
-### Database Technology
+The `crawlers/portal.py` module handles 3GPP portal authentication and TDoc metadata fetching:
 
-Use SQLite as the embedded database for storing TDoc and meeting metadata. The database should be:
-- Single file (default: `~/.tdoc-crawler/tdoc_crawler.db`)
-- WAL mode enabled for concurrent reads
-- Foreign keys enforced (`PRAGMA foreign_keys = ON`)
-
-### Schema Design
-
-The database consists of 5 tables with normalized reference data:
-
-#### 1. Reference Tables (Static Data)
-
-**`working_groups`** - Master list of 3GPP working groups
-```sql
-CREATE TABLE working_groups (
-    tbid INTEGER PRIMARY KEY NOT NULL,  -- 3GPP technical body ID
-    code TEXT NOT NULL UNIQUE,          -- "RAN", "SA", "CT"
-    name TEXT NOT NULL,                 -- Full name
-    ftp_root TEXT NOT NULL              -- FTP path segment (e.g., "/tsg_ran")
-);
-```
-
-Populated with:
-- RAN (tbid=373, ftp_root="/tsg_ran")
-- SA (tbid=375, ftp_root="/tsg_sa")
-- CT (tbid=649, ftp_root="/tsg_ct")
-
-**`subworking_groups`** - Master list of subgroups (23 total)
-```sql
-CREATE TABLE subworking_groups (
-    subtb INTEGER PRIMARY KEY NOT NULL,    -- 3GPP sub-technical body ID
-    tbid INTEGER NOT NULL,                 -- Parent working group
-    code TEXT NOT NULL,                    -- "RP", "R1", "SP", "S1", etc.
-    name TEXT NOT NULL,                    -- "RAN Plenary", "RAN1", etc.
-    FOREIGN KEY (tbid) REFERENCES working_groups(tbid)
-);
-CREATE INDEX idx_subworking_groups_tbid ON subworking_groups(tbid);
-```
-
-Examples:
-- RAN: RP (373), R1-R6 (379, 380, 381, 382, 657, 843)
-- SA: SP (375), S1-S6 (384-388, 825)
-- CT: CP (649), C1-C6 (651-656)
-
-#### 2. Meetings Table
-
-```sql
-CREATE TABLE meetings (
-    meeting_id INTEGER PRIMARY KEY NOT NULL UNIQUE,  -- 3GPP meeting ID from portal
-    tbid INTEGER NOT NULL,                           -- Working group FK
-    subtb INTEGER,                                   -- Subgroup FK (nullable)
-    working_group TEXT NOT NULL,                     -- Denormalized for queries
-    subgroup TEXT,                                   -- Denormalized for queries
-    short_name TEXT NOT NULL,                        -- e.g., "SA4#134"
-    title TEXT,                                      -- Full meeting title
-    start_date TEXT,                                 -- ISO 8601 date
-    end_date TEXT,                                   -- ISO 8601 date
-    location TEXT,                                   -- City/venue
-    files_url TEXT,                                  -- FTP directory URL
-    portal_url TEXT,                                 -- 3GPP portal link
-    last_synced TEXT NOT NULL,                       -- UTC timestamp
-    created_at TEXT NOT NULL,                        -- Record creation
-    updated_at TEXT NOT NULL,                        -- Record update
-    FOREIGN KEY (tbid) REFERENCES working_groups(tbid),
-    FOREIGN KEY (subtb) REFERENCES subworking_groups(subtb)
-);
-
-CREATE INDEX idx_meetings_wg ON meetings(working_group);
-CREATE INDEX idx_meetings_tbid ON meetings(tbid);
-CREATE INDEX idx_meetings_subtb ON meetings(subtb);
-CREATE INDEX idx_meetings_start_date ON meetings(start_date);
-```
-
-#### 3. TDocs Table (with Portal Metadata)
-
-```sql
-CREATE TABLE tdocs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tdoc_id TEXT NOT NULL UNIQUE COLLATE NOCASE,  -- Case-insensitive unique
-    url TEXT NOT NULL,                             -- FTP download URL
-    working_group TEXT NOT NULL,                   -- Denormalized
-    subgroup TEXT,                                 -- Denormalized
-    meeting TEXT,                                  -- Meeting short name
-    meeting_id INTEGER,                            -- FK to meetings table
-    file_size INTEGER,                             -- Bytes
-    -- Portal metadata fields (from validation)
-    title TEXT,                                    -- Document title
-    contact TEXT,                                  -- Contact person/org
-    tdoc_type TEXT,                                -- Document type
-    for_purpose TEXT,                              -- Purpose (agreement, discussion, etc.)
-    agenda_item TEXT,                              -- Associated agenda item
-    status TEXT,                                   -- Document status
-    is_revision_of TEXT,                           -- Previous TDoc version
-    -- Additional metadata
-    document_type TEXT,                            -- Legacy field
-    checksum TEXT,                                 -- File hash
-    source_path TEXT,                              -- FTP path
-    date_created TEXT,                             -- From FTP listing
-    date_retrieved TEXT NOT NULL,                  -- UTC timestamp
-    date_updated TEXT NOT NULL,                    -- Record update
-    -- Validation tracking
-    validated BOOLEAN DEFAULT 0,                   -- Portal validation succeeded
-    validation_failed BOOLEAN DEFAULT 0,           -- Portal validation failed (cached negative)
-    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
-);
-
-CREATE INDEX idx_tdocs_wg ON tdocs(working_group);
-CREATE INDEX idx_tdocs_meeting_id ON tdocs(meeting_id);
-CREATE INDEX idx_tdocs_date ON tdocs(date_retrieved);
-CREATE INDEX idx_tdocs_validated ON tdocs(validated);
-CREATE INDEX idx_tdocs_validation_failed ON tdocs(validation_failed);
-```
-
-**Validation Caching Logic:**
-- When a TDoc is found on FTP but portal validation fails, set `validation_failed=1`
-- This prevents repeated portal queries for invalid TDocs
-- Only validated TDocs have `validated=1` and populated portal metadata fields
-
-#### 4. Crawl Log Table
-
-```sql
-CREATE TABLE crawl_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    crawl_type TEXT NOT NULL,              -- "tdocs" or "meetings"
-    start_time TEXT NOT NULL,              -- UTC timestamp
-    end_time TEXT,                         -- UTC timestamp
-    working_groups TEXT NOT NULL,          -- Comma-separated list
-    incremental INTEGER NOT NULL,          -- Boolean: 0=full, 1=incremental
-    items_added INTEGER DEFAULT 0,
-    items_updated INTEGER DEFAULT 0,
-    errors_count INTEGER DEFAULT 0,
-    status TEXT NOT NULL                   -- "RUNNING", "COMPLETED", "FAILED"
-);
-```
-
-### Pydantic Models for Database Entities
-
-Use Pydantic models/dataclasses to represent database entities:
+**Key Components**:
 
 ```python
-from pydantic import BaseModel, Field
-from pydantic.dataclasses import dataclass
+# Portal session with authentication
+class PortalSession:
+    """Manages authenticated session with 3GPP portal."""
 
-# From models/tdocs.py
-@dataclass(frozen=True, kw_only=True)
-class TDocMetadata:
-    """TDoc metadata retrieved from database queries."""
-    tdoc_id: str
-    url: str
-    working_group: str
-    title: str | None = None
-    contact: str | None = None
-    # ... all other fields from tdocs table
+    def __init__(self, credentials: PortalCredentials, timeout: int = 30) -> None:
+        """Initialize portal session with EOL credentials."""
+        self.credentials = credentials
+        self.timeout = timeout
+        self.session = requests.Session()
+        self._authenticated = False
 
-@dataclass(frozen=True, kw_only=True)
-class TDocRecord:
-    """Complete TDoc database record (includes all fields)."""
-    id: int
-    tdoc_id: str
-    # ... includes id, created_at, updated_at, validated, validation_failed
+    def authenticate(self) -> None:
+        """Authenticate with 3GPP portal using JavaScript-based AJAX login."""
+        # Visit login page to establish session
+        # Call AJAX endpoint LoginEOL.ashx with credentials
+        # Parse JSON response for authentication result
+
+    def get_tdoc_metadata(self, tdoc_id: str) -> dict[str, str]:
+        """Fetch TDoc metadata from portal page.
+
+        URL: https://portal.3gpp.org/ngppapp/CreateTdoc.Aspx?mode=view&contributionUid={tdoc_id}
+        """
+        # Ensure authenticated
+        # Fetch portal page
+        # Parse HTML with BeautifulSoup
+        # Extract metadata fields
+
+# Public functions
+def fetch_tdoc_metadata(
+    tdoc_id: str,
+    credentials: PortalCredentials,
+    timeout: int = 30,
+) -> dict[str, str]:
+    """Fetch TDoc metadata with automatic authentication."""
+    with PortalSession(credentials, timeout) as session:
+        session.authenticate()
+        return session.get_tdoc_metadata(tdoc_id)
+
+# Exceptions
+class PortalAuthenticationError(Exception):
+    """Raised when portal authentication fails."""
+
+class PortalParsingError(Exception):
+    """Raised when portal page parsing fails."""
 ```
 
-### Database Helper Methods
-
-Implement these essential methods in `TDocDatabase` class:
+**Usage Pattern**:
 
 ```python
-class TDocDatabase:
-    def get_processed_meetings(self) -> set[int]:
-        """Return meeting IDs that have been crawled for TDocs."""
+from tdoc_crawler.crawlers import fetch_tdoc_metadata
+from tdoc_crawler.models import PortalCredentials
 
-    def cache_invalid_tdoc(self, tdoc_id: str, url: str, working_group: str) -> None:
-        """Mark TDoc as validation failed to avoid re-checking."""
-
-    def get_cached_invalid_tdocs(self) -> set[str]:
-        """Return set of TDoc IDs that failed portal validation."""
-
-    def get_subgroup_by_code(self, code: str) -> tuple[int, int, str] | None:
-        """Look up (subtb, tbid, name) by subgroup code."""
-```
-
-### Schema Evolution
-
-- Track schema version in `schema_meta` table
-- Implement migration scripts for schema changes
-- Never break backward compatibility with existing databases
-```
-
----
-
-### 3. Targeted Fetch Feature (CRITICAL)
-
-**Current Reality:**
-
-When users query specific TDoc IDs that aren't in the database, the CLI automatically:
-1. Detects missing TDoc IDs
-2. Infers working groups from TDoc prefixes (R→RAN, S→SA, T→CT)
-3. Creates a `TDocCrawlConfig` with `target_ids` populated
-4. Runs a focused crawl for just those TDocs
-5. Returns results including newly discovered TDocs
-
-**What AGENTS.md Says:**
-- "If TDoc number(s) and/or its metadata are not yet present in the database, the CLI should automatically trigger the crawling process"
-- No implementation details provided
-- No mention of `target_ids` parameter
-- No mention of working group inference
-
-**Proposed Addition to AGENTS.md:**
-
-Add new subsection under "Querying TDoc Metadata":
-
-```markdown
-### Automatic Targeted Fetching
-
-When users query specific TDoc IDs that are missing from the database, the CLI automatically fetches them:
-
-#### Implementation Pattern
-
-```python
-# In cli.py query command
-def _infer_working_groups_from_ids(ids: Iterable[str]) -> list[WorkingGroup]:
-    """Extract working group from TDoc ID prefix (R→RAN, S→SA, T→CT)."""
-    groups = set()
-    for tdoc_id in ids:
-        prefix = tdoc_id[0].upper()
-        if prefix == "R":
-            groups.add(WorkingGroup.RAN)
-        elif prefix == "S":
-            groups.add(WorkingGroup.SA)
-        elif prefix == "T":
-            groups.add(WorkingGroup.CT)
-    return sorted(groups)
-
-def _fetch_missing_tdocs(
-    database: TDocDatabase,
-    cache_dir: Path,
-    missing_ids: list[str],
-) -> TDocCrawlResult:
-    """Run targeted crawl for specific TDoc IDs."""
-    working_groups = _infer_working_groups_from_ids(missing_ids)
-
-    config = TDocCrawlConfig(
-        cache_dir=cache_dir,
-        working_groups=working_groups,
-        target_ids=missing_ids,  # ← Key: limits crawl to these IDs
-        incremental=False,        # Always full scan for targeted fetch
-        max_retries=3,
-        timeout=30,
-        verbose=False,
-    )
-
-    crawler = TDocCrawler(database)
-    return crawler.crawl(config)
-
-def _maybe_fetch_missing_tdocs(
-    database: TDocDatabase,
-    cache_dir: Path,
-    config: QueryConfig,
-    results: list[TDocMetadata],
-) -> list[TDocMetadata]:
-    """Check for missing TDocs and fetch them if needed."""
-    # Only trigger if user requested specific IDs
-    if not config.tdoc_ids:
-        return results
-
-    # Find missing IDs
-    found_ids = {r.tdoc_id.upper() for r in results}
-    requested_ids = {tid.upper() for tid in config.tdoc_ids}
-    missing_ids = requested_ids - found_ids
-
-    if not missing_ids:
-        return results
-
-    # Run targeted fetch
-    console.print(f"[yellow]Fetching {len(missing_ids)} missing TDocs...")
-    fetch_result = _fetch_missing_tdocs(database, cache_dir, sorted(missing_ids))
-
-    # Re-query to include newly fetched TDocs
-    return database.query_tdocs(config)
-```
-
-#### User Experience
-
-```bash
-# User queries TDoc not in database
-$ tdoc-crawler query R1-2399999
-
-# CLI automatically:
-# 1. Detects R1-2399999 is missing
-# 2. Infers working group: RAN (from "R" prefix)
-# 3. Triggers targeted crawl: only looks for R1-2399999
-# 4. Returns result if found, or reports not found
-
-# Output:
-Fetching 1 missing TDoc...
-Crawling RAN meetings for targeted TDocs...
-Found R1-2399999 in meeting RAN1#118
-
-┌──────────────┬─────────────┬──────────────┐
-│ TDoc ID      │ Working Grp │ Title        │
-├──────────────┼─────────────┼──────────────┤
-│ R1-2399999   │ RAN         │ New Feature  │
-└──────────────┴─────────────┴──────────────┘
-```
-
-#### Configuration Model
-
-Ensure `TDocCrawlConfig` includes:
-
-```python
-@dataclass(frozen=True, kw_only=True)
-class TDocCrawlConfig(BaseConfigModel):
-    # ... other fields ...
-    target_ids: list[str] = field(default_factory=list)  # ← Empty = crawl all
-
-    # When target_ids is populated:
-    # - Only TDocs with IDs in this list are upserted
-    # - All other discovered files are ignored
-    # - Used exclusively for targeted fetch operations
-```
-
-#### Crawler Implementation
-
-In `TDocCrawler.crawl()`:
-
-```python
-def crawl(self, config: TDocCrawlConfig) -> TDocCrawlResult:
-    # ... FTP traversal code ...
-
-    for file_entry in files:
-        tdoc_id = extract_tdoc_id(file_entry)
-
-        # Skip if not in target list (when targeting is active)
-        if config.target_ids and tdoc_id not in config.target_ids:
-            continue
-
-        # Process this TDoc
-        # ...
+credentials = PortalCredentials(username="user", password="pass")
+metadata = fetch_tdoc_metadata("R1-2301234", credentials)
+# Returns: {"title": "...", "meeting": "...", "contact": "...", ...}
 ```
 ```
 
 ---
 
-### 4. Validation Caching Pattern (CRITICAL)
+### 5. Test Patterns Outdated
 
-**Current Reality:**
+**Issue**: AGENTS.md section "Testing > Mock Patterns > Mocking FTP Connections" references FTP mocking, which is obsolete.
 
-The crawler validates TDocs by querying the 3GPP portal. Failed validations are cached to avoid repeated queries:
-
-```python
-# Check cache first
-invalid_tdocs = database.get_cached_invalid_tdocs()
-if tdoc_id in invalid_tdocs:
-    continue  # Skip, we know it's invalid
-
-# Try validation
-success = validate_tdoc_via_portal(tdoc_id)
-if not success:
-    # Cache the failure
-    database.cache_invalid_tdoc(tdoc_id, url, working_group)
-else:
-    # Store with portal metadata
-    database.upsert_tdoc(tdoc_metadata)
-```
-
-**What AGENTS.md Says:**
-- "If validation fails, cache the negative result to avoid re-checking"
-- No implementation details
-
-**Proposed Addition to AGENTS.md:**
-
-Add new subsection under "Crawling TDocs from Meetings":
-
+**Current Text** (Lines 923-963):
 ```markdown
-### Portal Validation and Negative Caching
-
-To avoid repeated failed portal queries, implement negative result caching:
-
-#### Database Support
-
-```python
-# In database.py
-class TDocDatabase:
-    def cache_invalid_tdoc(
-        self,
-        tdoc_id: str,
-        url: str,
-        working_group: str,
-    ) -> None:
-        """Insert TDoc record with validation_failed=1."""
-        now = datetime.now(UTC).isoformat()
-        with self._cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT OR IGNORE INTO tdocs (
-                    tdoc_id, url, working_group, validation_failed,
-                    date_retrieved, date_updated
-                )
-                VALUES (?, ?, ?, 1, ?, ?)
-                """,
-                (tdoc_id.upper(), url, working_group, now, now),
-            )
-        self.connection.commit()
-
-    def get_cached_invalid_tdocs(self) -> set[str]:
-        """Return TDoc IDs that previously failed validation."""
-        with self._cursor() as cursor:
-            cursor.execute(
-                "SELECT tdoc_id FROM tdocs WHERE validation_failed = 1"
-            )
-            return {row["tdoc_id"].upper() for row in cursor.fetchall()}
-```
-
-#### Crawler Integration
-
-```python
-# In crawlers/tdocs.py
-class TDocCrawler:
-    def crawl(self, config: TDocCrawlConfig) -> TDocCrawlResult:
-        # Load invalid cache once at start
-        invalid_tdocs = self.database.get_cached_invalid_tdocs()
-
-        for file_entry in ftp_directory_listing:
-            tdoc_id = extract_tdoc_id_from_filename(file_entry)
-
-            # Skip if previously failed validation
-            if tdoc_id in invalid_tdocs:
-                logger.debug(f"Skipping {tdoc_id} (cached as invalid)")
-                continue
-
-            # Attempt portal validation
-            portal_metadata = self._validate_via_portal(tdoc_id)
-
-            if portal_metadata is None:
-                # Validation failed - cache the negative result
-                self.database.cache_invalid_tdoc(
-                    tdoc_id=tdoc_id,
-                    url=ftp_url,
-                    working_group=config.working_groups[0].value,
-                )
-                result.errors.append(f"Validation failed: {tdoc_id}")
-            else:
-                # Success - store with portal metadata
-                self.database.upsert_tdoc(portal_metadata)
-                result.inserted += 1
-```
-
-#### Force Re-validation
-
-Support `--force-revalidate` flag to bypass cache:
-
-```python
-# In cli.py crawl command
-@app.command()
-def crawl(
-    # ... other params ...
-    force_revalidate: bool = typer.Option(
-        False,
-        "--force-revalidate",
-        help="Re-validate TDocs even if previously failed",
-    ),
-) -> None:
-    config = TDocCrawlConfig(
-        # ... other fields ...
-        force_revalidate=force_revalidate,
-    )
-
-# In TDocCrawler.crawl()
-if not config.force_revalidate:
-    invalid_tdocs = self.database.get_cached_invalid_tdocs()
-else:
-    invalid_tdocs = set()  # Ignore cache, re-validate everything
-```
-```
-
----
-
-### 5. CLI Commands Structure (HIGH PRIORITY)
-
-**Current Reality:**
-
-The CLI has **6 commands** with specific signatures:
-
-```python
-@app.command()  # Default command name "query"
-def query(tdoc_ids, cache_dir, working_group, output_format, limit, order, start_date, end_date)
-
-@app.command("crawl-meetings")  # Explicit name
-def crawl_meetings(cache_dir, working_group, incremental, limit_meetings, ...)
-
-@app.command()  # Default command name "crawl"
-def crawl(cache_dir, working_group, incremental, limit_tdocs, limit_meetings, ...)
-
-@app.command("query-meetings")
-def query_meetings(cache_dir, working_group, subgroup, output_format, limit, order, ...)
-
-@app.command("open")
-def open_tdoc(tdoc_id, cache_dir)
-
-@app.command()  # Default command name "stats"
-def stats(cache_dir)
-```
-
-**What AGENTS.md Says:**
-- Lists commands vaguely
-- Doesn't specify parameter names
-- Doesn't show default values
-- Doesn't specify command naming (explicit vs default)
-
-**Proposed Addition to AGENTS.md:**
-
-Add new section after "Main Functionalities":
-
-```markdown
-### CLI Commands Implementation
-
-The CLI uses Typer with 6 commands. Follow this exact structure:
-
-#### Command Definitions
-
-```python
-# In cli.py
-from dotenv import load_dotenv
-load_dotenv()  # Load .env at module level, before command execution
-
-app = typer.Typer(help="TDoc crawler - crawl and query structured 3GPP metadata")
-console = Console()
-
-# 1. query (default command)
-@app.command()
-def query(
-    tdoc_ids: list[str] | None = typer.Argument(None, help="TDoc identifiers to query"),
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
-    output_format: str = typer.Option(OutputFormat.TABLE.value, "--output", "-o"),
-    limit: int | None = typer.Option(None, "--limit", "-l"),
-    order: str = typer.Option(SortOrder.DESC.value, "--order"),
-    start_date: str | None = typer.Option(None, "--start-date"),
-    end_date: str | None = typer.Option(None, "--end-date"),
-) -> None:
-    """Query TDoc metadata with automatic targeted fetch for missing IDs."""
-    # Implementation includes _maybe_fetch_missing_tdocs()
-
-# 2. crawl (TDocs from FTP)
-@app.command()
-def crawl(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
-    incremental: bool = typer.Option(True, "--incremental/--full"),
-    limit_tdocs: int | None = typer.Option(None, "--limit-tdocs"),
-    limit_meetings: int | None = typer.Option(None, "--limit-meetings"),
-    limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg"),
-    limit_wgs: int | None = typer.Option(None, "--limit-wgs"),
-    max_retries: int = typer.Option(3, "--max-retries"),
-    timeout: int = typer.Option(30, "--timeout"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
-) -> None:
-    """Crawl FTP server for TDocs. Requires meetings DB to be populated first."""
-    # Check if meetings exist, show error if not
-
-# 3. crawl-meetings (from portal)
-@app.command("crawl-meetings")
-def crawl_meetings(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
-    incremental: bool = typer.Option(True, "--incremental/--full"),
-    limit_meetings: int | None = typer.Option(None, "--limit-meetings"),
-    limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg"),
-    limit_wgs: int | None = typer.Option(None, "--limit-wgs"),
-    max_retries: int = typer.Option(3, "--max-retries"),
-    timeout: int = typer.Option(30, "--timeout"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
-    eol_username: str | None = typer.Option(None, "--eol-username"),
-    eol_password: str | None = typer.Option(None, "--eol-password"),
-    prompt_credentials: bool = typer.Option(True, "--prompt-credentials/--no-prompt-credentials"),
-) -> None:
-    """Crawl 3GPP portal for meeting metadata."""
-
-# 4. query-meetings
-@app.command("query-meetings")
-def query_meetings(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
-    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s"),
-    output_format: str = typer.Option(OutputFormat.TABLE.value, "--output", "-o"),
-    limit: int | None = typer.Option(None, "--limit", "-l"),
-    order: str = typer.Option(SortOrder.DESC.value, "--order"),
-    include_without_files: bool = typer.Option(False, "--include-without-files"),
-) -> None:
-    """Query stored meeting metadata."""
-
-# 5. open
-@app.command("open")
-def open_tdoc(
-    tdoc_id: str = typer.Argument(..., help="TDoc identifier to download and open"),
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
-) -> None:
-    """Download, unzip, and open TDoc in system default application."""
-    # Implements _download_to_path(), _prepare_tdoc_file(), _launch_file()
-
-# 6. stats
-@app.command()
-def stats(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
-) -> None:
-    """Display database statistics (total TDocs, by working group, date range)."""
-```
-
-#### Helper Functions (Required)
-
-```python
-def _database_path(cache_dir: Path) -> Path:
-    """Standard database path: <cache_dir>/tdoc_crawler.db"""
-    return cache_dir / "tdoc_crawler.db"
-
-def _parse_working_groups(values: list[str] | None) -> list[WorkingGroup]:
-    """Parse and normalize WG names, expand plenary aliases (RP→RAN, SP→SA, CP→CT)."""
-    # Uses normalize_working_group_alias() from crawlers module
-
-def _parse_subgroups(values: list[str] | None) -> list[str]:
-    """Parse and normalize subgroup codes, expand plenary aliases."""
-    # Uses normalize_subgroup_alias() from crawlers module
-
-def _infer_working_groups_from_ids(ids: Iterable[str]) -> list[WorkingGroup]:
-    """Extract working group from TDoc ID prefix (R→RAN, S→SA, T→CT)."""
-
-def _download_to_path(url: str, destination: Path) -> None:
-    """Download file from URL to local path."""
-
-def _prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path) -> Path:
-    """Download, unzip TDoc, return path to first file in extracted directory."""
-
-def _launch_file(path: Path) -> None:
-    """Open file in system default application (OS-specific logic)."""
-
-def _fetch_missing_tdocs(...) -> TDocCrawlResult:
-    """Run targeted crawl for specific missing TDoc IDs."""
-
-def _maybe_fetch_missing_tdocs(...) -> list[TDocMetadata]:
-    """Check for missing TDocs in query results and fetch if needed."""
-```
-
-#### Default Values Reference
-
-| Parameter | Default Value | Notes |
-|-----------|---------------|-------|
-| `cache_dir` | `Path.home() / ".tdoc-crawler"` | All commands |
-| `incremental` | `True` | crawl, crawl-meetings |
-| `max_retries` | `3` | crawl, crawl-meetings |
-| `timeout` | `30` | crawl, crawl-meetings |
-| `output_format` | `OutputFormat.TABLE.value` | query, query-meetings |
-| `order` | `SortOrder.DESC.value` | query, query-meetings |
-| `verbose` | `False` | crawl, crawl-meetings |
-| `prompt_credentials` | `True` | crawl-meetings |
-| `include_without_files` | `False` | query-meetings |
-| `working_group` | `None` (= all WGs) | Parsed by `_parse_working_groups()` |
-```
-
----
-
-### 6. Test Patterns and Fixtures (HIGH PRIORITY)
-
-**Current Reality:**
-
-Tests use shared pytest fixtures defined in `tests/conftest.py`:
-
-```python
-@pytest.fixture
-def test_cache_dir(tmp_path: Path) -> Path:
-    """Create temporary cache directory."""
-
-@pytest.fixture
-def test_db_path(test_cache_dir: Path) -> Path:
-    """Get test database path."""
-
-@pytest.fixture
-def sample_tdocs() -> list[TDocMetadata]:
-    """Create sample TDoc metadata for testing."""
-
-@pytest.fixture
-def sample_meetings() -> list[MeetingMetadata]:
-    """Create sample meeting metadata for testing."""
-```
-
-**What AGENTS.md Says:**
-- "Use fixtures and parameterized tests to reduce code duplication"
-- No mention of standard fixtures
-- No mention of mock patterns
-
-**Proposed Addition to AGENTS.md:**
-
-Replace "Testing" section with:
-
-```markdown
-## Testing Guidelines
-
-### Test Structure
-
-```
-tests/
-├── conftest.py          # Shared fixtures
-├── test_cli.py          # CLI command tests (12 tests)
-├── test_crawler.py      # Crawler logic tests (10 tests)
-├── test_database.py     # Database operations tests (13 tests)
-├── test_models.py       # Pydantic model tests (10 tests)
-├── test_targeted_fetch.py  # Targeted fetch feature tests (12 tests)
-└── data/                # Test data files
-    └── README.md
-```
-
-### Standard Fixtures (tests/conftest.py)
-
-```python
-import pytest
-from pathlib import Path
-from tdoc_crawler.models import TDocMetadata, MeetingMetadata, WorkingGroup
-
-@pytest.fixture
-def test_cache_dir(tmp_path: Path) -> Path:
-    """Create a temporary cache directory for tests.
-
-    Returns:
-        Path to test cache directory (e.g., /tmp/pytest-xxx/test-cache)
-    """
-    cache_dir = tmp_path / "test-cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
-
-@pytest.fixture
-def test_db_path(test_cache_dir: Path) -> Path:
-    """Get test database path.
-
-    Returns:
-        Path to test database (test-cache/tdoc_crawler.db)
-    """
-    return test_cache_dir / "tdoc_crawler.db"
-
-@pytest.fixture
-def sample_tdocs() -> list[TDocMetadata]:
-    """Create sample TDoc metadata for testing.
-
-    Returns:
-        List of 2 sample TDocMetadata instances with realistic data
-    """
-    return [
-        TDocMetadata(
-            tdoc_id="R1-2301234",
-            url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/.../R1-2301234.zip",
-            working_group="RAN",
-            subgroup="RAN1",
-            title="Sample TDoc Title",
-            date_retrieved=datetime.now(UTC).isoformat(),
-            date_updated=datetime.now(UTC).isoformat(),
-        ),
-        TDocMetadata(
-            tdoc_id="S2-2305678",
-            url="https://www.3gpp.org/ftp/tsg_sa/WG2_Arch/.../S2-2305678.zip",
-            working_group="SA",
-            subgroup="SA2",
-            title="Another Sample TDoc",
-            date_retrieved=datetime.now(UTC).isoformat(),
-            date_updated=datetime.now(UTC).isoformat(),
-        ),
-    ]
-
-@pytest.fixture
-def sample_meetings() -> list[MeetingMetadata]:
-    """Create sample meeting metadata for testing.
-
-    Returns:
-        List of 2 sample MeetingMetadata instances
-    """
-    return [
-        MeetingMetadata(
-            meeting_id=123,
-            working_group="RAN",
-            subgroup="RAN1",
-            short_name="RAN1#118",
-            start_date=date(2024, 1, 15),
-            end_date=date(2024, 1, 19),
-            location="Athens, Greece",
-            files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_118/Docs/",
-            last_synced=datetime.now(UTC).isoformat(),
-        ),
-        # ... another meeting
-    ]
-```
-
-### Mock Patterns
-
 #### Mocking FTP Connections
+
+**CRITICAL**: After module refactoring, FTP must be patched at `tdoc_crawler.crawlers.tdocs.FTP` (NOT `tdoc_crawler.crawler.FTP`)
 
 ```python
 from unittest.mock import MagicMock, patch
 
-@patch("tdoc_crawler.crawlers.tdocs.FTP")  # Note: patch in crawlers.tdocs, not crawler
+@patch("tdoc_crawler.crawlers.tdocs.FTP")
 def test_crawl_collects_tdocs(
     mock_ftp_class: MagicMock,
     test_db_path: Path,
@@ -942,9 +478,59 @@ def test_crawl_collects_tdocs(
 
     ftp_instance.retrlines.side_effect = retrlines
     mock_ftp_class.return_value = ftp_instance
+```
 
-    # Run test
+**Proposed Replacement**:
+
+```markdown
+#### Mocking HTTP Requests
+
+**CRITICAL**: Mock `requests.Session` at `tdoc_crawler.crawlers.tdocs.requests.Session`
+
+```python
+from unittest.mock import MagicMock, patch
+
+@patch("tdoc_crawler.crawlers.tdocs.requests.Session")
+def test_crawl_collects_tdocs(
+    mock_session_class: MagicMock,
+    test_db_path: Path,
+) -> None:
+    """Test HTTP crawling with mocked connection."""
+    from tdoc_crawler.models import MeetingMetadata
+
+    # Mock HTML directory listing
+    html_content = """
+    <html><body>
+    <a href="R1-2301234.zip">R1-2301234.zip</a> 2048 bytes
+    </body></html>
+    """
+
+    # Setup mock session
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = html_content
+    mock_response.raise_for_status.return_value = None
+    mock_session.get.return_value = mock_response
+    mock_session.close.return_value = None
+    mock_session_class.return_value = mock_session
+
+    # Setup database with meeting
     with TDocDatabase(test_db_path) as database:
+        meeting = MeetingMetadata(
+            meeting_id=12345,
+            tbid=373,  # RAN
+            subtb=379,  # RAN1
+            working_group=WorkingGroup.RAN,
+            subgroup="R1",
+            short_name="RAN1#98",
+            files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/",
+            start_date=date(2024, 1, 15),
+            end_date=date(2024, 1, 19),
+            location="Athens, Greece",
+        )
+        database.upsert_meeting(meeting)
+
+        # Run crawler
         crawler = TDocCrawler(database)
         config = TDocCrawlConfig(
             cache_dir=test_db_path.parent,
@@ -954,402 +540,370 @@ def test_crawl_collects_tdocs(
         result = crawler.crawl(config)
 
     assert result.processed == 1
+    assert result.inserted == 1
 ```
 
-**IMPORTANT:** After module refactoring, FTP must be patched at:
-- `tdoc_crawler.crawlers.tdocs.FTP` (NOT `tdoc_crawler.crawler.FTP`)
+**Key Differences from FTP Mocking**:
+- Mock `requests.Session` not `FTP`
+- Mock `session.get()` to return HTML content
+- Use BeautifulSoup-parseable HTML in mock responses
+- Meeting metadata must include `files_url` (HTTP URL)
+- No need to mock `retrlines()` or FTP LIST format
+```
 
-#### Mocking Database
+---
+
+## Medium Priority Issues
+
+### 6. TDoc Pattern Documentation Inconsistent
+
+**Issue**: Multiple sections show different or incomplete TDoc patterns.
+
+**Occurrences**:
+1. Line 90: Describes old format "at least additional 4 arbitrary characters"
+2. Line 491: Shows obsolete pattern `r"^[RSTC]\d+-\d+"`
+3. Missing simplified pattern explanation
+
+**Proposed Fix**:
+
+Update Line 90-92 from:
+```markdown
+- The first letter of the TDoc number indicates the working group, e.g., `R` for RAN, `S` for SA, and `C` for CT. The second letter indicates the sub-working group or plenary, e.g., `1` for RAN1, `4` for SA4, and `P` for plenary. All other characters in the TDoc number can vary, but at least additional 4 arbitrary characters are required.
+```
+
+To:
+```markdown
+- The TDoc number follows this format: `[RSC][1-6P].{4,10}\.(zip|txt|pdf)`
+  - First character: Working group (`R` for RAN, `S` for SA, `C` for CT)
+  - Second character: Subgroup (`1`-`6`) or Plenary (`P`)
+  - Following 4-10 characters: Can be digits, letters, dashes, etc.
+  - File extension: Must be `.zip`, `.txt`, or `.pdf`
+  - Examples: `R1-2301234.zip`, `S4aA220001.zip`, `CP-123456.zip`
+```
+
+Add new section after line 92:
+```markdown
+### TDoc Filename Pattern Details
+
+The TDoc crawler uses this simplified regex pattern:
 
 ```python
-@patch("tdoc_crawler.cli.TDocDatabase")
-def test_query_command(
-    mock_db_class: MagicMock,
-    test_cache_dir: Path,
-    sample_tdocs: list[TDocMetadata],
-) -> None:
-    """Test CLI query command with mocked database."""
-    mock_db_instance = MagicMock()
-    mock_db_instance.query_tdocs.return_value = sample_tdocs
-    mock_db_class.return_value.__enter__.return_value = mock_db_instance
-
-    runner = CliRunner()
-    result = runner.invoke(
-        app,
-        ["query", "R1-2301234", "--cache-dir", str(test_cache_dir)],
-    )
-
-    assert result.exit_code == 0
-    assert "R1-2301234" in result.stdout
+TDOC_PATTERN = re.compile(r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)", re.IGNORECASE)
 ```
 
-### Test Categories
+**Pattern Breakdown**:
+- `[RSC]` - Working group: R (RAN), S (SA), C (CT)
+- `[1-6P]` - Subgroup (1-6) or Plenary (P)
+- `.{4,10}` - 4 to 10 characters (any valid filename characters)
+- `\.(zip|txt|pdf)` - Required file extension
+- `re.IGNORECASE` - Case-insensitive matching
 
-#### 1. Unit Tests (test_models.py, test_database.py)
-- Test individual functions and classes in isolation
-- Use real database for database tests (fast with SQLite)
-- Cover all Pydantic validation logic
+**Examples that Match**:
+- Standard format: `R1-2301234.zip`, `S4-251209.txt`, `C1-2312345.pdf`
+- Plenary format: `RP-230045.txt`, `SP-240001.zip`, `CP-123456.zip`
+- Ad-hoc format: `S4aA220001.zip`, `R1eE230045.txt`
+- Case variations: `r1-2301234.ZIP`, `S4-251209.TXT`
 
-#### 2. Integration Tests (test_crawler.py)
-- Test crawler logic with mocked FTP/HTTP
-- Test database interactions
-- Cover error handling and retries
+**Examples that Don't Match**:
+- Wrong working group: `T1-2300456.zip` (T is invalid, use C for CT)
+- Wrong subgroup: `R7-123456.zip` (subgroup must be 1-6 or P)
+- Too short: `R1-12.zip` (only 2 chars after R1, need 4-10)
+- Too long: `R1-12345678901.zip` (11 chars, exceeds maximum of 10)
+- Wrong extension: `R1-2301234.doc` (must be .zip, .txt, or .pdf)
+- Not a TDoc: `README.txt`, `data.csv`
+```
 
-#### 3. End-to-End Tests (test_cli.py)
-- Test full CLI commands using `typer.testing.CliRunner`
-- Mock external dependencies (FTP, HTTP, database)
-- Verify user-facing output
+---
 
-#### 4. Feature Tests (test_targeted_fetch.py)
-- Test complex features like targeted fetch
-- Test working group inference
-- Test automatic fetch triggering
+### 7. Crawl Command Description Incomplete
 
-### Coverage Goals
+**Issue**: Section "Crawling TDocs from Meetings" (Line 249-292) doesn't mention subdirectory detection or fuzzy matching.
 
-- Aim for 70%+ overall coverage
-- Prioritize critical paths (crawlers, database operations)
-- CLI commands: 60%+ (some branches are error paths)
-- Models: 90%+ (Pydantic validation)
-- Database: 70%+ (complex queries, error handling)
+**Proposed Addition** (Insert before "Portal Metadata Fields:"):
 
-### Running Tests
+```markdown
+**Subdirectory Detection**:
 
-```bash
-# Run all tests
-uv run pytest -v
+The crawler automatically detects and crawls TDoc-specific subdirectories:
 
-# Run with coverage
-uv run pytest --cov=src/tdoc_crawler --cov-report=term-missing
+1. **Fetch base meeting directory** from `files_url`
+2. **Parse HTML** to extract directory links
+3. **Check for TDoc subdirectories** (Docs/, Documents/, etc.)
+4. **If subdirectories found**: Crawl each subdirectory
+5. **If no subdirectories**: Crawl base directory directly
 
-# Run specific test file
-uv run pytest tests/test_cli.py -v
+**Meeting Name Resolution**:
 
-# Run specific test
-uv run pytest tests/test_cli.py::TestQueryCommand::test_query_specific_tdoc -v
+When validating TDocs via the portal, the returned meeting name may not match the database format:
+
+- Portal returns: "SA4#133-e" or "SA4-e (AH) Audio SWG post 130"
+- Database stores: "S4-133-e" or "3GPPSA4-e (AH) Audio SWG post 130"
+
+The crawler uses fuzzy matching to resolve meeting names:
+
+1. **Exact match** (case-insensitive)
+2. **Normalized match** (SA4#133-e → S4-133-e)
+3. **Prefix/suffix matching** (handles "3GPPSA4..." vs "SA4...")
+4. **SQL optimization** (uses LIKE queries before full table scans)
+
+See "Implementation Patterns > Fuzzy Meeting Name Matching" for detailed implementation.
+```
+
+---
+
+### 8. CLI Helper Functions Not Fully Documented
+
+**Issue**: Section "CLI Commands Implementation > Common Patterns" (Lines 436-447) lists helper functions but doesn't document their implementations.
+
+**Proposed Addition** (After "Credential Handling:"):
+
+```markdown
+**Helper Function Implementations**:
+
+```python
+# In cli.py
+
+def resolve_cache_dir(cache_dir: Path | None) -> Path:
+    """Resolve cache directory from CLI parameter, environment, or default."""
+    if cache_dir:
+        return cache_dir
+    env_cache = os.getenv("TDOC_CACHE_DIR")
+    if env_cache:
+        return Path(env_cache)
+    return Path.cwd() / "cache"
+
+def resolve_db_file(cache_dir: Path, db_file: Path | None) -> Path:
+    """Resolve database file path."""
+    if db_file:
+        return db_file
+    env_db = os.getenv("TDOC_DB_FILE")
+    if env_db:
+        return Path(env_db)
+    return cache_dir / "tdoc_crawler.db"
+
+def get_credentials(
+    eol_username: str | None,
+    eol_password: str | None,
+    prompt_if_missing: bool = True,
+) -> PortalCredentials | None:
+    """Get credentials from CLI, environment, or interactive prompt."""
+    username = eol_username or os.getenv("EOL_USERNAME")
+    password = eol_password or os.getenv("EOL_PASSWORD")
+
+    if username and password:
+        return PortalCredentials(username=username, password=password)
+
+    if prompt_if_missing:
+        username = typer.prompt("EOL username")
+        password = typer.prompt("EOL password", hide_input=True)
+        return PortalCredentials(username=username, password=password)
+
+    return None
+
+def _infer_working_groups_from_ids(tdoc_ids: list[str]) -> list[WorkingGroup]:
+    """Infer working groups from TDoc IDs for targeted fetching."""
+    mapping = {
+        "R": WorkingGroup.RAN,
+        "S": WorkingGroup.SA,
+        "C": WorkingGroup.CT,
+        "T": WorkingGroup.CT,  # Support T as alias for CT (legacy)
+    }
+    groups: list[WorkingGroup] = []
+    for tdoc_id in tdoc_ids:
+        if not tdoc_id:
+            continue
+        first_char = tdoc_id[0].upper()
+        group = mapping.get(first_char)
+        if group and group not in groups:
+            groups.append(group)
+    # Default to all groups if none inferred
+    return groups or [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
 ```
 ```
 
 ---
 
-### 7. Missing Implementation Details
+## Low Priority Issues (Documentation Clarity)
 
-**Current Reality:**
+### 9. File Size Guidelines Unclear
 
-Several critical implementation patterns are used but not documented:
+**Issue**: Line 203 says "CLI file: 600+ lines (acceptable due to command definitions)" but actual CLI is 864 lines.
 
-1. **Working Group Alias Normalization**
-   - `RP` → `RAN` (RAN Plenary)
-   - `SP` → `SA` (SA Plenary)
-   - `CP` → `CT` (CT Plenary)
-
-2. **Subgroup Alias Normalization**
-   - `R1-R6`, `S1-S6`, `C1-C6` → Corresponding subgroups
-   - Case-insensitive matching
-
-3. **Date Parsing for Meetings**
-   - Multiple formats: "15-19 Jan 2024", "15 Jan - 19 Jan 2024", "15 January 2024"
-   - Handles single-day and multi-day meetings
-
-4. **FTP Directory Exclusions**
-   - Exclude: `["Inbox", "Outbox", "Archive", "Old"]`
-   - Pattern: `TDOC_PATTERN = re.compile(r"^[RSTC]\d+-\d+", re.IGNORECASE)`
-
-**Proposed Addition:**
-
-Add new section "Implementation Patterns":
-
+**Proposed Fix**:
 ```markdown
-## Implementation Patterns
-
-### Working Group Alias Handling
-
-Users often refer to plenary groups using shorthand codes. Normalize these:
-
-```python
-# In crawlers/meetings.py
-PLENARY_ALIASES = {
-    "RP": "RAN",  # RAN Plenary
-    "SP": "SA",   # SA Plenary
-    "CP": "CT",   # CT Plenary
-}
-
-def normalize_working_group_alias(value: str) -> str:
-    """Expand plenary alias (RP→RAN) or return uppercase input."""
-    upper = value.upper().strip()
-    return PLENARY_ALIASES.get(upper, upper)
-
-def normalize_subgroup_alias(value: str) -> str:
-    """Expand plenary alias and validate against known subgroups."""
-    normalized = normalize_working_group_alias(value)
-    # If it's a plenary alias, append "P" (RP→RP, SP→SP, CP→CP)
-    if value.upper() in PLENARY_ALIASES:
-        return value.upper()  # Keep original form
-    return normalized
+When splitting modules:
+- Base utilities: 20-70 lines
+- Model files: 80-150 lines
+- Crawler files: 150-350 lines
+- CLI file: 600-900 lines (acceptable due to command definitions and helper functions)
+- Database file: 900-1100 lines (acceptable due to schema + queries)
 ```
 
-Usage in CLI:
-```python
-# User types: --working-group RP
-# Parsed as: WorkingGroup.RAN
+---
 
-# User types: --sub-group RP
-# Stored as: "RP" (RAN Plenary code)
+### 10. Documentation Workflow Example Outdated
+
+**Issue**: Line 1025 example references wrong project name:
+
+**Current**:
+```markdown
+1. Implement: tracktor_tools/cli.py - add new command
+2. Test: tests/test_activities.py - add tests
 ```
 
-### FTP Directory Filtering
-
-Exclude non-meeting directories when crawling:
-
-```python
-# In crawlers/tdocs.py
-EXCLUDED_DIRS = ["Inbox", "Outbox", "Archive", "Old"]
-TDOC_PATTERN = re.compile(r"^[RSTC]\d+-\d+", re.IGNORECASE)
-
-def _should_skip_directory(dir_name: str) -> bool:
-    """Check if directory should be excluded from crawl."""
-    return any(excl.lower() in dir_name.lower() for excl in EXCLUDED_DIRS)
-
-def _is_tdoc_file(filename: str) -> bool:
-    """Check if filename matches TDoc pattern."""
-    stem = Path(filename).stem
-    return TDOC_PATTERN.match(stem) is not None
-```
-
-### Meeting Date Parsing
-
-Handle multiple date formats from 3GPP portal HTML:
-
-```python
-# In crawlers/meetings.py
-DATE_PATTERN = re.compile(
-    r"(\d{1,2})\s*(?:-\s*(\d{1,2}))?\s+"
-    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+"
-    r"(\d{4})"
-)
-
-MONTH_MAP = {
-    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
-}
-
-def _parse_meeting_date(date_str: str) -> tuple[date | None, date | None]:
-    """
-    Parse date string into (start_date, end_date).
-
-    Examples:
-        "15-19 Jan 2024" → (2024-01-15, 2024-01-19)
-        "15 Jan 2024" → (2024-01-15, None)
-        "15 January - 19 January 2024" → (2024-01-15, 2024-01-19)
-    """
-    match = DATE_PATTERN.search(date_str)
-    if not match:
-        return (None, None)
-
-    start_day, end_day, month_str, year = match.groups()
-    month = MONTH_MAP[month_str.lower()[:3]]
-
-    start_date = date(int(year), month, int(start_day))
-    end_date = date(int(year), month, int(end_day)) if end_day else None
-
-    return (start_date, end_date)
-```
-
-### TDoc ID Normalization
-
-Always uppercase and strip whitespace:
-
-```python
-# In models/base.py
-def _normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
-    """Uppercase and strip whitespace from TDoc identifiers."""
-    return sorted({tid.strip().upper() for tid in ids})
-
-# Usage in models
-@dataclass(frozen=True, kw_only=True)
-class QueryConfig(BaseConfigModel):
-    tdoc_ids: list[str] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "tdoc_ids", _normalize_tdoc_ids(self.tdoc_ids))
-```
-
-### Error Handling Pattern
-
-Use Rich console for user-friendly error messages:
-
-```python
-from rich.console import Console
-console = Console()
-
-try:
-    # Operation
-except SomeSpecificError as exc:
-    console.print(f"[red]Operation failed: {exc}[/red]")
-    raise typer.Exit(code=1) from exc
-```
-
-Error Exit Codes:
-- `0` - Success
-- `1` - General error (file not found, operation failed)
-- `2` - Invalid input (bad date format, unknown working group)
+**Proposed Fix**:
+```markdown
+1. Implement: src/tdoc_crawler/cli.py - add new command
+2. Test: tests/test_cli.py - add tests
+3. Document in history: docs/history/2025-01-15_SUMMARY_01_NEW_VALIDATE_COMMAND.md
+4. Update main reference: docs/QUICK_REFERENCE.md - add command documentation
+5. Verify: README.md contains link to QUICK_REFERENCE.md
 ```
 
 ---
 
 ## Structural Improvements
 
-### 1. Organization
+### 11. Add Architecture Decision Section
 
-**Current:** AGENTS.md has sections scattered throughout
-
-**Proposed:** Reorganize into logical groups:
+**Proposed New Section** (Insert after "Project Structure"):
 
 ```markdown
-1. General Coding Guidelines
-2. Background on 3GPP, TDocs and Meetings
-3. Project Structure (NEW)
-4. Task & Main Functionalities
-5. Implementation Patterns (NEW)
-6. Database Guidelines (EXPANDED)
-7. CLI Commands Implementation (NEW)
-8. Python-Specific Guidelines
-9. Testing Guidelines (EXPANDED)
-10. Documentation
-```
+## Architectural Decisions
 
-### 2. Add "Quick Start for Assistants"
+### HTTP-Based Crawling (Not FTP)
 
-Add at the very beginning:
+**Decision**: Use HTTP with requests/BeautifulSoup instead of FTP.
 
-```markdown
-## Quick Start for Coding Assistants
+**Rationale**:
+- Server is HTTP-accessible (no FTP needed)
+- HTTP provides better error handling (status codes vs FTP errors)
+- Easier to test (simple HTTP mocking vs FTP protocol simulation)
+- Built-in retry logic via urllib3
+- Connection pooling for better performance
 
-Before implementing features, review these critical sections:
+**Implementation**: See `crawlers/tdocs.py` and section "HTTP Directory Crawling".
 
-1. **Project Structure** - Understand the models/ and crawlers/ submodule organization
-2. **Database Schema** - Review the 5-table structure with foreign keys
-3. **CLI Commands** - Study the exact command signatures and defaults
-4. **Implementation Patterns** - Learn targeted fetch, validation caching, alias normalization
-5. **Test Patterns** - Use standard fixtures and mock patterns
+---
 
-**Key Files to Examine First:**
-- `src/tdoc_crawler/cli.py` - All 6 CLI commands
-- `src/tdoc_crawler/database.py` - Schema and queries
-- `src/tdoc_crawler/models/__init__.py` - All data models
-- `src/tdoc_crawler/crawlers/__init__.py` - Crawler implementations
-- `tests/conftest.py` - Shared test fixtures
+### Meeting-Based Crawling (Not Tree Walking)
+
+**Decision**: Query meetings from database first, then crawl their specific directories.
+
+**Rationale**:
+- Faster: Direct directory access vs recursive tree walking
+- Efficient filtering: Database queries vs post-processing
+- Meeting linkage: Proper foreign key relationships
+- Incremental updates: Track last_crawled per meeting
+
+**Implementation**:
+1. `crawl-meetings` populates meetings database with `files_url`
+2. `crawl` queries meetings matching filters
+3. For each meeting, crawl `files_url` directory (with subdirectory detection)
+4. Establish `meeting_id` foreign key in TDocMetadata
+
+---
+
+### Subdirectory Detection (Docs/)
+
+**Decision**: Automatically detect and crawl TDoc-specific subdirectories.
+
+**Rationale**:
+- TDocs typically in "Docs/" subdirectory, not base directory
+- Avoids crawling irrelevant files (agendas, reports)
+- Handles variations (Docs, Documents, DOCS, etc.)
+
+**Implementation**: See section "Subdirectory Detection and Crawling".
+
+---
+
+### Fuzzy Meeting Name Matching
+
+**Decision**: Multi-stage fuzzy matching for meeting name resolution.
+
+**Rationale**:
+- Portal and database use different formats ("SA4#133" vs "S4-133")
+- Meeting names have prefixes/variations ("SA4..." vs "3GPPSA4...")
+- Need robust matching without false positives
+
+**Implementation**: See section "Fuzzy Meeting Name Matching".
+
+---
+
+### Simplified TDoc Pattern
+
+**Decision**: Use `[RSC][1-6P].{4,10}\.(zip|txt|pdf)` regex pattern.
+
+**Rationale**:
+- Clear specification: WG + subgroup + variable chars + extension
+- Matches standard, ad-hoc, and plenary formats
+- Simple to understand and maintain
+- Avoids complex alternations
+
+**Implementation**: See section "TDoc Filename Pattern Details".
 ```
 
 ---
 
-## Priority Recommendations
+## Implementation Priority
 
-### Must Fix (Critical)
+### Phase 1: Critical Fixes (Immediate)
+1. Replace FTP patterns with HTTP implementation
+2. Add subdirectory detection documentation
+3. Document portal.py module
+4. Update test mocking patterns
+5. Fix TDoc pattern documentation
 
-1. **Add "Project Structure" section** - Document models/ and crawlers/ submodules
-2. **Expand "Database Guidelines"** - Full schema with all 5 tables
-3. **Add "CLI Commands Implementation"** - Exact signatures and defaults
-4. **Add "Targeted Fetch Feature"** - Implementation with code examples
-5. **Add "Validation Caching Pattern"** - Negative result caching
+### Phase 2: Medium Priority (Next)
+6. Add fuzzy matching documentation
+7. Document CLI helper functions
+8. Complete crawl command description
+9. Update file size guidelines
 
-### Should Fix (High Priority)
-
-6. **Add "Implementation Patterns"** - Alias normalization, date parsing, FTP filtering
-7. **Expand "Testing Guidelines"** - Standard fixtures, mock patterns
-8. **Add "Quick Start for Assistants"** - Navigation guide at the top
-
-### Nice to Have (Medium Priority)
-
-9. **Add example workflows** - "How to add a new CLI command"
-10. **Add troubleshooting section** - Common issues and solutions
-11. **Add performance guidelines** - Parallel processing, caching strategies
+### Phase 3: Low Priority (As Needed)
+10. Fix documentation workflow example
+11. Add architectural decisions section
 
 ---
 
-## Validation Checklist
+## Testing Recommendations
 
-After updating AGENTS.md, verify:
+After updating AGENTS.md:
 
-- [ ] All current module paths are correct (models/, crawlers/, not models.py, crawler.py)
-- [ ] All 5 database tables are documented with full schemas
-- [ ] All 6 CLI commands have exact signatures
-- [ ] Targeted fetch workflow is explained with code
-- [ ] Validation caching is explained with code
-- [ ] Standard test fixtures are documented
-- [ ] FTP patch paths reference crawlers.tdocs, not crawler
-- [ ] All default values match actual code
-- [ ] Working group aliases (RP→RAN, etc.) are documented
-
----
-
-## Example: Before and After
-
-### Before (Current AGENTS.md)
-
-```markdown
-## Database Guidelines
-
-- Use SQLite as the database for storing TDoc and meeting metadata.
-- Design the database schema to efficiently store and query TDoc and meeting metadata.
-- Use appropriate indexing to optimize query performance.
-```
-
-### After (Proposed)
-
-```markdown
-## Database Guidelines
-
-### Database Technology
-
-Use SQLite as the embedded database. Configuration:
-- File: `<cache_dir>/tdoc_crawler.db`
-- WAL mode: `PRAGMA journal_mode = WAL`
-- Foreign keys: `PRAGMA foreign_keys = ON`
-
-### Schema (5 Tables)
-
-#### Reference Tables
-- `working_groups` (tbid PK, code, name, ftp_root)
-- `subworking_groups` (subtb PK, tbid FK, code, name)
-
-#### Data Tables
-- `meetings` (meeting_id PK, tbid FK, subtb FK, ...)
-- `tdocs` (id PK, tdoc_id UNIQUE, meeting_id FK, validated, validation_failed, ...)
-- `crawl_log` (id PK, ...)
-
-[Full schemas with CREATE TABLE statements...]
-
-### Helper Methods
-
-```python
-class TDocDatabase:
-    def get_processed_meetings(self) -> set[int]: ...
-    def cache_invalid_tdoc(self, tdoc_id, url, working_group): ...
-    def get_cached_invalid_tdocs(self) -> set[str]: ...
-```
-```
+1. **Regeneration Test**: Ask a fresh AI assistant to implement the TDoc crawler from scratch using only AGENTS.md
+2. **Verification Points**:
+   - Uses HTTP (not FTP)
+   - Implements subdirectory detection
+   - Includes fuzzy matching
+   - Has portal.py module
+   - Uses correct TDoc pattern
+   - Implements HTTP mocking in tests
+3. **Gap Analysis**: Compare regenerated code with actual codebase to identify remaining gaps
 
 ---
 
 ## Conclusion
 
-The current AGENTS.md provides good general guidelines but lacks critical implementation details needed to regenerate the codebase accurately. The most important additions are:
+The AGENTS.md file requires substantial updates to reflect the current HTTP-based, meeting-driven architecture. The most critical issues are:
 
-1. **Module structure documentation** (models/ and crawlers/ submodules)
-2. **Complete database schema** (all 5 tables with relationships)
-3. **CLI command signatures** (exact parameters and defaults)
-4. **Feature implementations** (targeted fetch, validation caching)
-5. **Test patterns** (standard fixtures, mock approaches)
+1. ❌ **FTP references** throughout (should be HTTP)
+2. ❌ **Missing subdirectory detection** (critical feature)
+3. ❌ **Missing fuzzy matching** (critical for query command)
+4. ❌ **Missing portal.py** (entire module undocumented)
+5. ❌ **Obsolete test patterns** (FTP mocking vs HTTP mocking)
 
-With these additions, coding assistants will have sufficient information to recreate the project from scratch or add new features consistently with the existing architecture.
+**Estimated Impact**: Without these updates, a coding assistant would regenerate code that:
+- Uses FTP instead of HTTP (architectural mismatch)
+- Processes 0 TDocs (missing subdirectory detection)
+- Fails queries with meeting name mismatches (no fuzzy matching)
+- Lacks portal authentication (can't validate TDocs)
+
+**Recommendation**: Prioritize Phase 1 critical fixes before any further development.
 
 ---
 
-**Next Steps:**
-
-1. Review this document with the development team
-2. Prioritize which sections to add first (recommend: structure, database, CLI)
-3. Update AGENTS.md incrementally
-4. Validate each update by attempting code regeneration
-5. Keep AGENTS.md synchronized with future refactorings
+**Review completed**: 2025-10-22
+**Total issues identified**: 11
+**Critical issues**: 5
+**Medium priority**: 3
+**Low priority**: 3
