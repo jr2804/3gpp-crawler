@@ -12,32 +12,87 @@ Single source of truth for the CLI behaviour. All examples assume execution from
 
 ## Commands
 
-### `crawl`
-
-```bash
-uv run tdoc-crawler crawl [OPTIONS]
-```
-
-Crawl the 3GPP FTP hierarchy for TDocs and upsert metadata.
-
-- `-c, --cache-dir PATH` – Database and download cache location.
-- `-w, --working-group WG` – Repeatable; defaults to all (`RAN`, `SA`, `CT`).
-- `--full/--incremental` – Disable incremental mode.
-- `--limit-tdocs`, `--limit-meetings`, `--limit-meetings-per-wg`, `--limit-wgs` – Throttle traversal.
-- `--max-retries`, `--timeout` – FTP connection controls.
-- `-v, --verbose` – Emit debug logging.
-
 ### `crawl-meetings`
 
 ```bash
 uv run tdoc-crawler crawl-meetings [OPTIONS]
 ```
 
-Scrape the 3GPP portal for meeting metadata.
+Scrape the 3GPP portal for meeting metadata. **Run this first** to populate the meetings database before crawling TDocs.
 
-- Shares the limiting flags from `crawl` (per-meeting options only).
-- Supports ETSI Online credentials via CLI options, environment (`EOL_USERNAME`, `EOL_PASSWORD`), or interactive prompt.
-- Uses incremental mode by default to skip previously seen meeting IDs.
+**Options:**
+
+- `-c, --cache-dir PATH` – Database and download cache location.
+- `-w, --working-group WG` – Repeatable; defaults to all (`RAN`, `SA`, `CT`).
+- `--full/--incremental` – Disable incremental mode (defaults to incremental).
+- `--limit-meetings`, `--limit-meetings-per-wg`, `--limit-wgs` – Throttle traversal.
+- `--eol-username`, `--eol-password` – ETSI Online credentials (or use `EOL_USERNAME`/`EOL_PASSWORD` env vars).
+- `-v, --verbose` – Emit debug logging.
+
+**Examples:**
+
+```bash
+# Crawl all meetings for all working groups (initial setup)
+uv run tdoc-crawler crawl-meetings
+
+# Crawl meetings for specific working group
+uv run tdoc-crawler crawl-meetings -w SA
+
+# Crawl recent meetings only (limit to 10 per working group)
+uv run tdoc-crawler crawl-meetings --limit-meetings-per-wg 10
+
+# Update meetings database incrementally
+uv run tdoc-crawler crawl-meetings --incremental
+```
+
+### `crawl`
+
+```bash
+uv run tdoc-crawler crawl [OPTIONS]
+```
+
+Crawl the 3GPP FTP hierarchy for TDocs and upsert metadata. **Requires meetings database** to be populated first via `crawl-meetings`.
+
+**Options:**
+
+- `-c, --cache-dir PATH` – Database and download cache location.
+- `-w, --working-group WG` – Repeatable; defaults to all (`RAN`, `SA`, `CT`).
+- `-s, --sub-group SG` – Filter by sub-working group (repeatable). Supports aliases like `S4` (SA4), `R1` (RAN1).
+- `--full/--incremental` – Disable incremental mode (defaults to incremental).
+- `--limit-tdocs`, `--limit-meetings`, `--limit-meetings-per-wg`, `--limit-wgs` – Throttle traversal.
+- `--start-date`, `--end-date` – ISO 8601 date range filter for meetings (e.g., `2024-01-01`).
+- `--meeting-ids` – Specific meeting IDs to crawl (repeatable).
+- `--workers` – Number of parallel workers (default: 4).
+- `--max-retries`, `--timeout` – FTP connection controls.
+- `-v, --verbose` – Emit debug logging.
+
+**Examples:**
+
+```bash
+# Crawl all TDocs from all working groups (after crawl-meetings)
+uv run tdoc-crawler crawl
+
+# Crawl TDocs for specific working group
+uv run tdoc-crawler crawl -w SA
+
+# Crawl TDocs for specific subgroup
+uv run tdoc-crawler crawl -w SA -s S4
+
+# Crawl TDocs from multiple subgroups
+uv run tdoc-crawler crawl -w RAN -s R1 -s R2
+
+# Crawl TDocs from meetings in date range
+uv run tdoc-crawler crawl -w SA --start-date 2024-01-01 --end-date 2024-12-31
+
+# Crawl TDocs from specific meeting IDs
+uv run tdoc-crawler crawl --meeting-ids 60666 60667
+
+# Limit crawl to recent meetings and TDocs
+uv run tdoc-crawler crawl --limit-meetings-per-wg 5 --limit-tdocs 100
+
+# Crawl with more parallel workers for faster processing
+uv run tdoc-crawler crawl -w RAN --workers 8
+```
 
 ### `query`
 

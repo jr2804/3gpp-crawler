@@ -33,16 +33,23 @@ git clone https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git
 cd tdoc-crawler
 uv sync
 
-# Optional: Set up environment variables for ETSI Online credentials
-cp .env.example .env
-# Edit .env and add your credentials
+# Or install it as uv tool directly:
+uv tool install https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git
+uvx tdoc-crawler --help
+
+
+
+
+
 ```
 
-### Using pip
+### Using pip (not recommended)
 
 ```bash
 pip install tdoc-crawler
 ```
+
+(... then same usage as above.)
 
 ## Configuration
 
@@ -51,8 +58,9 @@ pip install tdoc-crawler
 For accessing certain 3GPP resources that require authentication, you can configure ETSI Online (EOL) credentials:
 
 ```bash
-# Copy the example file
+# Optional/required for parsing document metadata: Set up environment variables for ETSI Online credentials
 cp .env.example .env
+# -> Edit .env and add your credentials
 
 # Edit .env and add your credentials:
 # EOL_USERNAME=your_username
@@ -60,25 +68,68 @@ cp .env.example .env
 ```
 
 Alternatively, you can:
-- Pass credentials via CLI options: `--eol-username` and `--eol-password`
-- Let the tool prompt you interactively when needed
+
+```bash
+# Pass them via CLI options or let the tool prompt you interactively:
+uvx tdoc-crawler crawl-meetings --eol-username your_username --eol-password your_password
+```
+
+```bash
+# Or configure environment variables directly:
+export EOL_USERNAME=your_username
+export EOL_PASSWORD=your_password
+```
+
+... or let the tool prompt you interactively when needed
 
 ## Quick Start
 
-### 1. Crawl the 3GPP FTP Server
+### 1. Crawl Meeting Metadata
 
-First, populate your local database by crawling the 3GPP FTP server:
+First, populate the meetings database by crawling the 3GPP portal:
 
 ```bash
-tdoc-crawler crawl
+tdoc-crawler crawl-meetings
 ```
 
 This will:
-- Connect to the 3GPP FTP server
-- Retrieve TDoc links from RAN, SA, and CT working groups
-- Store metadata in a local SQLite database at `~/.tdoc-crawler/tdocs.db`
 
-### 2. Query TDoc Metadata
+- Connect to the 3GPP portal
+- Retrieve meeting metadata for RAN, SA, and CT working groups
+- Store metadata in a local SQLite database at `~/.tdoc-crawler/tdoc_crawler.db`
+
+Optional filters:
+
+```bash
+# Crawl meetings for specific working group
+tdoc-crawler crawl-meetings -w SA
+
+# Limit to recent meetings (e.g., 10 per working group)
+tdoc-crawler crawl-meetings --limit-meetings-per-wg 10
+```
+
+### 2. Crawl TDoc Metadata
+
+Once meetings are populated, crawl TDocs from the 3GPP FTP server:
+
+```bash
+# Crawl all TDocs
+tdoc-crawler crawl
+
+# Crawl TDocs for specific working group
+tdoc-crawler crawl -w SA
+
+# Crawl TDocs for specific subgroup (e.g., SA4)
+tdoc-crawler crawl -w SA -s S4
+
+# Crawl TDocs from meetings in date range
+tdoc-crawler crawl -w RAN --start-date 2024-01-01 --end-date 2024-12-31
+
+# Crawl TDocs from specific meeting IDs
+tdoc-crawler crawl --meeting-ids 60666 60667
+```
+
+### 3. Query TDoc Metadata
 
 Once the database is populated, you can query TDoc information:
 
@@ -99,7 +150,7 @@ tdoc-crawler query R1-2301234 --format json --output results.json
 tdoc-crawler query --working-group SA --format yaml
 ```
 
-### 3. View Database Statistics
+### 4. View Database Statistics
 
 ```bash
 tdoc-crawler stats
