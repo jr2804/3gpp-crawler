@@ -119,6 +119,35 @@
 					"--format",
 					"json"
 				]
+			},
+			{
+				"name": "Debug: crawl (all)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"crawl",
+					"--cache-dir",
+					"./tests/test-cache",
+					"--limit-tdocs",
+					"10"
+				]
+			},
+			{
+				"name": "Debug: query (S4-251364)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"query",
+					"S4-251364",
+					"--cache-dir",
+					"./tests/test-cache"
+				]
 			}
 		]
 	}
