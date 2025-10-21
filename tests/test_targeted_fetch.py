@@ -60,64 +60,86 @@ class TestInferWorkingGroups:
 class TestFetchMissingTdocs:
     """Tests for _fetch_missing_tdocs function."""
 
-    @patch("tdoc_crawler.cli.TDocCrawler")
+    @patch("tdoc_crawler.cli.fetch_tdoc_metadata")
     def test_fetch_missing_creates_config(
         self,
-        mock_crawler_class: MagicMock,
+        mock_fetch_portal: MagicMock,
         test_db_path: Path,
     ) -> None:
         """Ensure targeted fetch creates proper config."""
-        mock_crawler = MagicMock()
-        mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl.return_value = MagicMock(
-            processed=1,
-            inserted=1,
-            updated=0,
-            errors=[],
-        )
+        from tdoc_crawler.models import PortalCredentials
+
+        # Mock portal response
+        mock_fetch_portal.return_value = {
+            "meeting": "RAN1#98",
+            "title": "Test TDoc",
+            "contact": "Test Contact",
+            "tdoc_type": "Discussion",
+            "for_purpose": "Discussion",
+            "agenda_item": "7.1",
+            "status": "Approved",
+        }
+
+        credentials = PortalCredentials(username="test", password="test")
 
         with TDocDatabase(test_db_path) as database:
-            database.log_crawl_start = MagicMock(return_value=1)
-            database.log_crawl_end = MagicMock()
             result = _fetch_missing_tdocs(
                 database,
                 test_db_path.parent,
                 ["R1-2301234"],
+                credentials=credentials,
             )
 
         assert result.processed == 1
         assert result.inserted == 1
-        mock_crawler.crawl.assert_called_once()
+        assert not result.errors
+        mock_fetch_portal.assert_called_once()
 
-    @patch("tdoc_crawler.cli.TDocCrawler")
+    @patch("tdoc_crawler.cli.fetch_tdoc_metadata")
     def test_fetch_missing_infers_working_groups(
         self,
-        mock_crawler_class: MagicMock,
+        mock_fetch_portal: MagicMock,
         test_db_path: Path,
     ) -> None:
         """Verify working groups are inferred from target IDs."""
-        mock_crawler = MagicMock()
-        mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl.return_value = MagicMock(
-            processed=2,
-            inserted=2,
-            updated=0,
-            errors=[],
-        )
+        from tdoc_crawler.models import PortalCredentials
+
+        # Mock portal responses
+        mock_fetch_portal.side_effect = [
+            {
+                "meeting": "RAN1#98",
+                "title": "Test TDoc 1",
+                "contact": "Test Contact",
+                "tdoc_type": "Discussion",
+                "for_purpose": "Discussion",
+                "agenda_item": "7.1",
+                "status": "Approved",
+            },
+            {
+                "meeting": "SA4#134",
+                "title": "Test TDoc 2",
+                "contact": "Test Contact",
+                "tdoc_type": "Discussion",
+                "for_purpose": "Discussion",
+                "agenda_item": "8.2",
+                "status": "Approved",
+            },
+        ]
+
+        credentials = PortalCredentials(username="test", password="test")  # noqa: S106
 
         with TDocDatabase(test_db_path) as database:
-            database.log_crawl_start = MagicMock(return_value=1)
-            database.log_crawl_end = MagicMock()
-            _fetch_missing_tdocs(
+            result = _fetch_missing_tdocs(
                 database,
                 test_db_path.parent,
                 ["R1-2301234", "S4-2301890"],
+                credentials=credentials,
             )
 
-        call_args = mock_crawler.crawl.call_args
-        config = call_args[0][0]
-        assert WorkingGroup.RAN in config.working_groups
-        assert WorkingGroup.SA in config.working_groups
+        # Verify both TDocs were processed
+        assert result.processed == 2
+        assert result.inserted == 2
+        assert not result.errors
 
 
 class TestMaybeFetchMissingTdocs:

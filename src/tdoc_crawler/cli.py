@@ -69,7 +69,7 @@ def _parse_working_groups(values: list[str] | None) -> list[WorkingGroup]:
 
 
 def _parse_subgroups(values: list[str] | None) -> list[str] | None:
-    """Parse and normalize subgroup names, expanding aliases to canonical names."""
+    """Parse and normalize subgroup aliases to canonical names."""
     from tdoc_crawler.crawlers import normalize_subgroup_alias
 
     if not values:
@@ -82,6 +82,8 @@ def _parse_subgroups(values: list[str] | None) -> list[str] | None:
             console.print(f"[red]Unknown subgroup: {item}")
             raise typer.Exit(code=2)
         resolved.extend(normalized)
+
+    return resolved
 
     # Remove duplicates while preserving order
     seen = set()
@@ -259,6 +261,11 @@ def _normalize_portal_meeting_name(portal_meeting: str) -> str:
 def _resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
     """Resolve meeting name to meeting_id from database.
 
+    Uses fuzzy matching to handle variations in meeting names:
+    - Exact match (case-insensitive)
+    - Normalized name match
+    - Prefix/suffix matching for variations like "SA4-e" vs "3GPPSA4-e"
+
     Args:
         database: Database connection
         meeting_name: Meeting identifier (e.g., "SA4#133-e" or "S4-133-e")
@@ -266,7 +273,7 @@ def _resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None
     Returns:
         Meeting ID if found, None otherwise
     """
-    # Try original name first
+    # Try exact match first (case-insensitive)
     cursor = database.connection.execute(
         "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
         (meeting_name,),
@@ -285,6 +292,55 @@ def _resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None
         row = cursor.fetchone()
         if row:
             return row[0]
+
+    # Try fuzzy matching with meeting names in database
+    # Use SQL LIKE for better performance
+    candidate_lower = meeting_name.lower()
+    normalized_lower = normalized.lower()
+
+    # Try fuzzy patterns with candidate
+    for pattern in [
+        f"{candidate_lower}%",  # candidate is prefix of cached
+        f"%{candidate_lower}",  # candidate is suffix of cached
+    ]:
+        cursor = database.connection.execute(
+            "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
+            (pattern,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+
+    # Try fuzzy patterns with normalized candidate
+    if normalized_lower != candidate_lower:
+        for pattern in [
+            f"{normalized_lower}%",  # normalized is prefix of cached
+            f"%{normalized_lower}",  # normalized is suffix of cached
+        ]:
+            cursor = database.connection.execute(
+                "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
+                (pattern,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+
+    # Try reverse patterns: cached is prefix/suffix of candidate
+    cursor = database.connection.execute("SELECT meeting_id, short_name FROM meetings")
+    for meeting_id, cached_name in cursor.fetchall():
+        cached_lower = cached_name.lower()
+        # Check if cached_name is prefix of candidate
+        if candidate_lower.startswith(cached_lower):
+            return meeting_id
+        # Check if cached_name is suffix of candidate
+        if candidate_lower.endswith(cached_lower):
+            return meeting_id
+        # Also check with normalized candidate
+        if normalized_lower != candidate_lower:
+            if normalized_lower.startswith(cached_lower):
+                return meeting_id
+            if normalized_lower.endswith(cached_lower):
+                return meeting_id
 
     return None
 
@@ -425,21 +481,23 @@ def _maybe_fetch_missing_tdocs(
 def crawl(
     cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
     working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Working groups to crawl"),
+    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s", help="Filter by sub-working group"),
     incremental: bool = typer.Option(True, "--incremental/--full", help="Toggle incremental mode"),
     limit_tdocs: int | None = typer.Option(None, "--limit-tdocs", help="Limit number of TDocs"),
     limit_meetings: int | None = typer.Option(None, "--limit-meetings", help="Limit meetings considered"),
     limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg", help="Limit meetings per working group"),
     limit_wgs: int | None = typer.Option(None, "--limit-wgs", help="Limit number of working groups"),
-    max_retries: int = typer.Option(3, "--max-retries", help="FTP retry attempts"),
-    timeout: int = typer.Option(30, "--timeout", help="FTP timeout seconds"),
+    max_retries: int = typer.Option(3, "--max-retries", help="HTTP connection retry attempts"),
+    timeout: int = typer.Option(30, "--timeout", help="HTTP request timeout seconds"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     working_groups = _parse_working_groups(working_group)
+    subgroups = _parse_subgroups(subgroup)
     limits = _build_limits(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
     config = TDocCrawlConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
-        subgroups=None,
+        subgroups=subgroups,
         meeting_ids=None,
         start_date=None,
         end_date=None,
@@ -455,7 +513,14 @@ def crawl(
     )
 
     database_path = _database_path(config.cache_dir)
-    console.print(f"[cyan]Crawling TDocs for {', '.join(wg.value for wg in working_groups)}[/cyan]")
+
+    # Build descriptive message
+    scope_parts = []
+    if subgroups:
+        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
+    else:
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+    console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
     if config.verbose:
         logging.getLogger().setLevel(logging.DEBUG)

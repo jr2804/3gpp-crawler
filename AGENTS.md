@@ -87,9 +87,11 @@ TDocs are stored on the 3GPP web server and are publicly accessible to everyone.
 Note that ...
 
 - `<tdoc_nbr>` is the filename stem of the TDoc file, e.g., `R1-2301234`.
-- the first letter of the TDoc number indicates the working group, e.g., `R` for RAN, `S` for SA, and `T` for CT.
-- Any other files on the FTP server that do not follow this naming convention are not TDocs and should be ignored.
-- `<sub-working_group_identifier>` and `<meeting_identifier>` are just path names and do not have a fixed format or naming convention, they also do not correspond to the official SWG and meeting identifiers (i.e., they are arbitrary path names on the FTP server and thus do not need to be stored in the database).
+- The first letter of the TDoc number indicates the working group, e.g., `R` for RAN, `S` for SA, and `C` for CT. The second letter indicates the sub-working group or plenary, e.g., `1` for RAN1, `4` for SA4, and `P` for plenary. All other characters in the TDoc number can vary, but at least additional 4 arbitrary characters are required.
+- More than 99% of TDocs are in `.zip` format, with only a few rare cases of `.pdf` or `.txt` files.
+- Otherwise, there is no specific format for or limit of the number of digits, letters, dashes, etc.
+- Any other files on the server that do not follow this naming convention are not TDocs and should be ignored.
+- `<sub-working_group_identifier>` and `<meeting_identifier>` are just path names and do not have a fixed format or naming convention, they also do not correspond to the official SWG and meeting identifiers (i.e., they are arbitrary path names on the server and thus do not need to be stored in the database).
 - Each WG has multiple SWGs (sub-groups, simply numbered from 1 to n) as well as a so-called "plenary" group, which is not a SWG but just called "plenary". The plenary group usually has the identifier `TSG_<WG>`, e.g., `TSG_RAN` for RAN plenary TDocs.
 
 There are three main working groups in 3GPP that handle TDocs:
@@ -1007,7 +1009,7 @@ The project maintains three levels of documentation:
 **When adding/modifying features:**
 
 1. **Implement** the feature in code
-2. **Create** history file documenting the change in `docs/history/YYYY-MM-DD_SUMMARY_<topic>.md`
+2. **Create** history file documenting the change in `docs/history/YYYY-MM-DD_SUMMARY_<NN>_<topic>.md`. `<NN>` is a sequential number for multiple changes on the same day.
 3. **Update** `docs/QUICK_REFERENCE.md` immediately with the new/changed command documentation
 4. **Verify** README.md still links to QUICK_REFERENCE.md
 5. **Test** that all examples in documentation work correctly

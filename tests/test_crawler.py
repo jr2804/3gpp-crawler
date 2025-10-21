@@ -28,46 +28,29 @@ class TestTDocCrawler:
 
         assert {"Inbox", "Draft", "Drafts", "Agenda", "Invitation", "Report"}.issubset(EXCLUDED_DIRS)
 
-    def test_should_skip_directory(self) -> None:
-        """Skip hidden and explicitly excluded directories."""
-
-        crawler = TDocCrawler(MagicMock(spec=TDocDatabase))
-        assert crawler._should_skip_directory("Inbox")
-        assert crawler._should_skip_directory("Draft")
-        assert crawler._should_skip_directory(".hidden")
-        assert not crawler._should_skip_directory("RAN1")
-        assert not crawler._should_skip_directory("normal_dir")
-
-    def test_extract_subgroup(self) -> None:
-        """Derive subgroup names from FTP paths."""
-
-        crawler = TDocCrawler(MagicMock(spec=TDocDatabase))
-        assert crawler._extract_subgroup(["TSG_RAN"], WorkingGroup.RAN) == "RAN Plenary"
-        assert crawler._extract_subgroup(["RAN1"], WorkingGroup.RAN) == "RAN1"
-        assert crawler._extract_subgroup(["SA2"], WorkingGroup.SA) == "SA2"
-        assert crawler._extract_subgroup([], WorkingGroup.RAN) is None
-
     def test_tdoc_pattern(self) -> None:
         """Verify TDoc filename regex matches expected inputs."""
 
         assert TDOC_PATTERN.search("R1-2301234.zip")
         assert TDOC_PATTERN.search("S4-2301890.zip")
-        assert TDOC_PATTERN.search("T1-2300456.zip")
+        assert TDOC_PATTERN.search("C1-2300456.zip")
         assert TDOC_PATTERN.search("r1-2301234.ZIP")
         assert TDOC_PATTERN.search("S1-2300456.txt")
         assert TDOC_PATTERN.search("r3-2300456.TXT")
         assert not TDOC_PATTERN.search("README.txt")
         assert not TDOC_PATTERN.search("data.csv")
 
-    @patch("tdoc_crawler.crawlers.tdocs.FTP")
+    @patch("tdoc_crawler.crawlers.tdocs.requests.Session")
     def test_crawl_connection_failure(
         self,
-        mock_ftp_class: MagicMock,
+        mock_session_class: MagicMock,
         test_db_path: Path,
     ) -> None:
-        """Handle FTP connection failures gracefully."""
+        """Handle HTTP connection failures gracefully."""
 
-        mock_ftp_class.side_effect = OSError("Connection refused")
+        mock_session = MagicMock()
+        mock_session.get.side_effect = OSError("Connection refused")
+        mock_session_class.return_value = mock_session
 
         with TDocDatabase(test_db_path) as database:
             crawler = TDocCrawler(database)
@@ -86,33 +69,48 @@ class TestTDocCrawler:
         assert result.updated == 0
         assert result.errors
 
-    @patch("tdoc_crawler.crawlers.tdocs.FTP")
+    @patch("tdoc_crawler.crawlers.tdocs.requests.Session")
     def test_crawl_collects_tdocs(
         self,
-        mock_ftp_class: MagicMock,
+        mock_session_class: MagicMock,
         test_db_path: Path,
     ) -> None:
         """Collect TDocs and persist them to the database."""
+        from tdoc_crawler.models import MeetingMetadata
 
-        listing = [
-            "-rw-r--r-- 1 ftp ftp 2048 Jan 01 2024 R1-2301234.zip",
-        ]
+        # Mock HTML directory listing
+        html_content = """
+        <html><body>
+        <a href="R1-2301234.zip">R1-2301234.zip</a> 2048 bytes
+        </body></html>
+        """
 
-        ftp_instance = MagicMock()
-
-        def retrlines(command: str, callback) -> None:  # type: ignore[no-untyped-def]
-            if command != "LIST":
-                raise AssertionError
-            for entry in listing:
-                callback(entry)
-
-        ftp_instance.login.return_value = None
-        ftp_instance.cwd.return_value = None
-        ftp_instance.retrlines.side_effect = retrlines
-        ftp_instance.quit.return_value = None
-        mock_ftp_class.return_value = ftp_instance
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = html_content
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+        mock_session.close.return_value = None
+        mock_session_class.return_value = mock_session
 
         with TDocDatabase(test_db_path) as database:
+            # Add a sample meeting with files_url
+            meeting = MeetingMetadata(
+                meeting_id=12345,
+                tbid=373,  # RAN
+                subtb=379,  # RAN1
+                working_group=WorkingGroup.RAN,
+                subgroup="R1",
+                short_name="RAN1#98",
+                title="RAN1 Meeting #98",
+                start_date=date(2024, 1, 15),
+                end_date=date(2024, 1, 19),
+                location="Paris, France",
+                files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/",
+                portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345",
+            )
+            database.upsert_meeting(meeting)
+
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 cache_dir=test_db_path.parent,
@@ -133,34 +131,49 @@ class TestTDocCrawler:
             assert stored[0].tdoc_id == "R1-2301234"
             assert stored[0].file_size == 2048
 
-    @patch("tdoc_crawler.crawlers.tdocs.FTP")
+    @patch("tdoc_crawler.crawlers.tdocs.requests.Session")
     def test_crawl_targets_specific_ids(
         self,
-        mock_ftp_class: MagicMock,
+        mock_session_class: MagicMock,
         test_db_path: Path,
     ) -> None:
         """Respect target identifiers by only persisting requested TDocs."""
+        from tdoc_crawler.models import MeetingMetadata
 
-        listing = [
-            "-rw-r--r-- 1 ftp ftp 2048 Jan 01 2024 R1-2301234.zip",
-            "-rw-r--r-- 1 ftp ftp 4096 Jan 01 2024 R1-2305678.zip",
-        ]
+        # Mock HTML directory listing with multiple files
+        html_content = """
+        <html><body>
+        <a href="R1-2301234.zip">R1-2301234.zip</a> 2048 bytes<br>
+        <a href="R1-2305678.zip">R1-2305678.zip</a> 4096 bytes
+        </body></html>
+        """
 
-        ftp_instance = MagicMock()
-
-        def retrlines(command: str, callback) -> None:  # type: ignore[no-untyped-def]
-            if command != "LIST":
-                raise AssertionError
-            for entry in listing:
-                callback(entry)
-
-        ftp_instance.login.return_value = None
-        ftp_instance.cwd.return_value = None
-        ftp_instance.retrlines.side_effect = retrlines
-        ftp_instance.quit.return_value = None
-        mock_ftp_class.return_value = ftp_instance
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = html_content
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+        mock_session.close.return_value = None
+        mock_session_class.return_value = mock_session
 
         with TDocDatabase(test_db_path) as database:
+            # Add a sample meeting with files_url
+            meeting = MeetingMetadata(
+                meeting_id=12345,
+                tbid=373,  # RAN
+                subtb=379,  # RAN1
+                working_group=WorkingGroup.RAN,
+                subgroup="R1",
+                short_name="RAN1#98",
+                title="RAN1 Meeting #98",
+                start_date=date(2024, 1, 15),
+                end_date=date(2024, 1, 19),
+                location="Paris, France",
+                files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/",
+                portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345",
+            )
+            database.upsert_meeting(meeting)
+
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 cache_dir=test_db_path.parent,

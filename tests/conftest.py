@@ -49,7 +49,7 @@ def sample_tdocs() -> list[TDocMetadata]:
     return [
         TDocMetadata(
             tdoc_id="R1-2301234",
-            url="ftp://ftp.3gpp.org/tsg_ran/RAN1/r1-2301234.zip",
+            url="https://www.3gpp.org/ftp/tsg_ran/RAN1/r1-2301234.zip",
             working_group=WorkingGroup.RAN,
             subgroup="RAN1",
             meeting="RAN1#98",
@@ -72,7 +72,7 @@ def sample_tdocs() -> list[TDocMetadata]:
         ),
         TDocMetadata(
             tdoc_id="R2-2301567",
-            url="ftp://ftp.3gpp.org/tsg_ran/RAN2/r2-2301567.zip",
+            url="https://www.3gpp.org/ftp/tsg_ran/RAN2/r2-2301567.zip",
             working_group=WorkingGroup.RAN,
             subgroup="RAN2",
             meeting="RAN2#98",
@@ -95,7 +95,7 @@ def sample_tdocs() -> list[TDocMetadata]:
         ),
         TDocMetadata(
             tdoc_id="S4-2301890",
-            url="ftp://ftp.3gpp.org/tsg_sa/SA4/s4-2301890.zip",
+            url="https://www.3gpp.org/ftp/tsg_sa/SA4/s4-2301890.zip",
             working_group=WorkingGroup.SA,
             subgroup="SA4",
             meeting="SA4#134",

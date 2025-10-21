@@ -122,7 +122,7 @@ class TestTDocDatabase:
             db.upsert_tdoc(sample_tdocs[0])
             updated_tdoc = TDocMetadata(
                 tdoc_id="R1-2301234",
-                url="ftp://ftp.3gpp.org/updated/r1-2301234.zip",
+                url="https://www.3gpp.org/updated/r1-2301234.zip",
                 working_group=WorkingGroup.RAN,
                 subgroup="RAN1",
                 meeting="RAN1#99",

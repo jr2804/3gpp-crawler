@@ -14,7 +14,7 @@ class TestTDocMetadata:
         """Test creating TDocMetadata instance."""
         metadata = TDocMetadata(
             tdoc_id="R1-2301234",
-            url="ftp://ftp.3gpp.org/test.zip",
+            url="https://www.3gpp.org/test.zip",
             working_group=WorkingGroup.RAN,
         )
         assert metadata.tdoc_id == "R1-2301234"
@@ -24,7 +24,7 @@ class TestTDocMetadata:
         """Test TDoc ID case normalization to uppercase."""
         metadata = TDocMetadata(
             tdoc_id="r1-2301234",
-            url="ftp://ftp.3gpp.org/test.zip",
+            url="https://www.3gpp.org/test.zip",
             working_group=WorkingGroup.RAN,
         )
         assert metadata.tdoc_id == "R1-2301234"
@@ -33,7 +33,7 @@ class TestTDocMetadata:
         """Test optional fields in TDocMetadata."""
         metadata = TDocMetadata(
             tdoc_id="S4-2301890",
-            url="ftp://ftp.3gpp.org/test.zip",
+            url="https://www.3gpp.org/test.zip",
             working_group=WorkingGroup.SA,
             subgroup="SA4",
             meeting="SA4#134",

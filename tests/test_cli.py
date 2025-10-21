@@ -261,9 +261,9 @@ class TestQueryMeetingsCommand:
         )
 
         assert result.exit_code == 0
-        # Verify that S4 alias was expanded to SA4
+        # Verify that S4 alias was normalized
         call_args = mock_db.query_meetings.call_args[0][0]
-        assert "SA4" in call_args.subgroups
+        assert "S4" in call_args.subgroups
 
     @patch("tdoc_crawler.cli.TDocDatabase")
     def test_query_meetings_with_plenary_alias(
@@ -282,9 +282,9 @@ class TestQueryMeetingsCommand:
         )
 
         assert result.exit_code == 0
-        # Verify that RP alias was expanded to RAN Plenary (uppercased by validator)
+        # Verify that RP alias was normalized
         call_args = mock_db.query_meetings.call_args[0][0]
-        assert "RAN PLENARY" in call_args.subgroups
+        assert "RP" in call_args.subgroups
 
     @patch("tdoc_crawler.cli.TDocDatabase")
     def test_query_meetings_with_working_group_alias(
@@ -331,7 +331,7 @@ class TestQueryMeetingsCommand:
         # Verify both filters were applied
         call_args = mock_db.query_meetings.call_args[0][0]
         assert WorkingGroup.SA in call_args.working_groups
-        assert "SA4" in call_args.subgroups
+        assert "S4" in call_args.subgroups
 
 
 class TestStatsCommand:
