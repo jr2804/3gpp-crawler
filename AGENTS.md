@@ -64,9 +64,10 @@ TDocs (Temporary Documents) are meeting documents produced by members participat
 
 ### Where to find and how to locate TDocs?
 
-TDocs are stored on the 3GPP FTP server and are publicly accessible to everyone. They are available at the following base URL: `https://www.3gpp.org/ftp/tsg_<working_group_identifier>/<sub-working_group_identifier>/<meeting_identifier>/Docs/<tdoc_nbr>.zip`.
+TDocs are stored on the 3GPP web server and are publicly accessible to everyone. They are available at the following base URL: `https://www.3gpp.org/ftp/tsg_<working_group_identifier>/<sub-working_group_identifier>/<meeting_identifier>/Docs/<tdoc_nbr>.zip` (sometimes, in very rare cases, the file extension `.pdf` may be used). The server has a FTP-like structure, but is completely accessible via HTTP(S). There is no need to use FTP protocol to access the files. Thus, the term "FTP server" is used for historical reasons only and is used synonymously for the HTTP-based file server.
 
 Note that ...
+
 - `<tdoc_nbr>` is the filename stem of the TDoc file, e.g., `R1-2301234`.
 - the first letter of the TDoc number indicates the working group, e.g., `R` for RAN, `S` for SA, and `T` for CT.
 - Any other files on the FTP server that do not follow this naming convention are not TDocs and should be ignored.
@@ -132,7 +133,7 @@ Meeting information, including dates and locations, can be found on the 3GPP por
 | R5 | RAN5        | 373  | 657   |
 | R6 | RAN6        | 373  | 843   |
 
-Note: The table columns `tbid` and `SubTB` are only for reference and do not need to be used in the implementation.
+Note: The table columns `tbid` and `SubTB` are 3GPP-internal identifiers and should be used in the implementation as primary key values in the corresponding tables.
 
 Example 1: The meeting information for SA4 can be found at `https://www.3gpp.org/dynareport?code=Meetings-S4.htm`.
 Example 2: The meeting information for CT1 can be found at `https://www.3gpp.org/dynareport?code=Meetings-C1.htm`.
@@ -193,28 +194,51 @@ The CLI should provide these main functionalities:
   - Log progress and any issues encountered during the crawling process.
   - Ensure that the database schema is well-defined and optimized for querying meeting metadata later.
 
-### Crawling 3GPP FTP Server
+### Crawling TDocs from Meetings
 
-- Implement a command `crawl` that initiates the crawling process.
+- Implement a command `crawl` that initiates the TDoc crawling process.
+- **Prerequisites:** The meetings database must be populated first via `crawl-meetings`. If no meetings are available, the command should display an error/warning instructing the user to run `crawl-meetings` first.
 - The crawling process should:
-  - Connect to the 3GPP FTP server.
-  - Retrieve all links to TDocs recursively starting from the root directory.
-  - Use the filename stem as a unique identifier for each TDoc, which must follow the naming convention specified in the previous section ("Background on 3GPP TDocs").
-  - Store the retrieved links and their identifiers in a local SQLite database.
-  - Handle network errors and retries gracefully.
-  - Log progress and any issues encountered during the crawling process.
-  - Ensure that the database schema is well-defined and optimized for querying TDoc metadata later.
-- The CLI should provide options to specify the cache directory and database file location.
-- Ensure that the crawling process can be run periodically to update the database with new TDocs.
-- Ensure that the crawling process can be run incrementally, i.e., it should not re-fetch TDocs that are already present in the database and/or only fetch new TDocs (given a specific time range or other criteria).
-- Implement logging to track the crawling process, including the number of TDocs retrieved and any errors encountered.
-- Ignore any files that might follow the TDoc naming convention, but are located outside the official TDoc directories on the FTP server (e.g., files in a `Docs` directory that is not part of a meeting directory), in particular:
-  - `.../Inbox/...`
-  - `.../Draft/...`
-  - `.../Drafts/...`
-  - `.../Agenda/...`
-  - `.../Invitation/...`
-  - `.../Report/...`
+  - Query meetings from the local database based on filters (working groups, subgroups, meeting IDs, date ranges).
+  - For each meeting with a `files_url`:
+    - List all files in the FTP/HTTP directory specified by `files_url`.
+    - Extract candidate TDoc files (matching naming pattern, typically `.zip` extension).
+    - For each candidate file, extract the TDoc ID from the filename stem.
+    - Validate the TDoc by querying the 3GPP portal at `https://portal.3gpp.org/ngppapp/CreateTdoc.Aspx?mode=view&contributionUid=<tdoc_id>`.
+    - If validation succeeds, parse metadata from the portal page and store in database.
+    - If validation fails, cache the negative result to avoid re-checking.
+  - Handle network errors gracefully: log warnings but continue processing remaining meetings/TDocs.
+  - Support parallel processing (default: 4 workers) for improved performance.
+  - Support incremental mode: skip already processed meetings and TDocs unless override flag is set.
+  - Support re-validation mode: re-check existing TDocs when override flag is set.
+- The CLI should provide options to:
+  - Filter by working group(s) via `--working-group` / `-w`
+  - Filter by subgroup(s) via `--sub-group` / `-s`
+  - Filter by specific meeting ID(s) via `--meeting-ids`
+  - Filter by date range via `--start-date` and `--end-date`
+  - Set number of parallel workers via `--workers` (default: 4)
+  - Enable full re-validation via `--force-revalidate`
+  - Specify cache directory and database file location
+- Implement logging to track the crawling process, including:
+  - Number of meetings processed
+  - Number of TDocs discovered
+  - Number of TDocs validated successfully
+  - Number of invalid TDocs (cached)
+  - Any errors encountered
+
+**Portal Metadata Fields:**
+
+When validating a TDoc via the portal page, parse the following fields:
+- **Meeting** (required): The meeting identifier
+- **Is revision of** (optional): Reference to previous TDoc version
+- **Title** (required): Document title
+- **Contact** (required): Contact person/organization
+- **TDoc type** (required): Document type classification
+- **For** (required): Purpose (agreement, discussion, information, etc.)
+- **Agenda item** (required): Associated agenda item
+- **Status** (required): Document status
+
+All other fields are optional and may be added as needed.
 
 ### Querying TDoc Metadata
 
@@ -373,3 +397,18 @@ Any documentation generated during development/coding in the project root shall 
 - Move to `docs/history/` if it's a changelog/review
 - Merge into `docs/QUICK_REFERENCE.md` if it's command documentation
 - Integrate into `README.md` if it's general project information
+
+### Reviews of AGENTS.md
+
+After several implementation steps, the present file (`AGENTS.md`) might need an update. When explicitly asked, use/update the file  `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md` for that purpose. The review/update will be triggered with a prompt similar to this one:
+
+```markdown
+Please review the current code basis and think thorougly about possible changes/updates/modifications/refactoring/restructuring of the coding instruction file AGENTS.md, which would help coding assistants to (re-)generate the code basis as close as possible.
+Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, including specific proposed changes with explanations. Do not update AGENTS.md directly, only document your review findings in the specified file.
+```
+
+The actual update of AGENTS.md will be done only after explicit user confirmation and after a prompt similar to this one:
+
+```markdown
+Based on the review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated AGENTS.md reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible.
+```
