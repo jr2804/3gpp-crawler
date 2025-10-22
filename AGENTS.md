@@ -17,10 +17,9 @@ Before implementing features, review these critical sections:
 
 **Key Files to Examine First:**
 
-- `src/tdoc_crawler/cli/app.py` - All 6 CLI commands
-- `src/tdoc_crawler/database/schema.py` - Schema definition and version tracking
-- `src/tdoc_crawler/models/__init__.py` - All data models
-- `src/tdoc_crawler/crawlers/` - Crawler implementations (tdocs.py, meetings.py, portal.py)
+- `src/tdoc_crawler/cli/app.py` - All CLI commands
+- `src/tdoc_crawler/models/*.py` - All data models
+- `src/tdoc_crawler/crawlers/*.py` - Crawler implementations (tdocs.py, meetings.py, portal.py)
 - `tests/conftest.py` - Shared test fixtures
 
 ## General Coding Guidelines
@@ -188,12 +187,14 @@ TDOC_PATTERN = re.compile(r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)", re.IGNORECASE)
 - `re.IGNORECASE` - Case-insensitive matching
 
 **Examples that Match**:
+
 - Standard format: `R1-2301234.zip`, `S4-251209.txt`, `C1-2312345.pdf`
 - Plenary format: `RP-230045.txt`, `SP-240001.zip`, `CP-123456.zip`
 - Ad-hoc format: `S4aA220001.zip`, `R1eE230045.txt`
 - Case variations: `r1-2301234.ZIP`, `S4-251209.TXT`
 
 **Examples that Don't Match**:
+
 - Wrong working group: `T1-2300456.zip` (T is invalid, use C for CT)
 - Wrong subgroup: `R7-123456.zip` (subgroup must be 1-6 or P)
 - Too short: `R1-12.zip` (only 2 chars after R1, need 4-10)
@@ -216,17 +217,19 @@ src/tdoc_crawler/
 │   ├── subworking_groups.py  # SubworkingGroup model
 │   ├── crawl_limits.py  # CrawlLimits configuration
 │   ├── tdocs.py         # TDocMetadata, TDocRecord, TDocCrawlConfig, QueryConfig
+│   ├── ...
 │   └── meetings.py      # MeetingMetadata, MeetingRecord, MeetingCrawlConfig
 ├── crawlers/            # Web scraping and HTTP crawling logic
 │   ├── __init__.py      # Re-exports all public symbols (includes TDOC_PATTERN, EXCLUDED_DIRS, TDOC_SUBDIRS)
 │   ├── tdocs.py         # TDocCrawler - HTTP directory traversal, TDoc discovery, subdirectory detection
 │   ├── meetings.py      # MeetingCrawler - HTML parsing, date extraction
+│   ├── ...
 │   └── portal.py        # PortalSession - 3GPP portal authentication, TDoc metadata fetching
 ├── database/            # Database schema and operations (modular)
 │   ├── __init__.py      # Re-exports TDocDatabase and connection utilities
-│   ├── schema.py        # Database schema (DDL, SCHEMA_VERSION, initialization)
 │   ├── connection.py    # TDocDatabase context manager and facade
 │   ├── tdocs.py         # TDoc-specific queries and operations
+│   ├── ...
 │   └── statistics.py    # Statistics and crawl log queries
 ├── cli/                 # CLI commands and helpers (modular)
 │   ├── app.py           # Typer application and command registration
@@ -236,8 +239,6 @@ src/tdoc_crawler/
 ├── __init__.py          # Package initialization
 └── __main__.py          # Entry point for `python -m tdoc_crawler`
 ```
-
-**Note**: Legacy monolithic `cli.py` and `database.py` files may still exist but are deprecated. New contributions MUST use the modular structure above.
 
 ### Module Design Principles
 
@@ -317,7 +318,7 @@ When splitting modules:
 - Model files: 80-150 lines
 - Crawler files: 150-350 lines
 - CLI file: 600-900 lines (acceptable due to command definitions and helper functions)
-- Database file: 900-1100 lines (acceptable due to schema + queries)
+- Database file: 250 lines (`pydantic_sqlite` auto-generates much of the code)
 
 ## Task
 
@@ -328,7 +329,7 @@ Implement a command-line interface (CLI) for querying structured 3GPP TDoc and M
 The CLI should provide these main functionalities:
 
 - Sync Meetings:
-  - Start crawling the 3GPP portal to retrieve all meeting metadata for all working groups, store the metadata in a local SQLite database (and used later to query 3GPP resources about metadata).
+  - Start crawling the 3GPP portal to retrieve all meeting metadata for all working groups, store the metadata in a local SQLite database using `pydantic` models only! The meeting information are required later to query TDocs.
   - limit number of meetings to crawl via parameter `--limit-meetings <n>` (default: all meetings). Negative numbers indicate to crawl the most recent `n` meetings.
   - limit number of meetings to crawl per working group via parameter `--limit-meetings-per-wg <n>` (default: all meetings).
   - limit number of working groups to crawl via parameter `--limit-wgs <n>` (default: all working groups).
@@ -337,13 +338,14 @@ The CLI should provide these main functionalities:
 - Querying meeting metadata and displaying the results in a structured user-friendly format like e.g., JSON, YAML, or tabular format for command line output.
 
 - Sync TDocs:
-  - Start crawling the 3GPP FTP server to retrieve all links to TDocs, use the filename stem as unique identifier, which is stored in a local SQLite database (and used later to query 3GPP resources about metadata).
+  - Start crawling the 3GPP FTP server to retrieve all links to TDocs, use the filename stem as unique identifier, which is stored in a local SQLite database using `pydantic` models only!
   - limit number of TDocs to crawl via parameter `--limit-tdocs <n>` (default: all TDocs). Negative numbers indicate to crawl the most recent `n` TDocs.
   - limit number of meetings to crawl per working group via parameter `--limit-meetings-per-wg <n>` (default: all meetings).
   - limit number of working groups to crawl via parameter `--limit-wgs <n>` (default: all working groups).
+  - limit number of subworking groups to crawl via parameter `--limit-subwgs <n>` (default: all subworking groups).
   - support for incremental updates: only crawl for new TDocs since the last sync.
   - Provide logging to track the crawling process, including the number of TDocs retrieved and any errors encountered.
-- Querying TDoc metadata and displaying the results in a structured user-friendly format like e.g., JSON, YAML, or tabular format for command line output.
+- Querying TDoc and displaying the metadata results in a structured user-friendly format like e.g., JSON, YAML, or tabular format for command line output.
 
 - Open TDoc: Download, unzip, and open a specific TDoc in the system's default application for the file type.
   - Download: Use provided cache directory to store downloaded and unzipped TDocs (default: next to database file).
@@ -362,7 +364,7 @@ The CLI should provide these main functionalities:
 - The crawling process should:
   - Connect to the 3GPP portal, iterate over all pages of each working group (see section "Meetings").
   - Retrieve all meeting metadata (parse HTML tables per page) for all working groups.
-  - Store the retrieved metadata in a local SQLite database.
+  - Store the retrieved metadata in a local SQLite database by using `pydantic` models only!
   - Handle network errors and retries gracefully.
   - Log progress and any issues encountered during the crawling process.
   - Ensure that the database schema is well-defined and optimized for querying meeting metadata later.
@@ -422,27 +424,29 @@ The crawler uses fuzzy matching to resolve meeting names:
 1. **Exact match** (case-insensitive)
 2. **Normalized match** (SA4#133-e → S4-133-e)
 3. **Prefix/suffix matching** (handles "3GPPSA4..." vs "SA4...")
-4. **SQL optimization** (uses LIKE queries before full table scans)
+4. **Levenshtein distance** (tolerance for minor typos)
 
 See "Implementation Patterns > Fuzzy Meeting Name Matching" for detailed implementation.
 
 **Portal Metadata Fields:**
 
 When validating a TDoc via the portal page, parse the following fields:
-- **Meeting** (required): The meeting identifier
-- **Is revision of** (optional): Reference to previous TDoc version
-- **Title** (required): Document title
-- **Contact** (required): Contact person/organization
-- **TDoc type** (required): Document type classification
-- **For** (required): Purpose (agreement, discussion, information, etc.)
-- **Agenda item** (required): Associated agenda item
-- **Status** (required): Document status
+
+- **title** (required): Document title
+- **meeting** (required): The meeting identifier
+- **is_revision_of** (optional): Reference to previous TDoc version
+- **contact** (required): Contact person
+- **source** (required): Responsible organization
+- **tdoc_type** (required): Document type classification
+- **for** (required): Purpose (agreement, discussion, information, etc.)
+- **agenda_item** (required): Associated agenda item, split into *agenda_item_nbr* and *agenda_item_title*
+- **status** (required): Document status
 
 All other fields are optional and may be added as needed.
 
 ### Querying TDoc Metadata
 
-- Implement a default command that allows users to query TDoc metadata from the local SQLite database.
+- Implement a command `query-tdocs` that allows users to query TDoc metadata from the local SQLite database.
 - If TDoc number(s) and/or its metadata are not yet present in the database, the CLI should automatically trigger the crawling process to fetch and store the required data before performing the query. See also section "Crawling 3GPP FTP Server" how to implement this.
 - The CLI should provide options to specify query parameters and output format.
 - The CLI should provide options to specify the cache directory and database file location.
@@ -465,8 +469,8 @@ The CLI provides 6 commands implemented using Typer. Here are the exact signatur
 Query TDoc metadata from the database. If TDoc is not found, automatically triggers targeted fetch.
 
 ```python
-@app.command()
-def query(
+@app.command(name="query-tdocs)
+def query_tdocs(
     tdoc_ids: Annotated[list[str], typer.Argument(...)],
     working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
     output_format: Annotated[OutputFormat, typer.Option("--format", "-f")] = OutputFormat.TABLE,
@@ -482,14 +486,15 @@ def query(
 - Supports filtering by working group(s)
 - Output formats: `table`, `json`, `yaml`, `csv`
 - Auto-fetch: If TDoc not in DB, triggers targeted fetch
+- Command alias: `qt`
 
 ### 2. `crawl-tdocs`
 
 Crawl TDocs from FTP directories based on meeting metadata.
 
 ```python
-@app.command()
-def crawl(
+@app.command(name="crawl-tdocs")
+def crawl_tdocs(
     working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
     sub_group: Annotated[list[str] | None, typer.Option("--sub-group", "-s")] = None,
     meeting_ids: Annotated[list[int] | None, typer.Option("--meeting-ids")] = None,
@@ -497,7 +502,6 @@ def crawl(
     end_date: Annotated[str | None, typer.Option(...)] = None,
     limit_meetings: Annotated[int | None, typer.Option(...)] = None,
     limit_tdocs: Annotated[int | None, typer.Option(...)] = None,
-    workers: Annotated[int, typer.Option(...)] = 4,
     force_revalidate: Annotated[bool, typer.Option("--force-revalidate")] = False,
     cache_dir: Annotated[Path | None, typer.Option(...)] = None,
     db_file: Annotated[Path | None, typer.Option(...)] = None,
@@ -509,9 +513,9 @@ def crawl(
 **Key Features**:
 - Filters: working group, subgroup, meeting IDs, date range
 - Limits: meetings and TDocs per crawl
-- Parallel processing: `--workers` (default: 4)
 - Force revalidation: Re-check existing TDocs
 - Requires meetings DB to be populated first
+- Command alias: `ct`
 
 ### 3. `crawl-meetings`
 
@@ -536,6 +540,7 @@ def crawl_meetings(
 - Limit total meetings or per working group
 - Incremental updates: Skip existing unless `--force-update`
 - Prerequisite for `crawl-tdocs` command
+- Command alias: `cm`
 
 ### 4. `query-meetings`
 
@@ -561,6 +566,7 @@ def query_meetings(
 - Filters: working group, subgroup, meeting IDs, date range
 - Sorting: By any field, ascending/descending
 - Output formats: `table`, `json`, `yaml`, `csv`
+- Command alias: `qm`
 
 ### 5. `open`
 
@@ -582,6 +588,7 @@ def open_tdoc(
 - Unzips to cache directory (deletes .zip after)
 - Opens in system default application
 - Case-insensitive TDoc ID
+- if `cache_dir` is not specified, uses directory next to `db_file`
 
 ### 6. `stats`
 
@@ -611,7 +618,6 @@ def stats(
 | `eol_username` | None | `EOL_USERNAME` |
 | `eol_password` | None | `EOL_PASSWORD` |
 | `output_format` | `table` | - |
-| `workers` | 4 | - |
 
 **Helper Functions**:
 - `resolve_cache_dir()`: Resolves cache directory from CLI/env/default
@@ -671,7 +677,6 @@ def _infer_working_groups_from_ids(tdoc_ids: list[str]) -> list[WorkingGroup]:
         "R": WorkingGroup.RAN,
         "S": WorkingGroup.SA,
         "C": WorkingGroup.CT,
-        "T": WorkingGroup.CT,  # Support T as alias for CT (legacy)
     }
     groups: list[WorkingGroup] = []
     for tdoc_id in tdoc_ids:
@@ -805,7 +810,7 @@ TDOC_SUBDIRS_NORMALIZED = {entry.upper() for entry in TDOC_SUBDIRS}
 def _crawl_meeting(
     self,
     session: requests.Session,
-    meeting,  # MeetingMetadata
+    meeting: MeetingRecord,
     config: TDocCrawlConfig,
     collected: list[TDocMetadata],
     seen_ids: set[str],
@@ -870,7 +875,7 @@ def _crawl_meeting(
 
 **Problem**: Meeting names from the portal (e.g., "SA4#133-e") don't always match database format (e.g., "S4-133-e" or "3GPPSA4-e (AH) Audio SWG post 130").
 
-**Solution**: Multi-stage fuzzy matching with SQL optimization:
+**Solution**: Multi-stage fuzzy matching:
 
 ```python
 # In cli.py
@@ -908,7 +913,7 @@ def _resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None
     Strategy (in order):
     1. Exact match (case-insensitive)
     2. Normalized name match
-    3. SQL LIKE patterns for prefix/suffix matching
+    3. Levenshtein distance for minor typos
     4. Full table scan for reverse prefix/suffix matching
 
     Args:
@@ -918,67 +923,7 @@ def _resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None
     Returns:
         Meeting ID if found, None otherwise
     """
-    # 1. Try exact match (case-insensitive)
-    cursor = database.connection.execute(
-        "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
-        (meeting_name,),
-    )
-    row = cursor.fetchone()
-    if row:
-        return row[0]
-
-    # 2. Try normalized name
-    normalized = _normalize_portal_meeting_name(meeting_name)
-    if normalized != meeting_name:
-        cursor = database.connection.execute(
-            "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
-            (normalized,),
-        )
-        row = cursor.fetchone()
-        if row:
-            return row[0]
-
-    # 3. SQL LIKE patterns (use database indexes)
-    candidate_lower = meeting_name.lower()
-    normalized_lower = normalized.lower()
-
-    for pattern in [
-        f"{candidate_lower}%",  # candidate is prefix of cached
-        f"%{candidate_lower}",  # candidate is suffix of cached
-    ]:
-        cursor = database.connection.execute(
-            "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
-            (pattern,),
-        )
-        row = cursor.fetchone()
-        if row:
-            return row[0]
-
-    # Try with normalized candidate
-    if normalized_lower != candidate_lower:
-        for pattern in [
-            f"{normalized_lower}%",
-            f"%{normalized_lower}",
-        ]:
-            cursor = database.connection.execute(
-                "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
-                (pattern,),
-            )
-            row = cursor.fetchone()
-            if row:
-                return row[0]
-
-    # 4. Reverse patterns: cached is prefix/suffix of candidate (full scan)
-    cursor = database.connection.execute("SELECT meeting_id, short_name FROM meetings")
-    for meeting_id, cached_name in cursor.fetchall():
-        cached_lower = cached_name.lower()
-        if candidate_lower.startswith(cached_lower) or candidate_lower.endswith(cached_lower):
-            return meeting_id
-        if normalized_lower != candidate_lower:
-            if normalized_lower.startswith(cached_lower) or normalized_lower.endswith(cached_lower):
-                return meeting_id
-
-    return None
+    ...  # Implementation as described above
 ```
 
 **Important**: Do NOT use substring matching (e.g., `%candidate%`) as it matches fragments and causes false positives. Only use prefix/suffix matching.
@@ -1080,7 +1025,7 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
 - Use `logging` module for logging instead of `print()`.
 - Use `typer` for command-line argument parsing, sub-commands, application configuration and in general the CLI.
 - Use `rich` for rich text and beautiful formatting in the terminal.
-- Use `pydantic` for data validation and settings management (see also section `Database Guidelines`).
+- Use `pydantic` and `pydantic-sqlite` for representing SQL database rows, data validation and settings management (see also section `Database Guidelines`).
 - Use `pytest` for testing (see also next section).
 - Use `ruff` for code formatting.
 - Use `isort` for sorting imports.
@@ -1109,37 +1054,18 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
 ### General Database Principles
 
 - Use SQLite as the database for storing TDoc and meeting metadata.
+- Use `pydantic` models to define the database schema and represent database entities and ensure data integrity.
+- Use `pydantic-sqlite` for database interactions and ORM-like functionality.
 - Design the database schema to efficiently store and query TDoc and meeting metadata.
 - Use appropriate indexing to optimize query performance.
 - Ensure that the database schema is well-documented and easy to understand.
 - Implement database migration scripts to handle schema changes over time.
-- Use `pydantic` dataclasses to define the database schema and ensure data integrity.
-- Use `pydantic` models to represent database entities and ensure data integrity.
 
 ### Complete Database Schema
 
-The database consists of five tables with proper foreign key relationships:
+The database consists of five tables with proper foreign key relationships (no SQL initialization needed - handled by `pydantic-sqlite`):
 
 #### 1. Reference Tables: `working_groups` and `subworking_groups`
-
-```sql
-CREATE TABLE IF NOT EXISTS working_groups (
-    tbid INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    ftp_identifier TEXT NOT NULL UNIQUE,
-    meetings_code TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS subworking_groups (
-    sub_tb INTEGER PRIMARY KEY,
-    tbid INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    FOREIGN KEY (tbid) REFERENCES working_groups(tbid)
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_subworking_groups_tbid_name
-    ON subworking_groups(tbid, name);
-```
 
 **Purpose**: Store the static hierarchy of 3GPP working groups and their subgroups.
 
@@ -1147,69 +1073,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_subworking_groups_tbid_name
 
 #### 2. Meetings Table: `meetings`
 
-```sql
-CREATE TABLE IF NOT EXISTS meetings (
-    meeting_id INTEGER PRIMARY KEY,
-    sub_tb INTEGER NOT NULL,
-    meeting_name TEXT NOT NULL,
-    start_date TEXT,
-    end_date TEXT,
-    location TEXT,
-    files_url TEXT,
-    last_crawled TEXT,
-    FOREIGN KEY (sub_tb) REFERENCES subworking_groups(sub_tb)
-);
-
-CREATE INDEX IF NOT EXISTS idx_meetings_sub_tb ON meetings(sub_tb);
-CREATE INDEX IF NOT EXISTS idx_meetings_dates ON meetings(start_date, end_date);
-CREATE INDEX IF NOT EXISTS idx_meetings_last_crawled ON meetings(last_crawled);
-```
-
 **Key Fields**:
 - `meeting_id`: 3GPP's unique meeting identifier (integer)
 - `sub_tb`: Foreign key to subworking_groups
 - `files_url`: HTTP URL to FTP directory containing TDocs
 - `last_crawled`: ISO timestamp when meeting was last processed for TDocs
 
-#### 3. TDocs Table: `tdocs` (Schema v2)
-
-```sql
-CREATE TABLE IF NOT EXISTS tdocs (
-    tdoc_id TEXT PRIMARY KEY COLLATE NOCASE,
-    meeting_id INTEGER NOT NULL,
-    url TEXT NOT NULL,
-    file_size INTEGER,
-    title TEXT,
-    contact TEXT,
-    tdoc_type TEXT,
-    for_purpose TEXT,
-    agenda_item TEXT,
-    status TEXT,
-    is_revision_of TEXT COLLATE NOCASE,
-    document_type TEXT,
-    checksum TEXT,
-    source_path TEXT,
-    date_created TEXT,
-    date_retrieved TEXT NOT NULL,
-    date_updated TEXT NOT NULL,
-    validated BOOLEAN NOT NULL DEFAULT 0,
-    validation_failed BOOLEAN NOT NULL DEFAULT 0,
-    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
-    FOREIGN KEY (is_revision_of) REFERENCES tdocs(tdoc_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_tdocs_meeting_id ON tdocs(meeting_id);
-CREATE INDEX IF NOT EXISTS idx_tdocs_validated ON tdocs(validated);
-CREATE INDEX IF NOT EXISTS idx_tdocs_validation_failed ON tdocs(validation_failed);
-CREATE INDEX IF NOT EXISTS idx_tdocs_is_revision_of ON tdocs(is_revision_of);
-```
-
-**Schema v2 Changes** (Normalized):
-
-- **Removed columns** (v1): `working_group`, `subgroup`, `meeting` – these are derived via JOIN on `meetings` table
-- **Added columns**: `url`, `file_size`, `document_type`, `checksum`, `source_path`, `date_created`, `date_updated`, `validation_failed`
-- **Renamed**: `for_value` → `for_purpose`, `last_validated` removed (use `date_updated`)
-- **New field**: `validation_failed` flag for negative caching (distinct from `validated=False`)
+#### 3. TDocs Table: `tdocs`
 
 **Key Fields**:
 
@@ -1220,16 +1090,9 @@ CREATE INDEX IF NOT EXISTS idx_tdocs_is_revision_of ON tdocs(is_revision_of);
 - `validation_failed`: Negative cache (True = tried and failed, do not retry)
 - `is_revision_of`: Reference to previous TDoc version (self-referencing FK)
 
-**Critical Design Decisions**:
-
-- `COLLATE NOCASE` ensures case-insensitive uniqueness and lookups
-- Removed denormalized columns reduce update complexity and ensure consistency
-- `validation_failed` distinguishes "never attempted" from "attempted and failed"
-- Self-referencing foreign key for revision tracking
-
 **Derivation Pattern** (Working Group via JOIN):
 
-To retrieve working group/subgroup for a TDoc, use JOIN:
+To retrieve working group/subgroup for a TDoc, use JOIN similar to this pseudo-code:
 
 ```sql
 SELECT t.tdoc_id, wg.name AS working_group, sw.name AS subgroup
@@ -1241,34 +1104,8 @@ JOIN subworking_groups sw ON m.subtb = sw.subtb;
 
 **Do NOT reintroduce removed columns** (`working_group`, `subgroup`, `meeting`) - all queries must derive these via JOIN to ensure consistency and avoid update anomalies.
 
-#### 3.1 Schema v2 Normalization Rationale
-
-Schema v2 removes denormalized columns to achieve:
-
-- **Reduced Redundancy**: Single source of truth for meeting metadata via foreign key relationship
-- **Consistent Derivation**: Working group/subgroup always computed from `meetings.tbid`/`subtb`
-- **Simplified Updates**: Changes to meeting info propagate automatically (no duplicate updates)
-- **Enforced Integrity**: Foreign key constraint ensures only valid meetings can be referenced
-
-Field naming has been standardized: use `for_purpose` (not `for_value`), `date_updated` (not `last_validated`), and `validation_failed` (distinct from `validated=False`).
 
 #### 4. Crawl Log Table: `crawl_log`
-
-```sql
-CREATE TABLE IF NOT EXISTS crawl_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL,
-    meeting_id INTEGER NOT NULL,
-    tdocs_discovered INTEGER NOT NULL DEFAULT 0,
-    tdocs_validated INTEGER NOT NULL DEFAULT 0,
-    tdocs_failed INTEGER NOT NULL DEFAULT 0,
-    duration_seconds REAL,
-    FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_crawl_log_meeting_id ON crawl_log(meeting_id);
-CREATE INDEX IF NOT EXISTS idx_crawl_log_timestamp ON crawl_log(timestamp);
-```
 
 **Purpose**: Track crawling operations for statistics and diagnostics.
 
@@ -1277,7 +1114,6 @@ CREATE INDEX IF NOT EXISTS idx_crawl_log_timestamp ON crawl_log(timestamp);
 Each table has corresponding Pydantic models:
 
 - **Record Models** (e.g., `TDocRecord`, `MeetingRecord`): Represent database rows with all fields, used for database I/O
-- **Metadata Models** (e.g., `TDocMetadata`, `MeetingMetadata`): Represent domain entities, used for API responses and business logic
 
 **Example Pattern**:
 
@@ -1289,19 +1125,15 @@ class TDocRecord(BaseModel):
     title: str | None = None
     # ... all database columns
 
-class TDocMetadata(BaseModel):
-    """Domain entity with computed/joined fields"""
-    tdoc_id: str
-    meeting_name: str  # Joined from meetings table
-    working_group: WorkingGroup  # Computed from sub_tb
-    # ... business logic fields
+
 ```
 
 ### Database Helper Methods
 
-The `TDocDatabase` class provides typed wrappers for all database operations:
+The `TDocDatabase` class is derived from `pydantic_sqlite.DataBase` and provides typed wrappers for all database operations:
 
 **Key Methods**:
+
 - `initialize_reference_tables()`: Populate working_groups and subworking_groups
 - `insert_meeting()` / `get_meeting()`: Meeting CRUD operations
 - `insert_tdoc()` / `get_tdoc()`: TDoc CRUD operations with case-insensitive lookup
@@ -1311,10 +1143,8 @@ The `TDocDatabase` class provides typed wrappers for all database operations:
 
 **Critical Patterns**:
 
-- Always use parameterized queries (never string interpolation)
 - Return Pydantic models, not raw tuples
-- Handle case-insensitive TDoc IDs via `COLLATE NOCASE` and `.upper()` normalization
-- Statistics aggregations MUST derive working group counts via JOIN (NOT from removed `working_group` column)
+- Handle case-insensitive TDoc IDs via `.upper()` normalization
 
 ## Testing
 
@@ -1391,7 +1221,7 @@ def sample_tdocs() -> list[TDocMetadata]:
 
 ### Foreign Key Preparation
 
-**CRITICAL**: With schema v2, `tdocs.meeting_id` enforces foreign key constraint. Always insert meetings before inserting TDocs.
+**CRITICAL**: `tdocs.meeting_id` enforces foreign key constraint. Always insert meetings before inserting TDocs.
 
 Fixture pattern (e.g., `conftest.py`):
 
@@ -1580,13 +1410,11 @@ The project maintains three levels of documentation:
 
 **Example workflow for adding a new command:**
 
-```
 1. Implement: src/tdoc_crawler/cli.py - add new command
 2. Test: tests/test_cli.py - add tests
 3. Document in history: docs/history/2025-01-15_SUMMARY_01_NEW_VALIDATE_COMMAND.md
 4. Update main reference (if needed): docs/QUICK_REFERENCE.md - add command documentation
 5. Verify: README.md contains link to QUICK_REFERENCE.md
-```
 
 #### History File Naming Convention
 
@@ -1619,8 +1447,6 @@ Any documentation generated during development/coding in the project root shall 
 - use clear and concise language
 - use consistent terminology and naming conventions
 - use gitmoji in `docs/QUICK_REFERENCE.md` and `README.md` for better visual identification of changes
-
----
 
 ## Reviews of AGENTS.md
 
