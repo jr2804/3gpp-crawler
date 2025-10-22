@@ -1006,7 +1006,8 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
 - Use `uv sync --all-extras -U` for a full update of all dependencies, including optional extras.
 - Use `uv add <package> --dev` for adding new development dependencies to your project. Do not use `project.optional-dependencies.test` in `pyproject.toml`.
 - Use `uv remove <package> --dev` for removing development dependencies from your project.
-- Use `uv run <script>` for running Python scripts within the isolated environment.
+- Use `uv run <script>` for running Python scripts within the isolated environment. Never use `<some_path>/python <script.py> <arguments>` directly!
+- Use `uv run python -c"<code>"` for running Python scripts within the isolated environment. Never use `<some_path>/python -c"<code>"` directly!
 - Use `uv run pytest` for running tests to ensure that the correct dependencies and configurations are used.
 - Use `uv build` for packaging and distributing Python applications to ensure that all dependencies are included and the application can be easily installed in different environments.
 - Use `build-backend = "uv_build"` in `[build-system]` section of `pyproject.toml`.
