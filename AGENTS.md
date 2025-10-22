@@ -1565,7 +1565,15 @@ The project maintains three levels of documentation:
 **When adding/modifying features:**
 
 1. **Implement** the feature in code
-2. **Create** history file documenting the change in `docs/history/YYYY-MM-DD_SUMMARY_<NN>_<topic>.md`. `<NN>` is a sequential number for multiple changes on the same day.
+2. **Create** history file documenting the change in `docs/history/<YYYY>-<MM>-<DD>_SUMMARY_<NN>_<topic>.md`, where:
+    a. `<YYYY>` is the 4-digit year
+    b. `<MM>` is the 2-digit month
+    c. `<DD>` is the 2-digit day
+    d. `<NN>` is a number that is incremented for each change on the same day.
+    e. `<topic>` is a brief description of the change.
+    Note 1: `<YYYY>-<MM>-<DD>_SUMMARY_<NN>` must always be unique!
+    Note 2: Never create history files differently named than described here!
+    Note 3: Generate only one history file in a single coding step, even if multiple features/changes were implemented.
 3. **Update** `docs/QUICK_REFERENCE.md` immediately with the new/changed command documentation
 4. **Verify** `README.md` still links to `docs/QUICK_REFERENCE.md`
 5. **Test** that all examples in documentation work correctly
@@ -1576,7 +1584,7 @@ The project maintains three levels of documentation:
 1. Implement: src/tdoc_crawler/cli.py - add new command
 2. Test: tests/test_cli.py - add tests
 3. Document in history: docs/history/2025-01-15_SUMMARY_01_NEW_VALIDATE_COMMAND.md
-4. Update main reference: docs/QUICK_REFERENCE.md - add command documentation
+4. Update main reference (if needed): docs/QUICK_REFERENCE.md - add command documentation
 5. Verify: README.md contains link to QUICK_REFERENCE.md
 ```
 
