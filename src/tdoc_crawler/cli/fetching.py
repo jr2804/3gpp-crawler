@@ -9,7 +9,7 @@ from rich.console import Console
 
 from tdoc_crawler.crawlers import TDocCrawlResult, fetch_tdoc_metadata
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata
 
 from .helpers import resolve_meeting_id
 
@@ -60,22 +60,10 @@ def fetch_missing_tdocs(
                 if not meeting_id:
                     _logger.warning(f"Could not resolve meeting '{meeting_name}' to meeting_id for {tdoc_id}")
 
-            # Infer working group from TDoc ID
-            tdoc_prefix = tdoc_id[0].upper()
-            working_group_map = {"R": WorkingGroup.RAN, "S": WorkingGroup.SA, "C": WorkingGroup.CT, "T": WorkingGroup.CT}
-            working_group = working_group_map.get(tdoc_prefix, WorkingGroup.RAN)
-
-            # Build TDoc URL (using meeting info if available)
-            # For now, use a placeholder URL since we're fetching from portal
-            url = f"https://www.3gpp.org/ftp/tsg_{working_group.value.lower()}/.../{tdoc_id}.zip"
-
-            # Create TDocMetadata object (all fields without defaults must be provided)
+            # Create TDocMetadata object
             metadata = TDocMetadata(
                 tdoc_id=tdoc_id.upper(),
-                url=url,
-                working_group=working_group,
-                subgroup=None,
-                meeting=meeting_name,
+                url=f"https://www.3gpp.org/ftp/tsg_ran/.../{tdoc_id}.zip",
                 meeting_id=meeting_id,
                 file_size=None,
                 title=portal_data.get("title"),

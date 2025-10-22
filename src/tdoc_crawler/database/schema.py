@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def configure_connection(conn: sqlite3.Connection) -> None:
@@ -90,10 +90,7 @@ def initialize_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS tdocs (
             tdoc_id TEXT PRIMARY KEY COLLATE NOCASE,
             url TEXT NOT NULL,
-            working_group TEXT NOT NULL,
-            subgroup TEXT NOT NULL,
-            meeting TEXT,
-            meeting_id INTEGER,
+            meeting_id INTEGER NOT NULL,
             file_size INTEGER,
             title TEXT,
             contact TEXT,
@@ -115,7 +112,6 @@ def initialize_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_wg ON tdocs(working_group)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_meeting_id ON tdocs(meeting_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_date_retrieved ON tdocs(date_retrieved)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tdocs_validated ON tdocs(validated)")

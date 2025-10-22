@@ -28,10 +28,7 @@ class TDocMetadata(BaseModel):
 
     tdoc_id: str = Field(..., description="Unique TDoc identifier (case-normalized)")
     url: str = Field(..., description="Full URL to TDoc file")
-    working_group: WorkingGroup = Field(..., description="Working group")
-    subgroup: str | None = Field(None, description="Subgroup identifier")
-    meeting: str | None = Field(None, description="Meeting identifier")
-    meeting_id: int | None = Field(None, description="Numeric meeting identifier")
+    meeting_id: int | None = Field(None, description="Numeric meeting identifier (foreign key to meetings)")
     file_size: int | None = Field(None, description="File size in bytes")
 
     # Portal metadata fields
@@ -76,9 +73,6 @@ class TDocRecord:
 
     tdoc_id: str
     url: str
-    working_group: WorkingGroup
-    subgroup: str | None = None
-    meeting: str | None = None
     meeting_id: int | None = None
     file_size: int | None = None
     title: str | None = None
@@ -104,9 +98,6 @@ class TDocRecord:
         return cls(
             tdoc_id=metadata.tdoc_id,
             url=metadata.url,
-            working_group=metadata.working_group,
-            subgroup=metadata.subgroup,
-            meeting=metadata.meeting,
             meeting_id=metadata.meeting_id,
             file_size=metadata.file_size,
             title=metadata.title,

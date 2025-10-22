@@ -15,16 +15,21 @@ def tdoc_to_dict(result: TDocMetadata) -> dict[str, object]:
     return {
         "tdoc_id": result.tdoc_id,
         "url": result.url,
-        "working_group": result.working_group.value,
-        "subgroup": result.subgroup,
-        "meeting": result.meeting,
         "meeting_id": result.meeting_id,
         "file_size": result.file_size,
+        "title": result.title,
+        "contact": result.contact,
+        "tdoc_type": result.tdoc_type,
+        "for_purpose": result.for_purpose,
+        "agenda_item": result.agenda_item,
+        "status": result.status,
+        "is_revision_of": result.is_revision_of,
         "document_type": result.document_type,
         "checksum": result.checksum,
         "source_path": result.source_path,
         "date_created": result.date_created.isoformat() if result.date_created else None,
         "date_retrieved": result.date_retrieved.isoformat(),
+        "validated": result.validated,
     }
 
 
@@ -48,18 +53,18 @@ def print_tdoc_table(results: list[TDocMetadata]) -> None:
     """Print TDoc results as formatted table."""
     table = Table(title=f"TDoc results ({len(results)} rows)")
     table.add_column("TDoc", style="cyan")
-    table.add_column("WG", style="magenta")
-    table.add_column("Subgroup", style="yellow")
-    table.add_column("Meeting", style="green")
+    table.add_column("Meeting ID", style="magenta")
+    table.add_column("Title", style="yellow")
+    table.add_column("Type", style="green")
     table.add_column("Size (KB)", justify="right", style="blue")
 
     for result in results[:100]:
         size_kb = f"{result.file_size // 1024}" if result.file_size else "?"
         table.add_row(
             result.tdoc_id,
-            result.working_group.value,
-            result.subgroup or "-",
-            result.meeting or "-",
+            str(result.meeting_id or "-"),
+            result.title or "-",
+            result.tdoc_type or "-",
             size_kb,
         )
 

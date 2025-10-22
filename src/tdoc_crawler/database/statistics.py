@@ -54,9 +54,11 @@ def get_statistics(conn: sqlite3.Connection) -> DatabaseStatistics:
         # Breakdown by working group
         cursor.execute(
             """
-            SELECT working_group, COUNT(*) as count
-            FROM tdocs
-            GROUP BY working_group
+            SELECT wg.name, COUNT(*) as count
+            FROM tdocs t
+            LEFT JOIN meetings m ON t.meeting_id = m.meeting_id
+            LEFT JOIN working_groups wg ON m.tbid = wg.tbid
+            GROUP BY wg.name
             ORDER BY count DESC
             """
         )

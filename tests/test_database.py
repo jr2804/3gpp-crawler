@@ -28,10 +28,12 @@ class TestTDocDatabase:
 
         assert test_db_path.exists()
 
-    def test_upsert_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_upsert_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Insert a TDoc record and validate persistence."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             created, changed = db.upsert_tdoc(sample_tdocs[0])
             assert created is True
             assert changed is False
@@ -40,10 +42,12 @@ class TestTDocDatabase:
             assert len(results) == 1
             assert results[0].tdoc_id == "R1-2301234"
 
-    def test_case_insensitive_query(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_case_insensitive_query(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Ensure TDoc IDs are matched case-insensitively."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             db.upsert_tdoc(sample_tdocs[0])
 
             results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, tdoc_ids=["r1-2301234"]))
@@ -53,35 +57,39 @@ class TestTDocDatabase:
             results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, tdoc_ids=["R1-2301234"]))
             assert len(results) == 1
 
-    def test_query_by_working_group(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_query_by_working_group(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Filter by working group."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
             ran_results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, working_groups=[WorkingGroup.RAN]))
             assert len(ran_results) == 2
-            assert all(result.working_group is WorkingGroup.RAN for result in ran_results)
 
             sa_results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, working_groups=[WorkingGroup.SA]))
             assert len(sa_results) == 1
-            assert sa_results[0].working_group is WorkingGroup.SA
 
-    def test_query_with_limit(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_query_with_limit(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Respect limit parameter when querying TDocs."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
             results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, limit=2))
             assert len(results) == 2
 
-    def test_query_with_date_range(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_query_with_date_range(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Apply start and end date filters."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
@@ -94,10 +102,12 @@ class TestTDocDatabase:
             results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, start_date=start))
             assert not results
 
-    def test_get_statistics(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_get_statistics(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Compute summary statistics for stored TDocs."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
@@ -115,20 +125,19 @@ class TestTDocDatabase:
 
             db.log_crawl_end(crawl_id, items_added=2, items_updated=1, errors_count=0)
 
-    def test_update_existing_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_update_existing_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Update metadata for existing TDocs."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             db.upsert_tdoc(sample_tdocs[0])
             updated_tdoc = TDocMetadata(
                 tdoc_id="R1-2301234",
                 url="https://www.3gpp.org/updated/r1-2301234.zip",
-                working_group=WorkingGroup.RAN,
-                subgroup="RAN1",
-                meeting="RAN1#99",
-                meeting_id=None,
+                meeting_id=12345,
                 file_size=512000,
-                title=None,
+                title="Updated Title",
                 contact=None,
                 tdoc_type=None,
                 for_purpose=None,
@@ -149,13 +158,15 @@ class TestTDocDatabase:
 
             results = db.query_tdocs(self._query_all(test_db_path.parent))
             assert len(results) == 1
-            assert results[0].meeting == "RAN1#99"
+            assert results[0].title == "Updated Title"
             assert results[0].file_size == 512000
 
-    def test_get_existing_tdoc_ids(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+    def test_get_existing_tdoc_ids(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Return existing TDoc identifiers for incremental crawls."""
+        from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 

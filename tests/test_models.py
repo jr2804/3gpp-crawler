@@ -15,17 +15,15 @@ class TestTDocMetadata:
         metadata = TDocMetadata(
             tdoc_id="R1-2301234",
             url="https://www.3gpp.org/test.zip",
-            working_group=WorkingGroup.RAN,
         )
         assert metadata.tdoc_id == "R1-2301234"
-        assert metadata.working_group == WorkingGroup.RAN
+        assert metadata.url == "https://www.3gpp.org/test.zip"
 
     def test_case_normalization(self) -> None:
         """Test TDoc ID case normalization to uppercase."""
         metadata = TDocMetadata(
             tdoc_id="r1-2301234",
             url="https://www.3gpp.org/test.zip",
-            working_group=WorkingGroup.RAN,
         )
         assert metadata.tdoc_id == "R1-2301234"
 
@@ -34,13 +32,10 @@ class TestTDocMetadata:
         metadata = TDocMetadata(
             tdoc_id="S4-2301890",
             url="https://www.3gpp.org/test.zip",
-            working_group=WorkingGroup.SA,
-            subgroup="SA4",
-            meeting="SA4#134",
+            meeting_id=12345,
             file_size=256000,
         )
-        assert metadata.subgroup == "SA4"
-        assert metadata.meeting == "SA4#134"
+        assert metadata.meeting_id == 12345
         assert metadata.file_size == 256000
 
 

@@ -49,18 +49,15 @@ def upsert_tdoc(conn: sqlite3.Connection, metadata: TDocMetadata) -> tuple[bool,
             cursor.execute(
                 """
                 INSERT INTO tdocs (
-                    tdoc_id, url, working_group, subgroup, meeting, meeting_id,
+                    tdoc_id, url, meeting_id,
                     file_size, title, contact, tdoc_type, for_purpose, agenda_item,
                     status, is_revision_of, document_type, checksum, source_path,
                     date_created, date_retrieved, date_updated, validated, validation_failed
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.tdoc_id,
                     record.url,
-                    record.working_group.value,
-                    record.subgroup,
-                    record.meeting,
                     record.meeting_id,
                     record.file_size,
                     record.title,
@@ -87,9 +84,6 @@ def upsert_tdoc(conn: sqlite3.Connection, metadata: TDocMetadata) -> tuple[bool,
         new_date_retrieved = record.date_retrieved.isoformat()
         changed = any((
             existing["url"] != record.url,
-            existing["working_group"] != record.working_group.value,
-            existing["subgroup"] != record.subgroup,
-            existing["meeting"] != record.meeting,
             existing["meeting_id"] != record.meeting_id,
             existing["file_size"] != record.file_size,
             existing["title"] != record.title,
@@ -113,9 +107,6 @@ def upsert_tdoc(conn: sqlite3.Connection, metadata: TDocMetadata) -> tuple[bool,
                 """
                 UPDATE tdocs
                    SET url = ?,
-                       working_group = ?,
-                       subgroup = ?,
-                       meeting = ?,
                        meeting_id = ?,
                        file_size = ?,
                        title = ?,
@@ -137,9 +128,6 @@ def upsert_tdoc(conn: sqlite3.Connection, metadata: TDocMetadata) -> tuple[bool,
                 """,
                 (
                     record.url,
-                    record.working_group.value,
-                    record.subgroup,
-                    record.meeting,
                     record.meeting_id,
                     record.file_size,
                     record.title,
@@ -205,13 +193,15 @@ def get_existing_tdoc_ids(conn: sqlite3.Connection, working_groups: Iterable[Wor
         Set of TDoc IDs (uppercase)
     """
     params: list[Any] = []
-    query = "SELECT tdoc_id FROM tdocs"
+    query = "SELECT t.tdoc_id FROM tdocs t"
 
     if working_groups:
-        working_groups_list = [wg.value for wg in working_groups]
-        placeholders = ["?"] * len(working_groups_list)
-        query += f" WHERE working_group IN ({','.join(placeholders)})"
-        params.extend(working_groups_list)
+        # Join with meetings to filter by working group
+        query += " LEFT JOIN meetings m ON t.meeting_id = m.meeting_id"
+        tbids = [wg.tbid for wg in working_groups]
+        placeholders = ["?"] * len(tbids)
+        query += f" WHERE m.tbid IN ({','.join(placeholders)})"
+        params.extend(tbids)
 
     cursor = conn.cursor()
     try:
@@ -232,6 +222,9 @@ def query_tdocs(conn: sqlite3.Connection, config: QueryConfig) -> list[TDocMetad
 
     Returns:
         List of matching TDoc metadata
+
+    Raises:
+        DatabaseError: If query fails
     """
     clauses: list[str] = []
     params: list[Any] = []
@@ -241,27 +234,29 @@ def query_tdocs(conn: sqlite3.Connection, config: QueryConfig) -> list[TDocMetad
         clauses.append(f"tdoc_id IN ({placeholders})")
         params.extend(config.tdoc_ids)
 
+    # Filter by working groups via join to meetings table
     if config.working_groups:
         placeholders = ",".join(["?"] * len(config.working_groups))
-        clauses.append(f"working_group IN ({placeholders})")
-        params.extend([wg.value for wg in config.working_groups])
+        clauses.append(f"m.tbid IN ({placeholders})")
+        params.extend([wg.tbid for wg in config.working_groups])
 
     if config.start_date is not None:
-        clauses.append("date_retrieved >= ?")
+        clauses.append("t.date_retrieved >= ?")
         params.append(config.start_date.isoformat())
 
     if config.end_date is not None:
-        clauses.append("date_retrieved <= ?")
+        clauses.append("t.date_retrieved <= ?")
         params.append(config.end_date.isoformat())
 
-    query_parts = ["SELECT * FROM tdocs"]
+    # Build query with LEFT JOIN to meetings table
+    query_parts = ["SELECT t.* FROM tdocs t LEFT JOIN meetings m ON t.meeting_id = m.meeting_id"]
     if clauses:
         query_parts.append("WHERE " + " AND ".join(clauses))
 
     if config.order == SortOrder.ASC:
-        query_parts.append("ORDER BY date_retrieved ASC, tdoc_id ASC")
+        query_parts.append("ORDER BY t.date_retrieved ASC, t.tdoc_id ASC")
     else:
-        query_parts.append("ORDER BY date_retrieved DESC, tdoc_id DESC")
+        query_parts.append("ORDER BY t.date_retrieved DESC, t.tdoc_id DESC")
 
     if config.limit is not None:
         query_parts.append("LIMIT ?")
@@ -273,6 +268,8 @@ def query_tdocs(conn: sqlite3.Connection, config: QueryConfig) -> list[TDocMetad
     try:
         cursor.execute(query, params)
         rows = cursor.fetchall()
+    except sqlite3.OperationalError as exc:
+        raise DatabaseError.parse_failure("tdocs-query", str(exc)) from exc
     finally:
         cursor.close()
 
@@ -409,9 +406,6 @@ def row_to_tdoc_metadata(row: sqlite3.Row) -> TDocMetadata:
         return TDocMetadata(
             tdoc_id=row["tdoc_id"],
             url=row["url"],
-            working_group=WorkingGroup(row["working_group"]),
-            subgroup=row["subgroup"],
-            meeting=row["meeting"],
             meeting_id=row["meeting_id"],
             file_size=row["file_size"],
             title=row["title"],

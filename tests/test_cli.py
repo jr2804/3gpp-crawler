@@ -341,9 +341,13 @@ class TestStatsCommand:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict],
     ) -> None:
         """Test stats command execution."""
+        from conftest import insert_sample_meetings
+
         with TDocDatabase(test_db_path) as db:
+            insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
