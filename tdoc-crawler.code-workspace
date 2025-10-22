@@ -15,15 +15,6 @@
 		"version": "0.2.0",
 		"configurations": [
 			{
-				"name": "Debug TDoc Crawler",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": []
-			},
-			{
 				"name": "Debug: crawl-meetings (max. 5)",
 				"type": "debugpy",
 				"request": "launch",
@@ -134,7 +125,7 @@
 				"console": "integratedTerminal",
 				"justMyCode": false,
 				"args": [
-					"crawl",
+					"crawl-tdocs",
 					"--cache-dir",
 					"./tests/test-cache",
 					"--limit-tdocs",
@@ -149,7 +140,7 @@
 				"console": "integratedTerminal",
 				"justMyCode": false,
 				"args": [
-					"query",
+					"query-tdocs",
 					"S4-251364",
 					"--cache-dir",
 					"./tests/test-cache"
