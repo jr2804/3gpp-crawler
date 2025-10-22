@@ -347,6 +347,7 @@ The CLI should provide these main functionalities:
 ### Scraping Meeting Metadata
 
 - Implement a command `crawl-meetings` that initiates the crawling process for meeting metadata.
+- Add a short-alias command `cm` for `crawl-meetings`.
 - The crawling process should:
   - Connect to the 3GPP portal, iterate over all pages of each working group (see section "Meetings").
   - Retrieve all meeting metadata (parse HTML tables per page) for all working groups.
@@ -357,7 +358,8 @@ The CLI should provide these main functionalities:
 
 ### Crawling TDocs from Meetings
 
-- Implement a command `crawl` that initiates the TDoc crawling process.
+- Implement a command `crawl-tdocs` that initiates the TDoc crawling process.
+- Add a short-alias command `ct` for `crawl-tdocs`.
 - **Prerequisites:** The meetings database must be populated first via `crawl-meetings`. If no meetings are available, the command should display an error/warning instructing the user to run `crawl-meetings` first.
 - The crawling process should:
   - Query meetings from the local database based on filters (working groups, subgroups, meeting IDs, date ranges).
@@ -447,7 +449,7 @@ All other fields are optional and may be added as needed.
 
 The CLI provides 6 commands implemented using Typer. Here are the exact signatures and key parameters:
 
-### 1. `query` (Default Command)
+### 1. `query-tdocs` (Default Command)
 
 Query TDoc metadata from the database. If TDoc is not found, automatically triggers targeted fetch.
 
@@ -470,7 +472,7 @@ def query(
 - Output formats: `table`, `json`, `yaml`, `csv`
 - Auto-fetch: If TDoc not in DB, triggers targeted fetch
 
-### 2. `crawl`
+### 2. `crawl-tdocs`
 
 Crawl TDocs from FTP directories based on meeting metadata.
 
@@ -522,7 +524,7 @@ def crawl_meetings(
 - Filter by working group(s)
 - Limit total meetings or per working group
 - Incremental updates: Skip existing unless `--force-update`
-- Prerequisite for `crawl` command
+- Prerequisite for `crawl-tdocs` command
 
 ### 4. `query-meetings`
 
@@ -1077,6 +1079,19 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
   - Use the engine from `python-calamine` for reading Excel files
   - Use the engine from `xlsxwriter` for writing Excel files.
   - For performance reasons, **never** use `openpyxl` to read or write Excel files!
+- Modules (single .py files) **must always** be less than 500 lines
+  - If a module exceeds this limit, consider refactoring it into a new submodule.
+- Functions (declaration + implementation) **must always** be less than 100 lines
+  - If a function exceeds this limit, consider refactoring it into smaller functions.
+- Classes (declaration + implementation) **must always** be less than 300 lines
+  - Avoid using static methods in classes - use module-level functions instead.
+  - If a class has too many methods, consider splitting it into multiple smaller classes with single responsibility.
+  - If a class has too many attributes, consider using composition instead of inheritance.
+  - If a class has too many responsibilities, consider using the Single Responsibility Principle (SRP) to refactor it into smaller classes or using mixins.
+  - If a class has too many dependencies, consider using dependency injection to reduce coupling.
+  - If a class has too many methods that operate on the same data, consider using the Data Transfer Object (DTO) pattern to encapsulate the data.
+  - If a class has too many methods that operate on different data, consider using the Strategy pattern to encapsulate the different behaviors.
+  - If a class gets too complex and/or the interaction between other objects becomes convoluted, consider using functional programming instead of object-oriented programming style.
 
 ## Database Guidelines
 
@@ -1467,7 +1482,7 @@ The project maintains three levels of documentation:
 1. **Implement** the feature in code
 2. **Create** history file documenting the change in `docs/history/YYYY-MM-DD_SUMMARY_<NN>_<topic>.md`. `<NN>` is a sequential number for multiple changes on the same day.
 3. **Update** `docs/QUICK_REFERENCE.md` immediately with the new/changed command documentation
-4. **Verify** README.md still links to QUICK_REFERENCE.md
+4. **Verify** `README.md` still links to `docs/QUICK_REFERENCE.md`
 5. **Test** that all examples in documentation work correctly
 
 **Example workflow for adding a new command:**
@@ -1504,6 +1519,13 @@ Any documentation generated during development/coding in the project root shall 
 - Integrate into `README.md` if it's general project information
 
 ---
+#### General Documentation Guidelines
+
+- use markdown formatting for headings, lists, code blocks, and links
+- use clear and concise language
+- use consistent terminology and naming conventions
+- use gitmoji in `docs/QUICK_REFERENCE.md` and `README.md` for better visual identification of changes
+
 
 ## Reviews of AGENTS.md
 
@@ -1511,11 +1533,11 @@ After several implementation steps, the present file (`AGENTS.md`) might need an
 
 ```markdown
 Please review the current code basis and think thorougly about possible changes/updates/modifications/refactoring/restructuring of the coding instruction file AGENTS.md, which would help coding assistants to (re-)generate the code basis as close as possible.
-Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, including specific proposed changes with explanations. Do not update AGENTS.md directly, only document your review findings in the specified file.
+Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, including specific proposed changes with explanations. Avoid copying too many specific source code samples/examples into `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`. Do not update AGENTS.md directly, only document your review findings in the specified file.
 ```
 
 The actual update of AGENTS.md will be done only after explicit user confirmation and after a prompt similar to this one:
 
 ```markdown
-Based on the review findings in the file #file:REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md (`docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`), please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated AGENTS.md reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible. You might move the current section regarding "Reviews of AGENTS.md" to a different place, but keep it unchanged.
+Based on the review findings in the file #file:REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md (`docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`), please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated AGENTS.md reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible. Avoid copying too many specific source code samples/examples into `AGENTS.MD`. You might move the current section regarding "Reviews of AGENTS.md" to a different place, but keep it unchanged.
 ```

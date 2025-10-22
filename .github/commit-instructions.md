@@ -26,6 +26,7 @@
 - docs: Documentation changes
 - style: Code formatting (no logic change)
 - refactor: Code restructuring (no behavior change)
+- enhance: Code enhancement (no or almost no behavior change)
 - perf: Performance improvement
 - test: Adding/fixing tests
 - chore: Maintenance tasks (deps, config, etc.)
@@ -60,6 +61,7 @@
 📦 build: Packaging changes
 ⏪ revert: Revert changes
 🧪 experimental: Experimental features
+🧑‍💻 instructions: Improve instruction files like e.g., AGENTS.md for coding agent
 
 ## Good Examples
 
