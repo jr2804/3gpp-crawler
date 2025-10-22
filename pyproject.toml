@@ -1,11 +1,11 @@
 [project]
 name = "tdoc-crawler"
-version = "0.0.1"
+version = "0.5.0"
 description = "Crawl 3GPP FTP server, cache all(!) TDocs data, return structured JSON/YAML for each TDoc - all via CLI."
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.13,<4.0"
+requires-python = ">=3.14,<4.0"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
@@ -55,7 +55,7 @@ tdoc-crawler = "tdoc_crawler.cli:app"
 
 [tool.ty.environment]
 python = "./.venv"
-python-version = "3.13"
+python-version = "3.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
