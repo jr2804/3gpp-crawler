@@ -17,8 +17,8 @@ runner = CliRunner()
 class TestCrawlCommand:
     """Tests for crawl command."""
 
-    @patch("tdoc_crawler.cli.TDocCrawler")
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocCrawler")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_crawl_basic(
         self,
         mock_db_class: MagicMock,
@@ -41,15 +41,15 @@ class TestCrawlCommand:
 
         result = runner.invoke(
             app,
-            ["crawl", "--cache-dir", str(test_cache_dir), "--limit-tdocs", "10"],
+            ["crawl-tdocs", "--cache-dir", str(test_cache_dir), "--limit-tdocs", "10"],
         )
 
         assert result.exit_code == 0
         assert "Processed 10 TDocs" in result.stdout
         mock_crawler.crawl.assert_called_once()
 
-    @patch("tdoc_crawler.cli.TDocCrawler")
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocCrawler")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_crawl_with_working_group_filter(
         self,
         mock_db_class: MagicMock,
@@ -72,7 +72,7 @@ class TestCrawlCommand:
 
         result = runner.invoke(
             app,
-            ["crawl", "--cache-dir", str(test_cache_dir), "--working-group", "RAN"],
+            ["crawl-tdocs", "--cache-dir", str(test_cache_dir), "--working-group", "RAN"],
         )
 
         assert result.exit_code == 0
@@ -82,8 +82,8 @@ class TestCrawlCommand:
 class TestCrawlMeetingsCommand:
     """Tests for crawl-meetings command."""
 
-    @patch("tdoc_crawler.cli.MeetingCrawler")
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.MeetingCrawler")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_crawl_meetings_basic(
         self,
         mock_db_class: MagicMock,
@@ -121,7 +121,7 @@ class TestCrawlMeetingsCommand:
 class TestQueryCommand:
     """Tests for query command."""
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_no_results(
         self,
         mock_db_class: MagicMock,
@@ -134,13 +134,13 @@ class TestQueryCommand:
 
         result = runner.invoke(
             app,
-            ["query", "--cache-dir", str(test_cache_dir)],
+            ["query-tdocs", "--cache-dir", str(test_cache_dir)],
         )
 
         assert result.exit_code == 0
         assert "No TDocs found" in result.stdout
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_with_results_table(
         self,
         mock_db_class: MagicMock,
@@ -154,13 +154,13 @@ class TestQueryCommand:
 
         result = runner.invoke(
             app,
-            ["query", "--cache-dir", str(test_cache_dir), "--output", "table"],
+            ["query-tdocs", "--cache-dir", str(test_cache_dir), "--output", "table"],
         )
 
         assert result.exit_code == 0
         assert "R1-2301234" in result.stdout
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_json_format(
         self,
         mock_db_class: MagicMock,
@@ -174,14 +174,14 @@ class TestQueryCommand:
 
         result = runner.invoke(
             app,
-            ["query", "--cache-dir", str(test_cache_dir), "--output", "json"],
+            ["query-tdocs", "--cache-dir", str(test_cache_dir), "--output", "json"],
         )
 
         assert result.exit_code == 0
         assert "R1-2301234" in result.stdout
         assert "tdoc_id" in result.stdout
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_specific_tdoc(
         self,
         mock_db_class: MagicMock,
@@ -195,7 +195,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             app,
-            ["query", "R1-2301234", "--cache-dir", str(test_cache_dir)],
+            ["query-tdocs", "R1-2301234", "--cache-dir", str(test_cache_dir)],
         )
 
         assert result.exit_code == 0
@@ -204,7 +204,7 @@ class TestQueryCommand:
 class TestQueryMeetingsCommand:
     """Tests for query-meetings command."""
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_meetings_no_results(
         self,
         mock_db_class: MagicMock,
@@ -223,7 +223,7 @@ class TestQueryMeetingsCommand:
         assert result.exit_code == 0
         assert "No meetings found" in result.stdout
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_meetings_with_subgroup_filter(
         self,
         mock_db_class: MagicMock,
@@ -244,7 +244,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert call_args.subgroups == ["SA4"]
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_meetings_with_subgroup_alias(
         self,
         mock_db_class: MagicMock,
@@ -265,7 +265,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "S4" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_meetings_with_plenary_alias(
         self,
         mock_db_class: MagicMock,
@@ -286,7 +286,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "RP" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_meetings_with_working_group_alias(
         self,
         mock_db_class: MagicMock,
@@ -309,7 +309,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert WorkingGroup.SA in call_args.working_groups
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_meetings_combined_filters(
         self,
         mock_db_class: MagicMock,
@@ -373,12 +373,14 @@ class TestStatsCommand:
 class TestOpenCommand:
     """Tests for open command."""
 
-    @patch("tdoc_crawler.cli._launch_file")
-    @patch("tdoc_crawler.cli._prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.launch_file")
+    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_existing_tdoc(
         self,
         mock_db_class: MagicMock,
+        mock_fetch: MagicMock,
         mock_prepare: MagicMock,
         mock_launch: MagicMock,
         test_cache_dir: Path,
@@ -388,6 +390,7 @@ class TestOpenCommand:
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_tdocs.return_value = sample_tdocs[:1]
+        mock_fetch.return_value = sample_tdocs[:1]
 
         mock_file = test_cache_dir / "test.pdf"
         mock_prepare.return_value = mock_file
@@ -401,7 +404,7 @@ class TestOpenCommand:
         mock_prepare.assert_called_once()
         mock_launch.assert_called_once()
 
-    @patch("tdoc_crawler.cli.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_missing_tdoc(
         self,
         mock_db_class: MagicMock,
