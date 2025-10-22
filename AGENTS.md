@@ -17,10 +17,10 @@ Before implementing features, review these critical sections:
 
 **Key Files to Examine First:**
 
-- `src/tdoc_crawler/cli.py` - All 6 CLI commands
-- `src/tdoc_crawler/database.py` - Schema and queries
+- `src/tdoc_crawler/cli/app.py` - All 6 CLI commands
+- `src/tdoc_crawler/database/schema.py` - Schema definition and version tracking
 - `src/tdoc_crawler/models/__init__.py` - All data models
-- `src/tdoc_crawler/crawlers/__init__.py` - Crawler implementations
+- `src/tdoc_crawler/crawlers/` - Crawler implementations (tdocs.py, meetings.py, portal.py)
 - `tests/conftest.py` - Shared test fixtures
 
 ## General Coding Guidelines
@@ -222,11 +222,22 @@ src/tdoc_crawler/
 │   ├── tdocs.py         # TDocCrawler - HTTP directory traversal, TDoc discovery, subdirectory detection
 │   ├── meetings.py      # MeetingCrawler - HTML parsing, date extraction
 │   └── portal.py        # PortalSession - 3GPP portal authentication, TDoc metadata fetching
-├── database.py          # SQLite persistence layer with typed wrappers
-├── cli.py               # Typer-based CLI with 6 commands, fuzzy matching helpers
+├── database/            # Database schema and operations (modular)
+│   ├── __init__.py      # Re-exports TDocDatabase and connection utilities
+│   ├── schema.py        # Database schema (DDL, SCHEMA_VERSION, initialization)
+│   ├── connection.py    # TDocDatabase context manager and facade
+│   ├── tdocs.py         # TDoc-specific queries and operations
+│   └── statistics.py    # Statistics and crawl log queries
+├── cli/                 # CLI commands and helpers (modular)
+│   ├── app.py           # Typer application and command registration
+│   ├── fetching.py      # Targeted fetch logic and portal orchestration
+│   ├── helpers.py       # Path/credentials resolution, fuzzy matching
+│   └── printing.py      # Output formatting (table, JSON, YAML, CSV)
 ├── __init__.py          # Package initialization
 └── __main__.py          # Entry point for `python -m tdoc_crawler`
 ```
+
+**Note**: Legacy monolithic `cli.py` and `database.py` files may still exist but are deprecated. New contributions MUST use the modular structure above.
 
 ### Module Design Principles
 
@@ -1160,42 +1171,86 @@ CREATE INDEX IF NOT EXISTS idx_meetings_last_crawled ON meetings(last_crawled);
 - `files_url`: HTTP URL to FTP directory containing TDocs
 - `last_crawled`: ISO timestamp when meeting was last processed for TDocs
 
-#### 3. TDocs Table: `tdocs`
+#### 3. TDocs Table: `tdocs` (Schema v2)
 
 ```sql
 CREATE TABLE IF NOT EXISTS tdocs (
     tdoc_id TEXT PRIMARY KEY COLLATE NOCASE,
     meeting_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    file_size INTEGER,
     title TEXT,
     contact TEXT,
     tdoc_type TEXT,
-    for_value TEXT,
+    for_purpose TEXT,
     agenda_item TEXT,
     status TEXT,
     is_revision_of TEXT COLLATE NOCASE,
-    file_url TEXT NOT NULL,
+    document_type TEXT,
+    checksum TEXT,
+    source_path TEXT,
+    date_created TEXT,
+    date_retrieved TEXT NOT NULL,
+    date_updated TEXT NOT NULL,
     validated BOOLEAN NOT NULL DEFAULT 0,
-    last_validated TEXT,
+    validation_failed BOOLEAN NOT NULL DEFAULT 0,
     FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id),
     FOREIGN KEY (is_revision_of) REFERENCES tdocs(tdoc_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_tdocs_meeting_id ON tdocs(meeting_id);
 CREATE INDEX IF NOT EXISTS idx_tdocs_validated ON tdocs(validated);
-CREATE INDEX IF NOT EXISTS idx_tdocs_last_validated ON tdocs(last_validated);
+CREATE INDEX IF NOT EXISTS idx_tdocs_validation_failed ON tdocs(validation_failed);
 CREATE INDEX IF NOT EXISTS idx_tdocs_is_revision_of ON tdocs(is_revision_of);
 ```
 
+**Schema v2 Changes** (Normalized):
+
+- **Removed columns** (v1): `working_group`, `subgroup`, `meeting` – these are derived via JOIN on `meetings` table
+- **Added columns**: `url`, `file_size`, `document_type`, `checksum`, `source_path`, `date_created`, `date_updated`, `validation_failed`
+- **Renamed**: `for_value` → `for_purpose`, `last_validated` removed (use `date_updated`)
+- **New field**: `validation_failed` flag for negative caching (distinct from `validated=False`)
+
 **Key Fields**:
+
 - `tdoc_id`: TDoc identifier (e.g., "R1-2301234"), case-insensitive primary key
+- `meeting_id`: Foreign key to meetings (enforces normalized structure)
+- `url`: Full HTTP URL to TDoc file (enables offline caching)
 - `validated`: Boolean flag indicating if metadata was successfully retrieved from portal
-- `last_validated`: ISO timestamp of last validation attempt
+- `validation_failed`: Negative cache (True = tried and failed, do not retry)
 - `is_revision_of`: Reference to previous TDoc version (self-referencing FK)
 
 **Critical Design Decisions**:
+
 - `COLLATE NOCASE` ensures case-insensitive uniqueness and lookups
-- `validated=False` indicates either not yet validated OR validation failed (negative caching)
+- Removed denormalized columns reduce update complexity and ensure consistency
+- `validation_failed` distinguishes "never attempted" from "attempted and failed"
 - Self-referencing foreign key for revision tracking
+
+**Derivation Pattern** (Working Group via JOIN):
+
+To retrieve working group/subgroup for a TDoc, use JOIN:
+
+```sql
+SELECT t.tdoc_id, wg.name AS working_group, sw.name AS subgroup
+FROM tdocs t
+JOIN meetings m ON t.meeting_id = m.meeting_id
+JOIN working_groups wg ON m.tbid = wg.tbid
+JOIN subworking_groups sw ON m.subtb = sw.subtb;
+```
+
+**Do NOT reintroduce removed columns** (`working_group`, `subgroup`, `meeting`) - all queries must derive these via JOIN to ensure consistency and avoid update anomalies.
+
+#### 3.1 Schema v2 Normalization Rationale
+
+Schema v2 removes denormalized columns to achieve:
+
+- **Reduced Redundancy**: Single source of truth for meeting metadata via foreign key relationship
+- **Consistent Derivation**: Working group/subgroup always computed from `meetings.tbid`/`subtb`
+- **Simplified Updates**: Changes to meeting info propagate automatically (no duplicate updates)
+- **Enforced Integrity**: Foreign key constraint ensures only valid meetings can be referenced
+
+Field naming has been standardized: use `for_purpose` (not `for_value`), `date_updated` (not `last_validated`), and `validation_failed` (distinct from `validated=False`).
 
 #### 4. Crawl Log Table: `crawl_log`
 
@@ -1255,9 +1310,11 @@ The `TDocDatabase` class provides typed wrappers for all database operations:
 - `get_stats()`: Aggregated statistics for CLI `stats` command
 
 **Critical Patterns**:
+
 - Always use parameterized queries (never string interpolation)
 - Return Pydantic models, not raw tuples
 - Handle case-insensitive TDoc IDs via `COLLATE NOCASE` and `.upper()` normalization
+- Statistics aggregations MUST derive working group counts via JOIN (NOT from removed `working_group` column)
 
 ## Testing
 
@@ -1331,6 +1388,34 @@ def sample_tdocs() -> list[TDocMetadata]:
         # ... more samples
     ]
 ```
+
+### Foreign Key Preparation
+
+**CRITICAL**: With schema v2, `tdocs.meeting_id` enforces foreign key constraint. Always insert meetings before inserting TDocs.
+
+Fixture pattern (e.g., `conftest.py`):
+
+```python
+@pytest.fixture
+def insert_sample_meetings(test_db_path: Path) -> callable:
+    """Helper to insert sample meetings before TDoc tests."""
+    def _insert(database: TDocDatabase, count: int = 2) -> list[int]:
+        meeting_ids = []
+        for i in range(count):
+            meeting = MeetingMetadata(
+                meeting_id=10000 + i,
+                tbid=373, subtb=379,  # RAN1
+                short_name=f"R1-{i}",
+                files_url=f"https://example.com/meeting_{i}/",
+                start_date=date(2024, 1, 1),
+            )
+            database.upsert_meeting(meeting)
+            meeting_ids.append(meeting.meeting_id)
+        return meeting_ids
+    return _insert
+```
+
+Usage: Insert meetings before upserting TDocs in any test. Negative tests (validating FK failures) should intentionally omit meetings.
 
 ### Mock Patterns
 
@@ -1519,6 +1604,7 @@ Any documentation generated during development/coding in the project root shall 
 - Integrate into `README.md` if it's general project information
 
 ---
+
 #### General Documentation Guidelines
 
 - use markdown formatting for headings, lists, code blocks, and links
@@ -1526,6 +1612,7 @@ Any documentation generated during development/coding in the project root shall 
 - use consistent terminology and naming conventions
 - use gitmoji in `docs/QUICK_REFERENCE.md` and `README.md` for better visual identification of changes
 
+---
 
 ## Reviews of AGENTS.md
 
@@ -1533,11 +1620,16 @@ After several implementation steps, the present file (`AGENTS.md`) might need an
 
 ```markdown
 Please review the current code basis and think thorougly about possible changes/updates/modifications/refactoring/restructuring of the coding instruction file AGENTS.md, which would help coding assistants to (re-)generate the code basis as close as possible.
-Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, including specific proposed changes with explanations. Avoid copying too many specific source code samples/examples into `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`. Do not update AGENTS.md directly, only document your review findings in the specified file.
+Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, including specific proposed changes with explanations. Avoid copying too many specific source code samples/examples into `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`. If your review does not find any necessary changes, simply state that the current AGENTS.md is adequate and requires no modifications.
+
+
+Do not update AGENTS.md directly, only document your review findings in the specified file as stated above.
 ```
 
 The actual update of AGENTS.md will be done only after explicit user confirmation and after a prompt similar to this one:
 
 ```markdown
-Based on the review findings in the file #file:REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md (`docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`), please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated AGENTS.md reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible. Avoid copying too many specific source code samples/examples into `AGENTS.MD`. You might move the current section regarding "Reviews of AGENTS.md" to a different place, but keep it unchanged.
+Based on the review findings in the file #file:REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md (`docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`), please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated `AGENTS.md` reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible.
+
+Avoid copying citing/copying too many source code samples/examples into `AGENTS.MD`. You might move the current section regarding "Reviews of AGENTS.md" to a different place (should preferably remain at the very end of the document), but keep its content unchanged. After integration of the review findings, apply a final markdown lint cleanup.
 ```
