@@ -4,7 +4,13 @@
 			"path": "."
 		}
 	],
-	"settings": {},
+	"settings": {
+		"github.copilot.chat.commitMessageGeneration.instructions": [
+			{
+				"file": ".github/commit-instructions.md"
+			}
+		]
+	},
 	"launch": {
 		"version": "0.2.0",
 		"configurations": [
