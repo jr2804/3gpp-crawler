@@ -66,8 +66,10 @@ class TestFetchMissingTdocs:
         self,
         mock_fetch_portal: MagicMock,
         test_db_path: Path,
+        sample_meetings: list[dict],
     ) -> None:
         """Ensure targeted fetch creates proper config."""
+        from conftest import insert_sample_meetings
         from tdoc_crawler.models import PortalCredentials
 
         # Mock portal response
@@ -84,6 +86,7 @@ class TestFetchMissingTdocs:
         credentials = PortalCredentials(username="test", password="test")
 
         with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
             result = fetch_missing_tdocs(
                 database,
                 test_db_path.parent,
@@ -101,8 +104,10 @@ class TestFetchMissingTdocs:
         self,
         mock_fetch_portal: MagicMock,
         test_db_path: Path,
+        sample_meetings: list[dict],
     ) -> None:
         """Verify working groups are inferred from target IDs."""
+        from conftest import insert_sample_meetings
         from tdoc_crawler.models import PortalCredentials
 
         # Mock portal responses
@@ -130,6 +135,7 @@ class TestFetchMissingTdocs:
         credentials = PortalCredentials(username="test", password="test")  # noqa: S106
 
         with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
             result = fetch_missing_tdocs(
                 database,
                 test_db_path.parent,
@@ -152,9 +158,13 @@ class TestMaybeFetchMissingTdocs:
         mock_fetch: MagicMock,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict],
     ) -> None:
         """Skip fetch when all requested TDocs are present."""
+        from conftest import insert_sample_meetings
+
         with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
             for tdoc in sample_tdocs:
                 database.upsert_tdoc(tdoc)
 
@@ -238,8 +248,11 @@ class TestMaybeFetchMissingTdocs:
         mock_fetch: MagicMock,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict],
     ) -> None:
         """Fetch only the missing TDocs when some are present."""
+        from conftest import insert_sample_meetings
+
         mock_fetch.return_value = MagicMock(
             processed=1,
             inserted=1,
@@ -248,6 +261,7 @@ class TestMaybeFetchMissingTdocs:
         )
 
         with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
             database.upsert_tdoc(sample_tdocs[0])
 
         config = QueryConfig(
