@@ -14,6 +14,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
+    "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
     "lxml>=6.0.2",
     "pandas>=2.3.3",
