@@ -35,9 +35,50 @@ DOWNLOAD_TIMEOUT = 60
 ALLOWED_DOWNLOAD_SCHEMES = ("ftp://", "http://", "https://")
 
 
-def parse_working_groups(values: list[str] | None) -> list[WorkingGroup]:
-    """Parse and normalize working group names, expanding plenary aliases."""
+def infer_working_groups_from_subgroups(subgroups: list[str]) -> list[WorkingGroup]:
+    """Infer working groups from subgroup codes.
+
+    Args:
+        subgroups: List of subgroup codes (e.g., ["S4", "R1"])
+
+    Returns:
+        List of inferred working groups without duplicates
+    """
+    working_groups: list[WorkingGroup] = []
+    for subgroup in subgroups:
+        # Extract first character to determine working group
+        if subgroup and len(subgroup) >= 1:
+            first_char = subgroup[0].upper()
+            if first_char == "R":
+                wg = WorkingGroup.RAN
+            elif first_char == "S":
+                wg = WorkingGroup.SA
+            elif first_char == "C":
+                wg = WorkingGroup.CT
+            else:
+                continue
+
+            if wg not in working_groups:
+                working_groups.append(wg)
+
+    return working_groups if working_groups else [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
+
+
+def parse_working_groups(values: list[str] | None, subgroups: list[str] | None = None) -> list[WorkingGroup]:
+    """Parse and normalize working group names, expanding plenary aliases.
+
+    Args:
+        values: Explicit working group values from CLI
+        subgroups: Optional subgroup list to infer working groups from
+
+    Returns:
+        List of working groups to crawl
+    """
     if not values:
+        # If subgroups are specified but no explicit working groups, infer from subgroups
+        if subgroups:
+            return infer_working_groups_from_subgroups(subgroups)
+        # Otherwise default to all working groups
         return [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
     resolved: list[WorkingGroup] = []
     for item in values:
@@ -176,74 +217,47 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
     Returns:
         Meeting ID if found, None otherwise
     """
-    # Try exact match first (case-insensitive)
-    cursor = database.connection.execute(
-        "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
-        (meeting_name,),
+    from tdoc_crawler.models import MeetingQueryConfig, SortOrder
+
+    # Query all meetings from database
+    config = MeetingQueryConfig(
+        cache_dir=database.db_path.parent,
+        working_groups=None,
+        subgroups=None,
+        limit=None,
+        order=SortOrder.DESC,
+        include_without_files=True,
     )
-    row = cursor.fetchone()
-    if row:
-        return row[0]
+    all_meetings = database.query_meetings(config)
 
-    # Try normalized name
+    def _match_name(candidate: str, cached: str | None) -> bool:
+        """Check if candidate matches cached name via fuzzy matching."""
+        if not cached:
+            return False
+        candidate_lower = candidate.lower()
+        cached_lower = cached.lower()
+
+        # Exact match
+        if candidate_lower == cached_lower:
+            return True
+        # Candidate is prefix/suffix of cached or vice versa
+        return (
+            cached_lower.startswith(candidate_lower)
+            or cached_lower.endswith(candidate_lower)
+            or candidate_lower.startswith(cached_lower)
+            or candidate_lower.endswith(cached_lower)
+        )
+
+    # Try matches with original and normalized names
     normalized = normalize_portal_meeting_name(meeting_name)
+    candidates = [meeting_name]
     if normalized != meeting_name:
-        cursor = database.connection.execute(
-            "SELECT meeting_id FROM meetings WHERE short_name = ? COLLATE NOCASE",
-            (normalized,),
-        )
-        row = cursor.fetchone()
-        if row:
-            return row[0]
+        candidates.append(normalized)
 
-    # Try fuzzy matching with meeting names in database
-    # Use SQL LIKE for better performance
-    candidate_lower = meeting_name.lower()
-    normalized_lower = normalized.lower()
-
-    # Try fuzzy patterns with candidate
-    for pattern in [
-        f"{candidate_lower}%",  # candidate is prefix of cached
-        f"%{candidate_lower}",  # candidate is suffix of cached
-    ]:
-        cursor = database.connection.execute(
-            "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
-            (pattern,),
-        )
-        row = cursor.fetchone()
-        if row:
-            return row[0]
-
-    # Try fuzzy patterns with normalized candidate
-    if normalized_lower != candidate_lower:
-        for pattern in [
-            f"{normalized_lower}%",  # normalized is prefix of cached
-            f"%{normalized_lower}",  # normalized is suffix of cached
-        ]:
-            cursor = database.connection.execute(
-                "SELECT meeting_id FROM meetings WHERE LOWER(short_name) LIKE ? LIMIT 1",
-                (pattern,),
-            )
-            row = cursor.fetchone()
-            if row:
-                return row[0]
-
-    # Try reverse patterns: cached is prefix/suffix of candidate
-    cursor = database.connection.execute("SELECT meeting_id, short_name FROM meetings")
-    for meeting_id, cached_name in cursor.fetchall():
-        cached_lower = cached_name.lower()
-        # Check if cached_name is prefix of candidate
-        if candidate_lower.startswith(cached_lower):
-            return meeting_id
-        # Check if cached_name is suffix of candidate
-        if candidate_lower.endswith(cached_lower):
-            return meeting_id
-        # Also check with normalized candidate
-        if normalized_lower != candidate_lower:
-            if normalized_lower.startswith(cached_lower):
-                return meeting_id
-            if normalized_lower.endswith(cached_lower):
-                return meeting_id
+    for candidate in candidates:
+        for meeting in all_meetings:
+            if _match_name(candidate, meeting.short_name):
+                return meeting.meeting_id
 
     return None
 

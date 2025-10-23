@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from rich.console import Console
 from rich.table import Table
 
@@ -10,43 +12,14 @@ from tdoc_crawler.models import MeetingMetadata, TDocMetadata
 console = Console()
 
 
-def tdoc_to_dict(result: TDocMetadata) -> dict[str, object]:
+def tdoc_to_dict(result: TDocMetadata) -> dict[str, Any]:
     """Convert TDocMetadata to dictionary for JSON/YAML output."""
-    return {
-        "tdoc_id": result.tdoc_id,
-        "url": result.url,
-        "meeting_id": result.meeting_id,
-        "file_size": result.file_size,
-        "title": result.title,
-        "contact": result.contact,
-        "tdoc_type": result.tdoc_type,
-        "for_purpose": result.for_purpose,
-        "agenda_item": result.agenda_item,
-        "status": result.status,
-        "is_revision_of": result.is_revision_of,
-        "document_type": result.document_type,
-        "checksum": result.checksum,
-        "source_path": result.source_path,
-        "date_created": result.date_created.isoformat() if result.date_created else None,
-        "date_retrieved": result.date_retrieved.isoformat(),
-        "validated": result.validated,
-    }
+    return result.model_dump(mode="json")
 
 
-def meeting_to_dict(meeting: MeetingMetadata) -> dict[str, object]:
+def meeting_to_dict(meeting: MeetingMetadata) -> dict[str, Any]:
     """Convert MeetingMetadata to dictionary for JSON/YAML output."""
-    return {
-        "meeting_id": meeting.meeting_id,
-        "working_group": meeting.working_group.value,
-        "subgroup": meeting.subgroup,
-        "short_name": meeting.short_name,
-        "title": meeting.title,
-        "start_date": meeting.start_date.isoformat() if meeting.start_date else None,
-        "end_date": meeting.end_date.isoformat() if meeting.end_date else None,
-        "location": meeting.location,
-        "files_url": meeting.files_url,
-        "portal_url": meeting.portal_url,
-    }
+    return meeting.model_dump(mode="json")
 
 
 def print_tdoc_table(results: list[TDocMetadata]) -> None:
@@ -96,7 +69,7 @@ def print_meeting_table(results: list[MeetingMetadata]) -> None:
         )
         table.add_row(
             meeting.short_name,
-            meeting.working_group.value,
+            meeting.working_group,
             meeting.subgroup or "-",
             date_range,
             meeting.location or "-",

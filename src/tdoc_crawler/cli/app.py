@@ -12,6 +12,7 @@ import typer
 import yaml
 from dotenv import load_dotenv
 from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
@@ -54,6 +55,7 @@ def crawl_tdocs(
     working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Working groups to crawl"),
     subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s", help="Filter by sub-working group"),
     incremental: bool = typer.Option(True, "--incremental/--full", help="Toggle incremental mode"),
+    clear_tdocs: bool = typer.Option(False, "--clear-tdocs", help="Clear all TDocs before crawling"),
     limit_tdocs: int | None = typer.Option(None, "--limit-tdocs", help="Limit number of TDocs"),
     limit_meetings: int | None = typer.Option(None, "--limit-meetings", help="Limit meetings considered"),
     limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg", help="Limit meetings per working group"),
@@ -63,8 +65,8 @@ def crawl_tdocs(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Crawl TDocs from 3GPP FTP directories."""
-    working_groups = parse_working_groups(working_group)
     subgroups = parse_subgroups(subgroup)
+    working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
     config = TDocCrawlConfig(
         cache_dir=cache_dir,
@@ -98,9 +100,38 @@ def crawl_tdocs(
         logging.getLogger().setLevel(logging.DEBUG)
 
     with TDocDatabase(db_path) as database:
+        # Clear TDocs if requested
+        if clear_tdocs:
+            deleted_count = database.clear_tdocs()
+            console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
+
         crawler = TDocCrawler(database)
         crawl_id = database.log_crawl_start("tdoc", config.working_groups, config.incremental)
-        result = crawler.crawl(config)
+
+        # Create progress bar for TDoc crawling
+        # If limit_tdocs is specified, use it as total; otherwise use indeterminate progress
+        total_tdocs = config.limits.limit_tdocs if config.limits.limit_tdocs and config.limits.limit_tdocs > 0 else None
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.completed} TDocs") if total_tdocs is None else MofNCompleteColumn(),
+            console=console,
+        ) as progress:
+            # Add progress task
+            task = progress.add_task(
+                "[cyan]Crawling TDocs...",
+                total=total_tdocs,
+            )
+
+            # Define progress callback
+            def update_progress() -> None:
+                progress.update(task, advance=1)
+
+            # Run crawl with progress callback
+            result = crawler.crawl(config, progress_callback=update_progress)
+
         database.log_crawl_end(
             crawl_id,
             items_added=result.inserted,
@@ -120,7 +151,9 @@ def crawl_tdocs(
 def crawl_meetings(
     cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
     working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Working groups to crawl"),
+    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s", help="Filter by sub-working group"),
     incremental: bool = typer.Option(True, "--incremental/--full", help="Toggle incremental mode"),
+    clear_db: bool = typer.Option(False, "--clear-db", help="Clear all meetings and TDocs before crawling"),
     limit_meetings: int | None = typer.Option(None, "--limit-meetings", help="Limit meetings overall"),
     limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg", help="Limit meetings per working group"),
     limit_wgs: int | None = typer.Option(None, "--limit-wgs", help="Limit number of working groups"),
@@ -132,12 +165,14 @@ def crawl_meetings(
     prompt_credentials: bool = typer.Option(True, "--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing"),
 ) -> None:
     """Crawl meeting metadata from 3GPP portal."""
-    working_groups = parse_working_groups(working_group)
+    subgroups = parse_subgroups(subgroup)
+    working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
     credentials = resolve_credentials(eol_username, eol_password, prompt_credentials)
     config = MeetingCrawlConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
+        subgroups=subgroups,
         incremental=incremental,
         max_retries=max_retries,
         timeout=timeout,
@@ -147,15 +182,47 @@ def crawl_meetings(
     )
 
     db_path = database_path(config.cache_dir)
-    console.print(f"[cyan]Crawling meetings for {', '.join(wg.value for wg in working_groups)}[/cyan]")
+    # Build descriptive message
+    scope_parts = []
+    if subgroups:
+        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
+    else:
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+    console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
     if config.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
     with TDocDatabase(db_path) as database:
+        # Clear all data if requested
+        if clear_db:
+            tdocs_count, meetings_count = database.clear_all_data()
+            console.print(f"[yellow]Cleared {tdocs_count} TDocs and {meetings_count} meetings from database[/yellow]")
+
         crawler = MeetingCrawler(database)
         crawl_id = database.log_crawl_start("meeting", config.working_groups, config.incremental)
-        result = crawler.crawl(config)
+
+        # Create progress bar for meeting crawling
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            console=console,
+        ) as progress:
+            # Add progress task (total will be set by callback)
+            task = progress.add_task(
+                "[cyan]Crawling meetings...",
+                total=100,  # Initial placeholder, will be updated by callback
+            )
+
+            # Define progress callback that receives completed and total
+            def update_progress(completed: float, total: float) -> None:
+                progress.update(task, completed=completed, total=total)
+
+            # Run crawl with progress callback
+            result = crawler.crawl(config, progress_callback=update_progress)
+
         database.log_crawl_end(
             crawl_id,
             items_added=result.inserted,

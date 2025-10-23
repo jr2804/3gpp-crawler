@@ -45,41 +45,16 @@ def fetch_missing_tdocs(
 
     for tdoc_id in missing_ids:
         try:
-            # Fetch metadata from portal
-            portal_data = fetch_tdoc_metadata(tdoc_id, credentials)
+            # Fetch metadata from portal (now returns TDocMetadata directly)
+            metadata = fetch_tdoc_metadata(tdoc_id, credentials)
 
-            if not portal_data:
-                errors.append(f"Portal returned no data for {tdoc_id}")
-                continue
-
-            # Resolve meeting_id from meeting name
-            meeting_id = None
-            meeting_name = portal_data.get("meeting")
-            if meeting_name:
-                meeting_id = resolve_meeting_id(database, meeting_name)
-                if not meeting_id:
-                    _logger.warning(f"Could not resolve meeting '{meeting_name}' to meeting_id for {tdoc_id}")
-
-            # Create TDocMetadata object
-            metadata = TDocMetadata(
-                tdoc_id=tdoc_id.upper(),
-                url=f"https://www.3gpp.org/ftp/tsg_ran/.../{tdoc_id}.zip",
-                meeting_id=meeting_id,
-                file_size=None,
-                title=portal_data.get("title"),
-                contact=portal_data.get("contact"),
-                tdoc_type=portal_data.get("tdoc_type"),
-                for_purpose=portal_data.get("for_purpose"),
-                agenda_item=portal_data.get("agenda_item"),
-                status=portal_data.get("status"),
-                is_revision_of=portal_data.get("is_revision_of"),
-                document_type=None,
-                checksum=None,
-                source_path=None,
-                date_created=None,
-                validated=True,
-                validation_failed=False,
-            )
+            # Resolve meeting_id from meeting name if available
+            if metadata.meeting_name:
+                meeting_id = resolve_meeting_id(database, metadata.meeting_name)
+                if meeting_id:
+                    metadata.meeting_id = meeting_id
+                else:
+                    _logger.warning(f"Could not resolve meeting '{metadata.meeting_name}' to meeting_id for {tdoc_id}")
 
             # Insert/update in database
             inserted, updated = database.upsert_tdoc(metadata)
@@ -92,7 +67,7 @@ def fetch_missing_tdocs(
 
         except Exception as exc:
             error_msg = f"Failed to fetch {tdoc_id}: {exc}"
-            _logger.error(error_msg)
+            _logger.exception(error_msg)
             errors.append(error_msg)
 
     return TDocCrawlResult(
