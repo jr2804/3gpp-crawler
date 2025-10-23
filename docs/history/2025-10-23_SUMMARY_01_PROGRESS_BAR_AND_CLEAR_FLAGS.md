@@ -147,37 +147,59 @@ Crawling meetings (working groups: RAN, SA, CT)
 
 ## 🔧 Technical Implementation
 
-### Progress Callback Pattern
+### Progress Callback Pattern (Updated)
 
-**Design Decision:** Decoupled progress tracking from crawler logic
+**Evolution:** Originally used `Callable[[], None]`, now uses `Callable[[float, float], None]`
+
+**Updated Implementation:**
 
 ```python
-# In TDocCrawler._scan_directory_for_tdocs()
-def _scan_directory_for_tdocs(self, ..., progress_callback: Callable[[], None] | None = None):
-    for link in soup.find_all("a"):
-        # ... TDoc extraction logic ...
-        collected.append(metadata)
-        seen_ids.add(tdoc_id)
+# In database/connection.py
+def bulk_upsert_meetings(
+    self,
+    meetings: Iterable[MeetingMetadata],
+    progress_callback: Callable[[float, float], None] | None = None,
+) -> tuple[int, int]:
+    meetings_list = list(meetings)
+    total = float(len(meetings_list))
 
-        # Call progress callback after collecting each TDoc
+    for index, meeting in enumerate(meetings_list, start=1):
+        created, changed = self.upsert_meeting(meeting)
+        # ... counting logic ...
         if progress_callback:
-            progress_callback()
+            progress_callback(float(index), total)
+    return inserted, updated
 
-# In MeetingCrawler.crawl()
-def crawl(self, config: MeetingCrawlConfig, progress_callback: Callable[[], None] | None = None):
-    for meeting in parsed_meetings:
-        meetings.append(meeting)
-        # Call progress callback after collecting each meeting
-        if progress_callback:
-            progress_callback()
+# In cli/app.py
+with Progress(
+    SpinnerColumn(),
+    TextColumn("[progress.description]{task.description}"),
+    BarColumn(),
+    MofNCompleteColumn(),
+    console=console,
+) as progress:
+    task = progress.add_task("[cyan]Crawling...", total=100)
+
+    def update_progress(completed: float, total: float) -> None:
+        progress.update(task, completed=completed, total=total)
+
+    result = crawler.crawl(config, progress_callback=update_progress)
 ```
+
+**Key Improvements:**
+
+1. **Accurate Progress Bar**: Callback now receives `(completed, total)` instead of just being invoked
+2. **Visual Feedback**: Shows actual progress bar with "N/M" format (e.g., "365/365")
+3. **Database-Level Tracking**: Progress tracked during database insertion, not collection
+4. **Consistent Pattern**: Both `crawl-meetings` and `crawl-tdocs` use identical approach
 
 **Benefits:**
 
 - Crawler remains UI-agnostic (no Rich dependency in crawler layer)
 - Callback can be omitted for non-interactive use cases
 - Easy to test (mock callback, verify call count)
-- Progress updates reflect actual work done (TDocs/meetings discovered, not just meetings processed)
+- Progress updates reflect actual work done (database operations completed)
+- Users see deterministic progress bar instead of indeterminate spinner
 
 ### Raw SQL Execution with pydantic_sqlite
 
@@ -302,11 +324,47 @@ No migration required. Existing workflows continue unchanged. New features are o
 
 None discovered during implementation or testing.
 
-## 🚀 Future Enhancements
+## � Additional Improvements (Same Session)
+
+### Progress Bar Enhancement: Database-Level Tracking
+
+**Issue:** Initial implementation tracked progress during collection phase, but total count was unknown at callback time, resulting in indeterminate progress bars.
+
+**Solution:** Moved progress tracking from collection to database insertion phase:
+
+1. **Database Methods Updated**:
+   - `bulk_upsert_meetings()` and `bulk_upsert_tdocs()` now accept `Callable[[float, float], None]`
+   - Convert iterable to list to determine total count before processing
+   - Call callback with `(completed, total)` after each database operation
+
+2. **Crawler Methods Updated**:
+   - `MeetingCrawler.crawl()` signature changed to use new callback type
+   - `TDocCrawler.crawl()` signature changed to use new callback type
+   - Removed progress callbacks from internal methods (`_crawl_meeting`, `_scan_directory_for_tdocs`)
+
+3. **CLI Progress Bars**:
+   - Added `BarColumn` and `MofNCompleteColumn` for visual progress
+   - Shows "N/M" format (e.g., "365/365 meetings", "1745/1745 TDocs")
+   - Callback updates task with exact completed/total values
+
+**Result:** Users now see accurate progress bars showing exactly how many items have been processed and how many remain.
+
+**Example Output:**
+
+```text
+Crawling meetings (working groups: RAN, SA, CT)
+⠋ Crawling... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 365/365 meetings
+
+Crawling TDocs from 5 meetings
+⠋ Crawling... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1745/1745 TDocs
+```
+
+## � Future Enhancements
 
 **Potential Improvements:**
+
 1. Add `--clear-tdocs-by-wg` for selective clearing per working group
-2. Add progress bar to `crawl-meetings` command (similar pattern)
+2. ~~Add progress bar to `crawl-meetings` command (similar pattern)~~ ✅ Implemented
 3. Add confirmation prompt for destructive clear operations
 4. Add `--dry-run` flag to preview what would be cleared
 

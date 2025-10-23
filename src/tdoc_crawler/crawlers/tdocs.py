@@ -47,14 +47,15 @@ class TDocCrawler:
     def __init__(self, database: TDocDatabase) -> None:
         self.database = database
 
-    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[], None] | None = None) -> TDocCrawlResult:
+    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> TDocCrawlResult:
         """Execute a crawl using the provided configuration.
 
         Queries meetings from the database and crawls their HTTP directories for TDocs.
 
         Args:
             config: Crawl configuration
-            progress_callback: Optional callback function called after each TDoc is discovered
+            progress_callback: Optional callback function called after each TDoc is processed.
+                Takes (completed, total) as float parameters.
         """
         errors: list[str] = []
         collected: list[TDocMetadata] = []
@@ -87,7 +88,6 @@ class TDocCrawler:
                         seen_ids,
                         existing_ids,
                         targets,
-                        progress_callback,
                     )
                     if targets is not None and not targets:
                         break
@@ -104,7 +104,8 @@ class TDocCrawler:
         inserted = 0
         updated = 0
         if collected:
-            inserted, updated = self.database.bulk_upsert_tdocs(collected)
+            # Pass progress callback to bulk_upsert_tdocs to update after each DB operation
+            inserted, updated = self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
 
         return TDocCrawlResult(
             processed=len(collected),
@@ -180,7 +181,6 @@ class TDocCrawler:
         seen_ids: set[str],
         existing_ids: set[str],
         targets: set[str] | None,
-        progress_callback: Callable[[], None] | None = None,
     ) -> None:
         """Crawl a specific meeting's HTTP directory for TDocs.
 
@@ -232,10 +232,10 @@ class TDocCrawler:
         # Crawl subdirectories if found, otherwise crawl base directory
         if subdirs_found:
             for subdir_url in subdirs_found:
-                self._scan_directory_for_tdocs(session, subdir_url, meeting, config, collected, seen_ids, existing_ids, targets, progress_callback)
+                self._scan_directory_for_tdocs(session, subdir_url, meeting, config, collected, seen_ids, existing_ids, targets)
         else:
             # No subdirectories found, scan base directory directly
-            self._scan_directory_for_tdocs(session, base_url, meeting, config, collected, seen_ids, existing_ids, targets, progress_callback)
+            self._scan_directory_for_tdocs(session, base_url, meeting, config, collected, seen_ids, existing_ids, targets)
 
     def _scan_directory_for_tdocs(
         self,
@@ -247,7 +247,6 @@ class TDocCrawler:
         seen_ids: set[str],
         existing_ids: set[str],
         targets: set[str] | None,
-        progress_callback: Callable[[], None] | None = None,
     ) -> None:
         """Scan a specific directory URL for TDoc files."""
         if not directory_url.endswith("/"):
@@ -323,6 +322,7 @@ class TDocCrawler:
                 tdoc_id=tdoc_id,
                 url=file_url,
                 meeting_id=meeting.meeting_id,
+                meeting_name=None,  # Not resolved from HTTP directory listing
                 file_size=file_size,
                 title="Pending validation",  # Will be updated after portal validation
                 source="Unknown",  # Will be updated after portal validation
@@ -344,10 +344,6 @@ class TDocCrawler:
                 targets.discard(tdoc_id)
             if config.verbose:
                 logger.debug("Collected TDoc %s from meeting %s", tdoc_id, meeting.short_name)
-
-            # Call progress callback after collecting each TDoc
-            if progress_callback:
-                progress_callback()
 
     def _should_store_tdoc(
         self,

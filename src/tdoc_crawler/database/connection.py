@@ -147,15 +147,36 @@ class TDocDatabase:
         self.connection.add("tdocs", updated_record, pk="tdoc_id")
         return False, changed
 
-    def bulk_upsert_tdocs(self, tdocs: Iterable[TDocMetadata]) -> tuple[int, int]:
+    def bulk_upsert_tdocs(
+        self,
+        tdocs: Iterable[TDocMetadata],
+        progress_callback: Callable[[float, float], None] | None = None,
+    ) -> tuple[int, int]:
+        """Bulk upsert TDocs with optional progress callback.
+
+        Args:
+            tdocs: Iterable of TDoc metadata to upsert
+            progress_callback: Optional callback to call after each TDoc is processed.
+                Takes (completed, total) as float parameters.
+
+        Returns:
+            Tuple of (inserted_count, updated_count)
+        """
+        # Convert to list to get total count
+        tdocs_list = list(tdocs)
+        total = float(len(tdocs_list))
+
         inserted = 0
         updated = 0
-        for metadata in tdocs:
+        for index, metadata in enumerate(tdocs_list, start=1):
             created, changed = self.upsert_tdoc(metadata)
             if created:
                 inserted += 1
             elif changed:
                 updated += 1
+            # Call progress callback after each TDoc is processed
+            if progress_callback:
+                progress_callback(float(index), total)
         return inserted, updated
 
     def query_tdocs(self, config: QueryConfig) -> list[TDocMetadata]:

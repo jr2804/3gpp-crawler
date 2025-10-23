@@ -183,9 +183,108 @@ All 63 tests pass with no changes required:
    - `crawl_meetings()`: Reordered parsing to call `parse_subgroups()` before `parse_working_groups()`
    - `crawl_tdocs()`: Same reordering for consistency
 
+## 🔄 Additional Improvements (Same Session)
+
+### Subgroup Alias Normalization Support
+
+**Issue:** Users reported that full subgroup names (SA4, RAN1, CT3) were not recognized, only short codes (S4, R1, C3) worked.
+
+**Example:**
+```bash
+# This worked
+uv run tdoc-crawler crawl-meetings -s S4 --limit-meetings 5
+
+# This did NOT work (0 meetings processed)
+uv run tdoc-crawler crawl-meetings -s SA4 --limit-meetings 5
+```
+
+**Root Cause:** The `normalize_subgroup_alias()` function in `src/tdoc_crawler/crawlers/meetings.py` only checked for exact matches with short codes stored in `MEETING_CODE_REGISTRY`. The registry stores codes like "S4", "R1", "C3" (not "SA4", "RAN1", "CT3").
+
+**Solution:** Enhanced `normalize_subgroup_alias()` to normalize long format to short format before matching:
+
+```python
+def normalize_subgroup_alias(alias: str) -> list[str]:
+    """Normalize subgroup aliases to canonical names.
+    Supports: S4, SA4, R1, RAN1, C3, CT3, RP, SP, CP, etc.
+    """
+    alias_upper = alias.strip().upper()
+    matches: list[str] = []
+
+    # Normalize long form to short form
+    normalized_alias = alias_upper
+    if alias_upper.startswith("SA") and len(alias_upper) > 2:
+        normalized_alias = "S" + alias_upper[2:]  # SA4 → S4
+    elif alias_upper.startswith("RAN") and len(alias_upper) > 3:
+        normalized_alias = "R" + alias_upper[3:]  # RAN1 → R1
+    elif alias_upper.startswith("CT") and len(alias_upper) > 2:
+        normalized_alias = "C" + alias_upper[2:]  # CT1 → C1
+
+    # Check all registries for matches
+    for _working_group, codes in MEETING_CODE_REGISTRY.items():
+        for code, subgroup in codes:
+            if code.upper() == normalized_alias or code.upper() == alias_upper:
+                if subgroup:
+                    matches.append(subgroup)
+            elif subgroup and subgroup.upper() == alias_upper:
+                matches.append(subgroup)
+
+    if not matches:
+        matches.append(alias_upper)
+    return matches
+```
+
+**Normalization Rules:**
+
+- SA4 → S4, SA1 → S1, SA2 → S2, etc.
+- RAN1 → R1, RAN2 → R2, RAN3 → R3, etc.
+- CT1 → C1, CT2 → C2, CT3 → C3, etc.
+- Preserves short forms: S4 → S4, R1 → R1, C3 → C3
+- Handles plenary codes: SP, RP, CP (unchanged)
+
+**Behavior After Fix:**
+
+| Command | Result |
+|---------|--------|
+| `-s SA4` | ✅ Works (normalizes to S4) |
+| `-s RAN1` | ✅ Works (normalizes to R1) |
+| `-s CT3` | ✅ Works (normalizes to C3) |
+| `-s S4` | ✅ Still works (already canonical) |
+| `-s R2` | ✅ Still works |
+| `-s SP` | ✅ Works (plenary code) |
+
+**Query Behavior:**
+
+When querying meetings with normalized aliases, the database stores and returns canonical short codes:
+
+```bash
+# Input: SA4, Output: meetings with subgroup "S4"
+uv run tdoc-crawler query-meetings -s SA4 --include-without-files
+
+# Output shows:
+│ S4-141      │ SA │ S4 │ 2027-11-15 - 2027-11-19 │
+│ S4-140-bis  │ SA │ S4 │ 2027-10-11 - 2027-10-15 │
+```
+
+**Testing:**
+
+- Manual testing confirmed all formats work correctly
+- All 63 tests passing
+- Updated `test_query_meetings_with_subgroup_filter` to expect normalized value `["S4"]` instead of input value `["SA4"]`
+
+**Files Modified:**
+
+3. **`src/tdoc_crawler/crawlers/meetings.py`**:
+   - Enhanced `normalize_subgroup_alias()` with long-to-short format transformation
+   - Added normalization logic for SA→S, RAN→R, CT→C prefixes
+
+4. **`tests/test_cli.py`**:
+   - Updated `test_query_meetings_with_subgroup_filter` assertion to expect normalized subgroup code
+
 ## Migration Notes
 
 No migration needed - this is a bug fix that makes the behavior more intuitive. Users who were working around the bug by using `-w` explicitly can continue to do so.
+
+**For subgroup aliases:** Both short and long formats now work identically. Internal database storage remains in canonical short format (S4, R1, C3) for consistency.
 
 ---
 

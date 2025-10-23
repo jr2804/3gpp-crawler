@@ -247,9 +247,9 @@ class TestQueryMeetingsCommand:
         )
 
         assert result.exit_code == 0
-        # Verify that query_meetings was called with subgroups parameter
+        # Verify that query_meetings was called with normalized subgroups (SA4 -> S4)
         call_args = mock_db.query_meetings.call_args[0][0]
-        assert call_args.subgroups == ["SA4"]
+        assert call_args.subgroups == ["S4"]
 
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_query_meetings_with_subgroup_alias(

@@ -77,21 +77,43 @@ def normalize_subgroup_alias(alias: str) -> list[str]:
     """Normalize subgroup aliases to canonical names.
 
     Returns a list of possible matching subgroup names.
-    Supports: R1→RAN1, S4→SA4, C3→CT3, RP→RAN Plenary, etc.
+    Supports:
+    - Short codes: S4, R1, C3
+    - Full names: SA4, RAN1, CT3
+    - Plenary codes: RP, SP, CP
+    - Full plenary names: RAN PLENARY, SA PLENARY, CT PLENARY
     """
     alias_upper = alias.strip().upper()
     matches: list[str] = []
 
+    # Try to normalize long form to short form (SA4 → S4, RAN1 → R1, CT3 → C3)
+    normalized_alias = alias_upper
+    if alias_upper.startswith("SA") and len(alias_upper) > 2:
+        # SA4 → S4, SA1 → S1, etc.
+        normalized_alias = "S" + alias_upper[2:]
+    elif alias_upper.startswith("RAN") and len(alias_upper) > 3:
+        # RAN1 → R1, RAN2 → R2, etc.
+        normalized_alias = "R" + alias_upper[3:]
+    elif alias_upper.startswith("CT") and len(alias_upper) > 2:
+        # CT1 → C1, CT2 → C2, etc.
+        normalized_alias = "C" + alias_upper[2:]
+
     # Check all registries for matches
     for _working_group, codes in MEETING_CODE_REGISTRY.items():
         for code, subgroup in codes:
-            if code.upper() == alias_upper:
+            # Check if normalized alias matches the code
+            if code.upper() == normalized_alias:
                 if subgroup:
                     matches.append(subgroup)
+            # Also check direct match with the original alias
+            elif code.upper() == alias_upper:
+                if subgroup:
+                    matches.append(subgroup)
+            # Check if subgroup name matches
             elif subgroup and subgroup.upper() == alias_upper:
                 matches.append(subgroup)
 
-    # If no matches found, return the alias as-is (might be exact name)
+    # If no matches found, return the original alias (might be exact name)
     if not matches:
         matches.append(alias_upper)
 

@@ -109,25 +109,22 @@ def crawl_tdocs(
         crawl_id = database.log_crawl_start("tdoc", config.working_groups, config.incremental)
 
         # Create progress bar for TDoc crawling
-        # If limit_tdocs is specified, use it as total; otherwise use indeterminate progress
-        total_tdocs = config.limits.limit_tdocs if config.limits.limit_tdocs and config.limits.limit_tdocs > 0 else None
-
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
-            TextColumn("[progress.percentage]{task.completed} TDocs") if total_tdocs is None else MofNCompleteColumn(),
+            MofNCompleteColumn(),
             console=console,
         ) as progress:
-            # Add progress task
+            # Add progress task (total will be set by callback during DB insertion)
             task = progress.add_task(
                 "[cyan]Crawling TDocs...",
-                total=total_tdocs,
+                total=100,  # Initial placeholder, will be updated by callback
             )
 
-            # Define progress callback
-            def update_progress() -> None:
-                progress.update(task, advance=1)
+            # Define progress callback that receives completed and total
+            def update_progress(completed: float, total: float) -> None:
+                progress.update(task, completed=completed, total=total)
 
             # Run crawl with progress callback
             result = crawler.crawl(config, progress_callback=update_progress)
