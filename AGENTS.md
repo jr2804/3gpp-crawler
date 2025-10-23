@@ -1019,6 +1019,7 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
 - Use f-strings for formatting strings.
 - Use list comprehensions and dictionary comprehensions where appropriate.
 - Never use the obsolete type hint `x: Optional[SomeType] = None`! Instead, always use `x: SomeType | None = None`.
+- Never use `object` as a type hint - use `Any` from `typing` instead.
 - Use `is` and `is not` for comparing to `None`, not `==` or `!=`.
 - Use `enumerate()` when you need both the index and the value in a loop.
 - Use `with` statements when working with files to ensure proper resource management.
