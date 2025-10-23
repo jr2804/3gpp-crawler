@@ -13,44 +13,16 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from tdoc_crawler.crawlers.constants import (
+    DATE_PATTERN,
+    MEETING_CODE_REGISTRY,
+    MEETINGS_BASE_URL,
+    PORTAL_BASE_URL,
+)
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import CrawlLimits, MeetingCrawlConfig, MeetingMetadata, WorkingGroup
 
 logger = logging.getLogger(__name__)
-
-MEETINGS_BASE_URL = "https://www.3gpp.org/dynareport?code=Meetings-{code}.htm"
-PORTAL_BASE_URL = "https://portal.3gpp.org"
-DATE_PATTERN = re.compile(r"(\d{4}[\-\u2010-\u2015]\d{2}[\-\u2010-\u2015]\d{2})")
-
-MEETING_CODE_REGISTRY: dict[WorkingGroup, list[tuple[str, str | None]]] = {
-    WorkingGroup.RAN: [
-        ("RP", "RP"),  # RAN Plenary
-        ("R1", "R1"),
-        ("R2", "R2"),
-        ("R3", "R3"),
-        ("R4", "R4"),
-        ("R5", "R5"),
-        ("R6", "R6"),
-    ],
-    WorkingGroup.SA: [
-        ("SP", "SP"),  # SA Plenary
-        ("S1", "S1"),
-        ("S2", "S2"),
-        ("S3", "S3"),
-        ("S4", "S4"),
-        ("S5", "S5"),
-        ("S6", "S6"),
-    ],
-    WorkingGroup.CT: [
-        ("CP", "CP"),  # CT Plenary
-        ("C1", "C1"),
-        ("C2", "C2"),
-        ("C3", "C3"),
-        ("C4", "C4"),
-        ("C5", "C5"),
-        ("C6", "C6"),
-    ],
-}
 
 
 def normalize_working_group_alias(alias: str) -> str:
@@ -151,7 +123,7 @@ class MeetingCrawler:
 
         try:
             for working_group in working_groups:
-                for code, subgroup in MEETING_CODE_REGISTRY.get(working_group, []):
+                for code, subgroup in MEETING_CODE_REGISTRY.get(working_group.value, []):
                     # Skip subgroup if subgroups filter is set and this subgroup is not in the list
                     if config.subgroups and subgroup not in config.subgroups:
                         continue

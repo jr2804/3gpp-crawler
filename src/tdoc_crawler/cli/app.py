@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -60,6 +61,7 @@ def crawl_tdocs(
     limit_meetings: int | None = typer.Option(None, "--limit-meetings", help="Limit meetings considered"),
     limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg", help="Limit meetings per working group"),
     limit_wgs: int | None = typer.Option(None, "--limit-wgs", help="Limit number of working groups"),
+    workers: int = typer.Option(4, "--workers", help="Number of parallel subinterpreter workers"),
     max_retries: int = typer.Option(3, "--max-retries", help="HTTP connection retry attempts"),
     timeout: int = typer.Option(30, "--timeout", help="HTTP request timeout seconds"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
@@ -77,7 +79,7 @@ def crawl_tdocs(
         end_date=None,
         incremental=incremental,
         force_revalidate=False,
-        workers=4,
+        workers=workers,
         max_retries=max_retries,
         timeout=timeout,
         verbose=verbose,
@@ -108,6 +110,9 @@ def crawl_tdocs(
         crawler = TDocCrawler(database)
         crawl_id = database.log_crawl_start("tdoc", config.working_groups, config.incremental)
 
+        # Track crawl start time for performance metrics
+        crawl_start_time = datetime.now()
+
         # Create progress bar for TDoc crawling
         with Progress(
             SpinnerColumn(),
@@ -129,6 +134,11 @@ def crawl_tdocs(
             # Run crawl with progress callback
             result = crawler.crawl(config, progress_callback=update_progress)
 
+        # Calculate elapsed time and throughput
+        crawl_end_time = datetime.now()
+        elapsed_seconds = (crawl_end_time - crawl_start_time).total_seconds()
+        throughput = result.processed / elapsed_seconds if elapsed_seconds > 0 else 0
+
         database.log_crawl_end(
             crawl_id,
             items_added=result.inserted,
@@ -136,7 +146,7 @@ def crawl_tdocs(
             errors_count=len(result.errors),
         )
 
-    console.print(f"[green]Processed {result.processed} TDocs[/green]")
+    console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
     if result.errors:
         console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
@@ -282,7 +292,8 @@ def query_tdocs(
     # Resolve credentials (only if --no-fetch is not set)
     credentials = None
     if not no_fetch:
-        credentials = resolve_credentials(eol_username, eol_password, prompt=True)
+        prompt_for_credentials = sys.stdin.isatty()
+        credentials = resolve_credentials(eol_username, eol_password, prompt=prompt_for_credentials)
 
     db_path = database_path(config.cache_dir)
     with TDocDatabase(db_path) as database:

@@ -1,34 +1,19 @@
-"""TDoc crawler for retrieving metadata from 3GPP HTTP server."""
+"""TDoc crawler orchestrating asynchronous subinterpreter workers."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
-import requests
-from bs4 import BeautifulSoup
+from aiointerpreters.runner import Runner
 
+from tdoc_crawler.crawlers.parallel import fetch_meeting_tdocs
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import CrawlLimits, TDocCrawlConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import CrawlLimits, MeetingMetadata, TDocCrawlConfig, TDocMetadata, WorkingGroup
 
 logger = logging.getLogger(__name__)
-
-# TDoc filename pattern: Matches various TDoc formats
-# Format: [RSC][1-6P] followed by 4-10 characters, then extension
-# Examples: R1-2301234.zip, S4-251209.txt, C1-2312345.pdf, SP-240001.zip, RP-230045.txt
-#           S4aA220001.zip (ad-hoc), R1eE230045.txt (ad-hoc), CP-123456.zip (CT plenary)
-TDOC_PATTERN = re.compile(r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)", re.IGNORECASE)
-
-# Directories to exclude from crawling
-EXCLUDED_DIRS = {"Inbox", "Draft", "Drafts", "Agenda", "Invitation", "Report"}
-EXCLUDED_DIRS_NORMALIZED = {entry.upper() for entry in EXCLUDED_DIRS}
-
-# Subdirectories that may contain TDocs (case-insensitive matching)
-TDOC_SUBDIRS = {"Docs", "Documents", "Tdocs", "TDocs", "DOCS"}
-TDOC_SUBDIRS_NORMALIZED = {entry.upper() for entry in TDOC_SUBDIRS}
 
 
 @dataclass(slots=True, frozen=True)
@@ -42,69 +27,36 @@ class TDocCrawlResult:
 
 
 class TDocCrawler:
-    """Configuration-driven HTTP crawler for gathering TDoc metadata."""
+    """Configuration-driven crawler orchestrating subinterpreter workers."""
 
     def __init__(self, database: TDocDatabase) -> None:
         self.database = database
 
     def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> TDocCrawlResult:
-        """Execute a crawl using the provided configuration.
+        """Execute a crawl using the provided configuration."""
 
-        Queries meetings from the database and crawls their HTTP directories for TDocs.
-
-        Args:
-            config: Crawl configuration
-            progress_callback: Optional callback function called after each TDoc is processed.
-                Takes (completed, total) as float parameters.
-        """
-        errors: list[str] = []
-        collected: list[TDocMetadata] = []
-        seen_ids: set[str] = set()
-
-        # Query meetings from database based on config filters
         meetings = self._get_meetings_to_crawl(config)
         if not meetings:
             logger.warning("No meetings found matching criteria")
             return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found"])
 
+        meetings = self._apply_meeting_limits(meetings, config.limits)
+        if not meetings:
+            logger.warning("Meetings filtered out by limits configuration")
+            return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found after applying limits"])
+
         existing_ids: set[str] = set()
         if config.incremental:
-            existing_ids = self.database.get_existing_tdoc_ids(config.working_groups)
-        targets: set[str] | None = set(config.target_ids) if config.target_ids else None
+            existing_ids = {tdoc_id.upper() for tdoc_id in self.database.get_existing_tdoc_ids(config.working_groups)}
 
-        # Create HTTP session with retry logic
-        session = self._create_session(config)
+        targets = set(config.target_ids) if config.target_ids else None
 
-        try:
-            for meeting in meetings:
-                if not meeting.files_url:
-                    continue
-                try:
-                    self._crawl_meeting(
-                        session,
-                        meeting,
-                        config,
-                        collected,
-                        seen_ids,
-                        existing_ids,
-                        targets,
-                    )
-                    if targets is not None and not targets:
-                        break
-                except Exception as exc:
-                    message = f"Error crawling meeting {meeting.short_name}: {exc}"
-                    logger.warning(message)
-                    errors.append(message)
-        except Exception as exc:
-            logger.exception("Unexpected TDoc crawl failure")
-            errors.append(str(exc))
-        finally:
-            session.close()
+        collected: list[TDocMetadata] = []
+        errors = asyncio.run(self._crawl_meetings_parallel(meetings, config, collected, existing_ids, targets))
 
         inserted = 0
         updated = 0
         if collected:
-            # Pass progress callback to bulk_upsert_tdocs to update after each DB operation
             inserted, updated = self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
 
         return TDocCrawlResult(
@@ -114,245 +66,183 @@ class TDocCrawler:
             errors=errors,
         )
 
-    def _limit_working_groups(self, working_groups: list[WorkingGroup], limits: CrawlLimits) -> list[WorkingGroup]:
-        if limits.limit_wgs is None or limits.limit_wgs == 0:
-            return working_groups
-        limit = limits.limit_wgs
-        return working_groups[:limit] if limit > 0 else working_groups[limit:]
+    def _apply_meeting_limits(self, meetings: list, limits: CrawlLimits) -> list:
+        """Apply crawl limits to the meeting list."""
 
-    def _create_session(self, config: TDocCrawlConfig) -> requests.Session:
-        """Create HTTP session with retry logic and timeout configuration."""
-        from requests.adapters import HTTPAdapter
-        from urllib3.util.retry import Retry
+        limited = list(meetings)
 
-        session = requests.Session()
+        if limits.limit_meetings is not None and limits.limit_meetings != 0:
+            limit = limits.limit_meetings
+            limited = limited[:limit] if limit > 0 else limited[limit:]
 
-        # Configure retry strategy
-        retry_strategy = Retry(
-            total=config.max_retries,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "OPTIONS"],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
+        if limits.limit_meetings_per_wg is not None and limits.limit_meetings_per_wg != 0:
+            per_wg_limit = abs(limits.limit_meetings_per_wg)
+            per_wg_counts: dict[WorkingGroup, int] = {}
+            filtered: list = []
+            for meeting in limited:
+                working_group = meeting.working_group
+                count = per_wg_counts.get(working_group, 0)
+                if count >= per_wg_limit:
+                    continue
+                per_wg_counts[working_group] = count + 1
+                filtered.append(meeting)
+            limited = filtered
 
-        # Set timeout
-        session.timeout = config.timeout
+        if limits.limit_wgs is not None and limits.limit_wgs != 0:
+            max_groups = abs(limits.limit_wgs)
+            seen_groups: set[WorkingGroup] = set()
+            filtered: list = []
+            for meeting in limited:
+                working_group = meeting.working_group
+                if working_group in seen_groups:
+                    filtered.append(meeting)
+                    continue
+                if len(seen_groups) >= max_groups:
+                    continue
+                seen_groups.add(working_group)
+                filtered.append(meeting)
+            limited = filtered
 
-        return session
+        return limited
 
     def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
-        """Query meetings from database based on config filters."""
+        """Query meetings from the database based on configuration filters."""
+
         from tdoc_crawler.models import MeetingQueryConfig, SortOrder
 
-        # Build meeting query config from TDoc crawl config
         meeting_config = MeetingQueryConfig(
             cache_dir=config.cache_dir,
             working_groups=config.working_groups,
             subgroups=config.subgroups,
             limit=config.limits.limit_meetings,
             order=SortOrder.DESC,
-            include_without_files=False,  # Only get meetings with HTTP links
+            include_without_files=False,
         )
 
         meetings = self.database.query_meetings(meeting_config)
 
-        # Apply meeting_ids filter if specified
         if config.meeting_ids:
             meeting_id_set = set(config.meeting_ids)
-            meetings = [m for m in meetings if m.meeting_id in meeting_id_set]
+            meetings = [meeting for meeting in meetings if meeting.meeting_id in meeting_id_set]
 
-        # Apply date range filters
         if config.start_date:
-            meetings = [m for m in meetings if m.start_date and m.start_date >= config.start_date]
+            meetings = [meeting for meeting in meetings if meeting.start_date and meeting.start_date >= config.start_date]
         if config.end_date:
-            meetings = [m for m in meetings if m.start_date and m.start_date <= config.end_date]
+            meetings = [meeting for meeting in meetings if meeting.start_date and meeting.start_date <= config.end_date]
 
         return meetings
 
-    def _crawl_meeting(
+    async def _crawl_meetings_parallel(
         self,
-        session: requests.Session,
-        meeting,  # MeetingMetadata
+        meetings: list,
         config: TDocCrawlConfig,
         collected: list[TDocMetadata],
-        seen_ids: set[str],
         existing_ids: set[str],
         targets: set[str] | None,
-    ) -> None:
-        """Crawl a specific meeting's HTTP directory for TDocs.
+    ) -> list[str]:
+        """Launch subinterpreter workers to crawl meetings in parallel."""
 
-        This method first scans the base meeting directory for TDoc subdirectories
-        (like "Docs/") and crawls those. If no subdirectories are found, it scans
-        the base directory directly.
-        """
-        base_url = meeting.files_url
-        if not base_url.endswith("/"):
-            base_url += "/"
+        errors: list[str] = []
+        seen_ids: set[str] = set()
+        max_tdocs = None
+        if config.limits.limit_tdocs is not None and config.limits.limit_tdocs != 0:
+            max_tdocs = abs(config.limits.limit_tdocs)
 
-        logger.debug("Crawling meeting %s at %s", meeting.short_name, base_url)
+        target_tuple = tuple(targets) if targets else None
 
-        try:
-            response = session.get(base_url, timeout=config.timeout)
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            logger.warning("Failed to fetch directory %s: %s", base_url, exc)
-            return
+        runner = Runner(workers=config.workers)
+        with runner.start():
+            tasks: dict[asyncio.Task[tuple[str, ...]], MeetingMetadata] = {}
+            for meeting in meetings:
+                if not meeting.files_url:
+                    continue
+                base_url = meeting.files_url.rstrip("/") + "/"
+                task = asyncio.create_task(
+                    runner.run(
+                        fetch_meeting_tdocs,
+                        meeting.meeting_id,
+                        base_url,
+                        meeting.short_name or "",
+                        config.timeout,
+                        config.max_retries,
+                        target_tuple,
+                    )
+                )
+                tasks[task] = meeting
 
-        # Parse HTML directory listing
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Look for TDoc subdirectories (e.g., "Docs/")
-        subdirs_found = []
-        for link in soup.find_all("a"):
-            href = link.get("href")
-            if not href or not isinstance(href, str):
-                continue
-
-            # Skip query strings and parent directory links
-            if href.startswith(("?", "..")):
-                continue
-
-            # Extract directory name from href (handles both full URLs and relative paths)
-            dir_name = href.rstrip("/").split("/")[-1]
-
-            # Check if this is a TDoc subdirectory
-            if dir_name.upper() in TDOC_SUBDIRS_NORMALIZED:
-                # Build full URL, ensuring it ends with /
-                if href.startswith("http"):
-                    subdir_url = href if href.endswith("/") else href + "/"
-                else:
-                    subdir_url = base_url + href.lstrip("/")
-                    if not subdir_url.endswith("/"):
-                        subdir_url += "/"
-                subdirs_found.append(subdir_url)
-
-        # Crawl subdirectories if found, otherwise crawl base directory
-        if subdirs_found:
-            for subdir_url in subdirs_found:
-                self._scan_directory_for_tdocs(session, subdir_url, meeting, config, collected, seen_ids, existing_ids, targets)
-        else:
-            # No subdirectories found, scan base directory directly
-            self._scan_directory_for_tdocs(session, base_url, meeting, config, collected, seen_ids, existing_ids, targets)
-
-    def _scan_directory_for_tdocs(
-        self,
-        session: requests.Session,
-        directory_url: str,
-        meeting,  # MeetingMetadata
-        config: TDocCrawlConfig,
-        collected: list[TDocMetadata],
-        seen_ids: set[str],
-        existing_ids: set[str],
-        targets: set[str] | None,
-    ) -> None:
-        """Scan a specific directory URL for TDoc files."""
-        if not directory_url.endswith("/"):
-            directory_url += "/"
-
-        logger.debug("Scanning directory %s", directory_url)
-
-        try:
-            response = session.get(directory_url, timeout=config.timeout)
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            logger.warning("Failed to fetch directory %s: %s", directory_url, exc)
-            return
-
-        # Parse HTML directory listing
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Extract file links from HTML
-        for link in soup.find_all("a"):
-            if targets is not None and not targets:
-                return
-
-            href_value = link.get("href")
-            if not href_value or not isinstance(href_value, str):
-                continue
-
-            href = str(href_value)
-
-            # Skip parent directory links
-            if href in ("../", "/", ".", ".."):
-                continue
-
-            # Check if it's a TDoc file
-            match = TDOC_PATTERN.search(href)
-            if not match:
-                continue
-
-            tdoc_id = match.group(1).upper()
-            if targets is not None and tdoc_id not in targets:
-                continue
-            if not self._should_store_tdoc(tdoc_id, seen_ids, existing_ids, config.incremental):
-                continue
-
-            # Build absolute URL
-            file_url = href if href.startswith(("http://", "https://")) else directory_url + href
-
-            # Try to get file size from HTML content
-            file_size = None
-            parent = link.parent
-            if parent:
-                # Look for size information in the same row
-                text_content = parent.get_text()
-                size_match = re.search(r"(\d+)\s*[KMG]?B", text_content, re.IGNORECASE)
-                if size_match:
-                    size_str = size_match.group(1)
+            pending = set(tasks.keys())
+            while pending:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    meeting = tasks[task]
                     try:
-                        file_size = int(size_str)
-                        # Check for KB, MB, GB suffixes
-                        if "K" in text_content.upper():
-                            file_size *= 1024
-                        elif "M" in text_content.upper():
-                            file_size *= 1024 * 1024
-                        elif "G" in text_content.upper():
-                            file_size *= 1024 * 1024 * 1024
-                    except ValueError:
-                        pass
+                        payloads = task.result()
+                    except Exception as exc:  # pragma: no cover - defensive, depends on network
+                        short_name = meeting.short_name or str(meeting.meeting_id)
+                        message = f"Meeting {short_name}: {exc}"
+                        logger.warning(message)
+                        errors.append(message)
+                        continue
 
-            # Create TDoc metadata with meeting information
-            # Note: Minimal metadata from FTP directory, will be enriched via portal validation
-            from decimal import Decimal
+                    limit_reached = self._process_payloads(
+                        payloads,
+                        collected,
+                        seen_ids,
+                        existing_ids,
+                        config.incremental,
+                        targets,
+                        max_tdocs,
+                    )
 
-            metadata = TDocMetadata(
-                tdoc_id=tdoc_id,
-                url=file_url,
-                meeting_id=meeting.meeting_id,
-                meeting_name=None,  # Not resolved from HTTP directory listing
-                file_size=file_size,
-                title="Pending validation",  # Will be updated after portal validation
-                source="Unknown",  # Will be updated after portal validation
-                contact="Unknown",  # Will be updated after portal validation
-                tdoc_type="unknown",
-                for_purpose="unknown",
-                agenda_item_nbr=Decimal("0.0"),  # Will be updated after portal validation
-                agenda_item_text="Unknown",
-                status=None,
-                is_revision_of=None,
-                date_created=None,
-                date_retrieved=datetime.now(UTC),
-                validated=False,
-                validation_failed=False,
-            )
-            collected.append(metadata)
-            seen_ids.add(tdoc_id)
-            if targets is not None:
-                targets.discard(tdoc_id)
-            if config.verbose:
-                logger.debug("Collected TDoc %s from meeting %s", tdoc_id, meeting.short_name)
+                    if limit_reached or (targets is not None and not targets):
+                        for pending_task in pending:
+                            pending_task.cancel()
+                        if pending:
+                            await asyncio.gather(*pending, return_exceptions=True)
+                        return errors
 
-    def _should_store_tdoc(
+        return errors
+
+    def _process_payloads(
         self,
-        tdoc_id: str,
+        payloads: tuple[str, ...],
+        collected: list[TDocMetadata],
         seen_ids: set[str],
         existing_ids: set[str],
         incremental: bool,
+        targets: set[str] | None,
+        max_tdocs: int | None,
     ) -> bool:
-        return tdoc_id not in seen_ids and (not incremental or tdoc_id not in existing_ids)
+        """Convert worker payloads into TDocMetadata and apply filters.
+
+        Returns True when a crawl limit (target IDs or limit_tdocs) has been
+        reached and processing should stop.
+        """
+
+        for json_payload in payloads:
+            metadata = TDocMetadata.model_validate_json(json_payload)
+            tdoc_id = metadata.tdoc_id
+
+            if tdoc_id in seen_ids:
+                continue
+            if incremental and tdoc_id in existing_ids:
+                continue
+
+            collected.append(metadata)
+            seen_ids.add(tdoc_id)
+
+            if targets is not None:
+                targets.discard(tdoc_id)
+                if not targets:
+                    return True
+
+            if max_tdocs is not None and len(collected) >= max_tdocs:
+                return True
+
+        return False
 
 
-__all__ = ["TDocCrawlResult", "TDocCrawler"]
+__all__ = [
+    "TDocCrawlResult",
+    "TDocCrawler",
+]

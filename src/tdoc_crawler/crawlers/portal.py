@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import logging
-import re
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import requests
 from bs4 import BeautifulSoup
 
+from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_VIEW_URL
+
 if TYPE_CHECKING:
     from tdoc_crawler.models.base import PortalCredentials
     from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
-
-PORTAL_BASE_URL = "https://portal.3gpp.org"
-TDOC_VIEW_URL = f"{PORTAL_BASE_URL}/ngppapp/CreateTdoc.Aspx"
-LOGIN_URL = f"{PORTAL_BASE_URL}/login.aspx"
 
 
 class PortalAuthenticationError(Exception):
