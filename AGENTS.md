@@ -222,19 +222,20 @@ src/tdoc_crawler/
 ├── crawlers/            # Web scraping and HTTP crawling logic
 │   ├── __init__.py      # Re-exports all public symbols (includes TDOC_PATTERN, EXCLUDED_DIRS, TDOC_SUBDIRS)
 │   ├── tdocs.py         # TDocCrawler - HTTP directory traversal, TDoc discovery, subdirectory detection
-│   ├── meetings.py      # MeetingCrawler - HTML parsing, date extraction
+│   ├── meetings.py      # MeetingCrawler - HTML parsing, date extraction, alias normalization
 │   ├── ...
 │   └── portal.py        # PortalSession - 3GPP portal authentication, TDoc metadata fetching
 ├── database/            # Database schema and operations (modular)
 │   ├── __init__.py      # Re-exports TDocDatabase and connection utilities
-│   ├── connection.py    # TDocDatabase context manager and facade
+│   ├── connection.py    # TDocDatabase context manager and facade, bulk operations with progress
 │   ├── tdocs.py         # TDoc-specific queries and operations
 │   ├── ...
 │   └── statistics.py    # Statistics and crawl log queries
 ├── cli/                 # CLI commands and helpers (modular)
-│   ├── app.py           # Typer application and command registration
+│   ├── __init__.py      # Package initialization
+│   ├── app.py           # Typer application and command registration (6 commands)
+│   ├── helpers.py       # Path resolution, credential handling, working group inference
 │   ├── fetching.py      # Targeted fetch logic and portal orchestration
-│   ├── helpers.py       # Path/credentials resolution, fuzzy matching
 │   └── printing.py      # Output formatting (table, JSON, YAML, CSV)
 ├── __init__.py          # Package initialization
 └── __main__.py          # Entry point for `python -m tdoc_crawler`
@@ -314,6 +315,7 @@ metadata = fetch_tdoc_metadata("R1-2301234", credentials)
 ### File Size Guidelines
 
 When splitting modules:
+
 - Base utilities: 20-70 lines
 - Model files: 80-150 lines
 - Crawler files: 150-350 lines
@@ -482,6 +484,7 @@ def query_tdocs(
 ```
 
 **Key Features**:
+
 - Accepts multiple TDoc IDs (case-insensitive)
 - Supports filtering by working group(s)
 - Output formats: `table`, `json`, `yaml`, `csv`
@@ -503,6 +506,7 @@ def crawl_tdocs(
     limit_meetings: Annotated[int | None, typer.Option(...)] = None,
     limit_tdocs: Annotated[int | None, typer.Option(...)] = None,
     force_revalidate: Annotated[bool, typer.Option("--force-revalidate")] = False,
+    clear_tdocs: Annotated[bool, typer.Option("--clear-tdocs")] = False,
     cache_dir: Annotated[Path | None, typer.Option(...)] = None,
     db_file: Annotated[Path | None, typer.Option(...)] = None,
     eol_username: Annotated[str | None, typer.Option(...)] = None,
@@ -511,9 +515,11 @@ def crawl_tdocs(
 ```
 
 **Key Features**:
+
 - Filters: working group, subgroup, meeting IDs, date range
 - Limits: meetings and TDocs per crawl
 - Force revalidation: Re-check existing TDocs
+- Clear TDocs: Delete all TDoc records before crawling
 - Requires meetings DB to be populated first
 - Command alias: `ct`
 
@@ -528,6 +534,7 @@ def crawl_meetings(
     limit_meetings: Annotated[int | None, typer.Option(...)] = None,
     limit_meetings_per_wg: Annotated[int | None, typer.Option(...)] = None,
     force_update: Annotated[bool, typer.Option("--force-update")] = False,
+    clear_db: Annotated[bool, typer.Option("--clear-db")] = False,
     cache_dir: Annotated[Path | None, typer.Option(...)] = None,
     db_file: Annotated[Path | None, typer.Option(...)] = None,
     eol_username: Annotated[str | None, typer.Option(...)] = None,
@@ -536,9 +543,11 @@ def crawl_meetings(
 ```
 
 **Key Features**:
+
 - Filter by working group(s)
 - Limit total meetings or per working group
 - Incremental updates: Skip existing unless `--force-update`
+- Clear database: Delete all meetings and TDocs before crawling
 - Prerequisite for `crawl-tdocs` command
 - Command alias: `cm`
 
@@ -563,6 +572,7 @@ def query_meetings(
 ```
 
 **Key Features**:
+
 - Filters: working group, subgroup, meeting IDs, date range
 - Sorting: By any field, ascending/descending
 - Output formats: `table`, `json`, `yaml`, `csv`
@@ -584,6 +594,7 @@ def open_tdoc(
 ```
 
 **Key Features**:
+
 - Downloads TDoc from FTP if not cached
 - Unzips to cache directory (deletes .zip after)
 - Opens in system default application
@@ -603,6 +614,7 @@ def stats(
 ```
 
 **Key Features**:
+
 - Shows: Total TDocs, validated TDocs, meetings, working groups
 - Displays breakdown by working group
 - Shows recent crawling activity
@@ -620,14 +632,31 @@ def stats(
 | `output_format` | `table` | - |
 
 **Helper Functions**:
+
 - `resolve_cache_dir()`: Resolves cache directory from CLI/env/default
 - `resolve_db_file()`: Resolves database file path
 - `get_credentials()`: Gets credentials from CLI/env/prompt
+- `infer_working_groups_from_subgroups()`: Infers working groups from subgroup codes
+- `parse_working_groups()`: Normalizes working group names and handles inference
+- `parse_subgroups()`: Normalizes subgroup aliases to canonical forms
 
 **Credential Handling**:
+
 1. Check CLI parameters (`--eol-username`, `--eol-password`)
 2. Check environment variables (`EOL_USERNAME`, `EOL_PASSWORD`)
 3. Prompt user interactively if not found
+
+**Working Group Inference from Subgroups**:
+
+When only subgroups are specified (without explicit `--working-group`), the CLI should infer the working groups:
+
+- `S*` subgroups (S4, S1, SP, etc.) → WorkingGroup.SA
+- `R*` subgroups (R1, R2, RP, etc.) → WorkingGroup.RAN
+- `C*` subgroups (C1, C2, CP, etc.) → WorkingGroup.CT
+
+This enables intuitive filtering like `-s S4 --limit-meetings 3` to crawl only SA, not all three working groups.
+
+**Implementation Location**: `src/tdoc_crawler/cli/helpers.py`
 
 **Helper Function Implementations**:
 
@@ -709,13 +738,37 @@ def normalize_working_group_alias(value: str) -> str:
     upper = value.upper().strip()
     return PLENARY_ALIASES.get(upper, upper)
 
-def normalize_subgroup_alias(value: str) -> str:
-    """Expand plenary alias and validate against known subgroups."""
-    normalized = normalize_working_group_alias(value)
-    # If it's a plenary alias, append "P" (RP→RP, SP→SP, CP→CP)
-    if value.upper() in PLENARY_ALIASES:
-        return value.upper()  # Keep original form
-    return normalized
+def normalize_subgroup_alias(alias: str) -> list[str]:
+    """Normalize subgroup aliases to canonical short-form names.
+
+    Transforms long-form names to short form (SA4→S4, RAN1→R1, CT3→C3).
+    Returns list of matching canonical subgroup codes.
+    Returns the normalized alias in a list if no direct match found.
+    """
+    alias_upper = alias.strip().upper()
+    matches: list[str] = []
+
+    # Normalize long form to short form
+    normalized_alias = alias_upper
+    if alias_upper.startswith("SA") and len(alias_upper) > 2:
+        normalized_alias = "S" + alias_upper[2:]  # SA4 → S4
+    elif alias_upper.startswith("RAN") and len(alias_upper) > 3:
+        normalized_alias = "R" + alias_upper[3:]  # RAN1 → R1
+    elif alias_upper.startswith("CT") and len(alias_upper) > 2:
+        normalized_alias = "C" + alias_upper[2:]  # CT1 → C1
+
+    # Check all registries for matches
+    for _working_group, codes in MEETING_CODE_REGISTRY.items():
+        for code, subgroup in codes:
+            if code.upper() == normalized_alias or code.upper() == alias_upper:
+                if subgroup:
+                    matches.append(subgroup)
+            elif subgroup and subgroup.upper() == alias_upper:
+                matches.append(subgroup)
+
+    if not matches:
+        matches.append(alias_upper)
+    return matches
 ```
 
 Usage in CLI:
@@ -724,9 +777,34 @@ Usage in CLI:
 # User types: --working-group RP
 # Parsed as: WorkingGroup.RAN
 
-# User types: --sub-group RP
-# Stored as: "RP" (RAN Plenary code)
+# User types: --sub-group SA4
+# Normalized to: ["S4"] (canonical short form)
 ```
+
+### Progress Bar Implementation
+
+Progress bars provide real-time feedback during long-running crawl operations. The implementation pattern is as follows:
+
+**Database Layer** (`database/connection.py`):
+
+- `bulk_upsert_meetings()` and `bulk_upsert_tdocs()` methods accept an optional `progress_callback: Callable[[float, float], None]` parameter
+- Convert the input `Iterable` to a `list` to determine total count before processing
+- Invoke the callback after each item with `(completed, total)` where both are floats
+- This ensures accurate progress tracking tied to actual database operations, not just collection phases
+
+**CLI Layer** (`cli/app.py`):
+
+- Use Rich's `Progress` context manager with `SpinnerColumn`, `BarColumn`, and `MofNCompleteColumn` for visual progress
+- Create a callback function that updates the progress task: `def update_progress(completed: float, total: float) -> None: progress.update(task, completed=completed, total=total)`
+- Pass this callback to the crawler's `crawl()` method
+- Result: Users see deterministic progress bars showing "N/M" format (e.g., "365/365 meetings", "1745/1745 TDocs")
+
+**Benefits**:
+
+- Crawler remains UI-agnostic (no Rich dependency in crawler layer)
+- Callback optional for non-interactive use cases
+- Progress updates reflect completed database operations, not just items collected
+- Provides accurate estimations of remaining work
 
 ### HTTP Directory Crawling and File Detection
 
@@ -788,6 +866,7 @@ EXCLUDED_DIRS_NORMALIZED = {entry.upper() for entry in EXCLUDED_DIRS}
 ```
 
 **Pattern Explanation**:
+
 - First character: `[RSC]` - Working group (R=RAN, S=SA, C=CT)
 - Second character: `[1-6P]` - Subgroup (1-6) or Plenary (P)
 - Following: `.{4,10}` - 4 to 10 characters (any valid filename characters)
@@ -866,6 +945,7 @@ def _crawl_meeting(
 ```
 
 **Key Points**:
+
 - Always check for subdirectories first
 - Handle both full URLs and relative paths
 - Ensure all URLs end with "/"
@@ -1076,6 +1156,7 @@ The database consists of five tables with proper foreign key relationships (no S
 #### 2. Meetings Table: `meetings`
 
 **Key Fields**:
+
 - `meeting_id`: 3GPP's unique meeting identifier (integer)
 - `sub_tb`: Foreign key to subworking_groups
 - `files_url`: HTTP URL to FTP directory containing TDocs
@@ -1141,12 +1222,19 @@ The `TDocDatabase` class is derived from `pydantic_sqlite.DataBase` and provides
 - `insert_tdoc()` / `get_tdoc()`: TDoc CRUD operations with case-insensitive lookup
 - `mark_tdoc_validated()`: Update validation status after portal check
 - `query_tdocs()`: Complex queries with filters (working group, meeting, date range)
+- `query_meetings()`: Complex queries with filters (working group, subgroup, meeting IDs, date range)
+- `clear_tdocs()`: Delete all TDoc records (returns count deleted)
+- `clear_meetings()`: Delete all meeting records (returns count deleted)
+- `clear_all_data()`: Delete all TDocs and meetings (returns tuple of counts)
 - `get_stats()`: Aggregated statistics for CLI `stats` command
+- `bulk_upsert_meetings()`: Insert/update multiple meetings with optional progress callback
+- `bulk_upsert_tdocs()`: Insert/update multiple TDocs with optional progress callback
 
 **Critical Patterns**:
 
 - Return Pydantic models, not raw tuples
 - Handle case-insensitive TDoc IDs via `.upper()` normalization
+- Progress callbacks should use `Callable[[float, float], None]` signature with (completed, total) parameters
 
 ## Testing
 
@@ -1312,6 +1400,7 @@ def test_crawl_collects_tdocs(
 ```
 
 **Key Differences from FTP Mocking**:
+
 - Mock `requests.Session` not `FTP`
 - Mock `session.get()` to return HTML content
 - Use BeautifulSoup-parseable HTML in mock responses
