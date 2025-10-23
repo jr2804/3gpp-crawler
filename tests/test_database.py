@@ -86,6 +86,8 @@ class TestTDocDatabase:
 
     def test_query_with_date_range(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Apply start and end date filters."""
+        from datetime import UTC
+
         from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
@@ -93,12 +95,12 @@ class TestTDocDatabase:
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
-            start = datetime(2023, 1, 15)
-            end = datetime(2023, 1, 20)
+            start = datetime(2023, 1, 15, tzinfo=UTC)
+            end = datetime(2023, 1, 20, tzinfo=UTC)
             results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, start_date=start, end_date=end))
             assert len(results) == 3
 
-            start = datetime(2023, 1, 20)
+            start = datetime(2023, 1, 20, tzinfo=UTC)
             results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, start_date=start))
             assert not results
 
@@ -111,22 +113,27 @@ class TestTDocDatabase:
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
-            stats = db.get_statistics()
+            stats: dict[str, object] = db.get_statistics()
+            assert isinstance(stats, dict)
             assert stats["total_tdocs"] == 3
-            assert stats["by_working_group"]["RAN"] == 2
-            assert stats["by_working_group"]["SA"] == 1
+            by_wg = stats.get("by_working_group", {})
+            assert isinstance(by_wg, dict)
+            assert by_wg["RAN"] == 2
+            assert by_wg["SA"] == 1
 
     def test_crawl_logging(self, test_db_path: Path) -> None:
         """Persist crawl run metadata."""
 
         with TDocDatabase(test_db_path) as db:
             crawl_id = db.log_crawl_start("tdoc", [WorkingGroup.RAN], incremental=True)
-            assert crawl_id > 0
+            assert crawl_id
 
             db.log_crawl_end(crawl_id, items_added=2, items_updated=1, errors_count=0)
 
     def test_update_existing_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Update metadata for existing TDocs."""
+        from decimal import Decimal
+
         from conftest import insert_sample_meetings
 
         with TDocDatabase(test_db_path) as db:
@@ -138,15 +145,14 @@ class TestTDocDatabase:
                 meeting_id=12345,
                 file_size=512000,
                 title="Updated Title",
-                contact=None,
-                tdoc_type=None,
-                for_purpose=None,
-                agenda_item=None,
-                status=None,
+                source="Updated Source",
+                contact="Updated Contact",
+                tdoc_type="Updated Type",
+                for_purpose="Updated Purpose",
+                agenda_item_nbr=Decimal("7.2"),
+                agenda_item_text="Updated agenda",
+                status="Updated",
                 is_revision_of=None,
-                document_type=None,
-                checksum=None,
-                source_path="/tsg_ran/RAN1/R1-2301234.zip",
                 date_created=None,
                 date_retrieved=datetime(2023, 1, 17),
                 validated=False,

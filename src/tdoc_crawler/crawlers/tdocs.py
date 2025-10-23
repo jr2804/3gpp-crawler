@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -46,10 +47,14 @@ class TDocCrawler:
     def __init__(self, database: TDocDatabase) -> None:
         self.database = database
 
-    def crawl(self, config: TDocCrawlConfig) -> TDocCrawlResult:
+    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[], None] | None = None) -> TDocCrawlResult:
         """Execute a crawl using the provided configuration.
 
         Queries meetings from the database and crawls their HTTP directories for TDocs.
+
+        Args:
+            config: Crawl configuration
+            progress_callback: Optional callback function called after each TDoc is discovered
         """
         errors: list[str] = []
         collected: list[TDocMetadata] = []
@@ -82,6 +87,7 @@ class TDocCrawler:
                         seen_ids,
                         existing_ids,
                         targets,
+                        progress_callback,
                     )
                     if targets is not None and not targets:
                         break
@@ -174,6 +180,7 @@ class TDocCrawler:
         seen_ids: set[str],
         existing_ids: set[str],
         targets: set[str] | None,
+        progress_callback: Callable[[], None] | None = None,
     ) -> None:
         """Crawl a specific meeting's HTTP directory for TDocs.
 
@@ -225,10 +232,10 @@ class TDocCrawler:
         # Crawl subdirectories if found, otherwise crawl base directory
         if subdirs_found:
             for subdir_url in subdirs_found:
-                self._scan_directory_for_tdocs(session, subdir_url, meeting, config, collected, seen_ids, existing_ids, targets)
+                self._scan_directory_for_tdocs(session, subdir_url, meeting, config, collected, seen_ids, existing_ids, targets, progress_callback)
         else:
             # No subdirectories found, scan base directory directly
-            self._scan_directory_for_tdocs(session, base_url, meeting, config, collected, seen_ids, existing_ids, targets)
+            self._scan_directory_for_tdocs(session, base_url, meeting, config, collected, seen_ids, existing_ids, targets, progress_callback)
 
     def _scan_directory_for_tdocs(
         self,
@@ -240,6 +247,7 @@ class TDocCrawler:
         seen_ids: set[str],
         existing_ids: set[str],
         targets: set[str] | None,
+        progress_callback: Callable[[], None] | None = None,
     ) -> None:
         """Scan a specific directory URL for TDoc files."""
         if not directory_url.endswith("/"):
@@ -308,24 +316,23 @@ class TDocCrawler:
                         pass
 
             # Create TDoc metadata with meeting information
+            # Note: Minimal metadata from FTP directory, will be enriched via portal validation
+            from decimal import Decimal
+
             metadata = TDocMetadata(
                 tdoc_id=tdoc_id,
                 url=file_url,
-                working_group=meeting.working_group,
-                subgroup=meeting.subgroup,
-                meeting=meeting.short_name,
                 meeting_id=meeting.meeting_id,
                 file_size=file_size,
-                title=None,
-                contact=None,
-                tdoc_type=None,
-                for_purpose=None,
-                agenda_item=None,
+                title="Pending validation",  # Will be updated after portal validation
+                source="Unknown",  # Will be updated after portal validation
+                contact="Unknown",  # Will be updated after portal validation
+                tdoc_type="unknown",
+                for_purpose="unknown",
+                agenda_item_nbr=Decimal("0.0"),  # Will be updated after portal validation
+                agenda_item_text="Unknown",
                 status=None,
                 is_revision_of=None,
-                document_type=None,
-                checksum=None,
-                source_path=directory_url + href,
                 date_created=None,
                 date_retrieved=datetime.now(UTC),
                 validated=False,
@@ -337,6 +344,10 @@ class TDocCrawler:
                 targets.discard(tdoc_id)
             if config.verbose:
                 logger.debug("Collected TDoc %s from meeting %s", tdoc_id, meeting.short_name)
+
+            # Call progress callback after collecting each TDoc
+            if progress_callback:
+                progress_callback()
 
     def _should_store_tdoc(
         self,

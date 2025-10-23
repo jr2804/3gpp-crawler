@@ -69,30 +69,36 @@ def test_fetch_tdoc_metadata_success(credentials: PortalCredentials) -> None:
 
     metadata = fetch_tdoc_metadata(tdoc_id, credentials, timeout=30)
 
+    # Should return TDocMetadata instance
     assert metadata is not None, f"Expected metadata for {tdoc_id}"
-    assert "meeting" in metadata
-    assert "title" in metadata
-    assert "contact" in metadata
-    assert "tdoc_type" in metadata
-    assert "for_purpose" in metadata
-    assert "agenda_item" in metadata
-    assert "status" in metadata
+    assert metadata.meeting_name is not None
+    assert metadata.title is not None
+    assert metadata.contact is not None
+    assert metadata.tdoc_type is not None
+    assert metadata.for_purpose is not None
+    assert metadata.status is not None
+
+    # Verify agenda item parsing
+    assert metadata.agenda_item_nbr is not None
+    assert metadata.agenda_item_text is not None
 
     # Check specific values we know about this TDoc
-    assert metadata["meeting"] == "SA4#133-e"
-    assert metadata["title"] == "UID"
-    assert metadata["contact"] == "Jan Reimes"
-    assert metadata["status"] == "agreed"
+    assert metadata.meeting_name == "SA4#133-e"
+    assert metadata.contact == "Jan Reimes"
+    assert metadata.status == "agreed"  # Brackets removed by parser
+    assert metadata.for_purpose == "Agreement"
+    assert str(metadata.agenda_item_nbr) == "14.2"
 
 
 def test_fetch_tdoc_metadata_invalid_tdoc(credentials: PortalCredentials) -> None:
     """Test fetching metadata for non-existent TDoc."""
+    from tdoc_crawler.crawlers.portal import PortalParsingError
+
     tdoc_id = "S4-999999999"
 
-    metadata = fetch_tdoc_metadata(tdoc_id, credentials, timeout=30)
-
-    # Should return None for non-existent TDoc
-    assert metadata is None
+    # Should raise PortalParsingError for non-existent TDoc
+    with pytest.raises(PortalParsingError):
+        fetch_tdoc_metadata(tdoc_id, credentials, timeout=30)
 
 
 def test_fetch_tdoc_metadata_invalid_credentials() -> None:

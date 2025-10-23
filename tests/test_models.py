@@ -12,27 +12,48 @@ class TestTDocMetadata:
 
     def test_creation(self) -> None:
         """Test creating TDocMetadata instance."""
+        from decimal import Decimal
+
         metadata = TDocMetadata(
             tdoc_id="R1-2301234",
+            meeting_id=0,
+            title="Test TDoc",
             url="https://www.3gpp.org/test.zip",
+            source="Test Source",
+            contact="Test Contact",
+            agenda_item_nbr=Decimal("7.1"),
         )
         assert metadata.tdoc_id == "R1-2301234"
         assert metadata.url == "https://www.3gpp.org/test.zip"
+        assert metadata.title == "Test TDoc"
 
     def test_case_normalization(self) -> None:
         """Test TDoc ID case normalization to uppercase."""
+        from decimal import Decimal
+
         metadata = TDocMetadata(
             tdoc_id="r1-2301234",
+            meeting_id=0,
+            title="Test TDoc",
             url="https://www.3gpp.org/test.zip",
+            source="Test Source",
+            contact="Test Contact",
+            agenda_item_nbr=Decimal("7.1"),
         )
         assert metadata.tdoc_id == "R1-2301234"
 
     def test_optional_fields(self) -> None:
         """Test optional fields in TDocMetadata."""
+        from decimal import Decimal
+
         metadata = TDocMetadata(
             tdoc_id="S4-2301890",
-            url="https://www.3gpp.org/test.zip",
             meeting_id=12345,
+            title="Test TDoc",
+            url="https://www.3gpp.org/test.zip",
+            source="Test Source",
+            contact="Test Contact",
+            agenda_item_nbr=Decimal("7.1"),
             file_size=256000,
         )
         assert metadata.meeting_id == 12345

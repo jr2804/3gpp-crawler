@@ -1,8 +1,10 @@
-"""Working group enumeration and properties."""
+"""Working group enumeration and reference records."""
 
 from __future__ import annotations
 
 from enum import StrEnum
+
+from pydantic import BaseModel, Field
 
 
 class WorkingGroup(StrEnum):
@@ -40,4 +42,20 @@ class WorkingGroup(StrEnum):
         return mapping[self]
 
 
-__all__ = ["WorkingGroup"]
+class WorkingGroupRecord(BaseModel):
+    """Persistent representation of a working group reference entry."""
+
+    tbid: int = Field(..., description="Technical body identifier")
+    code: str = Field(..., description="Canonical short code (e.g., 'RAN')")
+    name: str = Field(..., description="Display name for the working group")
+    ftp_identifier: str = Field(..., description="FTP root path segment")
+
+
+WORKING_GROUP_RECORDS: tuple[WorkingGroupRecord, ...] = (
+    WorkingGroupRecord(tbid=WorkingGroup.RAN.tbid, code="RAN", name="RAN", ftp_identifier=WorkingGroup.RAN.ftp_root),
+    WorkingGroupRecord(tbid=WorkingGroup.SA.tbid, code="SA", name="SA", ftp_identifier=WorkingGroup.SA.ftp_root),
+    WorkingGroupRecord(tbid=WorkingGroup.CT.tbid, code="CT", name="CT", ftp_identifier=WorkingGroup.CT.ftp_root),
+)
+
+
+__all__ = ["WORKING_GROUP_RECORDS", "WorkingGroup", "WorkingGroupRecord"]

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import field
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
-from pydantic.dataclasses import dataclass
 
 from .base import (
     DEFAULT_CACHE_DIR,
@@ -24,30 +23,33 @@ from .working_groups import WorkingGroup
 
 
 class TDocMetadata(BaseModel):
-    """Metadata envelope for a single TDoc file."""
+    """Persistent representation for a TDoc entry."""
 
+    # Mandatory metadata fields from portal
     tdoc_id: str = Field(..., description="Unique TDoc identifier (case-normalized)")
-    url: str = Field(..., description="Full URL to TDoc file")
-    meeting_id: int | None = Field(None, description="Numeric meeting identifier (foreign key to meetings)")
-    file_size: int | None = Field(None, description="File size in bytes")
+    meeting_id: int = Field(..., description="Foreign key reference to the meetings table")
+    title: str = Field(..., description="Document title as published on the portal")
+    url: str = Field(..., description="Full URL to the TDoc resource")
+    source: str = Field(..., description="Contact person or organization")
+    contact: str = Field(..., description="Contact person or organization")
 
-    # Portal metadata fields
-    title: str | None = Field(None, description="Document title from portal")
-    contact: str | None = Field(None, description="Contact person/organization from portal")
-    tdoc_type: str | None = Field(None, description="TDoc type classification from portal")
-    for_purpose: str | None = Field(None, description="Purpose (agreement, discussion, information, etc.) from portal")
-    agenda_item: str | None = Field(None, description="Associated agenda item from portal")
-    status: str | None = Field(None, description="Document status from portal")
-    is_revision_of: str | None = Field(None, description="Reference to previous TDoc version from portal")
+    tdoc_type: str = Field("unknown", description="TDoc classification as reported by the portal")
+    for_purpose: str = Field("unknown", description="Purpose of the contribution (agreement, information, etc.)")
+    agenda_item_nbr: Decimal = Field(..., max_digits=3, decimal_places=1, description="Associated agenda item (numerical identifier)")
+    agenda_item_text: str = Field("Unknown", description="Associated agenda item (text identifier)")
+    status: str | None = Field(None, description="Document status as reported by the portal")
 
-    # Legacy fields
-    document_type: str | None = Field(None, description="Document type")
-    checksum: str | None = Field(None, description="Checksum of downloaded file")
-    source_path: str | None = Field(None, description="Relative FTP path of the document")
-    date_created: datetime | None = Field(None, description="Document creation date")
-    date_retrieved: datetime = Field(default_factory=utc_now, description="When metadata was last retrieved")
-    validated: bool = Field(False, description="Whether TDoc was validated via portal")
-    validation_failed: bool = Field(False, description="Whether portal validation failed (cached negative result)")
+    # Optional metadata fields (from portal or determined otherwise)
+    meeting_name: str | None = Field(None, description="Meeting name from portal (temporary, used for resolution)")
+    is_revision_of: str | None = Field(None, description="Reference to a previous TDoc version")
+    file_size: int | None = Field(None, description="File size in bytes, when available/downloaded")
+
+    # fields for local database management
+    date_created: datetime | None = Field(None, description="Original creation timestamp when provided")
+    date_retrieved: datetime = Field(default_factory=utc_now, description="Timestamp of the last retrieval")
+    date_updated: datetime = Field(default_factory=utc_now, description="Timestamp of the last database update")
+    validated: bool = Field(False, description="Flag indicating successful portal validation")
+    validation_failed: bool = Field(False, description="Flag indicating cached failed validation")
 
     @field_validator("tdoc_id")
     @classmethod
@@ -55,67 +57,6 @@ class TDocMetadata(BaseModel):
         """Ensure identifiers are uppercase and trimmed."""
 
         return value.strip().upper()
-
-    @field_validator("source_path")
-    @classmethod
-    def _normalize_source_path(cls, value: str | None) -> str | None:
-        """Ensure FTP paths use forward slashes and no trailing slash."""
-
-        if value is None:
-            return None
-        normalized = value.replace("\\", "/").strip()
-        return normalized.rstrip("/") if normalized else None
-
-
-@dataclass(frozen=True, slots=True)
-class TDocRecord:
-    """SQLite row representation for a TDoc entry."""
-
-    tdoc_id: str
-    url: str
-    meeting_id: int | None = None
-    file_size: int | None = None
-    title: str | None = None
-    contact: str | None = None
-    tdoc_type: str | None = None
-    for_purpose: str | None = None
-    agenda_item: str | None = None
-    status: str | None = None
-    is_revision_of: str | None = None
-    document_type: str | None = None
-    checksum: str | None = None
-    source_path: str | None = None
-    date_created: datetime | None = None
-    date_retrieved: datetime = field(default_factory=utc_now)
-    date_updated: datetime = field(default_factory=utc_now)
-    validated: bool = False
-    validation_failed: bool = False
-
-    @classmethod
-    def from_metadata(cls, metadata: TDocMetadata) -> TDocRecord:
-        """Convert a validated metadata model into a database record."""
-
-        return cls(
-            tdoc_id=metadata.tdoc_id,
-            url=metadata.url,
-            meeting_id=metadata.meeting_id,
-            file_size=metadata.file_size,
-            title=metadata.title,
-            contact=metadata.contact,
-            tdoc_type=metadata.tdoc_type,
-            for_purpose=metadata.for_purpose,
-            agenda_item=metadata.agenda_item,
-            status=metadata.status,
-            is_revision_of=metadata.is_revision_of,
-            document_type=metadata.document_type,
-            checksum=metadata.checksum,
-            source_path=metadata.source_path,
-            date_created=metadata.date_created,
-            date_retrieved=metadata.date_retrieved,
-            date_updated=utc_now(),
-            validated=metadata.validated,
-            validation_failed=metadata.validation_failed,
-        )
 
 
 class TDocCrawlConfig(BaseConfigModel):
@@ -217,5 +158,4 @@ __all__ = [
     "QueryConfig",
     "TDocCrawlConfig",
     "TDocMetadata",
-    "TDocRecord",
 ]

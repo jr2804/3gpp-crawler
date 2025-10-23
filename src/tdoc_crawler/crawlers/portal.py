@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import requests
@@ -11,6 +12,7 @@ from bs4 import BeautifulSoup
 
 if TYPE_CHECKING:
     from tdoc_crawler.models.base import PortalCredentials
+    from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -118,27 +120,28 @@ class PortalSession:
         self._authenticated = True
         logger.info("Successfully authenticated with 3GPP portal")
 
-    def fetch_tdoc_metadata(self, tdoc_id: str) -> dict[str, str | None] | None:
+    def fetch_tdoc_metadata(self, tdoc_id: str, url: str | None = None) -> TDocMetadata:
         """Fetch TDoc metadata from portal.
 
         Args:
             tdoc_id: TDoc identifier (e.g., 'S4-251364')
+            url: Optional TDoc URL (if known)
 
         Returns:
-            Dictionary with parsed metadata fields or None if TDoc not found
+            TDocMetadata instance with portal metadata
 
         Raises:
             PortalAuthenticationError: If authentication is required but fails
-            PortalParsingError: If page parsing fails
+            PortalParsingError: If page parsing fails or TDoc not found
         """
         # Ensure authenticated
         self.authenticate()
 
         # Fetch TDoc page
-        url = f"{TDOC_VIEW_URL}?mode=view&contributionUid={tdoc_id}"
-        logger.debug(f"Fetching TDoc metadata from {url}")
+        view_url = f"{TDOC_VIEW_URL}?mode=view&contributionUid={tdoc_id}"
+        logger.debug(f"Fetching TDoc metadata from {view_url}")
 
-        response = self.session.get(url, timeout=self.timeout)
+        response = self.session.get(view_url, timeout=self.timeout)
         response.raise_for_status()
 
         # Check if redirected to login (session expired)
@@ -147,29 +150,36 @@ class PortalSession:
             raise PortalAuthenticationError("Session expired - re-authentication required")
 
         # Parse the page
-        return parse_tdoc_portal_page(response.text, tdoc_id)
+        return parse_tdoc_portal_page(response.text, tdoc_id, url)
 
 
-def parse_tdoc_portal_page(html: str, tdoc_id: str) -> dict[str, str | None] | None:
+def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> TDocMetadata:
     """Parse TDoc metadata from portal HTML page.
 
     Args:
         html: HTML content of the TDoc portal page
         tdoc_id: TDoc identifier for logging
+        url: Optional TDoc URL (if known)
 
     Returns:
-        Dictionary with parsed metadata fields or None if TDoc not found
+        TDocMetadata instance with portal metadata
+
+    Raises:
+        PortalParsingError: If TDoc not found, metadata table not found, or mandatory fields missing
 
     Expected fields:
         - meeting: Meeting identifier (required)
         - title: Document title (required)
         - contact: Contact person/organization (required)
+        - source: Source organization (required)
         - tdoc_type: Document type classification (required)
-        - for_purpose: Purpose (agreement, discussion, etc.) (required)
+        - for: Purpose (agreement, discussion, etc.) (required)
         - agenda_item: Associated agenda item (required)
-        - status: Document status (required)
+        - status: Document status (optional)
         - is_revision_of: Reference to previous TDoc version (optional)
     """
+    from tdoc_crawler.models.tdocs import TDocMetadata
+
     soup = BeautifulSoup(html, "html.parser")
 
     # Check for "not found" or error messages
@@ -182,182 +192,151 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str) -> dict[str, str | None] | N
     page_text = soup.get_text().lower()
     if any(indicator in page_text for indicator in error_indicators):
         logger.warning(f"TDoc {tdoc_id} not found in portal")
-        return None
+        raise PortalParsingError(f"TDoc {tdoc_id} not found in portal")
 
-    # The portal page uses a form with labels and input/span elements
     # Strategy: Find all label elements and their associated values
+    metadata: dict[str, str | None] = {}
 
-    metadata: dict[str, str | None] = {
-        "meeting": None,
-        "title": None,
-        "contact": None,
-        "tdoc_type": None,
-        "for_purpose": None,
-        "agenda_item": None,
-        "status": None,
-        "is_revision_of": None,
-    }
+    # The metadata is parsed as follows:
+    # - find the table <table class="ultimate3gpp" id="tableTdocGeneralTabView">...</table>
+    # - iterate over table rows <tr>...</tr>
+    # - each row contains two columns/cells: label and value
+    # - label always ends with colon (:) - remove that
+    # - store label as key (lower-case, trimmed, blanks replaced by underscores), trimmed value as value
+    # - Keys of empty values (None or '') are not stored
+    # - Special handling: The label "status" may be followed by additional download links in brackets, e.g.: "agreed(Download TDoc)"
+    #   - We want to extract the main status text as key 'status'
+    #   - Discard everything after the main status text (i.e., remove brackets and content within)
+    # - Special handling: The value for label "Agenda item" is of form "7.1 - Some text":
+    #   - We want to extract the numeric part ("7.1" - as string!) as key 'agenda_item_nbr'
+    #   - We want to extract "the text" part ("Some text" - as string!) as key 'agenda_item_text'
 
-    # Find all table rows that might contain metadata
-    # Common patterns:
-    # 1. <label>Field Name</label> followed by <input> or <span>
-    # 2. <td>Field Name</td><td>Value</td>
+    # Find the metadata table
+    table = soup.find("table", {"class": "ultimate3gpp", "id": "tableTdocGeneralTabView"})
+    if not table:
+        logger.warning(f"Metadata table not found for TDoc {tdoc_id}")
+        raise PortalParsingError(f"Metadata table not found for TDoc {tdoc_id}")
 
-    # Try to find labels and their associated values
-    labels = soup.find_all("label")
-    for label in labels:
-        label_text = label.get_text(strip=True).lower()
-
-        # Find the associated input/span/select element
-        # It might be:
-        # - Next sibling
-        # - In the same <td> parent
-        # - Referenced by 'for' attribute
-
-        value_element = None
-
-        # Check 'for' attribute
-        label_for = label.get("for")
-        if label_for:
-            value_element = soup.find(id=label_for)
-
-        # If not found, check next siblings
-        if not value_element:
-            for sibling in label.find_next_siblings():
-                if sibling.name in ("input", "select", "span", "div"):
-                    value_element = sibling
-                    break
-
-        # If still not found, check parent and next sibling
-        if not value_element and label.parent:
-            next_td = label.parent.find_next_sibling("td")
-            if next_td:
-                value_element = next_td.find(["input", "select", "span", "div"])
-
-        if not value_element:
+    # Iterate over table rows
+    rows = table.find_all("tr")
+    for row in rows:
+        cells = row.find_all("td")
+        if len(cells) < 2:
             continue
 
-        # Extract value
-        value = None
-        if value_element.name == "input":
-            raw_value = value_element.get("value", "")
-            value = str(raw_value).strip() if raw_value else None
-        elif value_element.name == "select":
-            selected = value_element.find("option", {"selected": True})
-            value = selected.get_text(strip=True) if selected else None
-        else:
-            value = value_element.get_text(strip=True)
+        # Extract label from first cell
+        label_cell = cells[0].get_text(strip=True)
+        if not label_cell or not label_cell.endswith(":"):
+            continue
 
+        # Remove trailing colon and normalize label
+        label = label_cell.rstrip(":").strip()
+        label_key = label.lower().replace(" ", "_")
+
+        # Extract value from second cell
+        value = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+        value = value.strip() if value else None
+
+        # Skip empty values
         if not value:
             continue
 
-        # Map label text to metadata field
-        if "meeting" in label_text:
-            metadata["meeting"] = value
-        elif "title" in label_text:
-            metadata["title"] = value
-        elif "contact" in label_text:
-            metadata["contact"] = value
-        elif "type" in label_text and "tdoc" in label_text:
-            metadata["tdoc_type"] = value
-        elif label_text.startswith("for") or "purpose" in label_text:
-            metadata["for_purpose"] = value
-        elif "agenda" in label_text:
-            metadata["agenda_item"] = value
-        elif "status" in label_text:
-            metadata["status"] = value
-        elif "revision" in label_text:
-            metadata["is_revision_of"] = value
+        # Special handling for "status" field
+        # Remove brackets and content within (e.g., "agreed(Download TDoc)" -> "agreed")
+        if label_key == "status" and value:
+            bracket_pos = value.find("(")
+            if bracket_pos != -1:
+                value = value[:bracket_pos].strip()
 
-    # Also try table-based parsing (alternative structure)
-    tables = soup.find_all("table")
-    for table in tables:
-        rows = table.find_all("tr")
-        for row in rows:
-            cells = row.find_all(["td", "th"])
-            if len(cells) < 2:
-                continue
+        # Store the value
+        metadata[label_key] = value
 
-            label_cell = cells[0].get_text(strip=True).lower()
-            value_cell = cells[1]
-
-            # Extract value from cell
-            value_input = value_cell.find(["input", "select", "span"])
-            if value_input:
-                if value_input.name == "input":
-                    raw_value = value_input.get("value", "")
-                    value = str(raw_value).strip() if raw_value else None
-                elif value_input.name == "select":
-                    selected = value_input.find("option", {"selected": True})
-                    value = selected.get_text(strip=True) if selected else None
-                else:
-                    value = value_input.get_text(strip=True)
+        # Special handling for "Agenda item" field
+        if label_key == "agenda_item" and value:
+            # Parse "7.1 - Some text" format
+            # Split by " - " to get number and text parts
+            parts = value.split(" - ", 1)
+            if len(parts) == 2:
+                agenda_nbr = parts[0].strip()
+                agenda_text = parts[1].strip()
+                metadata["agenda_item_nbr"] = agenda_nbr
+                metadata["agenda_item_text"] = agenda_text
             else:
-                value = value_cell.get_text(strip=True)
+                # No separator found, treat whole thing as number
+                metadata["agenda_item_nbr"] = value
 
-            if not value:
-                continue
-
-            # Map to metadata fields
-            if "meeting" in label_cell:
-                metadata["meeting"] = value
-            elif "title" in label_cell:
-                metadata["title"] = value
-            elif "contact" in label_cell:
-                metadata["contact"] = value
-            elif "type" in label_cell:
-                metadata["tdoc_type"] = value
-            elif label_cell.startswith("for"):
-                metadata["for_purpose"] = value
-            elif "agenda" in label_cell:
-                metadata["agenda_item"] = value
-            elif "status" in label_cell:
-                metadata["status"] = value
-            elif "revision" in label_cell:
-                metadata["is_revision_of"] = value
-
-    # Clean up is_revision_of field if it contains a URL
-    revision_value = metadata.get("is_revision_of")
-    if revision_value:
-        # If it's a URL like "CreateTDoc.aspx?mode=view&contributionId=...", skip it
-        # We only want TDoc IDs like "S4-251363"
-        if "CreateTDoc.aspx" in revision_value or "contributionId" in revision_value:
-            # Try to extract TDoc ID from nearby text or skip
-            metadata["is_revision_of"] = None
-        elif not re.match(r"^[RSTC]\d+-\d+", revision_value, re.IGNORECASE):
-            # Not a valid TDoc ID pattern, set to None
-            metadata["is_revision_of"] = None
-
-    # Validate required fields
-    required_fields = ["meeting", "title", "contact", "tdoc_type", "for_purpose", "agenda_item", "status"]
-    missing_fields = [field for field in required_fields if not metadata.get(field)]
+    # Check for mandatory fields
+    mandatory_fields = ["meeting", "title", "contact", "source", "tdoc_type", "for", "agenda_item_nbr"]
+    missing_fields = [field for field in mandatory_fields if field not in metadata or not metadata[field]]
 
     if missing_fields:
-        logger.warning(f"TDoc {tdoc_id}: Missing required fields: {', '.join(missing_fields)}. Parsed: {metadata}")
-        return None
+        error_msg = f"Missing mandatory fields for TDoc {tdoc_id}: {', '.join(missing_fields)}"
+        logger.warning(error_msg)
+        raise PortalParsingError(error_msg)
 
-    logger.debug(f"Successfully parsed metadata for TDoc {tdoc_id}")
-    return metadata
+    # Generate URL if not provided
+    if url is None:
+        url = f"https://www.3gpp.org/ftp/tsg_ran/.../{tdoc_id.upper()}.zip"
+
+    # Parse agenda_item_nbr as Decimal
+    try:
+        agenda_nbr_decimal = Decimal(str(metadata["agenda_item_nbr"]))
+    except Exception as exc:
+        error_msg = f"Invalid agenda item number '{metadata['agenda_item_nbr']}' for TDoc {tdoc_id}: {exc}"
+        logger.warning(error_msg)
+        raise PortalParsingError(error_msg) from exc
+
+    # Create TDocMetadata instance
+    # At this point we've validated all mandatory fields exist and are not None
+    try:
+        tdoc_metadata = TDocMetadata(
+            tdoc_id=tdoc_id.upper(),
+            meeting_id=0,  # Will be resolved later from meeting_name
+            meeting_name=metadata.get("meeting"),  # Store original meeting name for resolution
+            title=str(metadata["title"]),
+            url=url,
+            source=str(metadata["source"]),
+            contact=str(metadata["contact"]),
+            tdoc_type=str(metadata.get("tdoc_type", "unknown")),
+            for_purpose=str(metadata.get("for", "unknown")),
+            agenda_item_nbr=agenda_nbr_decimal,
+            agenda_item_text=str(metadata.get("agenda_item_text", "Unknown")),
+            status=metadata.get("status"),
+            is_revision_of=metadata.get("is_revision_of"),
+            file_size=None,
+            date_created=None,
+            validated=True,
+            validation_failed=False,
+        )
+        logger.debug(f"Successfully parsed metadata for TDoc {tdoc_id}")
+        return tdoc_metadata
+
+    except Exception as exc:
+        error_msg = f"Failed to create TDocMetadata for TDoc {tdoc_id}: {exc}"
+        logger.warning(error_msg)
+        raise PortalParsingError(error_msg) from exc
 
 
 def fetch_tdoc_metadata(
     tdoc_id: str,
     credentials: PortalCredentials,
     timeout: int = 30,
-) -> dict[str, str | None] | None:
+    url: str | None = None,
+) -> TDocMetadata:
     """Fetch TDoc metadata from 3GPP portal (convenience function).
 
     Args:
         tdoc_id: TDoc identifier (e.g., 'S4-251364')
         credentials: ETSI Online Account credentials
         timeout: Request timeout in seconds
+        url: Optional TDoc URL (if known)
 
     Returns:
-        Dictionary with parsed metadata fields or None if TDoc not found
+        TDocMetadata instance with portal metadata
 
     Raises:
         PortalAuthenticationError: If authentication fails
-        PortalParsingError: If page parsing fails
+        PortalParsingError: If page parsing fails or TDoc not found
     """
     with PortalSession(credentials, timeout) as session:
-        return session.fetch_tdoc_metadata(tdoc_id)
+        return session.fetch_tdoc_metadata(tdoc_id, url)

@@ -3,71 +3,88 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import field
 from datetime import date, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, Field, field_validator
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .base import DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials, SortOrder, utc_now
 from .crawl_limits import CrawlLimits, _new_crawl_limits
+from .subworking_groups import CODE_INDEX, SUBTB_INDEX
 from .working_groups import WorkingGroup
 
 
 class MeetingMetadata(BaseModel):
-    """Structured metadata for a single 3GPP meeting."""
+    """Persistent representation for a 3GPP meeting."""
 
-    meeting_id: int = Field(..., description="Unique meeting identifier from 3GPP portal")
-    tbid: int = Field(..., description="Technical body ID (working group)")
-    subtb: int | None = Field(None, description="Sub-technical body ID (subworking group)")
-    working_group: WorkingGroup = Field(..., description="Working group owning the meeting")
-    subgroup: str | None = Field(None, description="Sub group name (for display)")
-    short_name: str = Field(..., description="Short name of the meeting (e.g., SA4#134)")
-    title: str | None = Field(None, description="Descriptive title of the meeting")
+    # parsed from the portal
+    meeting_id: int = Field(..., description="Unique meeting identifier from the 3GPP portal")
+    tbid: int = Field(..., description="Technical body identifier of the parent working group")
+    subtb: int | None = Field(..., description="Sub-technical body identifier of the subworking group")
+    working_group: str | None = Field(None, description="Working group (as string, e.g., 'SA')")
+    subgroup: str | None = Field(None, description="Canonical subgroup code (e.g., 'R1')")
+    short_name: str = Field(..., description="Short meeting name (e.g., SA4#134)")
+    title: str | None = Field(None, description="Descriptive meeting title")
     start_date: date | None = Field(None, description="Meeting start date")
     end_date: date | None = Field(None, description="Meeting end date")
     location: str | None = Field(None, description="Meeting location")
-    files_url: str | None = Field(None, description="Direct link to meeting files on FTP")
-    portal_url: str | None = Field(None, description="3GPP portal URL for the meeting")
+    files_url: str | None = Field(None, description="HTTP directory containing meeting documents")
+    portal_url: str | None = Field(None, description="Link to the portal meeting overview")
 
+    # Database management fields
+    last_synced: datetime = Field(default_factory=utc_now, description="Timestamp when the meeting was last refreshed")
+    created_at: datetime = Field(default_factory=utc_now, description="Timestamp when the record was first stored")
+    updated_at: datetime = Field(default_factory=utc_now, description="Timestamp when the record was last updated")
 
-@dataclass(frozen=True, slots=True)
-class MeetingRecord:
-    """SQLite row representation for a meeting entry."""
-
-    meeting_id: int
-    tbid: int
-    subtb: int | None
-    working_group: WorkingGroup
-    subgroup: str | None
-    short_name: str
-    title: str | None
-    start_date: date | None
-    end_date: date | None
-    location: str | None
-    files_url: str | None
-    portal_url: str | None
-    last_synced: datetime = field(default_factory=utc_now)
-
+    @field_validator("working_group", mode="before")
     @classmethod
-    def from_metadata(cls, metadata: MeetingMetadata) -> MeetingRecord:
-        """Convert a meeting metadata model into a database row representation."""
+    def _validate_working_group(cls, value):
+        if value is None:
+            return None
+        # Accept enum or str, store as str
+        if isinstance(value, WorkingGroup):
+            return value.value
+        if value not in {wg.value for wg in WorkingGroup}:
+            raise ValueError(f"Invalid working_group: {value}")
+        return value
 
-        return cls(
-            meeting_id=metadata.meeting_id,
-            tbid=metadata.tbid,
-            subtb=metadata.subtb,
-            working_group=metadata.working_group,
-            subgroup=metadata.subgroup,
-            short_name=metadata.short_name,
-            title=metadata.title,
-            start_date=metadata.start_date,
-            end_date=metadata.end_date,
-            location=metadata.location,
-            files_url=metadata.files_url,
-            portal_url=metadata.portal_url,
-        )
+    @field_validator("subgroup", mode="before")
+    @classmethod
+    def _normalize_subgroup(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().upper()
+        return normalized or None
+
+    @model_validator(mode="after")
+    def _sync_relationships(self) -> MeetingMetadata:
+        # working_group is now a string, so match tbid if not set
+        if self.working_group is None:
+            for working_group in WorkingGroup:
+                if working_group.tbid == self.tbid:
+                    self.working_group = working_group.value
+                    break
+        else:
+            # Validate tbid matches working_group
+            try:
+                wg = WorkingGroup(self.working_group)
+            except Exception:
+                raise ValueError(f"Invalid working_group: {self.working_group}")
+            if wg.tbid != self.tbid:
+                msg = "tbid does not match provided working_group"
+                raise ValueError(msg)
+
+        if self.subtb is None and self.subgroup:
+            record = CODE_INDEX.get(self.subgroup)
+            if record is not None:
+                self.subtb = record.subtb
+
+        if self.subgroup is None and self.subtb is not None:
+            record = SUBTB_INDEX.get(self.subtb)
+            if record is not None:
+                self.subgroup = record.code
+
+        return self
 
 
 class MeetingCrawlConfig(BaseConfigModel):
@@ -78,6 +95,7 @@ class MeetingCrawlConfig(BaseConfigModel):
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
         description="Working groups to crawl",
     )
+    subgroups: list[str] | None = Field(None, description="Filter by sub-working groups (e.g., 'R1', 'SA4')")
     incremental: bool = Field(True, description="Only fetch updated meetings")
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="HTTP timeout in seconds")
@@ -94,6 +112,15 @@ class MeetingCrawlConfig(BaseConfigModel):
         for item in value:
             normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
         return normalized
+
+    @field_validator("subgroups", mode="before")
+    @classmethod
+    def _normalize_subgroups(cls, value: Iterable[str] | None) -> list[str] | None:
+        """Normalize subgroup names (uppercase and strip whitespace)."""
+
+        if value is None:
+            return None
+        return [str(item).strip().upper() for item in value]
 
 
 class MeetingQueryConfig(BaseConfigModel):
@@ -132,5 +159,4 @@ __all__ = [
     "MeetingCrawlConfig",
     "MeetingMetadata",
     "MeetingQueryConfig",
-    "MeetingRecord",
 ]

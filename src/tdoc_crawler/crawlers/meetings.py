@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from urllib.parse import urljoin
@@ -113,7 +114,7 @@ class MeetingCrawler:
     def __init__(self, database: TDocDatabase) -> None:
         self.database = database
 
-    def crawl(self, config: MeetingCrawlConfig) -> MeetingCrawlResult:
+    def crawl(self, config: MeetingCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> MeetingCrawlResult:
         errors: list[str] = []
         meetings: list[MeetingMetadata] = []
 
@@ -129,6 +130,9 @@ class MeetingCrawler:
         try:
             for working_group in working_groups:
                 for code, subgroup in MEETING_CODE_REGISTRY.get(working_group, []):
+                    # Skip subgroup if subgroups filter is set and this subgroup is not in the list
+                    if config.subgroups and subgroup not in config.subgroups:
+                        continue
                     url = MEETINGS_BASE_URL.format(code=code)
                     try:
                         response = session.get(url, timeout=config.timeout)
@@ -150,7 +154,8 @@ class MeetingCrawler:
         inserted = 0
         updated = 0
         if filtered:
-            inserted, updated = self.database.bulk_upsert_meetings(filtered)
+            # Pass progress callback to bulk_upsert_meetings to update after each DB operation
+            inserted, updated = self.database.bulk_upsert_meetings(filtered, progress_callback=progress_callback)
 
         return MeetingCrawlResult(
             processed=len(filtered),

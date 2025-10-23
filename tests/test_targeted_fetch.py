@@ -69,19 +69,27 @@ class TestFetchMissingTdocs:
         sample_meetings: list[dict],
     ) -> None:
         """Ensure targeted fetch creates proper config."""
-        from conftest import insert_sample_meetings
-        from tdoc_crawler.models import PortalCredentials
+        from decimal import Decimal
 
-        # Mock portal response
-        mock_fetch_portal.return_value = {
-            "meeting": "RAN1#98",
-            "title": "Test TDoc",
-            "contact": "Test Contact",
-            "tdoc_type": "Discussion",
-            "for_purpose": "Discussion",
-            "agenda_item": "7.1",
-            "status": "Approved",
-        }
+        from conftest import insert_sample_meetings
+        from tdoc_crawler.models import PortalCredentials, TDocMetadata
+
+        # Mock portal response (now returns TDocMetadata)
+        mock_fetch_portal.return_value = TDocMetadata(
+            tdoc_id="R1-2301234",
+            meeting_id=0,
+            meeting_name="RAN1#98",
+            title="Test TDoc",
+            url="https://example.com/R1-2301234.zip",
+            contact="Test Contact",
+            source="Test Source",
+            tdoc_type="Discussion",
+            for_purpose="Discussion",
+            agenda_item_nbr=Decimal("7.1"),
+            agenda_item_text="Test agenda",
+            status="Approved",
+            validated=True,
+        )
 
         credentials = PortalCredentials(username="test", password="test")
 
@@ -107,29 +115,43 @@ class TestFetchMissingTdocs:
         sample_meetings: list[dict],
     ) -> None:
         """Verify working groups are inferred from target IDs."""
-        from conftest import insert_sample_meetings
-        from tdoc_crawler.models import PortalCredentials
+        from decimal import Decimal
 
-        # Mock portal responses
+        from conftest import insert_sample_meetings
+        from tdoc_crawler.models import PortalCredentials, TDocMetadata
+
+        # Mock portal responses (now return TDocMetadata instances)
         mock_fetch_portal.side_effect = [
-            {
-                "meeting": "RAN1#98",
-                "title": "Test TDoc 1",
-                "contact": "Test Contact",
-                "tdoc_type": "Discussion",
-                "for_purpose": "Discussion",
-                "agenda_item": "7.1",
-                "status": "Approved",
-            },
-            {
-                "meeting": "SA4#134",
-                "title": "Test TDoc 2",
-                "contact": "Test Contact",
-                "tdoc_type": "Discussion",
-                "for_purpose": "Discussion",
-                "agenda_item": "8.2",
-                "status": "Approved",
-            },
+            TDocMetadata(
+                tdoc_id="R1-2301234",
+                meeting_id=0,
+                meeting_name="RAN1#98",
+                title="Test TDoc 1",
+                url="https://example.com/R1-2301234.zip",
+                contact="Test Contact",
+                source="Test Source",
+                tdoc_type="Discussion",
+                for_purpose="Discussion",
+                agenda_item_nbr=Decimal("7.1"),
+                agenda_item_text="Test agenda",
+                status="Approved",
+                validated=True,
+            ),
+            TDocMetadata(
+                tdoc_id="S4-2301890",
+                meeting_id=0,
+                meeting_name="SA4#134",
+                title="Test TDoc 2",
+                url="https://example.com/S4-2301890.zip",
+                contact="Test Contact",
+                source="Test Source",
+                tdoc_type="Discussion",
+                for_purpose="Discussion",
+                agenda_item_nbr=Decimal("8.2"),
+                agenda_item_text="Test agenda",
+                status="Approved",
+                validated=True,
+            ),
         ]
 
         credentials = PortalCredentials(username="test", password="test")  # noqa: S106
