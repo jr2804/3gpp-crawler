@@ -132,6 +132,43 @@ class TDocCrawler:
 
         return meetings
 
+    def _filter_meetings_for_parallel_crawl(
+        self,
+        meetings: list,
+        max_tdocs: int | None,
+    ) -> list:
+        """Filter meetings to respect max_tdocs limit via tdoc_count optimization.
+
+        This method pre-filters meetings to skip those that would cause
+        cumulative TDoc count to exceed max_tdocs. This prevents unnecessary
+        subinterpreter task submission when limits will not be met.
+
+        Args:
+            meetings: List of meetings to filter
+            max_tdocs: Maximum TDocs to crawl (None = no limit)
+
+        Returns:
+            Filtered list of meetings respecting tdoc_count optimization
+        """
+        if max_tdocs is None:
+            return [m for m in meetings if m.files_url]
+
+        filtered: list = []
+        cumulative_tdocs = 0
+
+        for meeting in meetings:
+            if not meeting.files_url:
+                continue
+
+            meeting_tdocs = meeting.tdoc_count or 0
+            if cumulative_tdocs + meeting_tdocs >= max_tdocs:
+                continue
+
+            filtered.append(meeting)
+            cumulative_tdocs += meeting_tdocs
+
+        return filtered
+
     async def _crawl_meetings_parallel(
         self,
         meetings: list,
@@ -148,14 +185,16 @@ class TDocCrawler:
         if config.limits.limit_tdocs is not None and config.limits.limit_tdocs != 0:
             max_tdocs = abs(config.limits.limit_tdocs)
 
+        # Pre-filter meetings to optimize task submission
+        meetings = self._filter_meetings_for_parallel_crawl(meetings, max_tdocs)
+
         target_tuple = tuple(targets) if targets else None
 
         runner = Runner(workers=config.workers)
         with runner.start():
             tasks: dict[asyncio.Task[tuple[str, ...]], MeetingMetadata] = {}
+
             for meeting in meetings:
-                if not meeting.files_url:
-                    continue
                 base_url = meeting.files_url.rstrip("/") + "/"
                 task = asyncio.create_task(
                     runner.run(

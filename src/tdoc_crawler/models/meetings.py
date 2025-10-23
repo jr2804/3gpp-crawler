@@ -31,6 +31,9 @@ class MeetingMetadata(BaseModel):
     files_url: str | None = Field(None, description="HTTP directory containing meeting documents")
     portal_url: str | None = Field(None, description="Link to the portal meeting overview")
 
+    # Crawling statistics
+    tdoc_count: int = Field(0, ge=0, description="Number of TDocs associated with this meeting")
+
     # Database management fields
     last_synced: datetime = Field(default_factory=utc_now, description="Timestamp when the meeting was last refreshed")
     created_at: datetime = Field(default_factory=utc_now, description="Timestamp when the record was first stored")

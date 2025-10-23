@@ -393,6 +393,37 @@ class TDocDatabase:
         allowed = {wg.value for wg in working_groups}
         return {meeting.meeting_id for meeting in meetings if meeting.working_group and meeting.working_group in allowed}
 
+    def get_tdoc_count_for_meeting(self, meeting_id: int) -> int:
+        """Get the number of TDocs associated with a meeting.
+
+        Args:
+            meeting_id: The meeting identifier
+
+        Returns:
+            Number of TDocs for this meeting
+        """
+        tdocs = self._table_rows("tdocs")
+        return sum(1 for tdoc in tdocs if tdoc.meeting_id == meeting_id)
+
+    def update_meeting_tdoc_count(self, meeting_id: int, tdoc_count: int) -> None:
+        """Update the tdoc_count field for a meeting.
+
+        Args:
+            meeting_id: The meeting identifier
+            tdoc_count: The new TDoc count
+        """
+        meeting = self._get_meeting(meeting_id)
+        if meeting is None:
+            return
+
+        updated = meeting.model_copy(
+            update={
+                "tdoc_count": tdoc_count,
+                "updated_at": utc_now(),
+            }
+        )
+        self.connection.add("meetings", updated, pk="meeting_id")
+
     def get_subgroup_by_code(self, code: str) -> dict[str, int | str] | None:
         record = CODE_INDEX.get(code.strip().upper())
         if record is None:
@@ -512,7 +543,7 @@ class TDocDatabase:
     @staticmethod
     def _meeting_changed(current: MeetingMetadata, candidate: MeetingMetadata) -> bool:
         for field in MeetingMetadata.model_fields:
-            if field in {"updated_at", "last_synced"}:
+            if field in {"updated_at", "last_synced", "tdoc_count"}:
                 continue
             if getattr(current, field) != getattr(candidate, field):
                 return True
