@@ -47,6 +47,7 @@ dev = [
     "mkdocs-material>=8.5.10",
     "mkdocstrings[python]>=0.26.1",
     "pytest-asyncio>=1.2.0",
+    "undersort>=0.1.4",
 ]
 
 [build-system]
@@ -63,6 +64,16 @@ python-version = "3.14"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.undersort]
+# Method visibility ordering (primary sort)
+# Options: "public", "protected", "private"
+order = ["private", "protected", "public"]
+
+# Method type ordering within each visibility level (secondary sort, optional)
+# Options: "class" (classmethod), "static" (staticmethod), "instance" (regular methods)
+# Default: ["instance", "class", "static"]
+method_type_order = ["static", "class", "instance"]
 
 [tool.ruff]
 target-version = "py314"

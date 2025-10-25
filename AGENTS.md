@@ -1111,17 +1111,18 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
 - Use `pytest` for testing (see also next section).
 - Use `ruff` for code formatting.
 - Use `isort` for sorting imports.
-- Use `ty` for type checking.
+- Use `undersort` for sorting methods in classes.
+- Use `ty` for type checking. Do not use `mypy` or add any code specifically for type checking with `mypy`.
 - Never use `virtualenv` for creating isolated Python environments - always use `uv`.
 - For reading/writing data from/to CSV and Excel files, use `pandas`.
   - Use the engine from `python-calamine` for reading Excel files
   - Use the engine from `xlsxwriter` for writing Excel files.
   - For performance reasons, **never** use `openpyxl` to read or write Excel files!
-- Modules (single .py files) **must always** be less than 500 lines
-  - If a module exceeds this limit, consider refactoring it into a new submodule.
-- Functions (declaration + implementation) **must always** be less than 100 lines
+- Modules (single .py files) **must always** be less than 250 lines
+  - If a module exceeds this limit, refactor it into a new submodule.
+- Functions (declaration + implementation) **must always** be less than 75 lines
   - If a function exceeds this limit, consider refactoring it into smaller functions.
-- Classes (declaration + implementation) **must always** be less than 300 lines
+- Classes (declaration + implementation) **must always** be less than 200 lines
   - Avoid using static methods in classes - use module-level functions instead.
   - If a class has too many methods, consider splitting it into multiple smaller classes with single responsibility.
   - If a class has too many attributes, consider using composition instead of inheritance.
@@ -1130,6 +1131,7 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
   - If a class has too many methods that operate on the same data, consider using the Data Transfer Object (DTO) pattern to encapsulate the data.
   - If a class has too many methods that operate on different data, consider using the Strategy pattern to encapsulate the different behaviors.
   - If a class gets too complex and/or the interaction between other objects becomes convoluted, consider using functional programming instead of object-oriented programming style.
+- After implementing a new feature or making significant changes, run `ruff`, `ty`, `undersort` and `isort` to ensure code quality and consistency.
 
 ## Database Guidelines
 
