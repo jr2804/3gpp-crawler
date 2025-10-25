@@ -105,59 +105,6 @@ class MeetingCrawlResult:
 class MeetingCrawler:
     """Crawler fetching meeting metadata from the 3GPP portal."""
 
-    def __init__(self, database: TDocDatabase) -> None:
-        self.database = database
-
-    def crawl(self, config: MeetingCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> MeetingCrawlResult:
-        errors: list[str] = []
-        meetings: list[MeetingMetadata] = []
-
-        working_groups = self._limit_working_groups(config.working_groups, config.limits)
-        existing_ids: set[int] = set()
-        if config.incremental:
-            existing_ids = self.database.get_existing_meeting_ids(working_groups)
-        session = requests.Session()
-        session.headers["User-Agent"] = "tdoc-crawler/0.0.1"
-        if config.credentials is not None:
-            session.auth = (config.credentials.username, config.credentials.password)
-
-        try:
-            for working_group in working_groups:
-                for code, subgroup in MEETING_CODE_REGISTRY.get(working_group.value, []):
-                    # Skip subgroup if subgroups filter is set and this subgroup is not in the list
-                    if config.subgroups and subgroup not in config.subgroups:
-                        continue
-                    url = MEETINGS_BASE_URL.format(code=code)
-                    try:
-                        response = session.get(url, timeout=config.timeout)
-                        response.raise_for_status()
-                    except requests.RequestException as exc:
-                        message = f"Meeting crawl failed for {code}: {exc}"
-                        logger.warning(message)
-                        errors.append(message)
-                        continue
-                    parsed_meetings = self._parse_meeting_page(response.text, working_group, subgroup)
-                    for meeting in parsed_meetings:
-                        if config.incremental and meeting.meeting_id in existing_ids:
-                            continue
-                        meetings.append(meeting)
-        finally:
-            session.close()
-
-        filtered = self._apply_limits(meetings, config.limits)
-        inserted = 0
-        updated = 0
-        if filtered:
-            # Pass progress callback to bulk_upsert_meetings to update after each DB operation
-            inserted, updated = self.database.bulk_upsert_meetings(filtered, progress_callback=progress_callback)
-
-        return MeetingCrawlResult(
-            processed=len(filtered),
-            inserted=inserted,
-            updated=updated,
-            errors=errors,
-        )
-
     def _limit_working_groups(self, working_groups: list[WorkingGroup], limits: CrawlLimits) -> list[WorkingGroup]:
         if limits.limit_wgs is None or limits.limit_wgs == 0:
             return working_groups
@@ -321,6 +268,59 @@ class MeetingCrawler:
                 sequence.append(meeting.meeting_id)
         allowed = set(sequence[:limit]) if limit > 0 else set(sequence[limit:])
         return [meeting for meeting in meetings if meeting.meeting_id in allowed]
+
+    def __init__(self, database: TDocDatabase) -> None:
+        self.database = database
+
+    def crawl(self, config: MeetingCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> MeetingCrawlResult:
+        errors: list[str] = []
+        meetings: list[MeetingMetadata] = []
+
+        working_groups = self._limit_working_groups(config.working_groups, config.limits)
+        existing_ids: set[int] = set()
+        if config.incremental:
+            existing_ids = self.database.get_existing_meeting_ids(working_groups)
+        session = requests.Session()
+        session.headers["User-Agent"] = "tdoc-crawler/0.0.1"
+        if config.credentials is not None:
+            session.auth = (config.credentials.username, config.credentials.password)
+
+        try:
+            for working_group in working_groups:
+                for code, subgroup in MEETING_CODE_REGISTRY.get(working_group.value, []):
+                    # Skip subgroup if subgroups filter is set and this subgroup is not in the list
+                    if config.subgroups and subgroup not in config.subgroups:
+                        continue
+                    url = MEETINGS_BASE_URL.format(code=code)
+                    try:
+                        response = session.get(url, timeout=config.timeout)
+                        response.raise_for_status()
+                    except requests.RequestException as exc:
+                        message = f"Meeting crawl failed for {code}: {exc}"
+                        logger.warning(message)
+                        errors.append(message)
+                        continue
+                    parsed_meetings = self._parse_meeting_page(response.text, working_group, subgroup)
+                    for meeting in parsed_meetings:
+                        if config.incremental and meeting.meeting_id in existing_ids:
+                            continue
+                        meetings.append(meeting)
+        finally:
+            session.close()
+
+        filtered = self._apply_limits(meetings, config.limits)
+        inserted = 0
+        updated = 0
+        if filtered:
+            # Pass progress callback to bulk_upsert_meetings to update after each DB operation
+            inserted, updated = self.database.bulk_upsert_meetings(filtered, progress_callback=progress_callback)
+
+        return MeetingCrawlResult(
+            processed=len(filtered),
+            inserted=inserted,
+            updated=updated,
+            errors=errors,
+        )
 
 
 __all__ = [

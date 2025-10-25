@@ -27,35 +27,23 @@ from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 class TDocDatabase:
     """High-level facade for all database operations."""
 
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
-        self._database: DataBase | None = None
+    @staticmethod
+    def _tdoc_changed(current: TDocMetadata, candidate: TDocMetadata) -> bool:
+        for field in TDocMetadata.model_fields:
+            if field == "date_updated":
+                continue
+            if getattr(current, field) != getattr(candidate, field):
+                return True
+        return False
 
-    # ------------------------------------------------------------------
-    # Context manager lifecycle
-    # ------------------------------------------------------------------
-    def __enter__(self) -> TDocDatabase:
-        try:
-            self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._database = DataBase(self.db_path)
-            self._ensure_reference_data()
-        except Exception as exc:
-            raise DatabaseError("database-initialization-failed", detail=str(exc)) from exc
-        return self
-
-    def __exit__(self, exc_type, exc, exc_tb) -> None:
-        self._database = None
-
-    # ------------------------------------------------------------------
-    # Core accessors and utilities
-    # ------------------------------------------------------------------
-    @property
-    def connection(self) -> DataBase:
-        """Expose the underlying DataBase instance (read-only)."""
-
-        if self._database is None:
-            raise DatabaseError.connection_not_open()
-        return self._database
+    @staticmethod
+    def _meeting_changed(current: MeetingMetadata, candidate: MeetingMetadata) -> bool:
+        for field in MeetingMetadata.model_fields:
+            if field in {"updated_at", "last_synced", "tdoc_count"}:
+                continue
+            if getattr(current, field) != getattr(candidate, field):
+                return True
+        return False
 
     def _ensure_reference_data(self) -> None:
         """Populate reference tables for working and subworking groups."""
@@ -120,6 +108,72 @@ class TDocDatabase:
             return self.connection.model_from_table("tdocs", tdoc_id.upper())  # type: ignore[arg-type]
         except KeyError:
             return None
+
+    # ------------------------------------------------------------------
+    # Normalisation helpers
+    # ------------------------------------------------------------------
+    def _prepare_tdoc(self, metadata: TDocMetadata) -> TDocMetadata:
+        updates: dict[str, object] = {}
+        if metadata.date_retrieved is None:
+            updates["date_retrieved"] = utc_now()
+        if updates:
+            return metadata.model_copy(update=updates)
+        return metadata
+
+    def _prepare_meeting(self, metadata: MeetingMetadata) -> MeetingMetadata:
+        if metadata.working_group is None and metadata.tbid:
+            for working_group in WorkingGroup:
+                if working_group.tbid == metadata.tbid:
+                    return metadata.model_copy(update={"working_group": working_group})
+        return metadata
+
+    # ------------------------------------------------------------------
+    # Data clearing methods
+    # ------------------------------------------------------------------
+    def _table_exists(self, table_name: str) -> bool:
+        """Check if a table exists in the database.
+
+        Args:
+            table_name: Name of the table to check
+
+        Returns:
+            True if table exists, False otherwise
+        """
+        cursor = self.connection._db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        return cursor.fetchone() is not None
+
+    def __init__(self, db_path: Path) -> None:
+        self.db_path = db_path
+        self._database: DataBase | None = None
+
+    # ------------------------------------------------------------------
+    # Context manager lifecycle
+    # ------------------------------------------------------------------
+    def __enter__(self) -> TDocDatabase:
+        try:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._database = DataBase(self.db_path)
+            self._ensure_reference_data()
+        except Exception as exc:
+            raise DatabaseError("database-initialization-failed", detail=str(exc)) from exc
+        return self
+
+    def __exit__(self, exc_type, exc, exc_tb) -> None:
+        self._database = None
+
+    # ------------------------------------------------------------------
+    # Core accessors and utilities
+    # ------------------------------------------------------------------
+    @property
+    def connection(self) -> DataBase:
+        """Expose the underlying DataBase instance (read-only)."""
+
+        if self._database is None:
+            raise DatabaseError.connection_not_open()
+        return self._database
 
     # ------------------------------------------------------------------
     # TDoc operations
@@ -512,60 +566,6 @@ class TDocDatabase:
             "by_working_group": dict(by_working_group),
             "recent_crawls": recent_crawls,
         }
-
-    # ------------------------------------------------------------------
-    # Normalisation helpers
-    # ------------------------------------------------------------------
-    def _prepare_tdoc(self, metadata: TDocMetadata) -> TDocMetadata:
-        updates: dict[str, object] = {}
-        if metadata.date_retrieved is None:
-            updates["date_retrieved"] = utc_now()
-        if updates:
-            return metadata.model_copy(update=updates)
-        return metadata
-
-    def _prepare_meeting(self, metadata: MeetingMetadata) -> MeetingMetadata:
-        if metadata.working_group is None and metadata.tbid:
-            for working_group in WorkingGroup:
-                if working_group.tbid == metadata.tbid:
-                    return metadata.model_copy(update={"working_group": working_group})
-        return metadata
-
-    @staticmethod
-    def _tdoc_changed(current: TDocMetadata, candidate: TDocMetadata) -> bool:
-        for field in TDocMetadata.model_fields:
-            if field == "date_updated":
-                continue
-            if getattr(current, field) != getattr(candidate, field):
-                return True
-        return False
-
-    @staticmethod
-    def _meeting_changed(current: MeetingMetadata, candidate: MeetingMetadata) -> bool:
-        for field in MeetingMetadata.model_fields:
-            if field in {"updated_at", "last_synced", "tdoc_count"}:
-                continue
-            if getattr(current, field) != getattr(candidate, field):
-                return True
-        return False
-
-    # ------------------------------------------------------------------
-    # Data clearing methods
-    # ------------------------------------------------------------------
-    def _table_exists(self, table_name: str) -> bool:
-        """Check if a table exists in the database.
-
-        Args:
-            table_name: Name of the table to check
-
-        Returns:
-            True if table exists, False otherwise
-        """
-        cursor = self.connection._db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (table_name,),
-        )
-        return cursor.fetchone() is not None
 
     def clear_tdocs(self) -> int:
         """Clear all TDoc records from database.

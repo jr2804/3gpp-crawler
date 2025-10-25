@@ -122,6 +122,18 @@ class QueryConfig(BaseConfigModel):
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to date_retrieved")
 
+    @field_validator("working_groups", mode="before")
+    @classmethod
+    def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup] | None) -> list[WorkingGroup] | None:
+        """Ensure the working group list is comprised of enum members."""
+
+        if value is None:
+            return None
+        normalized: list[WorkingGroup] = []
+        for item in value:
+            normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
+        return normalized
+
     def __init__(self, **data: object) -> None:
         """Normalize identifiers and accept enum values from strings."""
 
@@ -136,18 +148,6 @@ class QueryConfig(BaseConfigModel):
         if isinstance(output_format, str):
             data["output_format"] = OutputFormat(output_format.lower())
         super().__init__(**data)
-
-    @field_validator("working_groups", mode="before")
-    @classmethod
-    def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup] | None) -> list[WorkingGroup] | None:
-        """Ensure the working group list is comprised of enum members."""
-
-        if value is None:
-            return None
-        normalized: list[WorkingGroup] = []
-        for item in value:
-            normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
-        return normalized
 
 
 # Legacy alias
