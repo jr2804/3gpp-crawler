@@ -466,61 +466,69 @@ All other fields are optional and may be added as needed.
 
 The CLI provides 6 commands implemented using Typer. Here are the exact signatures and key parameters:
 
-### 1. `query-tdocs` (Default Command)
+### 1. `query-tdocs`
 
 Query TDoc metadata from the database. If TDoc is not found, automatically triggers targeted fetch.
 
 ```python
-@app.command(name="query-tdocs)
+@app.command(name="query-tdocs")
 def query_tdocs(
-    tdoc_ids: Annotated[list[str], typer.Argument(...)],
-    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
-    output_format: Annotated[OutputFormat, typer.Option("--format", "-f")] = OutputFormat.TABLE,
-    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
-    db_file: Annotated[Path | None, typer.Option(...)] = None,
-    eol_username: Annotated[str | None, typer.Option(...)] = None,
-    eol_password: Annotated[str | None, typer.Option(...)] = None,
-)
+    tdoc_ids: list[str] | None = typer.Argument(None, help="TDoc identifiers to query"),
+    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
+    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
+    output_format: str = typer.Option(OutputFormat.TABLE.value, "--output", "-o"),
+    limit: int | None = typer.Option(None, "--limit", "-l"),
+    order: str = typer.Option(SortOrder.DESC.value, "--order"),
+    start_date: str | None = typer.Option(None, "--start-date"),
+    end_date: str | None = typer.Option(None, "--end-date"),
+    no_fetch: bool = typer.Option(False, "--no-fetch"),
+    eol_username: str | None = typer.Option(None, "--eol-username"),
+    eol_password: str | None = typer.Option(None, "--eol-password"),
+) -> None:
 ```
 
 **Key Features**:
 
-- Accepts multiple TDoc IDs (case-insensitive)
+- TDoc IDs are optional; if provided, filters results
 - Supports filtering by working group(s)
-- Output formats: `table`, `json`, `yaml`, `csv`
-- Auto-fetch: If TDoc not in DB, triggers targeted fetch
+- Sorting: by order (asc/desc), limit results
+- Output formats: `table`, `json`, `yaml`
+- Date filtering: start_date and end_date (ISO format)
+- Auto-fetch: disabled with `--no-fetch`; auto-fetches from portal if credentials available
 - Command alias: `qt`
 
 ### 2. `crawl-tdocs`
 
-Crawl TDocs from FTP directories based on meeting metadata.
+Crawl TDocs from HTTP directories based on meeting metadata.
 
 ```python
 @app.command(name="crawl-tdocs")
 def crawl_tdocs(
-    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
-    sub_group: Annotated[list[str] | None, typer.Option("--sub-group", "-s")] = None,
-    meeting_ids: Annotated[list[int] | None, typer.Option("--meeting-ids")] = None,
-    start_date: Annotated[str | None, typer.Option(...)] = None,
-    end_date: Annotated[str | None, typer.Option(...)] = None,
-    limit_meetings: Annotated[int | None, typer.Option(...)] = None,
-    limit_tdocs: Annotated[int | None, typer.Option(...)] = None,
-    force_revalidate: Annotated[bool, typer.Option("--force-revalidate")] = False,
-    clear_tdocs: Annotated[bool, typer.Option("--clear-tdocs")] = False,
-    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
-    db_file: Annotated[Path | None, typer.Option(...)] = None,
-    eol_username: Annotated[str | None, typer.Option(...)] = None,
-    eol_password: Annotated[str | None, typer.Option(...)] = None,
-)
+    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
+    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
+    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s"),
+    incremental: bool = typer.Option(True, "--incremental/--full"),
+    clear_tdocs: bool = typer.Option(False, "--clear-tdocs"),
+    limit_tdocs: int | None = typer.Option(None, "--limit-tdocs"),
+    limit_meetings: int | None = typer.Option(None, "--limit-meetings"),
+    limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg"),
+    limit_wgs: int | None = typer.Option(None, "--limit-wgs"),
+    workers: int = typer.Option(4, "--workers"),
+    max_retries: int = typer.Option(3, "--max-retries"),
+    timeout: int = typer.Option(30, "--timeout"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
 ```
 
 **Key Features**:
 
-- Filters: working group, subgroup, meeting IDs, date range
-- Limits: meetings and TDocs per crawl
-- Force revalidation: Re-check existing TDocs
-- Clear TDocs: Delete all TDoc records before crawling
-- Requires meetings DB to be populated first
+- Filters: working groups, subgroups
+- Limits: meetings, TDocs, per-working-group, number of working groups
+- Incremental mode: skip already-crawled meetings (default: enabled)
+- Clear TDocs: delete all TDoc records before crawling
+- Parallel processing: configurable worker count (default: 4)
+- HTTP resilience: max retries and timeout configuration
+- Verbose logging support
 - Command alias: `ct`
 
 ### 3. `crawl-meetings`
@@ -530,24 +538,32 @@ Crawl meeting metadata from 3GPP portal.
 ```python
 @app.command(name="crawl-meetings")
 def crawl_meetings(
-    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
-    limit_meetings: Annotated[int | None, typer.Option(...)] = None,
-    limit_meetings_per_wg: Annotated[int | None, typer.Option(...)] = None,
-    force_update: Annotated[bool, typer.Option("--force-update")] = False,
-    clear_db: Annotated[bool, typer.Option("--clear-db")] = False,
-    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
-    db_file: Annotated[Path | None, typer.Option(...)] = None,
-    eol_username: Annotated[str | None, typer.Option(...)] = None,
-    eol_password: Annotated[str | None, typer.Option(...)] = None,
-)
+    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
+    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
+    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s"),
+    incremental: bool = typer.Option(True, "--incremental/--full"),
+    clear_db: bool = typer.Option(False, "--clear-db"),
+    limit_meetings: int | None = typer.Option(None, "--limit-meetings"),
+    limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg"),
+    limit_wgs: int | None = typer.Option(None, "--limit-wgs"),
+    max_retries: int = typer.Option(3, "--max-retries"),
+    timeout: int = typer.Option(30, "--timeout"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    eol_username: str | None = typer.Option(None, "--eol-username"),
+    eol_password: str | None = typer.Option(None, "--eol-password"),
+    prompt_credentials: bool = typer.Option(True, "--prompt-credentials/--no-prompt-credentials"),
+) -> None:
 ```
 
 **Key Features**:
 
-- Filter by working group(s)
+- Filter by working groups and subgroups
 - Limit total meetings or per working group
-- Incremental updates: Skip existing unless `--force-update`
-- Clear database: Delete all meetings and TDocs before crawling
+- Incremental mode: skip existing meetings (default: enabled)
+- Clear database: delete all meetings and TDocs before crawling
+- HTTP resilience: max retries and timeout configuration
+- Verbose logging support
+- Credential handling: CLI parameters, environment variables, or interactive prompt
 - Prerequisite for `crawl-tdocs` command
 - Command alias: `cm`
 
@@ -558,24 +574,23 @@ Query meeting metadata from database.
 ```python
 @app.command(name="query-meetings")
 def query_meetings(
-    working_group: Annotated[list[WorkingGroup] | None, typer.Option("--working-group", "-w")] = None,
-    sub_group: Annotated[list[str] | None, typer.Option("--sub-group", "-s")] = None,
-    meeting_ids: Annotated[list[int] | None, typer.Option("--meeting-ids")] = None,
-    start_date: Annotated[str | None, typer.Option(...)] = None,
-    end_date: Annotated[str | None, typer.Option(...)] = None,
-    output_format: Annotated[OutputFormat, typer.Option("--format", "-f")] = OutputFormat.TABLE,
-    sort_by: Annotated[str, typer.Option(...)] = "start_date",
-    sort_order: Annotated[SortOrder, typer.Option(...)] = SortOrder.DESC,
-    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
-    db_file: Annotated[Path | None, typer.Option(...)] = None,
-)
+    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
+    working_group: list[str] | None = typer.Option(None, "--working-group", "-w"),
+    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s"),
+    output_format: str = typer.Option(OutputFormat.TABLE.value, "--output", "-o"),
+    limit: int | None = typer.Option(None, "--limit", "-l"),
+    order: str = typer.Option(SortOrder.DESC.value, "--order"),
+    include_without_files: bool = typer.Option(False, "--include-without-files"),
+) -> None:
 ```
 
 **Key Features**:
 
-- Filters: working group, subgroup, meeting IDs, date range
-- Sorting: By any field, ascending/descending
-- Output formats: `table`, `json`, `yaml`, `csv`
+- Filters: working group, subgroup
+- Sorting: ascending or descending order
+- Output formats: `table`, `json`, `yaml`
+- Limit: maximum number of rows to display
+- Include meetings without file URLs
 - Command alias: `qm`
 
 ### 5. `open`
@@ -585,12 +600,9 @@ Download, unzip, and open a TDoc file.
 ```python
 @app.command()
 def open_tdoc(
-    tdoc_id: Annotated[str, typer.Argument(...)],
-    cache_dir: Annotated[Path | None, typer.Option(...)] = None,
-    db_file: Annotated[Path | None, typer.Option(...)] = None,
-    eol_username: Annotated[str | None, typer.Option(...)] = None,
-    eol_password: Annotated[str | None, typer.Option(...)] = None,
-)
+    tdoc_id: str = typer.Argument(..., help="TDoc identifier to download and open"),
+    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c"),
+) -> None:
 ```
 
 **Key Features**:
@@ -599,7 +611,6 @@ def open_tdoc(
 - Unzips to cache directory (deletes .zip after)
 - Opens in system default application
 - Case-insensitive TDoc ID
-- if `cache_dir` is not specified, uses directory next to `db_file`
 
 ### 6. `stats`
 
@@ -625,7 +636,7 @@ def stats(
 
 | Parameter | Default | Environment Variable |
 |-----------|---------|---------------------|
-| `cache_dir` | `./cache` | `TDOC_CACHE_DIR` |
+| `cache_dir` | `~/.tdoc-crawler` | `TDOC_CACHE_DIR` |
 | `db_file` | `{cache_dir}/tdoc_crawler.db` | `TDOC_DB_FILE` |
 | `eol_username` | None | `EOL_USERNAME` |
 | `eol_password` | None | `EOL_PASSWORD` |
@@ -634,11 +645,13 @@ def stats(
 **Helper Functions**:
 
 - `resolve_cache_dir()`: Resolves cache directory from CLI/env/default
-- `resolve_db_file()`: Resolves database file path
-- `get_credentials()`: Gets credentials from CLI/env/prompt
-- `infer_working_groups_from_subgroups()`: Infers working groups from subgroup codes
+- `database_path()`: Resolves database file path
+- `resolve_credentials()`: Gets credentials from CLI/env/prompt
 - `parse_working_groups()`: Normalizes working group names and handles inference
 - `parse_subgroups()`: Normalizes subgroup aliases to canonical forms
+- `build_limits()`: Creates `CrawlLimits` configuration object
+- `launch_file()`: Opens a file with the system's default application
+- `prepare_tdoc_file()`: Downloads and extracts a TDoc file to cache directory
 
 **Credential Handling**:
 
@@ -660,9 +673,9 @@ This enables intuitive filtering like `-s S4 --limit-meetings 3` to crawl only S
 
 **Helper Function Implementations**:
 
-```python
-# In cli.py
+Located in `src/tdoc_crawler/cli/helpers.py`. Key patterns:
 
+```python
 def resolve_cache_dir(cache_dir: Path | None) -> Path:
     """Resolve cache directory from CLI parameter, environment, or default."""
     if cache_dir:
@@ -670,21 +683,16 @@ def resolve_cache_dir(cache_dir: Path | None) -> Path:
     env_cache = os.getenv("TDOC_CACHE_DIR")
     if env_cache:
         return Path(env_cache)
-    return Path.cwd() / "cache"
+    return Path.home() / ".tdoc-crawler"
 
-def resolve_db_file(cache_dir: Path, db_file: Path | None) -> Path:
-    """Resolve database file path."""
-    if db_file:
-        return db_file
-    env_db = os.getenv("TDOC_DB_FILE")
-    if env_db:
-        return Path(env_db)
+def database_path(cache_dir: Path) -> Path:
+    """Resolve database file path within cache directory."""
     return cache_dir / "tdoc_crawler.db"
 
-def get_credentials(
+def resolve_credentials(
     eol_username: str | None,
     eol_password: str | None,
-    prompt_if_missing: bool = True,
+    prompt: bool = True,
 ) -> PortalCredentials | None:
     """Get credentials from CLI, environment, or interactive prompt."""
     username = eol_username or os.getenv("EOL_USERNAME")
@@ -693,30 +701,12 @@ def get_credentials(
     if username and password:
         return PortalCredentials(username=username, password=password)
 
-    if prompt_if_missing:
+    if prompt:
         username = typer.prompt("EOL username")
         password = typer.prompt("EOL password", hide_input=True)
         return PortalCredentials(username=username, password=password)
 
     return None
-
-def _infer_working_groups_from_ids(tdoc_ids: list[str]) -> list[WorkingGroup]:
-    """Infer working groups from TDoc IDs for targeted fetching."""
-    mapping = {
-        "R": WorkingGroup.RAN,
-        "S": WorkingGroup.SA,
-        "C": WorkingGroup.CT,
-    }
-    groups: list[WorkingGroup] = []
-    for tdoc_id in tdoc_ids:
-        if not tdoc_id:
-            continue
-        first_char = tdoc_id[0].upper()
-        group = mapping.get(first_char)
-        if group and group not in groups:
-            groups.append(group)
-    # Default to all groups if none inferred
-    return groups or [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
 ```
 
 ## Implementation Patterns
@@ -1120,6 +1110,7 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
   - For performance reasons, **never** use `openpyxl` to read or write Excel files!
 - Modules (single .py files) **must always** be less than 250 lines
   - If a module exceeds this limit, refactor it into a new submodule.
+  - Exception: `src/tdoc_crawler/cli/app.py` is an acceptable exception for the main CLI command definitions file due to the number of command functions defined.
 - Functions (declaration + implementation) **must always** be less than 75 lines
   - If a function exceeds this limit, consider refactoring it into smaller functions.
 - Classes (declaration + implementation) **must always** be less than 200 lines
@@ -1192,7 +1183,19 @@ JOIN subworking_groups sw ON m.subtb = sw.subtb;
 
 #### 4. Crawl Log Table: `crawl_log`
 
-**Purpose**: Track crawling operations for statistics and diagnostics.
+**Purpose**: Track crawling operations for statistics and diagnostics. Records metadata about each crawl operation including type (meeting or tdoc), start/end times, working groups targeted, incremental mode flag, counts of items added/updated/errored, and overall status.
+
+**Key Fields**:
+
+- `crawl_type`: Type of crawl (meeting, tdoc)
+- `start_time`: ISO timestamp when crawl started
+- `end_time`: ISO timestamp when crawl completed
+- `working_groups`: Serialized list of working groups included in crawl
+- `incremental`: Boolean flag indicating if incremental mode was used
+- `items_added`: Count of new records inserted
+- `items_updated`: Count of existing records updated
+- `errors_count`: Count of errors encountered
+- `status`: Crawl completion status (success, partial, failed)
 
 ### Pydantic Models
 
@@ -1547,7 +1550,7 @@ After several implementation steps, the present file (`AGENTS.md`) might need an
 
 ```markdown
 Please review the current code basis and think thorougly about possible changes/updates/modifications/refactoring/restructuring of the coding instruction file AGENTS.md, which would help coding assistants to (re-)generate the code basis as close as possible.
-Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, including specific proposed changes with explanations. Avoid copying too many specific source code samples/examples into `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`. If your review does not find any necessary changes, simply state that the current AGENTS.md is adequate and requires no modifications.
+Document your review findings in the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`, including specific proposed changes with explanations. Avoid copying too many specific source code samples/examples into `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`. Sort and prioritize your findings them based on impact and effort. If your review does not find any necessary changes, simply state that the current AGENTS.md is adequate and requires no modifications.
 
 
 Do not update AGENTS.md directly, only document your review findings in the specified file as stated above.
@@ -1556,7 +1559,7 @@ Do not update AGENTS.md directly, only document your review findings in the spec
 The actual update of AGENTS.md will be done only after explicit user confirmation and after a prompt similar to this one:
 
 ```markdown
-Based on the review findings in the file #file:REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md (`docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`), please update the coding instruction file AGENTS.md accordingly. Make sure to incorporate all relevant suggestions from the review document, ensuring that the updated `AGENTS.md` reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible.
+Based on the review findings in the file #file:REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md (`docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`), please update the coding instruction file AGENTS.md. Make sure to incorporate all relevant suggestions in the prioritized order specified by the review document, ensuring that the updated `AGENTS.md` reflects the best practices and guidelines for coding assistants to (re-)generate the code basis as close as possible.
 
 Avoid copying citing/copying too many source code samples/examples into `AGENTS.MD`. You might move the current section regarding "Reviews of AGENTS.md" to a different place (should preferably remain at the very end of the document), but keep its content unchanged. After integration of the review findings, apply a final markdown lint cleanup.
 ```
