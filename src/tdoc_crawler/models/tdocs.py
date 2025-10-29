@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 from .base import (
     DEFAULT_CACHE_DIR,
     BaseConfigModel,
+    HttpCacheConfig,
     OutputFormat,
     PortalCredentials,
     SortOrder,
@@ -80,6 +81,7 @@ class TDocCrawlConfig(BaseConfigModel):
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
     target_ids: list[str] | None = Field(None, description="Specific TDoc identifiers to fetch")
     credentials: PortalCredentials | None = Field(None, description="Optional portal credentials")
+    http_cache: HttpCacheConfig = Field(default_factory=HttpCacheConfig, description="HTTP cache configuration")
 
     @field_validator("working_groups", mode="before")
     @classmethod

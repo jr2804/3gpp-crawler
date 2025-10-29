@@ -36,6 +36,7 @@ from .helpers import (
     parse_working_groups,
     prepare_tdoc_file,
     resolve_credentials,
+    resolve_http_cache_config,
 )
 from .printing import meeting_to_dict, print_meeting_table, print_tdoc_table, tdoc_to_dict
 
@@ -64,12 +65,15 @@ def crawl_tdocs(
     workers: int = typer.Option(4, "--workers", help="Number of parallel subinterpreter workers"),
     max_retries: int = typer.Option(3, "--max-retries", help="HTTP connection retry attempts"),
     timeout: int = typer.Option(30, "--timeout", help="HTTP request timeout seconds"),
+    cache_ttl: int | None = typer.Option(None, "--cache-ttl", help="HTTP cache TTL in seconds (default: 7200)"),
+    cache_refresh_on_access: bool | None = typer.Option(None, "--cache-refresh/--no-cache-refresh", help="Refresh cache TTL on access (default: True)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Crawl TDocs from 3GPP FTP directories."""
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
+    http_cache = resolve_http_cache_config(cache_ttl, cache_refresh_on_access)
     config = TDocCrawlConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
@@ -86,6 +90,7 @@ def crawl_tdocs(
         limits=limits,
         target_ids=None,
         credentials=None,
+        http_cache=http_cache,
     )
 
     db_path = database_path(config.cache_dir)
@@ -166,6 +171,8 @@ def crawl_meetings(
     limit_wgs: int | None = typer.Option(None, "--limit-wgs", help="Limit number of working groups"),
     max_retries: int = typer.Option(3, "--max-retries", help="HTTP retry attempts"),
     timeout: int = typer.Option(30, "--timeout", help="HTTP timeout seconds"),
+    cache_ttl: int | None = typer.Option(None, "--cache-ttl", help="HTTP cache TTL in seconds (default: 7200)"),
+    cache_refresh_on_access: bool | None = typer.Option(None, "--cache-refresh/--no-cache-refresh", help="Refresh cache TTL on access (default: True)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
     eol_username: str | None = typer.Option(None, "--eol-username", help="ETSI Online account username"),
     eol_password: str | None = typer.Option(None, "--eol-password", help="ETSI Online account password"),
@@ -176,6 +183,7 @@ def crawl_meetings(
     working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
     credentials = resolve_credentials(eol_username, eol_password, prompt_credentials)
+    http_cache = resolve_http_cache_config(cache_ttl, cache_refresh_on_access)
     config = MeetingCrawlConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
@@ -186,6 +194,7 @@ def crawl_meetings(
         verbose=verbose,
         limits=limits,
         credentials=credentials,
+        http_cache=http_cache,
     )
 
     db_path = database_path(config.cache_dir)

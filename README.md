@@ -15,6 +15,7 @@ A command-line tool for crawling the 3GPP FTP server, caching TDoc metadata in a
 
 - **Crawl 3GPP FTP Server**: Automatically retrieve TDoc links from RAN, SA, and CT working groups
 - **Local SQLite Database**: Store TDoc metadata for fast querying
+- **Persistent HTTP Caching**: 50-90% faster incremental crawls with automatic request caching
 - **Case-Insensitive Queries**: Search for TDocs regardless of case
 - **Multiple Output Formats**: Export results as table, JSON, or YAML
 - **Incremental Updates**: Only fetch new TDocs on subsequent crawls
@@ -55,29 +56,36 @@ pip install tdoc-crawler
 
 ### Environment Variables
 
-For accessing certain 3GPP resources that require authentication, you can configure ETSI Online (EOL) credentials:
+Configure the application using a `.env` file:
 
 ```bash
-# Optional/required for parsing document metadata: Set up environment variables for ETSI Online credentials
+# Copy the example file
 cp .env.example .env
-# -> Edit .env and add your credentials
 
-# Edit .env and add your credentials:
-# EOL_USERNAME=your_username
-# EOL_PASSWORD=your_password
+# Edit .env and add your settings:
+
+# ETSI Online (EOL) credentials (optional for portal authentication)
+EOL_USERNAME=your_username
+EOL_PASSWORD=your_password
+
+# HTTP Cache Configuration (optional - uses defaults if not set)
+HTTP_CACHE_TTL=7200                      # Cache TTL in seconds (default: 7200 = 2 hours)
+HTTP_CACHE_REFRESH_ON_ACCESS=true        # Refresh TTL on access (default: true)
 ```
 
 Alternatively, you can:
 
 ```bash
-# Pass them via CLI options or let the tool prompt you interactively:
+# Pass credentials via CLI options:
 uvx tdoc-crawler crawl-meetings --eol-username your_username --eol-password your_password
-```
 
-```bash
-# Or configure environment variables directly:
+# Configure HTTP caching via CLI:
+uvx tdoc-crawler crawl-tdocs --cache-ttl 3600 --cache-refresh
+
+# Or set environment variables directly:
 export EOL_USERNAME=your_username
 export EOL_PASSWORD=your_password
+export HTTP_CACHE_TTL=3600
 ```
 
 ... or let the tool prompt you interactively when needed

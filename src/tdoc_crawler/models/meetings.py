@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .base import DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials, SortOrder, utc_now
+from .base import DEFAULT_CACHE_DIR, BaseConfigModel, HttpCacheConfig, PortalCredentials, SortOrder, utc_now
 from .crawl_limits import CrawlLimits, _new_crawl_limits
 from .subworking_groups import CODE_INDEX, SUBTB_INDEX
 from .working_groups import WorkingGroup
@@ -105,6 +105,7 @@ class MeetingCrawlConfig(BaseConfigModel):
     verbose: bool = Field(False, description="Verbose logging")
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
     credentials: PortalCredentials | None = Field(None, description="Optional portal credentials")
+    http_cache: HttpCacheConfig = Field(default_factory=HttpCacheConfig, description="HTTP cache configuration")
 
     @field_validator("working_groups", mode="before")
     @classmethod

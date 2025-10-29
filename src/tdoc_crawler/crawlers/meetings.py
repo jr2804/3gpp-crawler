@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from datetime import date
 from urllib.parse import urljoin
 
-import requests
 from bs4 import BeautifulSoup, Tag
 
 from tdoc_crawler.crawlers.constants import (
@@ -20,6 +19,7 @@ from tdoc_crawler.crawlers.constants import (
     PORTAL_BASE_URL,
 )
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models import CrawlLimits, MeetingCrawlConfig, MeetingMetadata, WorkingGroup
 
 logger = logging.getLogger(__name__)
@@ -74,11 +74,7 @@ def normalize_subgroup_alias(alias: str) -> list[str]:
     for _working_group, codes in MEETING_CODE_REGISTRY.items():
         for code, subgroup in codes:
             # Check if normalized alias matches the code
-            if code.upper() == normalized_alias:
-                if subgroup:
-                    matches.append(subgroup)
-            # Also check direct match with the original alias
-            elif code.upper() == alias_upper:
+            if code.upper() == normalized_alias or code.upper() == alias_upper:
                 if subgroup:
                     matches.append(subgroup)
             # Check if subgroup name matches
@@ -280,7 +276,12 @@ class MeetingCrawler:
         existing_ids: set[int] = set()
         if config.incremental:
             existing_ids = self.database.get_existing_meeting_ids(working_groups)
-        session = requests.Session()
+        session = create_cached_session(
+            cache_dir=config.cache_dir,
+            ttl=config.http_cache.ttl,
+            refresh_ttl_on_access=config.http_cache.refresh_ttl_on_access,
+            max_retries=config.max_retries,
+        )
         session.headers["User-Agent"] = "tdoc-crawler/0.0.1"
         if config.credentials is not None:
             session.auth = (config.credentials.username, config.credentials.password)
@@ -295,7 +296,7 @@ class MeetingCrawler:
                     try:
                         response = session.get(url, timeout=config.timeout)
                         response.raise_for_status()
-                    except requests.RequestException as exc:
+                    except Exception as exc:
                         message = f"Meeting crawl failed for {code}: {exc}"
                         logger.warning(message)
                         errors.append(message)
@@ -325,8 +326,8 @@ class MeetingCrawler:
 
 __all__ = [
     "MEETING_CODE_REGISTRY",
-    "MeetingCrawler",
     "MeetingCrawlResult",
+    "MeetingCrawler",
     "normalize_subgroup_alias",
     "normalize_working_group_alias",
 ]

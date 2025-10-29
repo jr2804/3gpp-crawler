@@ -52,9 +52,17 @@ class PortalCredentials(BaseModel):
     password: str
 
 
+class HttpCacheConfig(BaseModel):
+    """HTTP cache configuration for hishel caching."""
+
+    ttl: int = 7200
+    refresh_ttl_on_access: bool = True
+
+
 __all__ = [
     "DEFAULT_CACHE_DIR",
     "BaseConfigModel",
+    "HttpCacheConfig",
     "OutputFormat",
     "PortalCredentials",
     "SortOrder",

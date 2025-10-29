@@ -16,6 +16,7 @@ classifiers = [
 dependencies = [
     "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
+    "hishel[requests]>=1.0.0",
     "lxml>=6.0.2",
     "pandas>=2.3.3",
     "pydantic>=2.12.2",
@@ -26,6 +27,7 @@ dependencies = [
     "requests>=2.32.5",
     "rich>=14.2.0",
     "typer>=0.19.2",
+    "undersort>=0.1.4",
     "xlsxwriter>=3.2.9",
 ]
 
@@ -64,6 +66,9 @@ python-version = "3.14"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: marks tests as integration tests (may require network access)",
+]
 
 [tool.undersort]
 # Method visibility ordering (primary sort)

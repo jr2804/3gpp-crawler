@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-import requests
 from bs4 import BeautifulSoup
 
 from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_VIEW_URL
+from tdoc_crawler.http_client import create_cached_session
 
 if TYPE_CHECKING:
     from tdoc_crawler.models.base import PortalCredentials
@@ -29,16 +30,24 @@ class PortalParsingError(Exception):
 class PortalSession:
     """Manages authenticated session with 3GPP portal."""
 
-    def __init__(self, credentials: PortalCredentials, timeout: int = 30) -> None:
+    def __init__(self, credentials: PortalCredentials, cache_dir: Path, cache_ttl: int = 7200, cache_refresh_on_access: bool = True, timeout: int = 30) -> None:
         """Initialize portal session.
 
         Args:
             credentials: ETSI Online Account credentials
+            cache_dir: Directory for HTTP cache storage
+            cache_ttl: HTTP cache TTL in seconds
+            cache_refresh_on_access: Whether to refresh cache TTL on access
             timeout: Request timeout in seconds
         """
         self.credentials = credentials
         self.timeout = timeout
-        self.session = requests.Session()
+        self.session = create_cached_session(
+            cache_dir=cache_dir,
+            ttl=cache_ttl,
+            refresh_ttl_on_access=cache_refresh_on_access,
+            max_retries=3,
+        )
         self._authenticated = False
 
         # Set browser-like headers to avoid 403 Forbidden
@@ -317,6 +326,9 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
 def fetch_tdoc_metadata(
     tdoc_id: str,
     credentials: PortalCredentials,
+    cache_dir: Path,
+    cache_ttl: int = 7200,
+    cache_refresh_on_access: bool = True,
     timeout: int = 30,
     url: str | None = None,
 ) -> TDocMetadata:
@@ -325,6 +337,9 @@ def fetch_tdoc_metadata(
     Args:
         tdoc_id: TDoc identifier (e.g., 'S4-251364')
         credentials: ETSI Online Account credentials
+        cache_dir: Directory for HTTP cache storage
+        cache_ttl: HTTP cache TTL in seconds
+        cache_refresh_on_access: Whether to refresh cache TTL on access
         timeout: Request timeout in seconds
         url: Optional TDoc URL (if known)
 
@@ -335,5 +350,5 @@ def fetch_tdoc_metadata(
         PortalAuthenticationError: If authentication fails
         PortalParsingError: If page parsing fails or TDoc not found
     """
-    with PortalSession(credentials, timeout) as session:
+    with PortalSession(credentials, cache_dir, cache_ttl, cache_refresh_on_access, timeout) as session:
         return session.fetch_tdoc_metadata(tdoc_id, url)

@@ -22,6 +22,7 @@ from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_gr
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import (
     CrawlLimits,
+    HttpCacheConfig,
     PortalCredentials,
     TDocMetadata,
     WorkingGroup,
@@ -144,6 +145,38 @@ def resolve_credentials(
         return PortalCredentials(username=resolved_username, password=resolved_password)
 
     return None
+
+
+def resolve_http_cache_config(
+    cache_ttl: int | None,
+    cache_refresh_on_access: bool | None,
+) -> HttpCacheConfig:
+    """Resolve HTTP cache configuration from parameters and environment.
+
+    CLI parameters always override environment variables.
+
+    Args:
+        cache_ttl: TTL from CLI parameter (overrides env var if set)
+        cache_refresh_on_access: Refresh TTL on access from CLI (overrides env var if set)
+
+    Returns:
+        HttpCacheConfig with resolved values
+    """
+    # Resolve TTL: CLI param > env var > default (7200)
+    if cache_ttl is not None:
+        ttl = cache_ttl
+    else:
+        ttl_env = os.getenv("HTTP_CACHE_TTL")
+        ttl = int(ttl_env) if ttl_env else 7200
+
+    # Resolve refresh_ttl_on_access: CLI param > env var > default (True)
+    if cache_refresh_on_access is not None:
+        refresh = cache_refresh_on_access
+    else:
+        refresh_env = os.getenv("HTTP_CACHE_REFRESH_ON_ACCESS")
+        refresh = refresh_env.lower() in ("true", "1", "yes", "on") if refresh_env is not None else True
+
+    return HttpCacheConfig(ttl=ttl, refresh_ttl_on_access=refresh)
 
 
 def database_path(cache_dir: Path) -> Path:

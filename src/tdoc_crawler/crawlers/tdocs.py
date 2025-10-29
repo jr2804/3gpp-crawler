@@ -168,6 +168,9 @@ class TDocCrawler:
                         config.timeout,
                         config.max_retries,
                         target_tuple,
+                        str(config.cache_dir),
+                        config.http_cache.ttl,
+                        config.http_cache.refresh_ttl_on_access,
                     )
                 )
                 tasks[task] = meeting

@@ -7,13 +7,12 @@ import logging
 import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from tdoc_crawler.crawlers.constants import (
     EXCLUDED_DIRS,
@@ -22,27 +21,12 @@ from tdoc_crawler.crawlers.constants import (
     TDOC_SUBDIRS,
     TDOC_SUBDIRS_NORMALIZED,
 )
+from tdoc_crawler.http_client import create_cached_session
 
 if TYPE_CHECKING:  # pragma: no cover - helpful for type checkers only
     pass
 
 logger = logging.getLogger(__name__)
-
-
-def _build_session(max_retries: int) -> requests.Session:
-    """Create a configured HTTP session with retry support."""
-
-    session = requests.Session()
-    retry_strategy = Retry(
-        total=max_retries,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["HEAD", "GET", "OPTIONS"],
-    )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    return session
 
 
 def _parse_file_size(text_content: str) -> int | None:
@@ -69,13 +53,73 @@ def _parse_file_size(text_content: str) -> int | None:
     return size
 
 
+def fetch_meeting_tdocs(
+    meeting_id: int,
+    files_url: str,
+    meeting_short_name: str,
+    timeout: int,
+    max_retries: int,
+    target_ids: Iterable[str] | None,
+    cache_dir_str: str,
+    cache_ttl: int,
+    cache_refresh_on_access: bool,
+) -> tuple[str, ...]:
+    """Fetch all TDocs for a meeting directory in a subinterpreter.
+
+    Returns a tuple of JSON-serialized :class:`TDocMetadata` records. JSON is
+    used because it is comprised of simple shareable types (str) which can be
+    transmitted across the subinterpreter boundary.
+    """
+    cache_dir = Path(cache_dir_str)
+    session = create_cached_session(
+        cache_dir=cache_dir,
+        ttl=cache_ttl,
+        refresh_ttl_on_access=cache_refresh_on_access,
+        max_retries=max_retries,
+    )
+    base_url = files_url if files_url.endswith("/") else f"{files_url}/"
+    target_set = {item.upper() for item in target_ids} if target_ids else None
+    pattern = re.compile(TDOC_PATTERN_STR, re.IGNORECASE)
+    seen_ids: set[str] = set()
+    collected: list[str] = []
+
+    try:
+        base_html = _fetch_directory(session, base_url, timeout)
+        if base_html is None:
+            return ()
+
+        subdirectories = _extract_subdirectories(base_url, base_html)
+        directories = subdirectories if subdirectories else [base_url]
+
+        for directory in directories:
+            directory_html = _fetch_directory(session, directory, timeout)
+            if directory_html is None:
+                continue
+
+            collected.extend(
+                _collect_tdocs_from_html(
+                    directory_html,
+                    directory,
+                    meeting_id,
+                    meeting_short_name,
+                    pattern,
+                    target_set,
+                    seen_ids,
+                )
+            )
+    finally:
+        session.close()
+
+    return tuple(collected)
+
+
 def _fetch_directory(session: requests.Session, url: str, timeout: int) -> str | None:
     """Fetch a directory listing and return its HTML content."""
 
     try:
         response = session.get(url, timeout=timeout)
         response.raise_for_status()
-    except requests.RequestException as exc:  # pragma: no cover - network failures
+    except Exception as exc:  # pragma: no cover - network failures
         logger.debug("Failed to fetch %s: %s", url, exc)
         return None
     return response.text
@@ -172,58 +216,6 @@ def _collect_tdocs_from_html(
         seen_ids.add(tdoc_id)
 
     return serialized
-
-
-def fetch_meeting_tdocs(
-    meeting_id: int,
-    files_url: str,
-    meeting_short_name: str,
-    timeout: int,
-    max_retries: int,
-    target_ids: Iterable[str] | None,
-) -> tuple[str, ...]:
-    """Fetch all TDocs for a meeting directory in a subinterpreter.
-
-    Returns a tuple of JSON-serialized :class:`TDocMetadata` records. JSON is
-    used because it is comprised of simple shareable types (str) which can be
-    transmitted across the subinterpreter boundary.
-    """
-
-    session = _build_session(max_retries)
-    base_url = files_url if files_url.endswith("/") else f"{files_url}/"
-    target_set = {item.upper() for item in target_ids} if target_ids else None
-    pattern = re.compile(TDOC_PATTERN_STR, re.IGNORECASE)
-    seen_ids: set[str] = set()
-    collected: list[str] = []
-
-    try:
-        base_html = _fetch_directory(session, base_url, timeout)
-        if base_html is None:
-            return ()
-
-        subdirectories = _extract_subdirectories(base_url, base_html)
-        directories = subdirectories if subdirectories else [base_url]
-
-        for directory in directories:
-            directory_html = _fetch_directory(session, directory, timeout)
-            if directory_html is None:
-                continue
-
-            collected.extend(
-                _collect_tdocs_from_html(
-                    directory_html,
-                    directory,
-                    meeting_id,
-                    meeting_short_name,
-                    pattern,
-                    target_set,
-                    seen_ids,
-                )
-            )
-    finally:
-        session.close()
-
-    return tuple(collected)
 
 
 __all__ = [

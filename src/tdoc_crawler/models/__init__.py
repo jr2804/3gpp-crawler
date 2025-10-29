@@ -6,6 +6,7 @@ from __future__ import annotations
 from .base import (
     DEFAULT_CACHE_DIR,
     BaseConfigModel,
+    HttpCacheConfig,
     OutputFormat,
     PortalCredentials,
     SortOrder,
@@ -30,6 +31,7 @@ __all__ = sorted([
     "CrawlLimits",
     "CrawlLogEntry",
     "DEFAULT_CACHE_DIR",
+    "HttpCacheConfig",
     "MeetingCrawlConfig",
     "MeetingMetadata",
     "MeetingQueryConfig",
