@@ -212,13 +212,14 @@ The project follows a modular architecture with clear separation of concerns:
 src/tdoc_crawler/
 ├── models/              # Data models and configuration
 │   ├── __init__.py      # Re-exports all public symbols for backward compatibility
-│   ├── base.py          # BaseConfigModel, utilities, enums, PortalCredentials
+│   ├── base.py          # BaseConfigModel, utilities, enums, PortalCredentials, HttpCacheConfig
 │   ├── working_groups.py  # WorkingGroup enum with tbid/ftp_root properties
 │   ├── subworking_groups.py  # SubworkingGroup model
 │   ├── crawl_limits.py  # CrawlLimits configuration
 │   ├── tdocs.py         # TDocMetadata, TDocRecord, TDocCrawlConfig, QueryConfig
 │   ├── ...
 │   └── meetings.py      # MeetingMetadata, MeetingRecord, MeetingCrawlConfig
+├── http_client.py       # HTTP session factory with persistent caching (hishel)
 ├── crawlers/            # Web scraping and HTTP crawling logic
 │   ├── __init__.py      # Re-exports all public symbols (includes TDOC_PATTERN, EXCLUDED_DIRS, TDOC_SUBDIRS)
 │   ├── tdocs.py         # TDocCrawler - HTTP directory traversal, TDoc discovery, subdirectory detection
@@ -247,6 +248,7 @@ src/tdoc_crawler/
 2. **Single Responsibility**: Each file focuses on one concern (e.g., `models/tdocs.py` only contains TDoc-related models)
 3. **Type Safety**: All modules use comprehensive type hints with `from __future__ import annotations`
 4. **Import Pattern**: Other modules import from `tdoc_crawler.models` and `tdoc_crawler.crawlers`, not from submodules directly
+5. **HTTP Client**: The `http_client.py` module provides centralized HTTP session creation with automatic caching using hishel
 
 ### Portal Authentication Module
 
@@ -310,6 +312,82 @@ from tdoc_crawler.models import PortalCredentials
 credentials = PortalCredentials(username="user", password="pass")
 metadata = fetch_tdoc_metadata("R1-2301234", credentials)
 # Returns: {"title": "...", "meeting": "...", "contact": "...", ...}
+```
+
+### HTTP Client Module
+
+The `http_client.py` module provides a centralized HTTP session factory with persistent caching:
+
+**Key Function**:
+
+```python
+def create_cached_session(
+    cache_dir: Path,
+    ttl: int = 7200,
+    refresh_ttl_on_access: bool = True,
+    max_retries: int = 3,
+) -> requests.Session:
+    """Create requests.Session with hishel caching enabled.
+
+    Args:
+        cache_dir: Directory for cache database
+        ttl: Cache time-to-live in seconds (default: 7200 = 2 hours)
+        refresh_ttl_on_access: Refresh TTL when cached content accessed (default: True)
+        max_retries: Maximum retry attempts for failed requests (default: 3)
+
+    Returns:
+        Configured requests.Session with persistent HTTP caching
+    """
+```
+
+**Features**:
+
+- Uses hishel's `SyncSqliteStorage` backend for persistent caching
+- Cache database location: `{cache_dir}/http-cache.sqlite3`
+- Configurable TTL and TTL refresh behavior
+- Built-in retry logic with exponential backoff
+- Respects RFC 9111 HTTP caching specifications
+- Automatically handles cache creation and lifecycle
+
+**Configuration Model** (`models/base.py`):
+
+```python
+class HttpCacheConfig(BaseModel):
+    """HTTP cache configuration."""
+    ttl: int = 7200  # 2 hours default
+    refresh_ttl_on_access: bool = True
+```
+
+**Configuration Priority**:
+
+1. CLI parameters (highest)
+2. Environment variables
+3. Default values (lowest)
+
+**Environment Variables**:
+
+- `HTTP_CACHE_TTL` - Cache TTL in seconds (default: 7200)
+- `HTTP_CACHE_REFRESH_ON_ACCESS` - Refresh TTL on access (default: true)
+
+**Usage Pattern**:
+
+```python
+from tdoc_crawler.http_client import create_cached_session
+from pathlib import Path
+
+cache_dir = Path.home() / ".tdoc-crawler"
+session = create_cached_session(
+    cache_dir=cache_dir,
+    ttl=3600,  # 1 hour
+    refresh_ttl_on_access=True,
+    max_retries=3,
+)
+
+try:
+    response = session.get("https://www.3gpp.org/...")
+    # Subsequent identical requests served from cache
+finally:
+    session.close()
 ```
 
 ### File Size Guidelines
@@ -516,6 +594,8 @@ def crawl_tdocs(
     workers: int = typer.Option(4, "--workers"),
     max_retries: int = typer.Option(3, "--max-retries"),
     timeout: int = typer.Option(30, "--timeout"),
+    cache_ttl: int | None = typer.Option(None, "--cache-ttl"),
+    cache_refresh_on_access: bool | None = typer.Option(None, "--cache-refresh/--no-cache-refresh"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
 ```
@@ -548,6 +628,8 @@ def crawl_meetings(
     limit_wgs: int | None = typer.Option(None, "--limit-wgs"),
     max_retries: int = typer.Option(3, "--max-retries"),
     timeout: int = typer.Option(30, "--timeout"),
+    cache_ttl: int | None = typer.Option(None, "--cache-ttl"),
+    cache_refresh_on_access: bool | None = typer.Option(None, "--cache-refresh/--no-cache-refresh"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     eol_username: str | None = typer.Option(None, "--eol-username"),
     eol_password: str | None = typer.Option(None, "--eol-password"),
@@ -640,6 +722,8 @@ def stats(
 | `db_file` | `{cache_dir}/tdoc_crawler.db` | `TDOC_DB_FILE` |
 | `eol_username` | None | `EOL_USERNAME` |
 | `eol_password` | None | `EOL_PASSWORD` |
+| `cache_ttl` | 7200 | `HTTP_CACHE_TTL` |
+| `cache_refresh_on_access` | True | `HTTP_CACHE_REFRESH_ON_ACCESS` |
 | `output_format` | `table` | - |
 
 **Helper Functions**:
@@ -647,6 +731,7 @@ def stats(
 - `resolve_cache_dir()`: Resolves cache directory from CLI/env/default
 - `database_path()`: Resolves database file path
 - `resolve_credentials()`: Gets credentials from CLI/env/prompt
+- `resolve_http_cache_config()`: Resolves HTTP cache configuration from CLI/env/default
 - `parse_working_groups()`: Normalizes working group names and handles inference
 - `parse_subgroups()`: Normalizes subgroup aliases to canonical forms
 - `build_limits()`: Creates `CrawlLimits` configuration object
@@ -801,26 +886,22 @@ Progress bars provide real-time feedback during long-running crawl operations. T
 **HTTP Session Management**:
 
 ```python
-# In crawlers/tdocs.py
-def _create_session(self, config: TDocCrawlConfig) -> requests.Session:
-    """Create HTTP session with retry logic and timeout configuration."""
-    from requests.adapters import HTTPAdapter
-    from urllib3.util.retry import Retry
+# In crawlers/tdocs.py, crawlers/meetings.py, and crawlers/portal.py
+from tdoc_crawler.http_client import create_cached_session
 
-    session = requests.Session()
+# Create session with persistent caching
+session = create_cached_session(
+    cache_dir=config.cache_dir,
+    ttl=config.http_cache.ttl,
+    refresh_ttl_on_access=config.http_cache.refresh_ttl_on_access,
+    max_retries=config.max_retries,
+)
 
-    # Configure retry strategy
-    retry_strategy = Retry(
-        total=config.max_retries,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["HEAD", "GET", "OPTIONS"],
-    )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-
-    return session
+# Session includes:
+# - Persistent HTTP caching via hishel (SQLite backend)
+# - Automatic retry logic with exponential backoff
+# - RFC 9111 compliant cache behavior
+# - Cache database at {cache_dir}/http-cache.sqlite3
 ```
 
 **HTML Directory Parsing**:
@@ -1074,6 +1155,10 @@ def get_tdoc(self, tdoc_id: str) -> TDocRecord | None:
 - Use `uv add <package>` for adding new dependencies to your project.
 - Use `uv remove <package>` for removing dependencies from your project.
 - Use `uv sync --all-extras -U` for a full update of all dependencies, including optional extras.
+- The project uses the **hishel** library for HTTP caching with SQLite backend
+  - Installation: `uv add hishel[requests]`
+  - Provides persistent request caching following RFC 9111
+  - Integrated via `src/tdoc_crawler/http_client.py` module
 - Use `uv add <package> --dev` for adding new development dependencies to your project. Do not use `project.optional-dependencies.test` in `pyproject.toml`.
 - Use `uv remove <package> --dev` for removing development dependencies from your project.
 - Use `uv run <script>` for running Python scripts within the isolated environment. Never use `<some_path>/python <script.py> <arguments>` directly!
@@ -1435,6 +1520,43 @@ def test_query_command(
     assert result.exit_code == 0
     assert "R1-2301234" in result.stdout
 ```
+
+#### Testing HTTP Caching
+
+When testing components that use `create_cached_session()`, use temporary cache directories:
+
+```python
+def test_with_cached_session(test_cache_dir: Path) -> None:
+    """Test using cached HTTP session."""
+    from tdoc_crawler.http_client import create_cached_session
+
+    session = create_cached_session(
+        cache_dir=test_cache_dir,
+        ttl=3600,
+        refresh_ttl_on_access=True,
+        max_retries=3,
+    )
+
+    try:
+        # Use session for testing
+        response = session.get("https://example.com")
+        assert response.status_code == 200
+
+        # Subsequent identical requests served from cache
+        cached_response = session.get("https://example.com")
+        assert cached_response.from_cache is True
+    finally:
+        session.close()
+```
+
+**Key Points**:
+
+- Use `test_cache_dir` fixture to isolate cache between tests
+- Cache database created at `{test_cache_dir}/http-cache.sqlite3`
+- Database created lazily on first request
+- Always close sessions after use to release resources
+- Integration tests use `pytest.mark.integration` marker
+- Check `response.from_cache` attribute to verify caching behavior
 
 ### Coverage Goals
 

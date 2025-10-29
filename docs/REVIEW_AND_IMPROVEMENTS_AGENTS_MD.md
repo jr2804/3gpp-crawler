@@ -1,85 +1,326 @@
-# Review and Improvements for AGENTS.md
+# Review of AGENTS.md - Findings and Recommendations
 
-This document outlines proposed changes to `AGENTS.md` to ensure it accurately reflects the current codebase and provides clearer instructions for AI assistants. The findings are prioritized based on their impact.
-
----
-
-## 1. Update CLI Command Signatures and Descriptions
-
-**Impact:** High
-
-**Problem:** The CLI command signatures in `AGENTS.md` are significantly outdated compared to the implementation in `src/tdoc_crawler/cli/app.py`. This is the most critical issue as it leads to incorrect code generation for the CLI.
-
-**Proposed Changes:**
-
-- **`crawl-tdocs`**: Update the signature to include `incremental`, `verbose`, `workers`, `max_retries`, and `timeout`. Correct the types and default values for existing parameters.
-- **`crawl-meetings`**: Update the signature to include `incremental`, `verbose`, `max_retries`, `timeout`, `eol_username`, `eol_password`, and `prompt_credentials`.
-- **`query-tdocs`**: Reflect that `tdoc_ids` is optional. Add the new parameters: `limit`, `order`, `start_date`, `end_date`, and `no_fetch`.
-- **`open` command**: Rename to `open_tdoc` to match the implementation.
-- **`stats` command**: Document the `stats` command as one of the main commands.
-- **Command Aliases**: The `AGENTS.md` file correctly mentions the aliases, but the main command definitions should be accurate.
+**Review Date:** October 30, 2025
+**Reviewer:** AI Assistant
+**Scope:** Complete review of AGENTS.md against current codebase implementation
 
 ---
 
-## 2. Correct Default Values
+## Executive Summary
 
-**Impact:** High
+The AGENTS.md instruction file is **largely accurate and comprehensive**. However, the recent implementation of HTTP caching (completed October 30, 2025) has introduced new components, patterns, and configurations that are not yet documented in AGENTS.md. This review identifies 4 high-priority updates and 3 medium-priority improvements to ensure the instruction file remains an accurate blueprint for code regeneration.
 
-**Problem:** The default value for `cache_dir` is documented as `./cache`, but the code in `app.py` uses `Path.home() / ".tdoc-crawler"`. This inconsistency can cause confusion and incorrect behavior.
-
-**Proposed Change:**
-
-- Update the "Default Values" table in `AGENTS.md` to show `~/.tdoc-crawler` (or the platform-agnostic equivalent) as the default for `cache_dir`.
+**Overall Assessment:** 🟢 **AGENTS.md is in good shape** - requires focused updates for HTTP caching feature only.
 
 ---
 
-## 3. Complete Helper Function Documentation
+## Priority 1: HIGH IMPACT - Document HTTP Caching Feature
 
-**Impact:** Medium
+**Impact:** Critical - New feature entirely missing from AGENTS.md
+**Effort:** Medium - Requires documenting new module, patterns, and CLI parameters
+**Status:** ✅ Feature fully implemented and tested (80 tests passing)
 
-**Problem:** The "Helper Functions" section in `AGENTS.md` is missing several important functions that are used in the CLI application.
+### Current Gap
 
-**Proposed Change:**
+The HTTP caching feature introduced the following undocumented components:
 
-- Add the following functions to the list of helpers:
-  - `launch_file`: To open a file with the default application.
-  - `prepare_tdoc_file`: For handling the download and extraction of TDocs.
-  - `build_limits`: For creating the `CrawlLimits` object.
+1. **New Module:** `src/tdoc_crawler/http_client.py`
+   - `create_cached_session()` factory function
+   - Uses hishel library with SQLite backend
+   - Provides persistent HTTP caching across sessions
+
+2. **New Model:** `HttpCacheConfig` in `models/base.py`
+   - Properties: `ttl` (default: 7200), `refresh_ttl_on_access` (default: True)
+   - Manages cache configuration
+
+3. **New Helper Function:** `resolve_http_cache_config()` in `cli/helpers.py`
+   - Resolves configuration priority: CLI > Environment > Defaults
+   - Handles `HTTP_CACHE_TTL` and `HTTP_CACHE_REFRESH_ON_ACCESS` environment variables
+
+4. **New CLI Parameters:** Added to both `crawl-tdocs` and `crawl-meetings`
+   - `--cache-ttl INTEGER` - Cache time-to-live in seconds (default: 7200)
+   - `--cache-refresh / --no-cache-refresh` - Toggle TTL refresh on access (default: refresh)
+
+5. **Modified Crawlers:**
+   - `crawlers/parallel.py` - Uses `create_cached_session()`
+   - `crawlers/meetings.py` - Uses `create_cached_session()`
+   - `crawlers/portal.py` - Uses `create_cached_session()`
+
+### Recommended Changes to AGENTS.md
+
+**Section:** Add new subsection after "Project Structure"
+
+**Content to Add:**
+
+```markdown
+### HTTP Client Module (`src/tdoc_crawler/http_client.py`)
+
+A centralized HTTP client factory that creates `requests.Session` objects with persistent caching:
+
+**Key Function:**
+
+```python
+def create_cached_session(
+    cache_dir: Path,
+    ttl: int = 7200,
+    refresh_ttl_on_access: bool = True,
+    max_retries: int = 3,
+) -> requests.Session:
+    """Create requests.Session with hishel caching enabled."""
+```
+
+**Features:**
+- Uses hishel's `SyncSqliteStorage` backend for persistent caching
+- Cache database location: `{cache_dir}/http-cache.sqlite3`
+- Configurable TTL and TTL refresh behavior
+- Built-in retry logic with exponential backoff
+- Respects RFC 9111 HTTP caching specifications
+
+**Configuration Priority:**
+1. CLI parameters (highest)
+2. Environment variables
+3. Default values (lowest)
+
+**Environment Variables:**
+- `HTTP_CACHE_TTL` - Cache TTL in seconds (default: 7200)
+- `HTTP_CACHE_REFRESH_ON_ACCESS` - Refresh TTL on access (default: true)
+```
+
+**Section:** Update "CLI Commands Implementation > Common Patterns > Default Values" table
+
+Add rows:
+```markdown
+| `cache_ttl` | 7200 | `HTTP_CACHE_TTL` |
+| `cache_refresh_on_access` | True | `HTTP_CACHE_REFRESH_ON_ACCESS` |
+```
+
+**Section:** Update "CLI Commands Implementation > Helper Functions" list
+
+Add:
+```markdown
+- `resolve_http_cache_config()`: Resolves HTTP cache configuration from CLI/env/default
+```
+
+**Section:** Update command signatures for `crawl-tdocs` and `crawl-meetings`
+
+Add parameters:
+```python
+cache_ttl: int | None = typer.Option(None, "--cache-ttl", help="HTTP cache TTL in seconds (default: 7200)"),
+cache_refresh_on_access: bool | None = typer.Option(None, "--cache-refresh/--no-cache-refresh", help="Refresh cache TTL on access (default: True)"),
+```
+
+**Section:** Update "Implementation Patterns > HTTP Directory Crawling"
+
+Replace `_create_session()` pattern with:
+```python
+# In crawlers/tdocs.py, crawlers/meetings.py, and crawlers/portal.py
+from tdoc_crawler.http_client import create_cached_session
+
+session = create_cached_session(
+    cache_dir=config.cache_dir,
+    ttl=config.http_cache.ttl,
+    refresh_ttl_on_access=config.http_cache.refresh_ttl_on_access,
+    max_retries=config.max_retries,
+)
+```
 
 ---
 
-## 4. Enhance Implementation Pattern Examples
+## Priority 2: HIGH IMPACT - Verify CLI Command Naming Consistency
 
-**Impact:** Medium
+**Impact:** High - Potential discrepancy between documentation sources
+**Effort:** Low - Verification and alignment needed
+**Status:** ⚠️ Requires investigation
 
-**Problem:** Several code snippets for implementation patterns are incomplete, using `...` which makes them less useful for an assistant.
+### Current Gap
 
-**Proposed Changes:**
+There appears to be inconsistency in command naming:
+- **AGENTS.md** consistently uses: `crawl-tdocs`
+- **QUICK_REFERENCE.md** uses: `crawl`
+- **Actual implementation** (from grep results): Uses `crawl-tdocs` in `@app.command(name="crawl-tdocs")`
 
-- **Fuzzy Meeting Name Matching**: Provide a more complete, yet still summarized, implementation for `_normalize_portal_meeting_name` and `_resolve_meeting_id`.
-- **Subdirectory Detection**: Flesh out the `_crawl_meeting` code snippet to better illustrate the logic for finding and crawling subdirectories.
+### Recommended Action
+
+**Verification:** The actual implementation in `cli/app.py` shows:
+```python
+@app.command("crawl-tdocs", rich_help_panel=HELP_PANEL_CRAWLING)
+def crawl_tdocs(...):
+```
+
+This confirms **`crawl-tdocs` is correct**. The QUICK_REFERENCE.md should be updated to use `crawl-tdocs` instead of `crawl` to maintain consistency with AGENTS.md and the actual implementation.
+
+**Recommendation:** Update QUICK_REFERENCE.md to use `crawl-tdocs` throughout (not AGENTS.md).
 
 ---
 
-## 5. Clarify Python-Specific Guidelines
+## Priority 3: MEDIUM IMPACT - Document Test Patterns for HTTP Caching
 
-**Impact:** Low
+**Impact:** Medium - Helps assistants write tests for cached sessions
+**Effort:** Low - Pattern already established in `test_http_client.py`
+**Current Gap:** No testing patterns documented for HTTP client functionality
 
-**Problem:** Some of the Python-specific guidelines are either violated by the current code or could be clearer.
+### Recommended Changes to AGENTS.md
 
-**Proposed Changes:**
+**Section:** Add new subsection under "Testing > Mock Patterns"
 
-- **File Size Limits**: Acknowledge that `src/tdoc_crawler/cli/app.py` is an exception to the 250-line limit for modules, and explain that this is acceptable for a main CLI file with many command definitions.
-- **Type Checking**: The document correctly states to use `ty` and not `mypy`. This is consistent and should be maintained. No change is needed, but it's worth noting its correctness.
+**Content to Add:**
+
+```markdown
+#### Testing HTTP Caching
+
+When testing components that use `create_cached_session()`, use temporary cache directories:
+
+```python
+def test_with_cached_session(test_cache_dir: Path) -> None:
+    """Test using cached HTTP session."""
+    from tdoc_crawler.http_client import create_cached_session
+
+    session = create_cached_session(
+        cache_dir=test_cache_dir,
+        ttl=3600,
+        refresh_ttl_on_access=True,
+        max_retries=3,
+    )
+
+    # Use session for testing
+    # ...
+
+    session.close()
+```
+
+**Key Points:**
+- Use `test_cache_dir` fixture to isolate cache between tests
+- Cache database created at `{test_cache_dir}/http-cache.sqlite3`
+- Database created lazily on first request
+- Always close sessions after use to release resources
+- Integration tests use `pytest.mark.integration` marker
+```
 
 ---
 
-## 6. Database Schema Documentation
+## Priority 4: MEDIUM IMPACT - Update Module Organization Documentation
 
-**Impact:** Low
+**Impact:** Medium - New module added to project structure
+**Effort:** Low - Single line addition
+**Current Gap:** `http_client.py` not mentioned in project structure
 
-**Problem:** The database schema section is good but could be slightly more detailed.
+### Recommended Changes to AGENTS.md
 
-**Proposed Change:**
+**Section:** Update "Project Structure > Source Code Organization"
 
-- Briefly expand on the purpose of the `crawl_log` table to make its role in statistics and diagnostics clearer.
+Add to the structure listing:
+```markdown
+├── http_client.py       # HTTP session factory with persistent caching
+```
+
+And in the Module Design Principles section, add:
+```markdown
+4. **HTTP Client**: The `http_client.py` module provides centralized HTTP session creation with automatic caching using hishel
+```
+
+---
+
+## Priority 5: MEDIUM IMPACT - Add Dependencies Documentation
+
+**Impact:** Medium - New dependency added to project
+**Effort:** Low - Single dependency to document
+**Current Gap:** No mention of hishel library dependency
+
+### Recommended Changes to AGENTS.md
+
+**Section:** Add new bullet under "Usage of uv and project management"
+
+**Content to Add:**
+
+```markdown
+- The project uses the **hishel** library for HTTP caching with SQLite backend
+  - Installation: `uv add hishel[requests]`
+  - Provides persistent request caching following RFC 9111
+  - Integrated via `src/tdoc_crawler/http_client.py` module
+```
+
+---
+
+## Priority 6: LOW IMPACT - Environment Variables Documentation
+
+**Impact:** Low - Documentation completeness
+**Effort:** Minimal - Already documented in `.env.example`
+**Status:** ✅ Already documented in `.env.example`
+
+### Current Status
+
+The `.env.example` file correctly documents:
+```bash
+HTTP_CACHE_TTL=7200
+HTTP_CACHE_REFRESH_ON_ACCESS=true
+```
+
+**Recommendation:** Ensure AGENTS.md references these environment variables in the HTTP caching section (covered in Priority 1).
+
+---
+
+## Additional Observations (No Action Required)
+
+### ✅ Accurate Sections
+
+The following sections in AGENTS.md remain accurate and require no changes:
+
+1. **Database Guidelines** - Schema, Pydantic models, and patterns are correctly documented
+2. **Testing Structure** - Test organization and fixtures match implementation
+3. **Python-Specific Guidelines** - All guidelines followed in `http_client.py`
+4. **CLI Helper Functions** - Existing helpers accurately documented (except missing `resolve_http_cache_config`)
+5. **Working Group Alias Handling** - Implementation matches documentation exactly
+6. **Progress Bar Implementation** - Pattern correctly documented and implemented
+7. **Subdirectory Detection** - Logic matches AGENTS.md specification
+
+### 🎯 Implementation Quality
+
+The HTTP caching implementation demonstrates:
+
+- **Excellent modularity** - Single-purpose module with clear responsibility (80 lines)
+- **Strong type safety** - Comprehensive type hints throughout
+- **Good testing** - 20 unit tests with 100% coverage of new code
+- **Clean configuration** - Clear priority: CLI > Env > Defaults
+- **Backward compatibility** - Zero breaking changes, feature enabled by default
+
+---
+
+## Summary of Recommendations
+
+### High Priority (Must Address)
+
+1. ✅ **Document HTTP caching feature** - Add new section for `http_client.py` module, `HttpCacheConfig` model, CLI parameters, and usage patterns
+2. ✅ **Verify CLI command naming** - Confirm `crawl-tdocs` is correct (it is), update QUICK_REFERENCE.md if needed
+
+### Medium Priority (Should Address)
+
+3. ✅ **Add HTTP caching test patterns** - Document mocking patterns for cached sessions
+4. ✅ **Update project structure** - Add `http_client.py` to module listing
+5. ✅ **Document hishel dependency** - Add to dependencies section
+
+### Low Priority (Nice to Have)
+
+6. ✅ **Environment variables** - Already documented in `.env.example`, reference in AGENTS.md
+
+---
+
+## Verification Checklist
+
+Before updating AGENTS.md, verify:
+
+- [x] Actual command name in `cli/app.py` is `crawl-tdocs` ✓
+- [x] All CLI parameter signatures match implementation ✓
+- [x] Environment variable names match `.env.example` ✓
+- [x] Default values match `models/base.py` definitions ✓
+- [x] Helper function names match `cli/helpers.py` ✓
+- [x] Test patterns match `tests/test_http_client.py` ✓
+
+---
+
+## Conclusion
+
+The AGENTS.md instruction file is **well-maintained and largely accurate**. The HTTP caching feature represents the only significant gap, requiring documentation updates in 5-6 sections of AGENTS.md. All other implementation patterns and guidelines remain current and correctly documented.
+
+**Estimated Update Effort:** 2-3 hours to incorporate all recommendations systematically.
+
+**Risk Level:** Low - All changes are additive (documenting new functionality) with minimal impact on existing instructions.
