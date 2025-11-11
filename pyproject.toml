@@ -5,16 +5,16 @@ description = "Crawl 3GPP FTP server, cache all(!) TDocs data, return structured
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.14,<4.0"
+requires-python = ">=3.13,<4.0"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
     "hishel[requests]>=1.0.0",
     "lxml>=6.0.2",
@@ -29,6 +29,7 @@ dependencies = [
     "typer>=0.19.2",
     "undersort>=0.1.4",
     "xlsxwriter>=3.2.9",
+    "pool-executors"
 ]
 
 [project.urls]
@@ -59,9 +60,12 @@ build-backend = "uv_build"
 [project.scripts]
 tdoc-crawler = "tdoc_crawler.cli:app"
 
+[tool.uv.sources]
+pool-executors = { path = "src/pool_executors" }
+
 [tool.ty.environment]
 python = "./.venv"
-python-version = "3.14"
+python-version = "3.13"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -81,7 +85,7 @@ order = ["private", "protected", "public"]
 method_type_order = ["static", "class", "instance"]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py313"
 line-length = 160
 fix = true
 
