@@ -7,7 +7,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from aiointerpreters.runner import Runner
+from tdoc_crawler.crawlers.executor_adapter import Runner
 
 from tdoc_crawler.crawlers.parallel import fetch_meeting_tdocs
 from tdoc_crawler.database import TDocDatabase

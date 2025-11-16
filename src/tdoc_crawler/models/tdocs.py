@@ -78,6 +78,12 @@ class TDocCrawlConfig(BaseConfigModel):
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="Request timeout seconds")
     verbose: bool = Field(False, description="Verbose logging")
+
+    # New options for document list vs parallel crawling
+    use_document_list: bool = Field(True, description="Use meeting document list (Excel) for metadata (no credentials required)")
+    allow_parallel_fallback: bool = Field(True, description="Allow fallback to parallel directory crawling if document list fails")
+    use_parallel_crawling: bool = Field(False, description="Force use of parallel directory crawling (requires credentials for validation)")
+
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
     target_ids: list[str] | None = Field(None, description="Specific TDoc identifiers to fetch")
     credentials: PortalCredentials | None = Field(None, description="Optional portal credentials")

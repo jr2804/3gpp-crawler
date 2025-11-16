@@ -1,4 +1,4 @@
-"""Parallel crawling utilities for TDoc discovery using subinterpreters."""
+"""Parallel crawling utilities for TDoc discovery and document list fetching using subinterpreters."""
 
 from __future__ import annotations
 
@@ -218,9 +218,67 @@ def _collect_tdocs_from_html(
     return serialized
 
 
+def fetch_meeting_document_list_subinterpreter(
+    meeting_id: int,
+    cache_dir: str,
+    cache_ttl: int,
+    cache_refresh_on_access: bool,
+    timeout: int,
+) -> str:
+    """Fetch meeting document list in subinterpreter context.
+
+    This function is designed to be called from a subinterpreter worker.
+
+    Args:
+        meeting_id: Meeting identifier
+        cache_dir: Cache directory path as string
+        cache_ttl: HTTP cache TTL in seconds
+        cache_refresh_on_access: Whether to refresh cache TTL on access
+        timeout: Request timeout in seconds
+
+    Returns:
+        JSON string containing TDocMetadata list
+    """
+    import json
+    from pathlib import Path
+
+    from tdoc_crawler.crawlers.meeting_doclist import fetch_meeting_document_list, parse_excel_document_list
+
+    try:
+        # Convert string path to Path object
+        cache_dir_path = Path(cache_dir)
+
+        # Fetch document list for the meeting
+        tdoc_metadata_list = fetch_meeting_document_list(
+            meeting_id=meeting_id,
+            cache_dir=cache_dir_path,
+            cache_ttl=cache_ttl,
+            cache_refresh_on_access=cache_refresh_on_access,
+            timeout=timeout,
+        )
+
+        # Serialize to JSON for inter-process communication
+        serialized = []
+        for tdoc_metadata in tdoc_metadata_list:
+            serialized.append(tdoc_metadata.model_dump_json())
+
+        return json.dumps(serialized)
+
+    except Exception as exc:
+        # Return error information as JSON
+        error_data = {
+            "error": str(exc),
+            "meeting_id": meeting_id,
+            "cache_dir": cache_dir,
+        }
+        return json.dumps({"_error": error_data})
+
+
 __all__ = [
     "EXCLUDED_DIRS",
     "TDOC_PATTERN_STR",
     "TDOC_SUBDIRS",
+    "fetch_meeting_document_list",
+    "fetch_meeting_document_list_subinterpreter",
     "fetch_meeting_tdocs",
 ]

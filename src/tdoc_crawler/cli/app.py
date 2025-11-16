@@ -16,7 +16,7 @@ from rich.console import Console
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
+from tdoc_crawler.crawlers import HybridTDocCrawler, MeetingCrawler, TDocCrawler
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import (
     MeetingCrawlConfig,
@@ -67,13 +67,29 @@ def crawl_tdocs(
     timeout: int = typer.Option(30, "--timeout", help="HTTP request timeout seconds"),
     cache_ttl: int | None = typer.Option(None, "--cache-ttl", help="HTTP cache TTL in seconds (default: 7200)"),
     cache_refresh_on_access: bool | None = typer.Option(None, "--cache-refresh/--no-cache-refresh", help="Refresh cache TTL on access (default: True)"),
+    # New options for document list vs parallel crawling
+    use_document_list: bool = typer.Option(
+        True, "--use-document-list/--no-use-document-list", help="Use meeting document list (Excel) for metadata (default: True, no credentials required)"
+    ),
+    use_parallel_crawling: bool = typer.Option(
+        False, "--use-parallel-crawling", help="Force use of parallel directory crawling (requires credentials for validation)"
+    ),
+    allow_parallel_fallback: bool = typer.Option(
+        True, "--allow-parallel-fallback/--no-parallel-fallback", help="Allow fallback to parallel crawling if document list fails (default: True)"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
-    """Crawl TDocs from 3GPP FTP directories."""
+    """Crawl TDocs from 3GPP FTP directories using hybrid crawling methods."""
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
     http_cache = resolve_http_cache_config(cache_ttl, cache_refresh_on_access)
+
+    # Validate conflicting options
+    if use_parallel_crawling and use_document_list:
+        console.print("[red]Error: Cannot use both --use-parallel-crawling and --use-document-list simultaneously[/red]")
+        raise typer.Exit(code=2)
+
     config = TDocCrawlConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
@@ -87,6 +103,9 @@ def crawl_tdocs(
         max_retries=max_retries,
         timeout=timeout,
         verbose=verbose,
+        use_document_list=use_document_list,
+        use_parallel_crawling=use_parallel_crawling,
+        allow_parallel_fallback=allow_parallel_fallback,
         limits=limits,
         target_ids=None,
         credentials=None,
@@ -103,6 +122,14 @@ def crawl_tdocs(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
+    # Show method being used
+    if config.use_parallel_crawling:
+        console.print("[yellow]Using parallel crawling method (requires credentials for validation)[/yellow]")
+    elif config.use_document_list:
+        console.print("[yellow]Using document list method (no credentials required)[/yellow]")
+        if config.allow_parallel_fallback:
+            console.print("[yellow]Parallel fallback enabled for failed meetings[/yellow]")
+
     if config.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
@@ -112,7 +139,8 @@ def crawl_tdocs(
             deleted_count = database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
 
-        crawler = TDocCrawler(database)
+        # Use hybrid crawler for both methods
+        crawler = HybridTDocCrawler(database)
         crawl_id = database.log_crawl_start("tdoc", config.working_groups, config.incremental)
 
         # Track crawl start time for performance metrics
@@ -153,6 +181,10 @@ def crawl_tdocs(
 
     console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
+    if hasattr(result, "document_list_meetings"):
+        console.print(f"[blue]Document list meetings: {result.document_list_meetings}, Parallel meetings: {result.parallel_meetings}[/blue]")
+        if result.fallbacks > 0:
+            console.print(f"[blue]Fallbacks applied: {result.fallbacks}[/blue]")
     if result.errors:
         console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
         for error in result.errors[:5]:
