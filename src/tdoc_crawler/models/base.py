@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -45,14 +46,16 @@ class BaseConfigModel(BaseModel):
     model_config = {"str_strip_whitespace": True, "use_enum_values": False}
 
 
-class PortalCredentials(BaseModel):
+@dataclass
+class PortalCredentials:
     """Credentials required for ETSI Online Account (EOL) protected resources."""
 
     username: str
     password: str
 
 
-class HttpCacheConfig(BaseModel):
+@dataclass
+class HttpCacheConfig:
     """HTTP cache configuration for hishel caching."""
 
     ttl: int = 7200
