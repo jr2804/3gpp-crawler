@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from pydantic_sqlite import DataBase
@@ -87,7 +88,7 @@ class TDocDatabase:
                         try:
                             if "T" in value and value.endswith(("Z", "+00:00")):
                                 row_dict[key] = datetime.fromisoformat(value)
-                        except ValueError, AttributeError:
+                        except (ValueError, AttributeError):
                             pass
                 result.append(model_class(**row_dict))
             return result
@@ -326,21 +327,21 @@ class TDocDatabase:
         metadata = TDocMetadata(
             tdoc_id=tdoc_id,
             url=url,
-            meeting_id=None,
-            file_size=None,
-            title=None,
-            contact=None,
-            tdoc_type=None,
-            for_purpose=None,
-            agenda_item=None,
-            status=None,
-            is_revision_of=None,
-            document_type=None,
-            checksum=None,
-            source_path=None,
-            date_created=None,
-            validated=False,
-            validation_failed=True,
+            meeting_id=0,  # Required field, use 0 as placeholder
+            title="Unknown",  # Required field
+            contact="Unknown",  # Required field
+            source="Unknown",  # Required field
+            tdoc_type="unknown",  # Required field with default
+            for_purpose="unknown",  # Required field with default
+            agenda_item_nbr=Decimal("0.0"),  # Required field
+            agenda_item_text="Unknown",  # Required field with default
+            status=None,  # Optional field
+            meeting_name=None,  # Optional field
+            is_revision_of=None,  # Optional field
+            file_size=None,  # Optional field
+            date_created=None,  # Optional field
+            validated=False,  # Required field with default
+            validation_failed=True,  # Required field with default
         )
         self.connection.add("tdocs", metadata.model_copy(update={"date_updated": utc_now()}), pk="tdoc_id")
 
