@@ -22,7 +22,8 @@ lint-md:
     uv run mdformat .\src
     uv run mdformat docs
     uv run mdformat AGENTS.md README.md
-
+    uv run mdformat .claude/skills
+    
 # Format the codebase
 format:
     uv run ruff format tests src

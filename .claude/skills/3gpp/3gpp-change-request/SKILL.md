@@ -1,7 +1,7 @@
 ---
 name: 3gpp-change-request
 description: Change Request procedure, workflow, status tracking, CR database, and step-by-step instructions. Use when working with 3GPP Change Requests to modify specifications, understanding CR lifecycle, or querying CR status.
-related: 
+related:
   - 3gpp-specifications
   - 3gpp-basics
   - 3gpp-working-groups
@@ -10,7 +10,9 @@ related:
   - 3gpp-releases
 ---
 
-# 3GPP Change Requests
+# 3GPP Change Requests - Reference
+
+> **Quick Start**: For workflow overview and submission checklist, see [workflow.md](workflow.md).
 
 ## Overview
 
@@ -27,6 +29,7 @@ A CR is a **temporary document** (tdoc) to a meeting which specifies in precise 
 ## Why Changes Are Needed
 
 Three main reasons for creating a CR:
+
 1. **Add a new feature** to a Release still under development
 2. **Correct / clarify / enhance** an existing feature in a Release still under development
 3. **Correct an error** in a spec which is functionally frozen
@@ -63,6 +66,7 @@ Three main reasons for creating a CR:
 ```
 
 **Components:**
+
 - `<specnumber_no_dot>`: Spec number without dot (e.g., `21.456` for TS 21.456)
 - `*`: Literal asterisk
 - `<4-character_CR_number>`: 4-digit CR number padded with leading zeros (e.g., `0095`)
@@ -70,6 +74,7 @@ Three main reasons for creating a CR:
 - `<release>`: Release identifier (Rel-4, Rel-5, etc.)
 
 **Examples:**
+
 - Initial: `31.102_0095` - CR 0095 to spec 31.102
 - First revision: `31.102_0095_r1` - Revision 1 of spec 31.102
 - Mirror CR: `31.103_0095` - Mirrored CR to spec 31.103
@@ -79,13 +84,15 @@ Three main reasons for creating a CR:
 ### Netovate Search Tool
 
 3GPP has an agreement with Netovate to provide a free CR database search:
-- **URL**: http://netovate.com/cr-search/
+
+- **URL**: <http://netovate.com/cr-search/>
 - **Access**: Free web-based search tool
 - **Features**: Search by spec number, CR number, or status
 
 ### 3GPP CR Database
 
 Available on 3GPP FTP:
+
 - **Directory**: `/ftp/Information/Databases/Change_Request/`
 - **Format**: MS Access™ (.mdb) database
 - **Access**: Direct download or via portal
@@ -97,9 +104,11 @@ Each spec maintains a history box listing all CRs that have been approved for th
 ## Step-by-Step Instructions
 
 3GPP provides detailed step-by-step instructions for writing CRs:
-- **URL**: https://www.3gpp.org/specifications-technologies/specifications-by-series/change-requests-step-by-step
+
+- **URL**: <https://www.3gpp.org/specifications-technologies/specifications-by-series/change-requests-step-by-step>
 
 **Key Sections:**
+
 1. Header (meeting details, WG document number)
 2. Spec number, CR number
 3. CR revision number (for revised CRs only)
@@ -142,6 +151,7 @@ CRs are classified by category to indicate their nature:
 ### Mirror CRs
 
 For specs maintained in multiple parallel Releases:
+
 - Each Release needs its own mirror CR
 - Use same WI code (Work Item code) for all mirror CRs
 - Example: Spec 21.456 has mirror CRs in Release 4, Release 5, etc.
@@ -157,7 +167,8 @@ CRs for pure editorial changes (no technical content) are typically implemented 
 ## Work Items
 
 Each CR must be associated with a **Work Item (WI) code**:
-- Obtained from official WI list: https://www.3gpp.org/ftp/Specs/html-info/WI-List.htm
+
+- Obtained from official WI list: <https://www.3gpp.org/ftp/Specs/html-info/WI-List.htm>
 - **Format**: 6-digit numeric code (e.g., `123456`)
 - **Purpose**: Justifies the new feature or modification
 
@@ -187,6 +198,7 @@ Each CR must be associated with a **Work Item (WI) code**:
 ### CR Revision History
 
 Optional field in CR document to track changes as CR passes through revisions:
+
 - Revision 1: Initial CR
 - Revision 2: First revision of CR
 - Revision 3: Subsequent revisions
@@ -194,11 +206,13 @@ Optional field in CR document to track changes as CR passes through revisions:
 ### File Naming Convention
 
 **Word™ files for CRs** follow 3GPP naming:
+
 ```
 *<specnumber_no_dot>*_CR*<4-character_CR_number>*[r*<revision_number>*]
 ```
 
 **Zip™ archive** containing CRs:
+
 - Word™ files (CR cover sheet + body + attachments)
 - Zip™ file named according to convention
 - Contains multiple CRs packaged together for a TSG meeting
@@ -212,21 +226,32 @@ Draft → WG Agreement → TSG Approval → MCC Incorporation → Published Spec
 ## Change Request Workflow
 
 ### 1. Draft CR
+
 Member organization creates CR document
 ↓
+
 ### 2. Submit to WG
+
 WG discusses and agrees CR is valid
 ↓
+
 ### 3. WG Presents to TSG
+
 WG presents CR at TSG plenary for approval
 ↓
+
 ### 4. TSG Approval
+
 TSG approves CR (becomes decision)
 ↓
+
 ### 5. MCC Incorporates
+
 MCC incorporates CR into new spec version
 ↓
+
 ### 6. Publish
+
 New spec version becomes available
 
 ## Common Pitfalls
@@ -257,9 +282,9 @@ New spec version becomes available
 
 ## Resources
 
-- 3GPP Official: https://www.3gpp.org/
-- 3GPP Portal: https://portal.3gpp.org/
-- Step-by-step: https://www.3gpp.org/specifications-technologies/specifications-by-series/change-requests-step-by-step
+- 3GPP Official: <https://www.3gpp.org/>
+- 3GPP Portal: <https://portal.3gpp.org/>
+- Step-by-step: <https://www.3gpp.org/specifications-technologies/specifications-by-series/change-requests-step-by-step>
 - CR Database: /ftp/Information/Databases/Change_Request/
-- WI List: https://www.3gpp.org/ftp/Specs/html-info/WI-List.htm
-- Netovate: http://netovate.com/cr-search/
+- WI List: <https://www.3gpp.org/ftp/Specs/html-info/WI-List.htm>
+- Netovate: <http://netovate.com/cr-search/>

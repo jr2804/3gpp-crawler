@@ -5,28 +5,39 @@ Skills for understanding and working with 3GPP data.
 ## Skills
 
 ### @3gpp-basics
+
 General 3GPP organization overview, partnerships, and scope.
 
 ### @3gpp-working-groups
+
 Working group nomenclature, tbid/SubTB identifiers, and hierarchy.
 
 ### @3gpp-meetings
+
 Meeting structure, naming conventions, and meeting pages.
 
 ### @3gpp-tdocs
+
 TDoc patterns, metadata, and FTP/HTTP server access.
 
 ### @3gpp-portal-authentication
+
 EOL authentication, AJAX login patterns, and portal data fetching.
 
 ### @3gpp-releases
+
 3GPP release structure, versioning, and TSG rounds.
 
 ### @3gpp-specifications
+
 TS and TR numbering, spec file formats, and directory structure.
 
 ### @3gpp-change-request
+
 Change Request procedure, workflow, status tracking, and CR database.
+
+- [SKILL.md](3gpp-change-request/SKILL.md) - Full CR reference
+- [workflow.md](3gpp-change-request/workflow.md) - Quick workflow guide
 
 ## Cross-Reference Map
 
@@ -44,6 +55,7 @@ Change Request procedure, workflow, status tracking, and CR database.
 ## Usage
 
 Use these skills when:
+
 - Implementing features related to 3GPP data crawling
 - Understanding 3GPP document and meeting structures
 - Parsing TDoc metadata from portal or FTP
@@ -54,4 +66,4 @@ Use these skills when:
 ## Related
 
 - TDoc-Crawler project: AGENTS.md for implementation details
-- 3GPP Official: https://www.3gpp.org/
+- 3GPP Official: <https://www.3gpp.org/>

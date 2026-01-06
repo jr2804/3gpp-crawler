@@ -35,6 +35,7 @@ Every TDoc is always allocated to a specific 3GPP meeting.
 ### Pattern
 
 **Regex Pattern:**
+
 ```python
 TDOC_PATTERN = re.compile(r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)", re.IGNORECASE)
 ```
@@ -51,39 +52,47 @@ TDOC_PATTERN = re.compile(r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)", re.IGNORECASE)
 ### Examples that Match
 
 **Standard format:**
+
 - `R1-2301234.zip` - RAN1 TDoc
 - `S4-251209.txt` - SA4 TDoc
 - `C1-2345678.pdf` - CT1 TDoc
 
 **Plenary format:**
+
 - `RP-230045.txt` - RAN Plenary TDoc
 - `SP-240001.zip` - SA Plenary TDoc
 - `CP-123456.zip` - CT Plenary TDoc
 
 **Ad-hoc format:**
+
 - `S4aA220001.zip` - SA4 ad-hoc meeting
 - `R1eE230045.txt` - RAN1 ad-hoc meeting
 
 **Case variations:**
+
 - `r1-2301234.ZIP` - Case-insensitive matching
 - `S4-251209.TXT` - Case-insensitive matching
 
 ### Examples that Don't Match
 
 **Wrong working group:**
+
 - `T1-2300456.zip` - T is invalid (use C for CT)
 - `X1-2300456.zip` - X is invalid (use R, S, or C)
 
 **Wrong subgroup:**
+
 - `R7-2300456.zip` - Subgroup 7 doesn't exist (1-6 only)
 - `R1-12.zip` - Only 2 characters after R1 (need 4-10)
 - `R1-12345678901.zip` - 11 characters, exceeds maximum of 10
 
 **Wrong extension:**
+
 - `R1-2301234.doc` - Invalid extension (must be .zip, .txt, or .pdf)
 - `R1-2301234` - Missing extension
 
 **Not a TDoc:**
+
 - `README.txt` - Not a TDoc
 - `data.csv` - Not a TDoc
 - `agenda.zip` - Administrative file, not a TDoc
@@ -93,6 +102,7 @@ TDOC_PATTERN = re.compile(r"([RSC][1-6P].{4,10})\.(zip|txt|pdf)", re.IGNORECASE)
 ### Server Structure
 
 3GPP maintains a file server at FTP-like HTTP URLs:
+
 ```
 https://www.3gpp.org/ftp/tsg_<working_group_identifier>/
 ```
@@ -108,11 +118,13 @@ https://www.3gpp.org/ftp/tsg_<working_group_identifier>/
 ### TDoc URL Pattern
 
 TDocs are available at:
+
 ```
 https://www.3gpp.org/ftp/tsg_<wg>/<sub-working_group_identifier>/<meeting_identifier>/Docs/<tdoc_nbr>.zip
 ```
 
 **URL Components:**
+
 - `tsg_<wg>` - Working group root (e.g., `tsg_ran`, `tsg_sa`)
 - `<sub-working_group_identifier>` - Arbitrary path name (NOT official subgroup ID)
 - `<meeting_identifier>` - Arbitrary path name (NOT official meeting ID)
@@ -131,6 +143,7 @@ https://www.3gpp.org/ftp/tsg_sa/WG4_S4/SA4_134/Docs/S4-251209.zip
 ```
 
 **Important Notes:**
+
 - Server uses HTTP protocol, not FTP (accessible via standard HTTP requests)
 - `<sub-working_group_identifier>` and `<meeting_identifier>` are arbitrary path names, do NOT correspond to official IDs
 - More than 99% of TDocs are `.zip` format
@@ -153,6 +166,7 @@ TDocs are typically stored in subdirectories like "Docs/" rather than directly i
 ### TDoc Subdirectories
 
 **Common subdirectory names** (case-insensitive matching):
+
 - `Docs/`
 - `Documents/`
 - `Tdocs/`
@@ -162,6 +176,7 @@ TDocs are typically stored in subdirectories like "Docs/" rather than directly i
 ### Excluded Directories
 
 Non-TDoc directories to skip during crawling:
+
 ```
 EXCLUDED_DIRS = {"Inbox", "Draft", "Drafts", "Agenda", "Invitation", "Report"}
 ```
@@ -171,11 +186,13 @@ EXCLUDED_DIRS = {"Inbox", "Draft", "Drafts", "Agenda", "Invitation", "Report"}
 ### Portal TDoc View URL
 
 When TDoc number is known, use 3GPP portal to query metadata:
+
 ```
 https://portal.3gpp.org/ngppapp/CreateTdoc.Aspx?mode=view&contributionUid=<tdoc_nbr>
 ```
 
 **Example:**
+
 ```
 https://portal.3gpp.org/ngppapp/CreateTdoc.Aspx?mode=view&contributionUid=R1-2301234
 ```
@@ -310,6 +327,6 @@ def infer_working_group_from_tdoc(tdoc_id: str) -> str | None:
 
 ## Resources
 
-- **3GPP Official:** https://www.3gpp.org/
-- **3GPP Portal:** https://portal.3gpp.org/
-- **3GPP FTP:** https://www.3gpp.org/ftp/
+- **3GPP Official:** <https://www.3gpp.org/>
+- **3GPP Portal:** <https://portal.3gpp.org/>
+- **3GPP FTP:** <https://www.3gpp.org/ftp/>

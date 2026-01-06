@@ -17,6 +17,7 @@ related:
 ## Organizational Partners
 
 The seven Organizational Partners are:
+
 - **ARIB** (Association of Radio Industries and Businesses)
 - **ATIS** (Alliance for Telecommunications Industry Solutions)
 - **CCSA** (China Communications Standards Association)
@@ -28,13 +29,15 @@ The seven Organizational Partners are:
 ## Technical Administration
 
 Since 3GPP is not a legal entity, technical administration and infrastructure is provided by ETSI. This includes:
-- Meeting information and registration: https://portal.etsi.org/Meetings.aspx#/
+
+- Meeting information and registration: <https://portal.etsi.org/Meetings.aspx#/>
 - Portal access for certain resources
 - File servers and infrastructure
 
 ### MCC (Mobile Competence Centre)
 
 The MCC is the technical support team for 3GPP operations:
+
 - Maintains 3GPP specifications and FTP servers
 - Publishes new/revised specs after each TSG round
 - Manages the CR database and work item tracking
@@ -44,6 +47,7 @@ The MCC is the technical support team for 3GPP operations:
 ### PCG (Project Coordination Group)
 
 The PCG coordinates the 3GPP partnership:
+
 - Coordinates work across the three TSGs
 - Manages relationships with Organizational Partners
 - Oversees 3GPP budget and resources
@@ -54,16 +58,19 @@ The PCG coordinates the 3GPP partnership:
 3GPP has three main Technical Specification Groups (TSGs):
 
 ### TSG RAN (Radio Access Network)
+
 - **Focus**: Radio aspects of mobile communications
 - **Responsibilities**: Radio access technologies like LTE and 5G NR
 - **FTP Root**: `https://www.3gpp.org/ftp/tsg_ran/`
 
 ### TSG SA (Service and System Aspects)
+
 - **Focus**: Overall architecture and service aspects
 - **Responsibilities**: Core network functionalities, service requirements
 - **FTP Root**: `https://www.3gpp.org/ftp/tsg_sa/`
 
 ### TSG CT (Core Network and Terminals)
+
 - **Focus**: Core network and terminal aspects
 - **Responsibilities**: Protocols, interfaces between core network and user equipment
 - **FTP Root**: `https://www.3gpp.org/ftp/tsg_ct/`
@@ -71,6 +78,7 @@ The PCG coordinates the 3GPP partnership:
 ## Scope
 
 3GPP specifications cover cellular telecommunications technologies, including:
+
 - Radio access
 - Core network
 - Service capabilities
@@ -101,6 +109,7 @@ Many operators use dual connectivity between LTE and 5G NR equipment, using "Non
 ## TDocs (Temporary Documents)
 
 TDocs are meeting documents produced by members participating in 3GPP Working Groups and Sub-Working Groups. They include:
+
 - Proposals for new features
 - Reports on technical work
 - Other documents related to standard development
@@ -110,6 +119,7 @@ Every TDoc is always allocated to a specific 3GPP meeting.
 ## Portal Authentication
 
 To access certain 3GPP resources, you need an ETSI Online Account (EOL). However:
+
 - Files on the 3GPP FTP/HTTP server are publicly accessible
 - For parsing metadata or accessing certain webpages, login may be required
 
@@ -122,7 +132,7 @@ To access certain 3GPP resources, you need an ETSI Online Account (EOL). However
 
 ## Resources
 
-- 3GPP Official Website: https://www.3gpp.org/
-- 3GPP Work Plan: https://www.3gpp.org/specifications-technologies/3gpp-work-plan/
-- 3GPP Portal: https://portal.3gpp.org/
-- ETSI Portal: https://portal.etsi.org/
+- 3GPP Official Website: <https://www.3gpp.org/>
+- 3GPP Work Plan: <https://www.3gpp.org/specifications-technologies/3gpp-work-plan/>
+- 3GPP Portal: <https://portal.3gpp.org/>
+- ETSI Portal: <https://portal.etsi.org/>

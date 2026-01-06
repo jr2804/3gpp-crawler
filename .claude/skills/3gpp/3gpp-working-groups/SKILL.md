@@ -20,6 +20,7 @@ related:
 - **TSG CT** (Core Network and Terminals)
 
 Each TSG is responsible for:
+
 - Preparation of detailed time frame and management of each Release
 - Proposal and approval of work items
 - Technical coordination
@@ -33,9 +34,9 @@ Each TSG has a unique `tbid` identifier used in 3GPP systems:
 
 | TSG  | tbid | FTP Root URL |
 |------|------|--------------|
-| RAN  | 373  | https://www.3gpp.org/ftp/tsg_ran/ |
-| SA   | 375  | https://www.3gpp.org/ftp/tsg_sa/ |
-| CT   | 649  | https://www.3gpp.org/ftp/tsg_ct/ |
+| RAN  | 373  | <https://www.3gpp.org/ftp/tsg_ran/> |
+| SA   | 375  | <https://www.3gpp.org/ftp/tsg_sa/> |
+| CT   | 649  | <https://www.3gpp.org/ftp/tsg_ct/> |
 
 ### SubTB (Sub-Technical Body ID)
 
@@ -70,11 +71,13 @@ Each Working Group within a TSG has a unique `SubTB` identifier:
 ### Meeting URL Pattern
 
 3GPP meeting lists use dynamic pages at:
+
 ```
 https://www.3gpp.org/dynareport?code=Meetings-<ID>.htm
 ```
 
 Where `<ID>` is a two-digit code:
+
 - `RP` for RAN Plenary
 - `SP` for SA Plenary
 - `CP` for CT Plenary
@@ -83,6 +86,7 @@ Where `<ID>` is a two-digit code:
 - `C1-C6` for CT1-CT6 (e.g., C1, C2, etc.)
 
 **Example URLs:**
+
 - RAN meetings: `https://www.3gpp.org/dynareport?code=Meetings-RP.htm`
 - SA4 meetings: `https://www.3gpp.org/dynareport?code=Meetings-S4.htm`
 - CT3 meetings: `https://www.3gpp.org/dynareport?code=Meetings-C3.htm`
@@ -90,6 +94,7 @@ Where `<ID>` is a two-digit code:
 ### Meeting Name Formats
 
 Meeting names are **inconsistent** across years and groups:
+
 - `SA4#134` - Standard SA4 format
 - `SA4-e (AH) Audio SWG post 130` - Ad-hoc meeting
 - `3GPPSA4-e (AH) Audio SWG post 130` - With 3GPP prefix
@@ -105,6 +110,7 @@ Meeting names are **inconsistent** across years and groups:
 **Responsibilities**: Radio access technologies like LTE and 5G NR
 
 **Working Groups:**
+
 - **RAN Plenary** (SubTB: 373): Overall TSG RAN coordination
 - **RAN1** (SubTB: 379): Radio Layer 1 (Physical layer)
 - **RAN2** (SubTB: 380): Radio Layer 2/3 (Radio Resource Control)
@@ -114,6 +120,7 @@ Meeting names are **inconsistent** across years and groups:
 - **RAN6** (SubTB: 843): Radio Access Network (Legacy, closed group)
 
 **FTP Structure:**
+
 ```
 tsg_ran/
 ├── WG1_RL1/
@@ -129,6 +136,7 @@ tsg_ran/
 **Responsibilities**: Overall architecture, service requirements, system capabilities
 
 **Working Groups:**
+
 - **SA Plenary** (SubTB: 375): TSG SA coordination and overall technical work
 - **SA1** (SubTB: 384): Services
 - **SA2** (SubTB: 385): System Architecture and Services
@@ -138,6 +146,7 @@ tsg_ran/
 - **SA6** (SubTB: 825): Application Enablement and Critical Communication Applications
 
 **FTP Structure:**
+
 ```
 tsg_sa/
 ├── WG1_S1/
@@ -154,6 +163,7 @@ tsg_sa/
 **Responsibilities**: Core network protocols, interfaces, and user equipment
 
 **Working Groups:**
+
 - **CT Plenary** (SubTB: 649): TSG CT coordination
 - **CT1** (SubTB: 651): User Equipment to Core Network protocols
 - **CT2** (SubTB: 652): Interworking with External Networks & Policy and Charging Control
@@ -163,6 +173,7 @@ tsg_sa/
 - **CT6** (SubTB: 656): Smart Card Application Aspects
 
 **FTP Structure:**
+
 ```
 tsg_ct/
 ├── WG1_C1/
@@ -177,6 +188,7 @@ tsg_ct/
 ## Meeting Table Structure
 
 Each TSG meeting list page contains tables with:
+
 - **Meeting column**: Short name (links to meeting details)
 - **Files column**: Link to TDoc FTP directory (empty if not yet setup)
 - **Dates column**: Start and end dates
@@ -231,6 +243,7 @@ def get_tbid_from_wg(wg: WorkingGroup) -> int:
 ### Meeting ID Resolution
 
 When resolving portal meeting names to database meeting IDs:
+
 1. Try exact match (case-insensitive)
 2. Try normalized name match
 3. Try prefix/suffix matching (handle "3GPPSA4" vs "SA4")
@@ -241,6 +254,7 @@ When resolving portal meeting names to database meeting IDs:
 ### FTP Directory Names
 
 FTP directory names on server do NOT match official WG names:
+
 - `WG1_RL1` vs official "RAN1"
 - `WG2_RL2` vs official "RAN2"
 - `TSG_RAN` vs official "RAN Plenary"
@@ -256,6 +270,6 @@ FTP directory names on server do NOT match official WG names:
 
 ## Resources
 
-- 3GPP Groups: https://www.3gpp.org/3gpp-groups/
-- 3GPP Portal: https://portal.3gpp.org/
-- 3GPP Work Plan: https://www.3gpp.org/specifications-technologies/3gpp-work-plan/
+- 3GPP Groups: <https://www.3gpp.org/3gpp-groups/>
+- 3GPP Portal: <https://portal.3gpp.org/>
+- 3GPP Work Plan: <https://www.3gpp.org/specifications-technologies/3gpp-work-plan/>

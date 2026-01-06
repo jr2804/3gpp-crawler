@@ -13,7 +13,7 @@ related:
 
 # 3GPP Releases
 
-**Official Release Timeline:** https://www.3gpp.org/specifications-technologies/releases
+**Official Release Timeline:** <https://www.3gpp.org/specifications-technologies/releases>
 
 ## Overview
 
@@ -24,11 +24,13 @@ related:
 ### Release Numbering
 
 3GPP uses a **version numbering scheme**:
+
 - **Two-digit series number**: 21, 22, 23, etc. (indicates major technical version)
 - **Three-digit spec number**: Incrementing within each series (e.g., 21.456, 21.457)
 - **Complete format**: `21.456` (Series number + spec number)
 
 **Examples:**
+
 - Release 21: TS 21.456, 21.457, 21.458
 - Release 22: TS 22.101, 22.102, 22.103
 - Release 4: TS 4.001, TR 4.002
@@ -59,12 +61,14 @@ A TSG round is a quarterly plenary meeting where specifications are made availab
 ### TSG Round Schedule
 
 **Four TSG plenaries per year:**
+
 - March: RAN, SA, CT
 - June: RAN, SA, CT
 - September: RAN, SA, CT
 - December: RAN, SA, CT
 
 **Example 2025 Schedule:**
+
 - March 2025: TSG RAN#107, TSG SA#107, TSG CT#107
 - June 2025: TSG RAN#108, TSG SA#108, TSG CT#108
 - September 2025: TSG RAN#109, TSG SA#109, TSG CT#109
@@ -79,6 +83,7 @@ https://www.3gpp.org/ftp/Specs/<YYYY>-<MM>/
 ```
 
 **TSG Round Examples:**
+
 - RAN#110: `https://www.3gpp.org/ftp/Specs/2025-12/`
 - SA#110: `https://www.3gpp.org/ftp/Specs/2025-12/SpecslistexTSG/TSG110.htm`
 - CT#110: `https://www.3gpp.org/ftp/Specs/2025-12/SpecslistexTSG/TSG110.htm`
@@ -126,6 +131,7 @@ spec_list = requests.get(base_url).text.split('\n')
 TS numbers follow pattern: `<series>.<spec>`, where `<series>` is 21, 22, 23, etc.
 
 **Examples:**
+
 - TS 21.456: Series 21, spec 456
 - TS 22.101: Series 22, spec 101
 - TR 4.001: Series 4, spec 1 (Technical Report)
@@ -138,8 +144,8 @@ TS numbers follow pattern: `<series>.<spec>`, where `<series>` is 21, 22, 23, et
 
 ## Resources
 
-- **3GPP Official**: https://www.3gpp.org/
-- **3GPP Portal**: https://portal.3gpp.org/
+- **3GPP Official**: <https://www.3gpp.org/>
+- **3GPP Portal**: <https://portal.3gpp.org/>
 - **MCC Info**: Available in spec list tables
 
 ## Key Points

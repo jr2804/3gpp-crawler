@@ -12,7 +12,7 @@ related:
 
 ## Overview
 
-The 3GPP portal (https://portal.3gpp.org/) provides access to protected resources that require ETSI Online Account (EOL) authentication.
+The 3GPP portal (<https://portal.3gpp.org/>) provides access to protected resources that require ETSI Online Account (EOL) authentication.
 
 ### Authentication Requirements
 
@@ -29,11 +29,13 @@ ETSI Online Account is the authentication system for accessing ETSI and 3GPP ser
 ### When is EOL Required?
 
 **Required for:**
+
 - Meeting registration and check-in
 - 3GU Portal full access
 - Protected meeting documents
 
 **NOT required for:**
+
 - Public TDoc files on FTP/HTTP server
 - Public meeting lists and calendars
 - Specification downloads
@@ -85,11 +87,13 @@ if auth_result.get("success", False):
 `PortalSession` manages authenticated HTTP sessions with 3GPP portal:
 
 **Key Methods:**
+
 - `authenticate()`: Performs EOL login using AJAX
 - `get_tdoc_metadata(tdoc_id)`: Fetches TDoc metadata with auto-authentication
 - `_ensure_authenticated()`: Validates session before protected requests
 
 **Implementation Pattern:**
+
 ```python
 class PortalSession:
     def __init__(self, credentials: PortalCredentials, timeout: int = 30):
@@ -210,6 +214,7 @@ metadata = fetch_tdoc_metadata("R1-2301234", credentials)
 ### When Authentication is Required
 
 **Meeting Registration:**
+
 ```python
 session = PortalSession(credentials)
 session.authenticate()
@@ -217,6 +222,7 @@ session.authenticate()
 ```
 
 **3GU Portal Access:**
+
 ```python
 from tdoc_crawler.crawlers import PortalSession
 from tdoc_crawler.models import PortalCredentials
@@ -230,6 +236,7 @@ session.authenticate()
 ### When Authentication is NOT Required
 
 **Public TDoc Access:**
+
 ```python
 # Direct HTTP access to FTP server
 import requests
@@ -239,6 +246,7 @@ response = session.get("https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/R1
 ```
 
 **TDoc Metadata (public):**
+
 ```python
 # Basic TDoc metadata may be publicly viewable without login
 # Full metadata including contact info requires EOL account
@@ -282,10 +290,10 @@ response = session.get("https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/R1
 
 ## Resources
 
-- 3GPP Portal: https://portal.3gpp.org/
-- 3GPP Official: https://www.3gpp.org/
-- ETSI Portal: https://portal.etsi.org/
-- Login documentation: https://www.3gpp.org/delegates-corner/
+- 3GPP Portal: <https://portal.3gpp.org/>
+- 3GPP Official: <https://www.3gpp.org/>
+- ETSI Portal: <https://portal.etsi.org/>
+- Login documentation: <https://www.3gpp.org/delegates-corner/>
 
 ## Notes
 
