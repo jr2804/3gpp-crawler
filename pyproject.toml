@@ -49,6 +49,8 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "mdformat>=1.0.0",
     "rust-just>=1.46.0",
+    "isort>=7.0.0",
+    "undersort>=0.1.5",
 ]
 
 [build-system]
@@ -58,65 +60,10 @@ build-backend = "uv_build"
 [project.scripts]
 tdoc-crawler = "tdoc_crawler.cli:app"
 
-[tool.ty.environment]
-python = "./.venv"
-python-version = "3.14"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
 
-[tool.ruff]
-target-version = "py314"
-line-length = 160
-fix = true
-
-[tool.ruff.lint]
-select = [
-    # flake8-2020
-    "YTT",
-    # flake8-bandit
-    "S",
-    # flake8-bugbear
-    "B",
-    # flake8-builtins
-    "A",
-    # flake8-comprehensions
-    "C4",
-    # flake8-debugger
-    "T10",
-    # flake8-simplify
-    "SIM",
-    # isort
-    "I",
-    # mccabe
-    "C90",
-    # pycodestyle
-    "E", "W",
-    # pyflakes
-    "F",
-    # pygrep-hooks
-    "PGH",
-    # pyupgrade
-    "UP",
-    # ruff
-    "RUF",
-    # tryceratops
-    "TRY",
-]
-ignore = [
-    # LineTooLong
-    "E501",
-    # DoNotAssignLambda
-    "E731",
-]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]
-"**/cli.py" = ["B008"]  # typer.Option/Argument in function defaults is intentional
-
-[tool.ruff.format]
-preview = true
 
 [tool.coverage.report]
 skip_empty = true
@@ -124,3 +71,17 @@ skip_empty = true
 [tool.coverage.run]
 branch = true
 source = ["src"]
+
+[tool.undersort]
+# Method visibility ordering: public (no underscore), protected (single underscore), private (double underscore)
+# Customize the order by specifying: "public", "protected", "private"
+order = ["public", "protected", "private"]
+
+# Method type ordering within each visibility level (optional)
+# Options: "class" (classmethod), "static" (staticmethod), "instance" (regular methods)
+# Default order if not specified: ["instance", "class", "static"]
+method_type_order = ["instance", "class", "static"]
+
+# Exclude files/directories matching these patterns (optional)
+# Patterns support glob syntax (e.g., "tests/*", "migrations/*.py", "**/generated/*")
+# exclude = ["tests/*", "migrations/*.py"]
