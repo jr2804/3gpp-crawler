@@ -9,6 +9,19 @@ related:
 
 # TDocs (Temporary Documents)
 
+## Quick Reference
+
+| Pattern | Example | WG | Subgroup |
+|---------|---------|----|----------|
+| R1-xxxx | R1-2301234 | RAN | 1 |
+| RP-xxxx | RP-230045 | RAN | Plenary |
+| S4-xxxx | S4-251209 | SA | 4 |
+| SP-xxxx | SP-240001 | SA | Plenary |
+| C1-xxxx | C1-2345678 | CT | 1 |
+| CP-xxxx | CP-123456 | CT | Plenary |
+
+**Regex:** `[RSC][1-6P].{4,10}\.(zip|txt|pdf)`
+
 ## Overview
 
 TDocs are meeting documents produced by members participating in 3GPP Working Groups and Sub-Working Groups. They include proposals, reports, and other documents related to the development of 3GPP standards.
@@ -282,7 +295,7 @@ def infer_working_group_from_tdoc(tdoc_id: str) -> str | None:
 
 ## Cross-References
 
-**@3gpp-working-groups** - For understanding working group and subgroup structure
+- **@3gpp-working-groups** - For understanding working group and subgroup structure
 - **@3gpp-meetings** - For understanding how TDocs are associated with meetings
 - **@3gpp-portal-authentication** - For accessing TDoc metadata from portal
 

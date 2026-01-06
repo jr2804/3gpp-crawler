@@ -250,8 +250,8 @@ response = session.get("https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/R1
 
 - **URL**: `https://portal.3gpp.org/ngppapp/LoginEOL.ashx`
 - **Method**: POST
-- **Content-Type**: `application/json`
-- **Request Body**: JSON with `username` and `password` fields
+- **Content-Type**: `application/x-www-form-urlencoded`
+- **Request Body**: Form-encoded with `username` and `password` fields
 - **Response**: JSON with `success` boolean
 
 ### Session Management

@@ -13,6 +13,8 @@ related:
 
 # 3GPP Releases
 
+**Official Release Timeline:** https://www.3gpp.org/specifications-technologies/releases
+
 ## Overview
 
 3GPP specifications are published four times a year following quarterly Technical Specification Group (TSG) plenary meetings. Each Release represents a set of frozen technical specifications.
@@ -130,7 +132,7 @@ TS numbers follow pattern: `<series>.<spec>`, where `<series>` is 21, 22, 23, et
 
 ## Cross-References
 
-**@3gpp-working-groups** - For understanding which TSGs produce which specs
+- **@3gpp-working-groups** - For understanding which TSGs produce which specs
 - **@3gpp-specifications** - For spec file format and numbering
 - **@3gpp-change-request** - For modifications to specs in releases
 

@@ -139,9 +139,16 @@ The 3GPP Meeting Calendar is available on the 3GU Portal:
 
 ## Cross-References
 
-**@3gpp-working-groups** - For understanding WG codes in meeting URLs
+- **@3gpp-working-groups** - For understanding WG codes in meeting URLs
 - **@3gpp-tdocs** - For accessing TDocs from meetings with files links
 - **@3gpp-portal-authentication** - For accessing meeting details pages that require login
+
+## Common Mistakes
+
+1. **Using meeting name for database lookups** - Always use `meeting_id` integer
+2. **Parsing date strings directly** - Normalize to ISO format first
+3. **Skipping empty Files column** - Don't attempt crawl, skip meeting
+4. **Year format changes** - Early years use different conventions
 
 ## Best Practices
 

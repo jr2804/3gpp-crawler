@@ -7,6 +7,7 @@ related:
   - 3gpp-working-groups
   - 3gpp-tdocs
   - 3gpp-portal-authentication
+  - 3gpp-releases
 ---
 
 # 3GPP Change Requests

@@ -30,16 +30,16 @@ Change Request procedure, workflow, status tracking, and CR database.
 
 ## Cross-Reference Map
 
-| From \ To    | basics | working-groups | meetings | tdocs | portal-auth | releases | specs | change-request |
-|--------------|--------|----------------|----------|-------|-----------|-------------|---------|----------|---------------|
-| basics         |   -    |       X         |    X     |   -          |    X     |   X    |   X      |   X            |
-| working-groups  |  X    |       -        |    X     |   -          |    X     |   X      |   X            |
-| meetings        |  X    |       X        |    -     |   -          |    X     |   X      |   X            |
-| tdocs          |  X    |       X        |    X     |   -          |    X     |   X      |   X            |
-| portal-auth     |  X    |       X        |    X     |   -          |    X     |   X      |   X            |
-| releases        |  X    |       X        |    X     |   -          |    X     |   X      |   X            |
-| specs           |  X    |       X        |    X     |   -          |    X     |   X      |   X            |
-| change-request   |  X    |       X        |    X     |   -          |    X     |   X      |   X            |
+| From \ To         | basics | working-groups | meetings | tdocs | portal-auth | releases | specs | change-request |
+|-------------------|--------|----------------|----------|-------|-------------|----------|--------|---------------|
+| basics            |   -    |       X        |    X     |   -   |      X      |    X     |   X    |       X       |
+| working-groups    |   X    |       -        |    X     |   -   |      X      |    X     |   X    |       X       |
+| meetings          |   X    |       X        |    -     |   -   |      X      |    X     |   X    |       X       |
+| tdocs             |   X    |       X        |    X     |   -   |      X      |    X     |   X    |       X       |
+| portal-auth       |   X    |       X        |    X     |   -   |      -      |    X     |   X    |       X       |
+| releases          |   X    |       X        |    X     |   -   |      X      |    -     |   X    |       X       |
+| specs             |   X    |       X        |    X     |   -   |      X      |    X     |   -    |       X       |
+| change-request    |   X    |       X        |    X     |   -   |      X      |    X     |   X    |       -       |
 
 ## Usage
 

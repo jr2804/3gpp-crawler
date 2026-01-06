@@ -42,14 +42,14 @@ Each TSG has a unique `tbid` identifier used in 3GPP systems:
 Each Working Group within a TSG has a unique `SubTB` identifier:
 
 | TSG  | WG  | SubTB | Focus Area |
-|------|----|-------|-----------|
+|------|-----|-------|-----------|
 | RAN  | RAN Plenary | 373  | TSG RAN overview |
 | RAN  | RAN1 | 379  | Radio Layer 1 (Physical layer) |
 | RAN  | RAN2 | 380  | Radio Layer 2/3 (Radio Resource Control) |
 | RAN  | RAN3 | 381  | UTRAN/E-UTRAN/NG-RAN architecture |
 | RAN  | RAN4 | 382  | Radio Performance and Protocol Aspects |
-| RAN  | RAN5 | 385  | Mobile terminal conformance testing |
-| RAN  | RAN AH1 | - | ITU-R Ad Hoc |
+| RAN  | RAN5 | 657  | Mobile terminal conformance testing |
+| RAN  | RAN6 | 843  | Radio Access Network (Legacy/Closed) |
 | SA   | SA Plenary | 375  | TSG SA overview |
 | SA   | SA1 | 384  | Services |
 | SA   | SA2 | 385  | System Architecture and Services |
@@ -59,8 +59,10 @@ Each Working Group within a TSG has a unique `SubTB` identifier:
 | SA   | SA6 | 825  | Application Enablement and Critical Communication Applications |
 | CT   | CT Plenary | 649  | TSG CT overview |
 | CT   | CT1 | 651  | User Equipment to Core Network protocols |
-| CT   | CT3 | 652  | Interworking with External Networks & Policy and Charging Control |
+| CT   | CT2 | 652  | Interworking with External Networks & Policy and Charging Control |
+| CT   | CT3 | 653  | Closed Group (was GERAN coordination) |
 | CT   | CT4 | 654  | Core Network Protocols |
+| CT   | CT5 | 655  | Core Network and Terminals (Architecture) |
 | CT   | CT6 | 656  | Smart Card Application Aspects |
 
 ## Meeting Code Convention
@@ -108,8 +110,8 @@ Meeting names are **inconsistent** across years and groups:
 - **RAN2** (SubTB: 380): Radio Layer 2/3 (Radio Resource Control)
 - **RAN3** (SubTB: 381): UTRAN/E-UTRAN/NG-RAN architecture
 - **RAN4** (SubTB: 382): Radio Performance and Protocol Aspects
-- **RAN5** (SubTB: 385): Mobile terminal conformance testing
-- **RAN AH1**: ITU-R Ad Hoc (special ad-hoc group)
+- **RAN5** (SubTB: 657): Mobile terminal conformance testing
+- **RAN6** (SubTB: 843): Radio Access Network (Legacy, closed group)
 
 **FTP Structure:**
 ```
@@ -154,16 +156,20 @@ tsg_sa/
 **Working Groups:**
 - **CT Plenary** (SubTB: 649): TSG CT coordination
 - **CT1** (SubTB: 651): User Equipment to Core Network protocols
-- **CT3** (SubTB: 652): Interworking with External Networks & Policy and Charging Control
+- **CT2** (SubTB: 652): Interworking with External Networks & Policy and Charging Control
+- **CT3** (SubTB: 653): Closed Group (was GERAN coordination)
 - **CT4** (SubTB: 654): Core Network Protocols
+- **CT5** (SubTB: 655): Core Network and Terminals (Architecture)
 - **CT6** (SubTB: 656): Smart Card Application Aspects
 
 **FTP Structure:**
 ```
 tsg_ct/
 ├── WG1_C1/
+├── WG2_C2/
 ├── WG3_C3/
 ├── WG4_C4/
+├── WG5_C5/
 ├── WG6_C6/
 └── TSG_CT/
 ```

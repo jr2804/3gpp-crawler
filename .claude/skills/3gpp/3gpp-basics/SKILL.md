@@ -32,6 +32,23 @@ Since 3GPP is not a legal entity, technical administration and infrastructure is
 - Portal access for certain resources
 - File servers and infrastructure
 
+### MCC (Mobile Competence Centre)
+
+The MCC is the technical support team for 3GPP operations:
+- Maintains 3GPP specifications and FTP servers
+- Publishes new/revised specs after each TSG round
+- Manages the CR database and work item tracking
+- Provides meeting document templates
+- Target: specs available within 3-4 weeks after TSG plenary
+
+### PCG (Project Coordination Group)
+
+The PCG coordinates the 3GPP partnership:
+- Coordinates work across the three TSGs
+- Manages relationships with Organizational Partners
+- Oversees 3GPP budget and resources
+- Strategic planning for 3GPP direction
+
 ## Technical Specification Groups (TSGs)
 
 3GPP has three main Technical Specification Groups (TSGs):
