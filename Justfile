@@ -1,0 +1,36 @@
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+
+# Default command - list all available commands
+default:
+	@just --list
+
+# Clean generated artefacts
+clean:
+    uv run ruff clean
+    uv run python scripts/clean.py
+
+# Lint the codebase
+lint:
+    uv run ruff format --check
+    uv run ruff check --fix tests mcp_config_converter
+    uv run isort --check-only tests mcp_config_converter
+    uv run undersort --check tests mcp_config_converter
+    uv run ty check
+
+# Lint the documentation
+lint-md:
+    uv run mdformat .\mcp_config_converter
+    uv run mdformat docs
+    uv run mdformat AGENTS.md README.md
+
+# Format the codebase
+format:
+    uv run ruff format tests mcp_config_converter
+    uv run isort tests mcp_config_converter
+    uv run undersort tests mcp_config_converter
+
+# Build the project
+build:
+    @uv run scripts/remove_version.py
+    uv build --clear --refresh .
+
