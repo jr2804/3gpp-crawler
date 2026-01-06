@@ -12,22 +12,22 @@ clean:
 # Lint the codebase
 lint:
     uv run ruff format --check
-    uv run ruff check --fix tests mcp_config_converter
-    uv run isort --check-only tests mcp_config_converter
-    uv run undersort --check tests mcp_config_converter
+    uv run ruff check --fix tests src
+    uv run isort --check-only tests src
+    uv run undersort --check tests src
     uv run ty check
 
 # Lint the documentation
 lint-md:
-    uv run mdformat .\mcp_config_converter
+    uv run mdformat .\src
     uv run mdformat docs
     uv run mdformat AGENTS.md README.md
 
 # Format the codebase
 format:
-    uv run ruff format tests mcp_config_converter
-    uv run isort tests mcp_config_converter
-    uv run undersort tests mcp_config_converter
+    uv run ruff format tests src
+    uv run isort tests src
+    uv run undersort tests src
 
 # Build the project
 build:
