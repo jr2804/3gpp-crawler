@@ -18,14 +18,11 @@ from urllib.request import urlopen
 import typer
 from rich.console import Console
 
-from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
+from tdoc_crawler.crawlers import (normalize_subgroup_alias,
+                                   normalize_working_group_alias)
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import (
-    CrawlLimits,
-    PortalCredentials,
-    TDocMetadata,
-    WorkingGroup,
-)
+from tdoc_crawler.models import (CrawlLimits, PortalCredentials, TDocMetadata,
+                                 WorkingGroup)
 
 console = Console()
 _logger = logging.getLogger(__name__)

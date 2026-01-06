@@ -15,13 +15,10 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from tdoc_crawler.crawlers.constants import (
-    EXCLUDED_DIRS,
-    EXCLUDED_DIRS_NORMALIZED,
-    TDOC_PATTERN_STR,
-    TDOC_SUBDIRS,
-    TDOC_SUBDIRS_NORMALIZED,
-)
+from tdoc_crawler.crawlers.constants import (EXCLUDED_DIRS,
+                                             EXCLUDED_DIRS_NORMALIZED,
+                                             TDOC_PATTERN_STR, TDOC_SUBDIRS,
+                                             TDOC_SUBDIRS_NORMALIZED)
 
 if TYPE_CHECKING:  # pragma: no cover - helpful for type checkers only
     pass

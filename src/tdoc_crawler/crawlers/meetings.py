@@ -13,14 +13,13 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from tdoc_crawler.crawlers.constants import (
-    DATE_PATTERN,
-    MEETING_CODE_REGISTRY,
-    MEETINGS_BASE_URL,
-    PORTAL_BASE_URL,
-)
+from tdoc_crawler.crawlers.constants import (DATE_PATTERN,
+                                             MEETING_CODE_REGISTRY,
+                                             MEETINGS_BASE_URL,
+                                             PORTAL_BASE_URL)
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import CrawlLimits, MeetingCrawlConfig, MeetingMetadata, WorkingGroup
+from tdoc_crawler.models import (CrawlLimits, MeetingCrawlConfig,
+                                 MeetingMetadata, WorkingGroup)
 
 logger = logging.getLogger(__name__)
 

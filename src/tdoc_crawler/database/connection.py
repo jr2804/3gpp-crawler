@@ -10,17 +10,10 @@ from pathlib import Path
 from pydantic_sqlite import DataBase
 
 from tdoc_crawler.database.errors import DatabaseError
-from tdoc_crawler.models import (
-    CODE_INDEX,
-    WORKING_GROUP_RECORDS,
-    CrawlLogEntry,
-    MeetingMetadata,
-    MeetingQueryConfig,
-    QueryConfig,
-    TDocMetadata,
-    WorkingGroup,
-    utc_now,
-)
+from tdoc_crawler.models import (CODE_INDEX, WORKING_GROUP_RECORDS,
+                                 CrawlLogEntry, MeetingMetadata,
+                                 MeetingQueryConfig, QueryConfig, TDocMetadata,
+                                 WorkingGroup, utc_now)
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 
 
@@ -56,70 +49,6 @@ class TDocDatabase:
         if self._database is None:
             raise DatabaseError.connection_not_open()
         return self._database
-
-    def _ensure_reference_data(self) -> None:
-        """Populate reference tables for working and subworking groups."""
-
-        database = self.connection
-        for record in WORKING_GROUP_RECORDS:
-            database.add("working_groups", record, pk="tbid")
-        for record in SUBWORKING_GROUP_RECORDS:
-            database.add("subworking_groups", record, pk="subtb")
-
-    def _table_rows(self, table: str) -> list:
-        """Fetch all rows from a table using raw SQL to avoid pydantic_sqlite registry issues."""
-        from datetime import datetime
-
-        # Map table names to their model classes and safe names
-        model_map = {
-            "tdocs": TDocMetadata,
-            "meetings": MeetingMetadata,
-            "crawl_log": CrawlLogEntry,
-        }
-
-        if table not in model_map:
-            return []
-
-        try:
-            # Use raw SQL query with parameterized table name (whitelist approach)
-            cursor = self.connection._db.execute(f"SELECT * FROM {table}")  # noqa: S608
-            columns = [description[0] for description in cursor.description]
-            rows = cursor.fetchall()
-
-            model_class = model_map[table]
-
-            # Convert rows to model instances
-            result = []
-            for row in rows:
-                row_dict = dict(zip(columns, row, strict=False))
-                # Handle datetime deserialization if needed
-                for key, value in list(row_dict.items()):
-                    if isinstance(value, str):
-                        # Try to parse ISO datetime strings
-                        try:
-                            if "T" in value and value.endswith(("Z", "+00:00")):
-                                row_dict[key] = datetime.fromisoformat(value)
-                        except ValueError, AttributeError:
-                            pass
-                result.append(model_class(**row_dict))
-            return result
-        except Exception:
-            return []
-
-    def _meeting_map(self) -> dict[int, MeetingMetadata]:
-        return {meeting.meeting_id: meeting for meeting in self._table_rows("meetings")}
-
-    def _get_meeting(self, meeting_id: int) -> MeetingMetadata | None:
-        try:
-            return self.connection.model_from_table("meetings", meeting_id)  # type: ignore[arg-type]
-        except KeyError:
-            return None
-
-    def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
-        try:
-            return self.connection.model_from_table("tdocs", tdoc_id.upper())  # type: ignore[arg-type]
-        except KeyError:
-            return None
 
     # ------------------------------------------------------------------
     # TDoc operations
@@ -513,60 +442,6 @@ class TDocDatabase:
             "recent_crawls": recent_crawls,
         }
 
-    # ------------------------------------------------------------------
-    # Normalisation helpers
-    # ------------------------------------------------------------------
-    def _prepare_tdoc(self, metadata: TDocMetadata) -> TDocMetadata:
-        updates: dict[str, object] = {}
-        if metadata.date_retrieved is None:
-            updates["date_retrieved"] = utc_now()
-        if updates:
-            return metadata.model_copy(update=updates)
-        return metadata
-
-    def _prepare_meeting(self, metadata: MeetingMetadata) -> MeetingMetadata:
-        if metadata.working_group is None and metadata.tbid:
-            for working_group in WorkingGroup:
-                if working_group.tbid == metadata.tbid:
-                    return metadata.model_copy(update={"working_group": working_group})
-        return metadata
-
-    @staticmethod
-    def _tdoc_changed(current: TDocMetadata, candidate: TDocMetadata) -> bool:
-        for field in TDocMetadata.model_fields:
-            if field == "date_updated":
-                continue
-            if getattr(current, field) != getattr(candidate, field):
-                return True
-        return False
-
-    @staticmethod
-    def _meeting_changed(current: MeetingMetadata, candidate: MeetingMetadata) -> bool:
-        for field in MeetingMetadata.model_fields:
-            if field in {"updated_at", "last_synced", "tdoc_count"}:
-                continue
-            if getattr(current, field) != getattr(candidate, field):
-                return True
-        return False
-
-    # ------------------------------------------------------------------
-    # Data clearing methods
-    # ------------------------------------------------------------------
-    def _table_exists(self, table_name: str) -> bool:
-        """Check if a table exists in the database.
-
-        Args:
-            table_name: Name of the table to check
-
-        Returns:
-            True if table exists, False otherwise
-        """
-        cursor = self.connection._db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (table_name,),
-        )
-        return cursor.fetchone() is not None
-
     def clear_tdocs(self) -> int:
         """Clear all TDoc records from database.
 
@@ -604,3 +479,121 @@ class TDocDatabase:
         tdocs_count = self.clear_tdocs()
         meetings_count = self.clear_meetings()
         return (tdocs_count, meetings_count)
+
+    def _ensure_reference_data(self) -> None:
+        """Populate reference tables for working and subworking groups."""
+
+        database = self.connection
+        for record in WORKING_GROUP_RECORDS:
+            database.add("working_groups", record, pk="tbid")
+        for record in SUBWORKING_GROUP_RECORDS:
+            database.add("subworking_groups", record, pk="subtb")
+
+    def _table_rows(self, table: str) -> list:
+        """Fetch all rows from a table using raw SQL to avoid pydantic_sqlite registry issues."""
+        from datetime import datetime
+
+        # Map table names to their model classes and safe names
+        model_map = {
+            "tdocs": TDocMetadata,
+            "meetings": MeetingMetadata,
+            "crawl_log": CrawlLogEntry,
+        }
+
+        if table not in model_map:
+            return []
+
+        try:
+            # Use raw SQL query with parameterized table name (whitelist approach)
+            cursor = self.connection._db.execute(f"SELECT * FROM {table}")  # noqa: S608
+            columns = [description[0] for description in cursor.description]
+            rows = cursor.fetchall()
+
+            model_class = model_map[table]
+
+            # Convert rows to model instances
+            result = []
+            for row in rows:
+                row_dict = dict(zip(columns, row, strict=False))
+                # Handle datetime deserialization if needed
+                for key, value in list(row_dict.items()):
+                    if isinstance(value, str):
+                        # Try to parse ISO datetime strings
+                        try:
+                            if "T" in value and value.endswith(("Z", "+00:00")):
+                                row_dict[key] = datetime.fromisoformat(value)
+                        except ValueError, AttributeError:
+                            pass
+                result.append(model_class(**row_dict))
+            return result
+        except Exception:
+            return []
+
+    def _meeting_map(self) -> dict[int, MeetingMetadata]:
+        return {meeting.meeting_id: meeting for meeting in self._table_rows("meetings")}
+
+    def _get_meeting(self, meeting_id: int) -> MeetingMetadata | None:
+        try:
+            return self.connection.model_from_table("meetings", meeting_id)  # type: ignore[arg-type]
+        except KeyError:
+            return None
+
+    def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
+        try:
+            return self.connection.model_from_table("tdocs", tdoc_id.upper())  # type: ignore[arg-type]
+        except KeyError:
+            return None
+
+    # ------------------------------------------------------------------
+    # Normalisation helpers
+    # ------------------------------------------------------------------
+    def _prepare_tdoc(self, metadata: TDocMetadata) -> TDocMetadata:
+        updates: dict[str, object] = {}
+        if metadata.date_retrieved is None:
+            updates["date_retrieved"] = utc_now()
+        if updates:
+            return metadata.model_copy(update=updates)
+        return metadata
+
+    def _prepare_meeting(self, metadata: MeetingMetadata) -> MeetingMetadata:
+        if metadata.working_group is None and metadata.tbid:
+            for working_group in WorkingGroup:
+                if working_group.tbid == metadata.tbid:
+                    return metadata.model_copy(update={"working_group": working_group})
+        return metadata
+
+    # ------------------------------------------------------------------
+    # Data clearing methods
+    # ------------------------------------------------------------------
+    def _table_exists(self, table_name: str) -> bool:
+        """Check if a table exists in the database.
+
+        Args:
+            table_name: Name of the table to check
+
+        Returns:
+            True if table exists, False otherwise
+        """
+        cursor = self.connection._db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        return cursor.fetchone() is not None
+
+    @staticmethod
+    def _tdoc_changed(current: TDocMetadata, candidate: TDocMetadata) -> bool:
+        for field in TDocMetadata.model_fields:
+            if field == "date_updated":
+                continue
+            if getattr(current, field) != getattr(candidate, field):
+                return True
+        return False
+
+    @staticmethod
+    def _meeting_changed(current: MeetingMetadata, candidate: MeetingMetadata) -> bool:
+        for field in MeetingMetadata.model_fields:
+            if field in {"updated_at", "last_synced", "tdoc_count"}:
+                continue
+            if getattr(current, field) != getattr(candidate, field):
+                return True
+        return False

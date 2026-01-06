@@ -8,7 +8,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .base import DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials, SortOrder, utc_now
+from .base import (DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials,
+                   SortOrder, utc_now)
 from .crawl_limits import CrawlLimits, _new_crawl_limits
 from .subworking_groups import CODE_INDEX, SUBTB_INDEX
 from .working_groups import WorkingGroup
@@ -39,26 +40,6 @@ class MeetingMetadata(BaseModel):
     created_at: datetime = Field(default_factory=utc_now, description="Timestamp when the record was first stored")
     updated_at: datetime = Field(default_factory=utc_now, description="Timestamp when the record was last updated")
 
-    @field_validator("working_group", mode="before")
-    @classmethod
-    def _validate_working_group(cls, value):
-        if value is None:
-            return None
-        # Accept enum or str, store as str
-        if isinstance(value, WorkingGroup):
-            return value.value
-        if value not in {wg.value for wg in WorkingGroup}:
-            raise ValueError(f"Invalid working_group: {value}")
-        return value
-
-    @field_validator("subgroup", mode="before")
-    @classmethod
-    def _normalize_subgroup(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip().upper()
-        return normalized or None
-
     @model_validator(mode="after")
     def _sync_relationships(self) -> MeetingMetadata:
         # working_group is now a string, so match tbid if not set
@@ -88,6 +69,26 @@ class MeetingMetadata(BaseModel):
                 self.subgroup = record.code
 
         return self
+
+    @field_validator("working_group", mode="before")
+    @classmethod
+    def _validate_working_group(cls, value):
+        if value is None:
+            return None
+        # Accept enum or str, store as str
+        if isinstance(value, WorkingGroup):
+            return value.value
+        if value not in {wg.value for wg in WorkingGroup}:
+            raise ValueError(f"Invalid working_group: {value}")
+        return value
+
+    @field_validator("subgroup", mode="before")
+    @classmethod
+    def _normalize_subgroup(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().upper()
+        return normalized or None
 
 
 class MeetingCrawlConfig(BaseConfigModel):
