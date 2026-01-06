@@ -9,11 +9,11 @@
 This document describes two major interconnected changes to the TDoc crawler:
 
 1. **Protocol Migration**: FTP → HTTP-based access
-2. **Architecture Refactoring**: Tree walking → Database-driven meeting-based crawling
+1. **Architecture Refactoring**: Tree walking → Database-driven meeting-based crawling
 
 These changes were implemented together to fix critical bugs, align with project specifications, and improve performance.
 
----
+______________________________________________________________________
 
 ## Part 1: Migration from FTP to HTTP
 
@@ -24,6 +24,7 @@ The AGENTS.md coding instructions explicitly state:
 > "The server has a FTP-like structure, but is completely accessible via HTTP(S). There is no need to use FTP protocol to access the files. Thus, the term 'FTP server' is used for historical reasons only and is used synonymously for the HTTP-based file server."
 
 The existing implementation incorrectly used `ftplib.FTP` to access the 3GPP server, which:
+
 - Was not necessary since HTTP access works fine
 - Added unnecessary complexity with FTP connection management
 - Required FTP-specific error handling
@@ -34,12 +35,14 @@ The existing implementation incorrectly used `ftplib.FTP` to access the 3GPP ser
 #### 1. Core Crawler Implementation (`src/tdoc_crawler/crawlers/tdocs.py`)
 
 **Removed:**
+
 - `from ftplib import FTP, error_perm, error_temp`
 - `FTP_HOST = "ftp.3gpp.org"` constant
 - `_connect()` method for FTP connection management
 - FTP-specific error handling
 
 **Added:**
+
 - `import requests` and `from bs4 import BeautifulSoup`
 - `_create_session()` method for HTTP session with retry logic
 - HTML parsing for directory listings using BeautifulSoup
@@ -47,6 +50,7 @@ The existing implementation incorrectly used `ftplib.FTP` to access the 3GPP ser
 **Key Method Changes:**
 
 ##### `crawl()` Method
+
 ```python
 # OLD: FTP-based
 ftp: FTP | None = None
@@ -68,6 +72,7 @@ finally:
 ```
 
 ##### `_create_session()` Method (New)
+
 ```python
 def _create_session(self, config: TDocCrawlConfig) -> requests.Session:
     """Create HTTP session with retry logic and timeout configuration."""
@@ -94,6 +99,7 @@ def _create_session(self, config: TDocCrawlConfig) -> requests.Session:
 ```
 
 ##### `_crawl_meeting()` Method
+
 ```python
 # OLD: FTP directory listing
 ftp.cwd(ftp_path)
@@ -163,9 +169,9 @@ timeout: int = typer.Option(30, "--timeout", help="HTTP request timeout seconds"
 The HTTP server provides directory listings as HTML pages. The crawler parses these using BeautifulSoup:
 
 1. **Fetch HTML**: `response = session.get(directory_url, timeout=config.timeout)`
-2. **Parse**: `soup = BeautifulSoup(response.text, "html.parser")`
-3. **Extract links**: `for link in soup.find_all("a")`
-4. **Match TDoc pattern**: `match = TDOC_PATTERN.search(href)`
+1. **Parse**: `soup = BeautifulSoup(response.text, "html.parser")`
+1. **Extract links**: `for link in soup.find_all("a")`
+1. **Match TDoc pattern**: `match = TDOC_PATTERN.search(href)`
 
 #### URL Building
 
@@ -213,7 +219,7 @@ retry_strategy = Retry(
 )
 ```
 
----
+______________________________________________________________________
 
 ## Part 2: Meeting-Based Architecture Refactoring
 
@@ -226,11 +232,12 @@ User reported critical bug: Running `tdoc-crawler crawl -s S4 --cache-dir ./test
 The original `TDocCrawler` implementation used an **FTP/HTTP tree walking approach**:
 
 1. Started at server roots: `/tsg_ran`, `/tsg_sa`, `/tsg_ct`
-2. Recursively traversed entire directory structure
-3. Extracted subgroup from path patterns (e.g., `WG4_Codec` → `S4`)
-4. Applied limits after collection (inefficient post-processing)
+1. Recursively traversed entire directory structure
+1. Extracted subgroup from path patterns (e.g., `WG4_Codec` → `S4`)
+1. Applied limits after collection (inefficient post-processing)
 
 **Problems with this approach:**
+
 - Extremely slow (walking thousands of directories)
 - Ignored populated meetings database (redundant work)
 - No meeting_id linkage in collected TDocs
@@ -244,15 +251,16 @@ Completely rewrote `TDocCrawler` to use a **database-driven approach**:
 #### New Architecture
 
 1. **Query meetings from database first** (with filters applied)
-2. **Use `files_url` field** from each meeting to navigate directly to directory
-3. **Crawl specific directories** containing TDocs for that meeting
-4. **Establish `meeting_id` linkage** in collected TDocMetadata
+1. **Use `files_url` field** from each meeting to navigate directly to directory
+1. **Crawl specific directories** containing TDocs for that meeting
+1. **Establish `meeting_id` linkage** in collected TDocMetadata
 
 #### Implementation Changes
 
 ##### 1. Rewrote `crawl()` Method
 
 **OLD** (240+ lines removed):
+
 ```python
 def crawl(self, config: TDocCrawlConfig) -> CrawlResult:
     for working_group in working_groups:
@@ -261,6 +269,7 @@ def crawl(self, config: TDocCrawlConfig) -> CrawlResult:
 ```
 
 **NEW** (40 lines):
+
 ```python
 def crawl(self, config: TDocCrawlConfig) -> CrawlResult:
     meetings = self._get_meetings_to_crawl(config)
@@ -278,6 +287,7 @@ def crawl(self, config: TDocCrawlConfig) -> CrawlResult:
 **Purpose**: Query meetings from database with filters applied
 
 **Implementation**:
+
 ```python
 def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
     """Query meetings from database based on config filters."""
@@ -308,6 +318,7 @@ def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
 ```
 
 **Key Features:**
+
 - Filters at database query level (efficient)
 - Only returns meetings with `files_url` (ready to crawl)
 - Applies date range and meeting ID filters
@@ -318,6 +329,7 @@ def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
 **Purpose**: Crawl TDocs from specific meeting's HTTP directory
 
 **Key aspects**:
+
 - Detects and crawls subdirectories (e.g., "Docs/")
 - Parses HTML directory listings
 - Establishes `meeting_id` foreign key in TDocMetadata
@@ -325,6 +337,7 @@ def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
 - Extracts file metadata from HTML
 
 **Subdirectory Detection**:
+
 ```python
 # Look for TDoc subdirectories (e.g., "Docs/")
 subdirs_found = []
@@ -349,6 +362,7 @@ else:
 **Purpose**: Scan a specific directory URL for TDoc files
 
 **Implementation**:
+
 ```python
 def _scan_directory_for_tdocs(
     self,
@@ -395,6 +409,7 @@ def _scan_directory_for_tdocs(
 ##### 5. Removed Obsolete Methods (240+ lines)
 
 **Deleted:**
+
 - `_crawl_working_group()` - No longer walks from server roots
 - `_crawl_directory()` - No longer recursively traverses
 - `_process_file()` - Replaced by inline processing
@@ -405,37 +420,42 @@ def _scan_directory_for_tdocs(
 - `_limit_tdocs()` - Applied during collection, not after
 
 **Retained:**
+
 - `_should_store_tdoc()` - Still needed for incremental mode filtering
 - `_is_tdoc_file()` - Replaced by TDOC_PATTERN matching
 
 ### Benefits
 
 #### Performance
+
 - **Faster**: No recursive tree walking, direct directory access via `files_url`
 - **Efficient filtering**: Database queries instead of post-processing
 - **Parallel-friendly**: Each meeting is independent unit of work
 - **HTTP keepalive**: Session reuse across multiple meetings
 
 #### Data Integrity
+
 - **Meeting linkage**: Every TDoc has proper `meeting_id` foreign key
 - **Database-driven**: Uses existing meeting metadata (files_url)
 - **No path parsing**: Subgroup comes from meeting record, not path heuristics
 - **Subdirectory support**: Correctly handles TDocs in Docs/ subdirectories
 
 #### Maintainability
+
 - **Simpler code**: 180 lines of new code vs 240 lines removed
 - **Clearer intent**: "Query meetings → crawl directories" flow
 - **Reusable queries**: Uses existing `MeetingQueryConfig` infrastructure
 - **Better error handling**: HTTP status codes vs FTP exceptions
 
 #### Filtering
+
 - **Working group**: Filtered by database query
 - **Subgroup**: Filtered by database query (e.g., `-s S4`)
 - **Date range**: Applied to meeting records with proper date fields
 - **Meeting IDs**: Direct matching against meeting records
 - **Incremental**: Skips already-crawled meetings via `last_crawled` field
 
----
+______________________________________________________________________
 
 ## Testing Results
 
@@ -444,6 +464,7 @@ def _scan_directory_for_tdocs(
 ✅ **63/63 tests passing** after both migrations
 
 **Test Suites:**
+
 - `tests/test_cli.py` - 16/16 passed ✓
 - `tests/test_crawler.py` - 6/6 passed ✓
 - `tests/test_database.py` - 13/13 passed ✓
@@ -452,6 +473,7 @@ def _scan_directory_for_tdocs(
 - `tests/test_targeted_fetch.py` - 15/15 passed ✓
 
 **Test Updates Made:**
+
 - Updated mocking from FTP to HTTP requests
 - Changed test URLs from `ftp://` to `https://`
 - Added meeting prerequisites in tests
@@ -461,43 +483,50 @@ def _scan_directory_for_tdocs(
 ### Functional Verification
 
 **Crawl Command Test:**
+
 ```bash
 uv run tdoc-crawler crawl -s S4 --cache-dir ./cache --limit-meetings 5
 ```
 
 **Results:**
+
 - ✅ Processed 2,757 TDocs (was 0 before fix)
 - ✅ Inserted 2,757 new TDocs into database
 - ✅ Successfully crawled from 5 S4 meetings
 - ✅ Subdirectories (Docs/) automatically detected and crawled
 
 **Query Command Test:**
+
 ```bash
 uv run tdoc-crawler query S4-251209 S4aA220001 SA4aA250001 --cache-dir ./cache
 ```
 
 **Results:**
+
 - ✅ All TDocs found successfully
 - ✅ Fuzzy meeting name matching works
 - ✅ Both standard and ad-hoc TDoc formats recognized
 
----
+______________________________________________________________________
 
 ## Pattern Simplification
 
 As part of this work, the TDoc filename pattern was simplified:
 
 ### Old Pattern
+
 ```regex
 ([RSTC]\d+[a-zA-Z]*-?\d{4,7})\.(zip|txt|pdf)
 ```
 
 ### New Pattern
+
 ```regex
 ([RSC][1-6P].{4,10})\.(zip|txt|pdf)
 ```
 
 **Specification:**
+
 - First character: **R** (RAN), **S** (SA), or **C** (CT)
 - Second character: **1-6** (subgroups) or **P** (plenary)
 - Following: **4-10 characters** (any valid filename characters)
@@ -506,6 +535,7 @@ As part of this work, the TDoc filename pattern was simplified:
 **Note**: Initially used `[RST]` but corrected to `[RSC]` as CT working group uses **C** as first letter (not T).
 
 **Examples Matched:**
+
 - ✅ `R1-2301234.zip` (RAN subgroup 1)
 - ✅ `S4-251209.txt` (SA subgroup 4)
 - ✅ `C1-2312345.pdf` (CT subgroup 1)
@@ -514,7 +544,7 @@ As part of this work, the TDoc filename pattern was simplified:
 - ✅ `CP-123456.zip` (CT Plenary)
 - ✅ `S4aA220001.zip` (SA4 ad-hoc format)
 
----
+______________________________________________________________________
 
 ## Backward Compatibility
 
@@ -541,11 +571,12 @@ tdoc-crawler crawl-meetings
 ### Data Migration
 
 **Not required** - Existing database records remain valid. The crawler now:
+
 - Generates `https://` URLs for new TDocs
 - Establishes proper `meeting_id` foreign keys
 - Works with existing data without modification
 
----
+______________________________________________________________________
 
 ## Performance Comparison
 
@@ -563,50 +594,60 @@ tdoc-crawler crawl-meetings
 | **Subdirectories** | Not supported | Automatic detection (Docs/) |
 | **Performance** | Slow (walks thousands of dirs) | Fast (targeted access) |
 
----
+______________________________________________________________________
 
 ## Dependencies
 
 The migration requires (already in `pyproject.toml`):
+
 - ✅ `requests` - HTTP client
 - ✅ `beautifulsoup4` - HTML parsing
 - ✅ `urllib3` - Transitive dependency of `requests`
 
----
+______________________________________________________________________
 
 ## Files Modified
 
 ### Source Code
+
 - `src/tdoc_crawler/crawlers/tdocs.py` - **Major rewrite** (~250 lines changed)
+
   - Removed: FTP connection management, tree walking logic
   - Added: HTTP session management, meeting-based crawling, subdirectory detection
   - Net change: ~100 lines reduction
 
 - `src/tdoc_crawler/cli.py` - **Minor updates**
+
   - Updated help text (FTP → HTTP)
   - Already had `-s/--sub-group` parameter
 
 ### Tests
+
 - `tests/test_crawler.py` - **Major updates**
+
   - Changed mocking from FTP to HTTP requests
   - Updated to handle subdirectory crawling
   - Removed obsolete tests for deleted methods
   - Added meeting prerequisites
 
 - `tests/conftest.py` - **Minor updates**
+
   - Changed URLs from `ftp://` to `https://`
 
 - `tests/test_models.py` - **Minor updates**
+
   - Changed URLs from `ftp://` to `https://`
 
 - `tests/test_database.py` - **Minor updates**
+
   - Changed URLs from `ftp://` to `https://`
 
 ### Documentation
+
 - Updated docstrings and comments throughout
 - CLI help text updated for retry/timeout parameters
 
----
+______________________________________________________________________
 
 ## Code Quality
 
@@ -621,12 +662,13 @@ C901 `_scan_directory_for_tdocs` is too complex (18 > 10)
 **Justification**: These methods handle multiple related concerns (HTTP requests, HTML parsing, directory detection, file processing, metadata creation). While they could be split further, the current structure is clear and maintainable.
 
 ### Import Cleanup
+
 - Removed: `from ftplib import FTP, error_perm, error_temp`
 - Removed: `from collections import defaultdict` (no longer used)
 - Added: `import requests`, `from bs4 import BeautifulSoup`
 - Fixed: Moved `MeetingQueryConfig`, `SortOrder` imports to correct method scope
 
----
+______________________________________________________________________
 
 ## Migration Notes
 
@@ -641,24 +683,24 @@ C901 `_scan_directory_for_tdocs` is too complex (18 > 10)
 **If you have custom crawlers or tests:**
 
 1. **HTTP instead of FTP**: Use `requests.Session` not `ftplib.FTP`
-2. **Meeting database required**: Ensure `meetings` table is populated before crawling
-3. **No path-based extraction**: Subgroup comes from meeting record, not path patterns
-4. **HTML parsing**: Directory listings are HTML, not FTP LIST format
-5. **Meeting linkage**: All TDocs must have valid `meeting_id` foreign key
-6. **Subdirectories**: Crawler automatically detects and crawls "Docs/" directories
+1. **Meeting database required**: Ensure `meetings` table is populated before crawling
+1. **No path-based extraction**: Subgroup comes from meeting record, not path patterns
+1. **HTML parsing**: Directory listings are HTML, not FTP LIST format
+1. **Meeting linkage**: All TDocs must have valid `meeting_id` foreign key
+1. **Subdirectories**: Crawler automatically detects and crawls "Docs/" directories
 
----
+______________________________________________________________________
 
 ## Future Improvements
 
 1. **Parallel crawling**: HTTP sessions can easily handle concurrent requests for multiple meetings
-2. **Caching**: HTTP headers support caching strategies (ETag, Last-Modified)
-3. **Compression**: HTTP supports gzip/deflate (FTP doesn't)
-4. **Progress tracking**: HTTP provides Content-Length headers for better progress reporting
-5. **Split complex methods**: Reduce `_crawl_meeting()` and `_scan_directory_for_tdocs()` complexity
-6. **Portal metadata**: Integrate portal validation during crawl (currently post-crawl)
+1. **Caching**: HTTP headers support caching strategies (ETag, Last-Modified)
+1. **Compression**: HTTP supports gzip/deflate (FTP doesn't)
+1. **Progress tracking**: HTTP provides Content-Length headers for better progress reporting
+1. **Split complex methods**: Reduce `_crawl_meeting()` and `_scan_directory_for_tdocs()` complexity
+1. **Portal metadata**: Integrate portal validation during crawl (currently post-crawl)
 
----
+______________________________________________________________________
 
 ## Conclusion
 
@@ -676,7 +718,7 @@ The combined HTTP migration and meeting-based refactoring:
 
 The TDoc crawler is now a fast, reliable, database-driven system that correctly accesses the 3GPP HTTP server and establishes proper data relationships.
 
----
+______________________________________________________________________
 
 **Author**: AI Assistant
 **Date**: 2025-10-21

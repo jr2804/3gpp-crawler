@@ -1,17 +1,16 @@
 # Assistant Rules for TDoc-Crawler - Command line tool for querying structured 3GPP TDoc data
 
----
-description: General Guidelines
-alwaysApply: true
----
+______________________________________________________________________
+
+## description: General Guidelines alwaysApply: true
 
 ## Quick Start for Coding Assistants
 
 Before implementing features, review these critical sections:
 
 1. **Project Structure** - Understand the models/ and crawlers/ submodule organization
-2. **CLI Commands** - Review the command signatures in `src/tdoc_crawler/cli/app.py`
-3. **Database Schema** - Review models in `src/tdoc_crawler/models/` and database operations
+1. **CLI Commands** - Review the command signatures in `src/tdoc_crawler/cli/app.py`
+1. **Database Schema** - Review models in `src/tdoc_crawler/models/` and database operations
 
 **Key Files to Examine First:**
 
@@ -30,6 +29,7 @@ skill 3gpp --query "working groups"
 ```
 
 The skill provides authoritative information on:
+
 - Working groups (RAN, SA, CT) and their subgroups
 - TDoc naming conventions and patterns
 - Meeting identification and structure
@@ -56,8 +56,11 @@ Therefore:
 - Avoid gratuitous enthusiasm or generalizations. Use thoughtful comparisons like saying which code is "cleaner" but don't congratulate yourself. Avoid subjective descriptions. For example, don't say "I've meticulously improved the code and it is in great shape!" That is useless generalization. Instead, specifically say what you've done, e.g., "I've added types, including generics, to all the methods in `Foo` and fixed all linter errors."
 
 - Use `git` for version control. Use `main` as the main branch name.
+
 - Use `git add ...` to add new files, **but only rarely** and **only those that are very likely** to be committed. **Do not add files** that are most likely to be deleted or changed significantly in the following steps. In doubt, do not add the file and ask/confirm with the user.
+
 - **Never** run `git commit` or `git push` on your own!
+
 - `.env` files **MUST NOT** be committed to version control.
 
 ### Using Comments
@@ -117,9 +120,9 @@ src/tdoc_crawler/
 ### Module Design Principles
 
 1. **Submodule Re-exports**: Both `models/` and `crawlers/` use `__init__.py` to re-export all public symbols
-2. **Single Responsibility**: Each file focuses on one concern
-3. **Type Safety**: All modules use comprehensive type hints with `from __future__ import annotations`
-4. **Import Pattern**: Other modules import from `tdoc_crawler.models` and `tdoc_crawler.crawlers`, not from submodules directly
+1. **Single Responsibility**: Each file focuses on one concern
+1. **Type Safety**: All modules use comprehensive type hints with `from __future__ import annotations`
+1. **Import Pattern**: Other modules import from `tdoc_crawler.models` and `tdoc_crawler.crawlers`, not from submodules directly
 
 ## Usage of uv and project management
 
@@ -179,8 +182,8 @@ src/tdoc_crawler/
 The project maintains three levels of documentation:
 
 1. **README.md** - Project overview, installation, basic usage
-2. **docs/QUICK_REFERENCE.md** - Comprehensive command reference (MUST be kept current)
-3. **docs/history/** - Chronological changelog of all significant changes
+1. **docs/QUICK_REFERENCE.md** - Comprehensive command reference (MUST be kept current)
+1. **docs/history/** - Chronological changelog of all significant changes
 
 **Critical Rules:**
 

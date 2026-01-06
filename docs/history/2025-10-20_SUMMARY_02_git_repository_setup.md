@@ -33,6 +33,7 @@ git commit -m "Initial commit: tdoc-crawler with comprehensive test suite and .e
 ```
 
 **Files Committed:** 29 files, 6,198 insertions
+
 - All source code
 - Complete test suite (55 tests)
 - Documentation (README, QUICK_REFERENCE, history files)
@@ -46,6 +47,7 @@ gh repo create tdoc-crawler --private --source=. --remote=origin \
 ```
 
 **Repository Details:**
+
 - **URL:** https://github.com/Jan-Reimes_HEAD/tdoc-crawler
 - **Visibility:** Private (Enterprise Managed User account requirement)
 - **Remote:** origin
@@ -54,10 +56,12 @@ gh repo create tdoc-crawler --private --source=. --remote=origin \
 ## Repository Status
 
 ### Current Branch
+
 - **Branch:** main
 - **Commits:** 1 (initial commit)
 
 ### Remote Configuration
+
 ```
 origin  https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git (fetch)
 origin  https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git (push)
@@ -72,6 +76,7 @@ git push -u origin main
 ```
 
 This will:
+
 - Push the main branch to the remote repository
 - Set up upstream tracking for the main branch
 - Make the code available on GitHub at https://github.com/Jan-Reimes_HEAD/tdoc-crawler
@@ -118,34 +123,39 @@ gh pr create --title "Your Feature" --body "Description"
 
 1. **Private Repository:** The repository was created as private due to Enterprise Managed User restrictions.
 
-2. **.gitignore:** Already configured to exclude:
+1. **.gitignore:** Already configured to exclude:
+
    - `.env` files (as required by AGENTS.md)
    - Python cache files (`__pycache__`, `*.pyc`)
    - Virtual environments (`.venv`, `venv/`)
    - Build artifacts (`dist/`, `build/`)
    - IDE files (`.idea/`, `.vscode/`)
 
-3. **Uncommitted Changes:** There is currently one modified file (`.gitignore`) that needs to be committed separately if changes were made.
+1. **Uncommitted Changes:** There is currently one modified file (`.gitignore`) that needs to be committed separately if changes were made.
 
 ## GitHub Repository Features to Enable
 
 Consider enabling these on GitHub:
 
 1. **Branch Protection Rules** for `main`:
+
    - Require pull request reviews
    - Require status checks to pass
    - Require branches to be up to date
 
-2. **GitHub Actions**:
+1. **GitHub Actions**:
+
    - CI/CD workflow for running tests
    - Code coverage reporting
    - Automated releases
 
-3. **Issue Templates**:
+1. **Issue Templates**:
+
    - Bug report template
    - Feature request template
 
-4. **Pull Request Template**:
+1. **Pull Request Template**:
+
    - Standardized PR description format
 
 ## Compliance with AGENTS.md

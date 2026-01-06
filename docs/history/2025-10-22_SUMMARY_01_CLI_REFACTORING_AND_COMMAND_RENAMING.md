@@ -22,6 +22,7 @@ Comprehensive refactoring of the CLI module to improve code organization, mainta
 | (existing) | `query-meetings` | `qm` | ✅ |
 
 **Benefits**:
+
 - Consistent verb-noun naming pattern across all commands
 - Clear distinction between TDoc and meeting operations
 - Short aliases for frequently used commands
@@ -44,10 +45,12 @@ src/tdoc_crawler/cli/
 **File Responsibilities**:
 
 #### `__init__.py` (3 lines)
+
 - Exports `app` for backward compatibility
 - Single entry point for CLI submodule
 
 #### `app.py` (~250 lines)
+
 - All 6 main commands:
   - `crawl_tdocs` (alias: `ct`)
   - `crawl_meetings` (alias: `cm`)
@@ -59,6 +62,7 @@ src/tdoc_crawler/cli/
 - Command-specific logic only
 
 #### `helpers.py` (~280 lines)
+
 - `parse_working_groups()` - Parse and validate working group arguments
 - `parse_subgroups()` - Parse and validate subgroup arguments
 - `build_limits()` - Construct crawl limit configurations
@@ -72,6 +76,7 @@ src/tdoc_crawler/cli/
 - `launch_file()` - Open files in default applications
 
 #### `printing.py` (~150 lines)
+
 - `tdoc_to_dict()` - Convert TDoc records to dictionaries
 - `meeting_to_dict()` - Convert meeting records to dictionaries
 - `print_tdoc_table()` - Rich table formatting for TDocs
@@ -79,6 +84,7 @@ src/tdoc_crawler/cli/
 - Output format handling: TABLE, JSON, YAML, CSV
 
 #### `fetching.py` (~160 lines)
+
 - `fetch_missing_tdocs()` - Fetch TDocs from portal with validation
 - `maybe_fetch_missing_tdocs()` - Conditional fetch based on query results
 - Portal authentication and metadata extraction
@@ -89,12 +95,14 @@ src/tdoc_crawler/cli/
 **Pattern**: Changed private functions (`_name`) to public (`name`) where appropriate.
 
 **Rationale**:
+
 - Functions are now in separate modules with clear responsibilities
 - Module boundaries provide natural encapsulation
 - Easier to test and import specific functions
 - Follows Python convention: underscore prefix only for truly internal functions
 
 **Examples**:
+
 - `_infer_working_groups_from_ids` → `infer_working_groups_from_ids`
 - `_fetch_missing_tdocs` → `fetch_missing_tdocs`
 - `_maybe_fetch_missing_tdocs` → `maybe_fetch_missing_tdocs`
@@ -102,16 +110,19 @@ src/tdoc_crawler/cli/
 ### 4. Test Updates
 
 **Files Modified**:
+
 - `tests/test_cli.py` - Updated all 17 tests
 - `tests/test_targeted_fetch.py` - Updated all 12 tests
 
 **Key Changes**:
+
 1. Updated import statements to new module structure
-2. Fixed all mock patches to target new locations
-3. Changed function names from private to public
-4. All 63 tests passing ✅
+1. Fixed all mock patches to target new locations
+1. Changed function names from private to public
+1. All 63 tests passing ✅
 
 **Example Patch Updates**:
+
 ```python
 # Before
 @patch("tdoc_crawler.cli.TDocDatabase")
@@ -125,12 +136,14 @@ src/tdoc_crawler/cli/
 ### 5. Backward Compatibility
 
 **Maintained**:
+
 - `cli/__init__.py` exports `app` object
 - External imports still work: `from tdoc_crawler.cli import app`
 - All CLI functionality preserved
 - All command behaviors unchanged
 
 **Deprecated**:
+
 - ~~`cli_old.py` kept as backup reference~~ **Removed** (2025-10-22)
 - ~~Original `cli.py` (862 lines)~~ **Removed** (2025-10-22)
 
@@ -149,6 +162,7 @@ def ct_alias(...):
 ```
 
 **Benefits**:
+
 - Power users can use short commands
 - Help text remains clean (aliases hidden)
 - Easy to remember: first letters of command names
@@ -198,6 +212,7 @@ except Exception as e:
 ### Manual Testing
 
 **Commands verified**:
+
 ```powershell
 # Main commands
 uv run tdoc-crawler --help
@@ -216,22 +231,25 @@ uv run tdoc-crawler qm --help
 ## Benefits
 
 ### Code Quality
+
 1. **Modularity**: Each file has single, clear responsibility
-2. **Maintainability**: Smaller files easier to understand and modify
-3. **Testability**: Functions can be tested in isolation
-4. **Readability**: Clear organization makes code navigation easier
+1. **Maintainability**: Smaller files easier to understand and modify
+1. **Testability**: Functions can be tested in isolation
+1. **Readability**: Clear organization makes code navigation easier
 
 ### Developer Experience
+
 1. **Faster navigation**: Jump to specific functionality quickly
-2. **Reduced merge conflicts**: Changes isolated to specific files
-3. **Easier onboarding**: Clear structure for new contributors
-4. **Better IDE support**: Better code completion and navigation
+1. **Reduced merge conflicts**: Changes isolated to specific files
+1. **Easier onboarding**: Clear structure for new contributors
+1. **Better IDE support**: Better code completion and navigation
 
 ### User Experience
+
 1. **Consistent commands**: Verb-noun pattern throughout
-2. **Convenient aliases**: Short forms for power users
-3. **Unchanged behavior**: All existing functionality preserved
-4. **Better help text**: Organized command panels
+1. **Convenient aliases**: Short forms for power users
+1. **Unchanged behavior**: All existing functionality preserved
+1. **Better help text**: Organized command panels
 
 ## File Size Comparison
 
@@ -248,17 +266,20 @@ uv run tdoc-crawler qm --help
 ## Migration Notes
 
 ### For Users
+
 - **No changes required**: All commands work as before
 - **Optional**: Use new command names and aliases
 - **Bonus**: Try convenient aliases like `ct` and `cm`
 
 ### For Developers
+
 - **Import changes**: Update imports to new module structure
 - **Function names**: Use public names (no underscore prefix)
 - **Mock patches**: Update test mocks to new locations
 - **Reference**: ~~See `cli_old.py` for original implementation~~ (Files removed after verification)
 
 ### For Tests
+
 ```python
 # Old imports
 from tdoc_crawler.cli import app, _fetch_missing_tdocs
@@ -281,17 +302,19 @@ None. All tests passing, all functionality verified.
 ## Future Enhancements
 
 ### Potential Improvements
+
 1. **Configuration file**: Support for `.tdoc-crawler.yaml` config
-2. **Plugin system**: Allow custom commands and extensions
-3. **Shell completion**: Better tab completion for all shells
-4. **Interactive mode**: REPL-style interface for exploration
-5. **Batch operations**: Process multiple TDocs efficiently
+1. **Plugin system**: Allow custom commands and extensions
+1. **Shell completion**: Better tab completion for all shells
+1. **Interactive mode**: REPL-style interface for exploration
+1. **Batch operations**: Process multiple TDocs efficiently
 
 ### Code Organization
+
 1. **Validators module**: Extract validation logic from helpers
-2. **Config module**: Centralize configuration management
-3. **Constants module**: Extract magic strings and numbers
-4. **Types module**: Custom type definitions for better hints
+1. **Config module**: Centralize configuration management
+1. **Constants module**: Extract magic strings and numbers
+1. **Types module**: Custom type definitions for better hints
 
 ## Cleanup Tasks
 

@@ -86,9 +86,9 @@ Successfully refactored the monolithic `database.py` file (808 lines) into an or
 ### Key Improvements
 
 1. **Better maintainability**: Each file has a single responsibility
-2. **Respects coding guidelines**: No file exceeds 500 lines
-3. **Reference data auto-population**: Working groups and subgroups are populated from model definitions at schema initialization
-4. **Clear API**: TDocDatabase class provides intuitive wrapper methods
+1. **Respects coding guidelines**: No file exceeds 500 lines
+1. **Reference data auto-population**: Working groups and subgroups are populated from model definitions at schema initialization
+1. **Clear API**: TDocDatabase class provides intuitive wrapper methods
 
 ## Testing
 

@@ -207,6 +207,7 @@ uv run ty check
 The project follows a modular structure:
 
 1. **`models/`**: Pydantic models for data validation and configuration
+
    - `base.py`: Base configuration models, enums (OutputFormat, SortOrder)
    - `working_groups.py`: WorkingGroup enum with tbid/ftp_root properties
    - `subworking_groups.py`: SubworkingGroup reference data
@@ -214,19 +215,20 @@ The project follows a modular structure:
    - `meetings.py`: Meeting metadata models and configurations
    - `crawl_limits.py`: Crawl throttling configuration
 
-2. **`crawlers/`**: Web scraping and FTP crawling logic
+1. **`crawlers/`**: Web scraping and FTP crawling logic
+
    - `tdocs.py`: TDocCrawler - FTP directory traversal, TDoc discovery
    - `meetings.py`: MeetingCrawler - HTML parsing from 3GPP portal
    - `portal.py`: Portal authentication and metadata extraction
 
-3. **`database.py`**: SQLite database interface with typed wrappers
+1. **`database.py`**: SQLite database interface with typed wrappers
 
-4. **`cli.py`**: Command-line interface using Typer and Rich
+1. **`cli.py`**: Command-line interface using Typer and Rich
 
 ## License
 
 This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
 
----
+______________________________________________________________________
 
 Repository initiated with [fpgmaas/cookiecutter-uv](https://github.com/fpgmaas/cookiecutter-uv).

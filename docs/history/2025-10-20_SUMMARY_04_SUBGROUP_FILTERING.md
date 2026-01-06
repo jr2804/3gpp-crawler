@@ -12,6 +12,7 @@ Added comprehensive subgroup filtering support to the `query-meetings` command w
 ### 1. Database Layer (`src/tdoc_crawler/database.py`)
 
 **Updated `TDocDatabase.query_meetings()`:**
+
 - Added subgroup filtering logic to SQL WHERE clause
 - Uses case-insensitive comparison: `UPPER(subgroup) IN (...)`
 - Properly handles `None` case (no filtering when subgroups parameter is None)
@@ -27,6 +28,7 @@ if config.subgroups:
 ### 2. Data Models (`src/tdoc_crawler/models.py`)
 
 **Updated `MeetingQueryConfig`:**
+
 - Added `subgroups: list[str] | None` field with description
 - Added `@field_validator` that normalizes subgroups (uppercase, strip whitespace)
 - Ensures consistent format regardless of user input casing
@@ -45,11 +47,13 @@ class MeetingQueryConfig(BaseConfigModel):
 ### 3. Crawler Utilities (`src/tdoc_crawler/crawler.py`)
 
 **Added `normalize_working_group_alias()` function:**
+
 - Maps plenary aliases to canonical names: RP↔RAN, SP↔SA, CP↔CT
 - Returns normalized working group name
 - Used in CLI parsing for `-w`/`--working-group` parameter
 
 **Added `normalize_subgroup_alias()` function:**
+
 - Returns list of canonical subgroup names matching the alias
 - Searches through `MEETING_CODE_REGISTRY` for code matches
 - Handles both short codes (S4, R1, RP) and long names (SA4, RAN1, RAN Plenary)
@@ -71,6 +75,7 @@ def normalize_subgroup_alias(alias: str) -> list[str]:
 ### 4. CLI Layer (`src/tdoc_crawler/cli.py`)
 
 **Updated `query_meetings()` command:**
+
 - Added `subgroup` parameter: `--sub-group`/`-s` (supports multiple values)
 - Added `_parse_subgroups()` helper function that:
   - Returns `None` if no subgroups specified
@@ -80,6 +85,7 @@ def normalize_subgroup_alias(alias: str) -> list[str]:
   - Exits with error if unknown subgroup provided
 
 **Enhanced `_parse_working_groups()` function:**
+
 - Now calls `normalize_working_group_alias()` for alias expansion
 - Supports plenary aliases: RP→RAN, SP→SA, CP→CT
 
@@ -113,6 +119,7 @@ def _parse_subgroups(values: list[str] | None) -> list[str] | None:
 ### 5. Tests (`tests/test_cli.py`)
 
 **Added comprehensive test coverage:**
+
 - `test_query_meetings_with_subgroup_filter`: Tests direct subgroup filtering
 - `test_query_meetings_with_subgroup_alias`: Tests S4→SA4 alias expansion
 - `test_query_meetings_with_plenary_alias`: Tests RP→RAN PLENARY alias expansion
@@ -124,6 +131,7 @@ All tests use mocks to verify correct parameter passing without requiring full d
 ## Supported Aliases
 
 ### Working Group Aliases (for `-w` parameter)
+
 - `RP` → `RAN` (RAN Plenary)
 - `SP` → `SA` (SA Plenary)
 - `CP` → `CT` (CT Plenary)
@@ -131,6 +139,7 @@ All tests use mocks to verify correct parameter passing without requiring full d
 ### Subgroup Aliases (for `-s` parameter)
 
 **SA Subgroups:**
+
 - `S1` → `SA1`
 - `S2` → `SA2`
 - `S3` → `SA3`
@@ -140,6 +149,7 @@ All tests use mocks to verify correct parameter passing without requiring full d
 - `SP` → `SA Plenary`
 
 **RAN Subgroups:**
+
 - `R1` → `RAN1`
 - `R2` → `RAN2`
 - `R3` → `RAN3`
@@ -149,6 +159,7 @@ All tests use mocks to verify correct parameter passing without requiring full d
 - `RP` → `RAN Plenary`
 
 **CT Subgroups:**
+
 - `C1` → `CT1`
 - `C2` → `CT2`
 - `C3` → `CT3`
@@ -160,31 +171,37 @@ All tests use mocks to verify correct parameter passing without requiring full d
 ## Usage Examples
 
 ### Basic subgroup filtering:
+
 ```bash
 uv run tdoc-crawler query-meetings -w SA -s SA4 --limit 5
 ```
 
 ### Using short alias:
+
 ```bash
 uv run tdoc-crawler query-meetings -w SA -s S4 --limit 5
 ```
 
 ### Filtering plenary meetings:
+
 ```bash
 uv run tdoc-crawler query-meetings -w RP -s "RAN Plenary" --limit 5
 ```
 
 ### Using working group alias:
+
 ```bash
 uv run tdoc-crawler query-meetings -w SP --limit 5
 ```
 
 ### Multiple subgroups:
+
 ```bash
 uv run tdoc-crawler query-meetings -w RAN -s R1 -s R2 --limit 10
 ```
 
 ### Combined filters with aliases:
+
 ```bash
 uv run tdoc-crawler query-meetings -w SP -s S4 --limit 5
 ```
@@ -192,6 +209,7 @@ uv run tdoc-crawler query-meetings -w SP -s S4 --limit 5
 ## Test Results
 
 All tests passing (62/62):
+
 - ✓ 17 CLI tests (including 5 new tests for subgroup filtering)
 - ✓ 10 Crawler tests
 - ✓ 14 Database tests
@@ -201,16 +219,16 @@ All tests passing (62/62):
 ## Implementation Notes
 
 1. **Case Insensitivity**: Both database queries and user input are case-insensitive
-2. **Alias Resolution**: Happens at CLI layer before passing to data models
-3. **Validation**: Model validators ensure consistent uppercase format
-4. **Deduplication**: Multiple aliases resolving to same subgroup are deduplicated
-5. **Error Handling**: Clear error messages for unknown subgroups/working groups
-6. **Backward Compatibility**: Existing functionality unchanged; new parameters are optional
+1. **Alias Resolution**: Happens at CLI layer before passing to data models
+1. **Validation**: Model validators ensure consistent uppercase format
+1. **Deduplication**: Multiple aliases resolving to same subgroup are deduplicated
+1. **Error Handling**: Clear error messages for unknown subgroups/working groups
+1. **Backward Compatibility**: Existing functionality unchanged; new parameters are optional
 
 ## Files Modified
 
 1. `src/tdoc_crawler/database.py` - Added subgroup filtering to query
-2. `src/tdoc_crawler/models.py` - Added subgroups field to MeetingQueryConfig
-3. `src/tdoc_crawler/crawler.py` - Added alias normalization functions
-4. `src/tdoc_crawler/cli.py` - Added CLI parameters and parsing functions
-5. `tests/test_cli.py` - Added comprehensive test coverage
+1. `src/tdoc_crawler/models.py` - Added subgroups field to MeetingQueryConfig
+1. `src/tdoc_crawler/crawler.py` - Added alias normalization functions
+1. `src/tdoc_crawler/cli.py` - Added CLI parameters and parsing functions
+1. `tests/test_cli.py` - Added comprehensive test coverage
