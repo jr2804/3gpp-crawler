@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from tdoc_crawler.cli.fetching import fetch_missing_tdocs, maybe_fetch_missing_tdocs
+from tdoc_crawler.cli.fetching import (fetch_missing_tdocs,
+                                       maybe_fetch_missing_tdocs)
 from tdoc_crawler.cli.helpers import infer_working_groups_from_ids
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import QueryConfig, TDocMetadata, WorkingGroup
@@ -72,6 +73,7 @@ class TestFetchMissingTdocs:
         from decimal import Decimal
 
         from conftest import insert_sample_meetings
+
         from tdoc_crawler.models import PortalCredentials, TDocMetadata
 
         # Mock portal response (now returns TDocMetadata)
@@ -118,6 +120,7 @@ class TestFetchMissingTdocs:
         from decimal import Decimal
 
         from conftest import insert_sample_meetings
+
         from tdoc_crawler.models import PortalCredentials, TDocMetadata
 
         # Mock portal responses (now return TDocMetadata instances)

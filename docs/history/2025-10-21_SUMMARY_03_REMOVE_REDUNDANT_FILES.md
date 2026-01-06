@@ -9,7 +9,7 @@ Removed two redundant legacy files (`models.py` and `crawler.py`) that were repl
 ## Files Removed
 
 1. **`src/tdoc_crawler/models.py`** (487 lines)
-2. **`src/tdoc_crawler/crawler.py`** (633 lines)
+1. **`src/tdoc_crawler/crawler.py`** (633 lines)
 
 ## Rationale
 
@@ -74,7 +74,7 @@ Updated `README.md` architecture section to reflect modular structure:
 ## Benefits
 
 1. **No duplication**: Single source of truth for each class
-2. **Better organization**: Related functionality grouped together
-3. **More functionality**: New structure includes portal authentication
-4. **Clearer separation**: Each file has focused responsibility
-5. **Easier maintenance**: Smaller, focused files easier to understand
+1. **Better organization**: Related functionality grouped together
+1. **More functionality**: New structure includes portal authentication
+1. **Clearer separation**: Each file has focused responsibility
+1. **Easier maintenance**: Smaller, focused files easier to understand

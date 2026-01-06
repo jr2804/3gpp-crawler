@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 
 from bs4 import BeautifulSoup
 
-from tdoc_crawler.crawlers import EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler, TDocCrawler
+from tdoc_crawler.crawlers import (EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler,
+                                   TDocCrawler)
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import QueryConfig, TDocCrawlConfig, WorkingGroup
 

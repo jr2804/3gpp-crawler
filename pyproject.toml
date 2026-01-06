@@ -5,18 +5,17 @@ description = "Crawl 3GPP FTP server, cache all(!) TDocs data, return structured
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.13,<4.0"
+requires-python = ">=3.14,<4.0"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
+    "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
-    "hishel[requests]>=1.0.0",
     "lxml>=6.0.2",
     "pandas>=2.3.3",
     "pydantic>=2.12.2",
@@ -27,10 +26,7 @@ dependencies = [
     "requests>=2.32.5",
     "rich>=14.2.0",
     "typer>=0.19.2",
-    "undersort>=0.1.4",
     "xlsxwriter>=3.2.9",
-    "pool-executors",
-    "sqlmodel>=0.0.27",
 ]
 
 [project.urls]
@@ -51,11 +47,10 @@ dev = [
     "mkdocs-material>=8.5.10",
     "mkdocstrings[python]>=0.26.1",
     "pytest-asyncio>=1.2.0",
-    "undersort>=0.1.4",
-    "memorygraphmcp[ladybugdb]>=0.11.12",
-    "beads-mcp>=0.33.2",
+    "mdformat>=1.0.0",
+    "rust-just>=1.46.0",
     "isort>=7.0.0",
-    "rust-just>=1.45.0",
+    "undersort>=0.1.5",
 ]
 
 [build-system]
@@ -65,81 +60,10 @@ build-backend = "uv_build"
 [project.scripts]
 tdoc-crawler = "tdoc_crawler.cli:app"
 
-[tool.uv.sources]
-pool-executors = { path = "src/pool_executors" }
-
-[tool.ty.environment]
-python = "./.venv"
-python-version = "3.13"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-markers = [
-    "integration: marks tests as integration tests (may require network access)",
-]
 
-[tool.undersort]
-# Method visibility ordering (primary sort)
-# Options: "public", "protected", "private"
-order = ["private", "protected", "public"]
-
-# Method type ordering within each visibility level (secondary sort, optional)
-# Options: "class" (classmethod), "static" (staticmethod), "instance" (regular methods)
-# Default: ["instance", "class", "static"]
-method_type_order = ["static", "class", "instance"]
-
-[tool.ruff]
-target-version = "py313"
-line-length = 160
-fix = true
-
-[tool.ruff.lint]
-select = [
-    # flake8-2020
-    "YTT",
-    # flake8-bandit
-    "S",
-    # flake8-bugbear
-    "B",
-    # flake8-builtins
-    "A",
-    # flake8-comprehensions
-    "C4",
-    # flake8-debugger
-    "T10",
-    # flake8-simplify
-    "SIM",
-    # isort
-    "I",
-    # mccabe
-    "C90",
-    # pycodestyle
-    "E", "W",
-    # pyflakes
-    "F",
-    # pygrep-hooks
-    "PGH",
-    # pyupgrade
-    "UP",
-    # ruff
-    "RUF",
-    # tryceratops
-    "TRY",
-]
-ignore = [
-    # LineTooLong
-    "E501",
-    # DoNotAssignLambda
-    "E731",
-]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]
-"**/cli.py" = ["B008"]  # typer.Option/Argument in function defaults is intentional
-
-[tool.ruff.format]
-preview = true
 
 [tool.coverage.report]
 skip_empty = true
@@ -147,3 +71,17 @@ skip_empty = true
 [tool.coverage.run]
 branch = true
 source = ["src"]
+
+[tool.undersort]
+# Method visibility ordering: public (no underscore), protected (single underscore), private (double underscore)
+# Customize the order by specifying: "public", "protected", "private"
+order = ["public", "protected", "private"]
+
+# Method type ordering within each visibility level (optional)
+# Options: "class" (classmethod), "static" (staticmethod), "instance" (regular methods)
+# Default order if not specified: ["instance", "class", "static"]
+method_type_order = ["instance", "class", "static"]
+
+# Exclude files/directories matching these patterns (optional)
+# Patterns support glob syntax (e.g., "tests/*", "migrations/*.py", "**/generated/*")
+# exclude = ["tests/*", "migrations/*.py"]

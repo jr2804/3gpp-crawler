@@ -13,7 +13,7 @@ This session completed a major refactoring of the crawler architecture to suppor
 - Phase 5: Implement lazy-loading and test stubbing
 - **Final Status**: All 61 tests passing, 2 skipped, 0 failed ✅
 
----
+______________________________________________________________________
 
 ## Changes by Category
 
@@ -60,11 +60,12 @@ This session completed a major refactoring of the crawler architecture to suppor
 **Critical Design Decision**: All metadata returned as JSON strings, not Pydantic objects
 
 Reasoning:
+
 - Pydantic models cannot instantiate in subinterpreter contexts (pydantic_core C extension limitation)
 - JSON strings are simple shareable types that cross the subinterpreter boundary
 - Main interpreter deserializes with `TDocMetadata.model_validate_json(json_payload)`
 
----
+______________________________________________________________________
 
 ### 2. Modified Files
 
@@ -133,10 +134,10 @@ Reasoning:
 **Key Changes**:
 
 1. Removed local HTTP crawling logic (moved to `parallel.py` worker functions)
-2. Added async/await orchestration using `aiointerpreters.Runner`
-3. Added task management for tracking pending tasks and handling completion
-4. Removed constants (imports `fetch_meeting_tdocs` from `parallel.py`)
-5. Simplified imports (no longer imports TDOC_PATTERN, EXCLUDED_DIRS, etc.)
+1. Added async/await orchestration using `aiointerpreters.Runner`
+1. Added task management for tracking pending tasks and handling completion
+1. Removed constants (imports `fetch_meeting_tdocs` from `parallel.py`)
+1. Simplified imports (no longer imports TDOC_PATTERN, EXCLUDED_DIRS, etc.)
 
 **New Methods**:
 
@@ -149,9 +150,9 @@ Reasoning:
 **Changes**:
 
 1. Updated mock patch paths to correct module references after architecture refactoring
-2. Added Runner mock/stub: New `_StubRunner` class for unit tests
-3. Reason for stub: Unit tests should not spawn actual subinterpreters (slow, resource-intensive)
-4. Applied to: `test_crawl_collects_tdocs()` and `test_crawl_targets_specific_ids()`
+1. Added Runner mock/stub: New `_StubRunner` class for unit tests
+1. Reason for stub: Unit tests should not spawn actual subinterpreters (slow, resource-intensive)
+1. Applied to: `test_crawl_collects_tdocs()` and `test_crawl_targets_specific_ids()`
 
 #### `pyproject.toml`
 
@@ -160,7 +161,7 @@ Reasoning:
 - Added `pytest-asyncio>=1.2.0` to dev dependencies
 - Rationale: Required for async test support in pytest
 
----
+______________________________________________________________________
 
 ## Technical Decisions & Trade-offs
 
@@ -205,7 +206,7 @@ Reasoning:
 - CLI retains interactive behavior
 - No changes to credential resolution logic
 
----
+______________________________________________________________________
 
 ## Test Results
 
@@ -241,7 +242,7 @@ Exit code: 0 ✅
 
 - All from pydantic_sqlite deprecation notices (noted but deferred for future update)
 
----
+______________________________________________________________________
 
 ## Code Quality Validation
 
@@ -257,7 +258,7 @@ Result: All checks passed! ✓
 - All __init__.py files validated with isort rules
 - Imports properly organized: stdlib → third-party → local
 
----
+______________________________________________________________________
 
 ## Regression Fixes Summary
 
@@ -267,9 +268,9 @@ Result: All checks passed! ✓
 | Pydantic in subinterpreter | Workers instantiated TDocMetadata directly | Remove Pydantic from worker boundary (JSON serialization) | fetch_meeting_tdocs uses json.dumps() |
 | Module import errors | __init__.py eagerly loaded portal, meetings, tdocs | Implement lazy-loading with __getattr__ | Modules load on-demand, constants available at startup |
 | Test credential prompts | query_tdocs prompted unconditionally | Added sys.stdin.isatty() check | Tests run without input, CLI retains prompts |
-| Runner complexity in tests | Real Runner spawns subinterpreters (slow) | Created _StubRunner class | test_crawl_* tests run in <0.5s each |
+| Runner complexity in tests | Real Runner spawns subinterpreters (slow) | Created _StubRunner class | test_crawl_\* tests run in \<0.5s each |
 
----
+______________________________________________________________________
 
 ## Files Modified/Created Summary
 
@@ -285,7 +286,7 @@ Result: All checks passed! ✓
 - `src/tdoc_crawler/crawlers/meetings.py` (removed ~40 lines of constants)
 - `src/tdoc_crawler/crawlers/portal.py` (removed ~3 lines of URL definitions)
 - `src/tdoc_crawler/cli/app.py` (added 2 lines for TTY detection)
-- `tests/test_crawler.py` (added _StubRunner class for 2 tests)
+- `tests/test_crawler.py` (added \_StubRunner class for 2 tests)
 - `pyproject.toml` (added pytest-asyncio dependency)
 
 **Total Impact**:
@@ -294,7 +295,7 @@ Result: All checks passed! ✓
 - Lines removed/refactored: ~90 (old constants, HTTP crawling logic)
 - Net positive: +228 lines (infrastructure for subinterpreter parallelization)
 
----
+______________________________________________________________________
 
 ## Architecture Evolution
 
@@ -331,23 +332,26 @@ TDocCrawler (Main Thread)
 - ✅ Graceful handling of per-TDoc limits
 - ✅ Maintains type safety in main interpreter
 
----
+______________________________________________________________________
 
 ## Known Issues & Future Work
 
 1. **pydantic_sqlite Warnings** (772 warnings)
+
    - Status: Deferred for future update
    - Action: Monitor pydantic_sqlite releases for deprecation resolution
 
-2. **Integration Testing**
-   - Status: Unit tests use _StubRunner; real subinterpreters not tested
+1. **Integration Testing**
+
+   - Status: Unit tests use \_StubRunner; real subinterpreters not tested
    - Action: Plan integration tests with real Runner for future session
 
-3. **Documentation**
+1. **Documentation**
+
    - Status: Pending update to reflect constants module and lazy-loading strategy
    - Action: Update AGENTS.md when review findings are incorporated
 
----
+______________________________________________________________________
 
 ## Verification Checklist
 
@@ -355,23 +359,23 @@ TDocCrawler (Main Thread)
 - ✅ parallel.py worker functions implemented (JSON serialization)
 - ✅ Lazy-loading in __init__.py functional (modules load on-demand)
 - ✅ Mock patches corrected (parallel.py, not tdocs.py)
-- ✅ _StubRunner implemented for unit test determinism
+- ✅ \_StubRunner implemented for unit test determinism
 - ✅ TTY detection added to CLI (sys.stdin.isatty())
 - ✅ ruff/isort validation passed
 - ✅ pytest: 61 passed, 2 skipped, 0 failed
 - ✅ All regressions fixed and verified individually
 - ✅ Full test suite validation complete
 
----
+______________________________________________________________________
 
 ## Summary
 
 This session successfully refactored the TDoc crawler to support Python 3.14 subinterpreters with true parallelization. The key achievements:
 
 1. **Modular Constants** - Extracted all shared definitions into an import-free constants module
-2. **Parallel Workers** - Implemented subinterpreter-safe worker functions with JSON serialization
-3. **Clean Architecture** - Separated concerns: constants (pure Python) → workers (subinterpreter) → orchestrator (main thread)
-4. **Robust Testing** - Fixed all regressions through systematic debugging and implemented deterministic test stubs
-5. **Production Ready** - Full test suite passing (61/63 tests), no functional failures
+1. **Parallel Workers** - Implemented subinterpreter-safe worker functions with JSON serialization
+1. **Clean Architecture** - Separated concerns: constants (pure Python) → workers (subinterpreter) → orchestrator (main thread)
+1. **Robust Testing** - Fixed all regressions through systematic debugging and implemented deterministic test stubs
+1. **Production Ready** - Full test suite passing (61/63 tests), no functional failures
 
 **Impact**: The codebase is now positioned for significant performance improvements through true parallelization while maintaining code quality and test coverage.

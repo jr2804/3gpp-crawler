@@ -9,16 +9,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
 
-from .base import (
-    DEFAULT_CACHE_DIR,
-    BaseConfigModel,
+from .base import (DEFAULT_CACHE_DIR, BaseConfigModel, OutputFormat,
+                   PortalCredentials, SortOrder, _normalize_tdoc_ids, utc_now)
     HttpCacheConfig,
-    OutputFormat,
-    PortalCredentials,
-    SortOrder,
-    _normalize_tdoc_ids,
-    utc_now,
-)
 from .crawl_limits import CrawlLimits, _new_crawl_limits
 from .working_groups import WorkingGroup
 

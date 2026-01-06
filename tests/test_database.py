@@ -8,14 +8,13 @@ from pathlib import Path
 import pytest
 
 from tdoc_crawler.database import DatabaseError, TDocDatabase
-from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, QueryConfig, SortOrder, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import (MeetingMetadata, MeetingQueryConfig,
+                                 QueryConfig, SortOrder, TDocMetadata,
+                                 WorkingGroup)
 
 
 class TestTDocDatabase:
     """Tests for TDocDatabase class."""
-
-    def _query_all(self, cache_dir: Path) -> QueryConfig:
-        return QueryConfig(cache_dir=cache_dir)
 
     def test_database_initialization(self, test_db_path: Path) -> None:
         """Initialize database and create schema."""
@@ -251,6 +250,9 @@ class TestTDocDatabase:
 
         with pytest.raises(DatabaseError):
             _ = db.connection
+
+    def _query_all(self, cache_dir: Path) -> QueryConfig:
+        return QueryConfig(cache_dir=cache_dir)
 
 
 if __name__ == "__main__":

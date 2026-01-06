@@ -10,6 +10,7 @@
 Added a Rich progress bar to the `crawl-tdocs` command showing real-time progress of TDoc discovery:
 
 **Visual Feedback:**
+
 - Shows count of TDocs discovered as crawling progresses
 - Updates after each TDoc is found and collected
 - If `--limit-tdocs` is specified, shows progress bar with percentage (e.g., "15/100")
@@ -85,26 +86,31 @@ Crawling meetings (working groups: RAN, SA, CT)
 Added `--clear-tdocs` flag to `crawl-tdocs` command for clearing all TDoc data before crawling:
 
 **Behavior:**
+
 - Deletes all rows from `tdocs` table before starting crawl
 - Prints count of deleted TDocs with yellow highlighting
 - Preserves meeting metadata (only clears TDoc data)
 
 **Database Method:**
+
 ```python
 def clear_tdocs(self) -> int:
     """Delete all TDoc records from database. Returns count deleted."""
 ```
 
 **Files Modified:**
+
 - `src/tdoc_crawler/database/connection.py`: Added `clear_tdocs()` method
 - `src/tdoc_crawler/cli/app.py`: Added flag and pre-crawl logic
 
 **Example Usage:**
+
 ```bash
 uv run tdoc-crawler crawl-tdocs --clear-tdocs --limit-meetings 5
 ```
 
 Output:
+
 ```
 Cleared 1234 TDocs from database
 Crawling TDocs (working groups: RAN)
@@ -116,11 +122,13 @@ Crawling TDocs (working groups: RAN)
 Added `--clear-db` flag to `crawl-meetings` command for clearing all database data before crawling:
 
 **Behavior:**
+
 - Deletes all rows from both `meetings` and `tdocs` tables
 - Prints separate counts for meetings and TDocs deleted
 - Complete database reset (preserves only reference tables)
 
 **Database Methods:**
+
 ```python
 def clear_meetings(self) -> int:
     """Delete all meeting records from database. Returns count deleted."""
@@ -130,15 +138,18 @@ def clear_all_data(self) -> tuple[int, int]:
 ```
 
 **Files Modified:**
+
 - `src/tdoc_crawler/database/connection.py`: Added `clear_meetings()` and `clear_all_data()` methods
 - `src/tdoc_crawler/cli/app.py`: Added flag and pre-crawl logic
 
 **Example Usage:**
+
 ```bash
 uv run tdoc-crawler crawl-meetings --clear-db
 ```
 
 Output:
+
 ```
 Cleared database: 5678 TDocs, 123 meetings
 Crawling meetings (working groups: RAN, SA, CT)
@@ -189,9 +200,9 @@ with Progress(
 **Key Improvements:**
 
 1. **Accurate Progress Bar**: Callback now receives `(completed, total)` instead of just being invoked
-2. **Visual Feedback**: Shows actual progress bar with "N/M" format (e.g., "365/365")
-3. **Database-Level Tracking**: Progress tracked during database insertion, not collection
-4. **Consistent Pattern**: Both `crawl-meetings` and `crawl-tdocs` use identical approach
+1. **Visual Feedback**: Shows actual progress bar with "N/M" format (e.g., "365/365")
+1. **Database-Level Tracking**: Progress tracked during database insertion, not collection
+1. **Consistent Pattern**: Both `crawl-meetings` and `crawl-tdocs` use identical approach
 
 **Benefits:**
 
@@ -213,6 +224,7 @@ def clear_tdocs(self) -> int:
 ```
 
 **Rationale:**
+
 - pydantic_sqlite doesn't provide built-in delete methods
 - `DELETE` requires raw SQL execution
 - `._db.execute()` is the documented pattern for raw SQL
@@ -246,11 +258,13 @@ mock_db.query_meetings.return_value = []  # Empty list for progress bar
 Updated assertions to handle Rich ANSI color codes:
 
 **Before:**
+
 ```python
 assert "Processed 10 TDocs" in result.stdout
 ```
 
 **After:**
+
 ```python
 assert "Processed" in result.stdout
 assert "10" in result.stdout
@@ -262,6 +276,7 @@ assert "TDocs" in result.stdout
 ### Test Results
 
 All 63 tests passing:
+
 - `test_cli.py`: 17 tests (2 updated for ANSI codes)
 - `test_crawler.py`: 6 tests (progress callback compatible)
 - `test_database.py`: 14 tests (no changes needed)
@@ -274,11 +289,13 @@ All 63 tests passing:
 ### CLI Help Text
 
 **`crawl-tdocs` flags:**
+
 ```
 --clear-tdocs        Clear all TDoc records before crawling
 ```
 
 **`crawl-meetings` flags:**
+
 ```
 --clear-db           Clear all database data before crawling
 ```
@@ -293,11 +310,13 @@ All 63 tests passing:
 ## 🎯 User Benefits
 
 ### Progress Bar
+
 - **Visibility:** Users can see crawl progress instead of waiting blindly
 - **Estimation:** Remaining meeting count helps estimate completion time
 - **Feedback:** Confirms crawler is working (especially for long-running crawls)
 
 ### Clear Flags
+
 - **Fresh Start:** Easy database reset without manual deletion
 - **Testing:** Quickly re-run crawls with clean state
 - **Debugging:** Isolate issues by starting from scratch
@@ -313,12 +332,14 @@ No migration required. Existing workflows continue unchanged. New features are o
 ## 📊 Performance Impact
 
 **Progress Bar:**
+
 - Minimal: Callback is lightweight (~1μs per meeting)
 - Trade-off: Extra query for meeting count (acceptable for typical use)
 
 **Clear Operations:**
+
 - Fast: SQL DELETE is O(n) but much faster than Python iteration
-- Typical clear times: <100ms for 10k TDocs, <1s for 100k TDocs
+- Typical clear times: \<100ms for 10k TDocs, \<1s for 100k TDocs
 
 ## 🐛 Known Issues
 
@@ -333,16 +354,19 @@ None discovered during implementation or testing.
 **Solution:** Moved progress tracking from collection to database insertion phase:
 
 1. **Database Methods Updated**:
+
    - `bulk_upsert_meetings()` and `bulk_upsert_tdocs()` now accept `Callable[[float, float], None]`
    - Convert iterable to list to determine total count before processing
    - Call callback with `(completed, total)` after each database operation
 
-2. **Crawler Methods Updated**:
+1. **Crawler Methods Updated**:
+
    - `MeetingCrawler.crawl()` signature changed to use new callback type
    - `TDocCrawler.crawl()` signature changed to use new callback type
    - Removed progress callbacks from internal methods (`_crawl_meeting`, `_scan_directory_for_tdocs`)
 
-3. **CLI Progress Bars**:
+1. **CLI Progress Bars**:
+
    - Added `BarColumn` and `MofNCompleteColumn` for visual progress
    - Shows "N/M" format (e.g., "365/365 meetings", "1745/1745 TDocs")
    - Callback updates task with exact completed/total values
@@ -364,9 +388,9 @@ Crawling TDocs from 5 meetings
 **Potential Improvements:**
 
 1. Add `--clear-tdocs-by-wg` for selective clearing per working group
-2. ~~Add progress bar to `crawl-meetings` command (similar pattern)~~ ✅ Implemented
-3. Add confirmation prompt for destructive clear operations
-4. Add `--dry-run` flag to preview what would be cleared
+1. ~~Add progress bar to `crawl-meetings` command (similar pattern)~~ ✅ Implemented
+1. Add confirmation prompt for destructive clear operations
+1. Add `--dry-run` flag to preview what would be cleared
 
 ## 📅 Version History
 
@@ -375,7 +399,7 @@ Crawling TDocs from 5 meetings
 - **v0.2.0**: Portal authentication and targeted fetch
 - **v0.1.0**: Initial implementation
 
----
+______________________________________________________________________
 
 **Author:** TDoc-Crawler Development Team
 **Status:** ✅ Implemented and tested

@@ -6,11 +6,12 @@
 ## Problem Statement
 
 The current TDoc crawler has fundamental design flaws:
+
 1. Parses FTP directory listings expecting 9 tokens (HTML table format) when FTP LIST returns 4-5 tokens
-2. Uses brute-force FTP crawling instead of meeting-driven approach
-3. No portal validation of TDoc candidates
-4. No parallel processing support
-5. No caching of negative results
+1. Uses brute-force FTP crawling instead of meeting-driven approach
+1. No portal validation of TDoc candidates
+1. No parallel processing support
+1. No caching of negative results
 
 ## New Architecture
 
@@ -29,6 +30,7 @@ TDoc crawling must depend on meeting metadata. The workflow is:
 ### 1. Models (`src/tdoc_crawler/models.py`)
 
 **Updated:**
+
 - ✅ `TDocMetadata`: Added portal fields (title, contact, tdoc_type, for_purpose, agenda_item, status, is_revision_of, validated, validation_failed)
 - ✅ `TDocRecord`: Updated to match TDocMetadata fields
 - ✅ `TDocCrawlConfig`: Added subgroups, meeting_ids, start_date, end_date, force_revalidate, workers, credentials
@@ -36,6 +38,7 @@ TDoc crawling must depend on meeting metadata. The workflow is:
 ### 2. Database Schema (`src/tdoc_crawler/database.py`)
 
 **TODO:** Update tdocs table schema:
+
 ```sql
 CREATE TABLE IF NOT EXISTS tdocs (
     tdoc_id TEXT PRIMARY KEY,
@@ -70,6 +73,7 @@ CREATE TABLE IF NOT EXISTS tdocs (
 ```
 
 **TODO:** Add methods:
+
 - `get_processed_meetings(working_groups, subgroups) -> set[int]`: Returns meeting IDs already processed
 - `cache_invalid_tdoc(tdoc_id)`: Cache negative validation result
 - `get_cached_invalid_tdocs() -> set[str]`: Get list of known invalid TDocs
@@ -423,25 +427,25 @@ def migrate_tdocs_table_v2(database: TDocDatabase) -> None:
 ## Implementation Order
 
 1. ✅ Update models (TDocMetadata, TDocRecord, TDocCrawlConfig)
-2. ⏳ Create `portal.py` module with parsing logic
-3. ⏳ Update database schema and add helper methods
-4. ⏳ Refactor `TDocCrawler` class
-5. ⏳ Update CLI command
-6. ⏳ Add migration script
-7. ⏳ Write tests
-8. ⏳ Update documentation
+1. ⏳ Create `portal.py` module with parsing logic
+1. ⏳ Update database schema and add helper methods
+1. ⏳ Refactor `TDocCrawler` class
+1. ⏳ Update CLI command
+1. ⏳ Add migration script
+1. ⏳ Write tests
+1. ⏳ Update documentation
 
 ## Open Questions
 
 1. **Portal authentication:** Need to test login flow with actual credentials
-2. **HTML structure:** Need to parse actual portal page to confirm field locations
-3. **Rate limiting:** Should we add delays between portal requests?
-4. **Batch size:** For parallel workers, should we batch meetings or process all?
+1. **HTML structure:** Need to parse actual portal page to confirm field locations
+1. **Rate limiting:** Should we add delays between portal requests?
+1. **Batch size:** For parallel workers, should we batch meetings or process all?
 
 ## Next Steps
 
 1. Test portal access with credentials to understand HTML structure
-2. Implement portal parsing module
-3. Update database schema with migration
-4. Refactor crawler class
-5. Update CLI and tests
+1. Implement portal parsing module
+1. Update database schema with migration
+1. Refactor crawler class
+1. Update CLI and tests

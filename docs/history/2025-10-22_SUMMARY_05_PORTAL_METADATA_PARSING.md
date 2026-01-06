@@ -5,7 +5,7 @@
 **Test Results**: 126/126 passing ✅
 **Implementation**: `parse_tdoc_portal_page()` function
 
----
+______________________________________________________________________
 
 ## Overview
 
@@ -22,7 +22,7 @@ The implementation was updated to include additional special handling for the **
 
 This ensures clean status values suitable for database storage and comparison.
 
----
+______________________________________________________________________
 
 ## Implementation Details
 
@@ -33,33 +33,39 @@ This ensures clean status values suitable for database storage and comparison.
 ### Parsing Algorithm
 
 1. **Locate Metadata Table**
+
    - Find HTML table with attributes: `class="ultimate3gpp"` and `id="tableTdocGeneralTabView"`
    - Return `None` if table not found (TDoc not found in portal)
 
-2. **Extract Label-Value Pairs**
+1. **Extract Label-Value Pairs**
+
    - Iterate over table rows (`<tr>...</tr>`)
    - Each row contains two cells (`<td>...</td>`):
      - First cell: Label (always ends with `:`)
      - Second cell: Value
    - Skip rows without two cells or invalid format
 
-3. **Normalize Labels**
+1. **Normalize Labels**
+
    - Remove trailing colon (`:`)
    - Convert to lowercase
    - Replace spaces with underscores
    - Example: `"Agenda item:"` → `"agenda_item"`
 
-4. **Process Values**
+1. **Process Values**
+
    - Extract and trim whitespace
    - Skip empty values (`None` or empty string)
    - Store as key-value pair in metadata dictionary
 
-5. **Special Handling: Status Field**
+1. **Special Handling: Status Field**
+
    - Portal may include brackets with download links: `"agreed(Download TDoc)"`
    - Extract only the status text before the opening bracket
    - Store cleaned value: `"agreed"` (remove brackets and content)
 
-6. **Special Handling: Agenda Item**
+1. **Special Handling: Agenda Item**
+
    - Portal format: `"7.1 - Some text"`
    - Extract numeric part (before " - "): `"7.1"` → `agenda_item_nbr`
    - Extract text part (after " - "): `"Some text"` → `agenda_item_text`
@@ -122,11 +128,12 @@ for row in rows:
 return metadata if metadata else None
 ```
 
----
+______________________________________________________________________
 
 ## Parsing Example
 
 ### Input HTML (Simplified)
+
 ```html
 <table class="ultimate3gpp" id="tableTdocGeneralTabView">
   <tr>
@@ -153,6 +160,7 @@ return metadata if metadata else None
 ```
 
 ### Output Metadata
+
 ```python
 {
     "meeting": "SA4#133-e",
@@ -165,7 +173,7 @@ return metadata if metadata else None
 }
 ```
 
----
+______________________________________________________________________
 
 ## Actual Portal Fields Parsed
 
@@ -189,30 +197,34 @@ Real example from S4-251364:
 
 **Note**: The `status` field is returned as `"agreed"` (cleaned) instead of `"agreed(Download TDoc)"` because brackets and content are removed during parsing.
 
----
+______________________________________________________________________
 
 ## Files Modified
 
 ### 1. `src/tdoc_crawler/crawlers/portal.py`
+
 - **Function**: `parse_tdoc_portal_page()` (lines 160-248)
 - **Changes**: Implemented complete metadata extraction algorithm
 - **Lines Added**: 89 lines of implementation
 - **Dependencies**: BeautifulSoup (`soup` parameter)
 
 ### 2. `tests/test_portal_auth.py`
+
 - **Function**: `test_fetch_tdoc_metadata_success()` (lines 66-86)
 - **Changes**: Updated test assertions to match actual portal data
 - **Previous Issue**: Test expected outdated field names (`for_purpose` vs `for`)
 - **Fix**: Updated to expect actual portal fields and values
 
----
+______________________________________________________________________
 
 ## Test Results
 
 ### Before Implementation
+
 - Tests: SKIPPED (function not implemented)
 
 ### After Implementation
+
 - **Total Tests**: 126/126 ✅ passing
 - **Portal Tests**: 6/6 ✅ passing
   - `test_authenticate_success`: ✅ Pass
@@ -223,19 +235,20 @@ Real example from S4-251364:
   - `test_fetch_tdoc_metadata_invalid_html`: ✅ Pass
 
 ### No Regressions
+
 - All other 120 tests still passing
 - No breaking changes to existing functionality
 
----
+______________________________________________________________________
 
 ## Error Handling
 
 ### Graceful Degradation
 
 1. **Missing Table**: Returns `None` with warning logged
-2. **Invalid Row Format**: Skips row and continues processing
-3. **Empty Values**: Skips field (not stored in metadata)
-4. **Parsing Failures**: Logged and handled gracefully
+1. **Invalid Row Format**: Skips row and continues processing
+1. **Empty Values**: Skips field (not stored in metadata)
+1. **Parsing Failures**: Logged and handled gracefully
 
 ### Robustness
 
@@ -245,15 +258,15 @@ Real example from S4-251364:
 - Handles special characters in values
 - Handles URL fragments or extra whitespace
 
----
+______________________________________________________________________
 
 ## Integration with TDoc Crawler
 
 The `parse_tdoc_portal_page()` function is used by:
 
 1. **`PortalSession.fetch_tdoc_metadata()`** - Fetches and parses TDoc page
-2. **`fetch_tdoc_metadata()`** - Convenience function for direct usage
-3. **Targeted Fetch** - Used to validate TDocs via portal
+1. **`fetch_tdoc_metadata()`** - Convenience function for direct usage
+1. **Targeted Fetch** - Used to validate TDocs via portal
 
 ### Usage Pattern
 
@@ -272,7 +285,7 @@ else:
     print("TDoc not found in portal")
 ```
 
----
+______________________________________________________________________
 
 ## Performance Characteristics
 
@@ -286,28 +299,29 @@ else:
 - TDoc Metadata Fetch: ~1-2 seconds per TDoc
 - Parsing: ~10ms per TDoc (negligible)
 
----
+______________________________________________________________________
 
 ## Future Enhancements
 
 ### Optional Improvements
 
 1. **Field Mapping**: Create configurable mapping of portal labels to internal field names
-2. **Validation Schema**: Define and validate expected fields with Pydantic
-3. **Agenda Item Variations**: Handle different agenda item formats if they exist
-4. **Caching**: Cache parsed metadata to avoid repeated portal requests
-5. **Field Extraction**: Extract structured data from free-text fields
+1. **Validation Schema**: Define and validate expected fields with Pydantic
+1. **Agenda Item Variations**: Handle different agenda item formats if they exist
+1. **Caching**: Cache parsed metadata to avoid repeated portal requests
+1. **Field Extraction**: Extract structured data from free-text fields
 
 ### Priority
+
 **LOW** - Current implementation is complete and production-ready
 
----
+______________________________________________________________________
 
 ## Verification Checklist
 
 - ✅ Function implemented per specifications in code comments
 - ✅ Handles all required fields (meeting, title, contact, tdoc_type, for, agenda_item, status)
-- ✅ Special handling for agenda_item (extraction of _nbr and _text)
+- ✅ Special handling for agenda_item (extraction of \_nbr and \_text)
 - ✅ Graceful error handling (returns None for invalid/missing data)
 - ✅ Proper logging (info, debug, warning levels)
 - ✅ All tests passing (126/126)
@@ -315,24 +329,24 @@ else:
 - ✅ Type hints complete
 - ✅ Documentation complete
 
----
+______________________________________________________________________
 
 ## Conclusion
 
 The `parse_tdoc_portal_page()` function has been successfully implemented following the detailed specifications in the code comments. The implementation:
 
 1. ✅ Correctly parses HTML table structure
-2. ✅ Properly normalizes field names
-3. ✅ Handles special cases (agenda item parsing)
-4. ✅ Provides graceful error handling
-5. ✅ Integrates seamlessly with existing code
-6. ✅ Passes all tests including real portal integration
+1. ✅ Properly normalizes field names
+1. ✅ Handles special cases (agenda item parsing)
+1. ✅ Provides graceful error handling
+1. ✅ Integrates seamlessly with existing code
+1. ✅ Passes all tests including real portal integration
 
 ### Status: ✅ **PRODUCTION READY**
 
 The implementation is complete, tested, and ready for use in the TDoc crawler pipeline.
 
----
+______________________________________________________________________
 
 **Date**: October 22, 2025
 **Status**: ✅ Complete and verified

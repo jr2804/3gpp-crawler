@@ -1,0 +1,8 @@
+{
+    "debugpy.debugJustMyCode": false,
+	"github.copilot.chat.commitMessageGeneration.instructions": [
+        {
+            "file": "${workspaceFolder}/.vscode/commit-instructions.md"
+        }
+    ]
+}

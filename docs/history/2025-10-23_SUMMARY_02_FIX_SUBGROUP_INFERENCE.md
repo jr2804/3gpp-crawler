@@ -8,18 +8,21 @@
 When using the `--sub-group` filter without explicitly specifying `--working-group`, the crawler would default to crawling **all three working groups** (RAN, SA, CT) and then filter by subgroup. This caused unexpected behavior with the `--limit-meetings` parameter:
 
 **Expected behavior:**
+
 ```bash
 # Should limit to 3 S4 meetings
 uv run tdoc-crawler crawl-meetings -s S4 --limit-meetings 3
 ```
 
 **Actual behavior:**
+
 - Crawled all working groups (RAN, SA, CT)
 - Only S4 meetings were collected (due to subgroup filter)
 - **But** the limit was applied **after** crawling all working groups
 - Result: All S4 meetings were crawled (not limited to 3)
 
 **Working command:**
+
 ```bash
 # This worked because it limits per working group
 uv run tdoc-crawler crawl-meetings -s S4 --limit-meetings-per-wg 3
@@ -30,9 +33,9 @@ uv run tdoc-crawler crawl-meetings -s S4 --limit-meetings-per-wg 3
 The `parse_working_groups()` function would default to all working groups when no `-w` was specified, even when `-s` (subgroups) was provided. This meant:
 
 1. When user specifies `-s S4` (without `-w`), all three working groups are crawled
-2. Subgroup filtering happens during the crawl loop (skips non-matching subgroups)
-3. The `--limit-meetings` parameter applies to the **total** meetings collected across all working groups
-4. Since only SA working group has S4, all S4 meetings pass through the filter
+1. Subgroup filtering happens during the crawl loop (skips non-matching subgroups)
+1. The `--limit-meetings` parameter applies to the **total** meetings collected across all working groups
+1. Since only SA working group has S4, all S4 meetings pass through the filter
 
 ## Solution
 
@@ -131,13 +134,14 @@ working_groups = parse_working_groups(working_group, subgroups)
 ## Benefits
 
 1. **Consistent behavior**: `--limit-meetings` now works intuitively with `--sub-group`
-2. **Performance improvement**: Only crawls relevant working groups when subgroups are specified
-3. **Backward compatible**: Explicit `-w` still takes precedence
-4. **Smart inference**: Multiple subgroups from different working groups are handled correctly
+1. **Performance improvement**: Only crawls relevant working groups when subgroups are specified
+1. **Backward compatible**: Explicit `-w` still takes precedence
+1. **Smart inference**: Multiple subgroups from different working groups are handled correctly
 
 ## Examples
 
 **Single subgroup (infers SA):**
+
 ```bash
 uv run tdoc-crawler crawl-meetings -s S4 --limit-meetings 3
 # Crawls: SA only
@@ -145,6 +149,7 @@ uv run tdoc-crawler crawl-meetings -s S4 --limit-meetings 3
 ```
 
 **Multiple subgroups from same working group (infers SA):**
+
 ```bash
 uv run tdoc-crawler crawl-meetings -s S4 -s S1 --limit-meetings 5
 # Crawls: SA only
@@ -152,6 +157,7 @@ uv run tdoc-crawler crawl-meetings -s S4 -s S1 --limit-meetings 5
 ```
 
 **Multiple subgroups from different working groups (infers RAN, SA):**
+
 ```bash
 uv run tdoc-crawler crawl-meetings -s R1 -s S4 --limit-meetings 10
 # Crawls: RAN and SA
@@ -159,6 +165,7 @@ uv run tdoc-crawler crawl-meetings -s R1 -s S4 --limit-meetings 10
 ```
 
 **Explicit working group overrides inference:**
+
 ```bash
 uv run tdoc-crawler crawl-meetings -w RAN -s S4 --limit-meetings 3
 # Crawls: RAN only (even though S4 is in SA)
@@ -168,6 +175,7 @@ uv run tdoc-crawler crawl-meetings -w RAN -s S4 --limit-meetings 3
 ## Testing
 
 All 63 tests pass with no changes required:
+
 - Existing tests don't specify subgroups without working groups
 - Default behavior (no filters) remains unchanged
 - Explicit working group specification takes precedence
@@ -175,11 +183,13 @@ All 63 tests pass with no changes required:
 ## Files Modified
 
 1. **`src/tdoc_crawler/cli/helpers.py`**:
+
    - Added `infer_working_groups_from_subgroups()` function
    - Modified `parse_working_groups()` to accept `subgroups` parameter
    - Added working group inference logic
 
-2. **`src/tdoc_crawler/cli/app.py`**:
+1. **`src/tdoc_crawler/cli/app.py`**:
+
    - `crawl_meetings()`: Reordered parsing to call `parse_subgroups()` before `parse_working_groups()`
    - `crawl_tdocs()`: Same reordering for consistency
 
@@ -190,6 +200,7 @@ All 63 tests pass with no changes required:
 **Issue:** Users reported that full subgroup names (SA4, RAN1, CT3) were not recognized, only short codes (S4, R1, C3) worked.
 
 **Example:**
+
 ```bash
 # This worked
 uv run tdoc-crawler crawl-meetings -s S4 --limit-meetings 5
@@ -274,10 +285,12 @@ uv run tdoc-crawler query-meetings -s SA4 --include-without-files
 **Files Modified:**
 
 3. **`src/tdoc_crawler/crawlers/meetings.py`**:
+
    - Enhanced `normalize_subgroup_alias()` with long-to-short format transformation
    - Added normalization logic for SA→S, RAN→R, CT→C prefixes
 
-4. **`tests/test_cli.py`**:
+1. **`tests/test_cli.py`**:
+
    - Updated `test_query_meetings_with_subgroup_filter` assertion to expect normalized subgroup code
 
 ## Migration Notes
@@ -286,7 +299,7 @@ No migration needed - this is a bug fix that makes the behavior more intuitive. 
 
 **For subgroup aliases:** Both short and long formats now work identically. Internal database storage remains in canonical short format (S4, R1, C3) for consistency.
 
----
+______________________________________________________________________
 
 **Status:** ✅ Implemented and tested
 **Test Coverage:** 100% (all 63 tests passing)

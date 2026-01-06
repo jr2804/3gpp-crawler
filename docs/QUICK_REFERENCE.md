@@ -237,10 +237,10 @@ uv run tdoc-crawler open <TDoc ID> [--cache-dir PATH]
 Download (if needed), extract, and launch a TDoc with the system default application.
 
 1. Queries the database; if missing, runs the same targeted crawl workflow as `query`.
-2. Downloads the TDoc into `<cache-dir>/tdocs/`, only accepting `ftp://`, `http://`, or `https://` URLs.
-3. `.zip` payloads are extracted into `<cache-dir>/tdocs/<TDoc ID>/`; the first file encountered is opened.
-4. Non-archive payloads are saved once and reused.
-5. Launches via `os.startfile` on Windows, `open` on macOS, or `xdg-open` on Linux. Errors halt the command with a non-zero exit code.
+1. Downloads the TDoc into `<cache-dir>/tdocs/`, only accepting `ftp://`, `http://`, or `https://` URLs.
+1. `.zip` payloads are extracted into `<cache-dir>/tdocs/<TDoc ID>/`; the first file encountered is opened.
+1. Non-archive payloads are saved once and reused.
+1. Launches via `os.startfile` on Windows, `open` on macOS, or `xdg-open` on Linux. Errors halt the command with a non-zero exit code.
 
 ### `query-meetings`
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from tdoc_crawler.models import CrawlConfig, QueryConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import (CrawlConfig, QueryConfig, TDocMetadata,
+                                 WorkingGroup)
 
 
 class TestTDocMetadata:

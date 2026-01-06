@@ -14,6 +14,7 @@ Created `.env.example` file to provide users with a template for configuring env
 **File:** `.env.example`
 
 **Contents:**
+
 ```bash
 # Environment Variables for TDoc Crawler
 
@@ -32,6 +33,7 @@ EOL_PASSWORD=your_password_here
 ```
 
 **Purpose:**
+
 - Provides template for users to create their own `.env` file
 - Documents required environment variables
 - Includes helpful comments and instructions
@@ -40,6 +42,7 @@ EOL_PASSWORD=your_password_here
 ### 2. Updated README.md ✅
 
 Added new **Configuration** section explaining:
+
 - How to set up environment variables using `.env.example`
 - Alternative methods for providing credentials:
   - CLI options (`--eol-username`, `--eol-password`)
@@ -49,11 +52,13 @@ Added new **Configuration** section explaining:
 ## Environment Variables Documented
 
 ### EOL_USERNAME
+
 - **Purpose:** ETSI Online account username
 - **Used by:** `crawl-meetings` command for accessing 3GPP portal
 - **Alternative:** `--eol-username` CLI option or interactive prompt
 
 ### EOL_PASSWORD
+
 - **Purpose:** ETSI Online account password
 - **Used by:** `crawl-meetings` command for accessing 3GPP portal
 - **Alternative:** `--eol-password` CLI option or interactive prompt
@@ -63,18 +68,21 @@ Added new **Configuration** section explaining:
 ### Setup Process
 
 1. **Copy template:**
+
    ```bash
    cp .env.example .env
    ```
 
-2. **Edit `.env` file:**
+1. **Edit `.env` file:**
+
    ```bash
    # Replace placeholders with actual credentials
    EOL_USERNAME=actual_username
    EOL_PASSWORD=actual_password
    ```
 
-3. **Use the tool:**
+1. **Use the tool:**
+
    ```bash
    # Credentials automatically loaded from .env
    tdoc-crawler crawl-meetings
@@ -83,17 +91,20 @@ Added new **Configuration** section explaining:
 ### Alternative Methods
 
 **Method 1: CLI Options**
+
 ```bash
 tdoc-crawler crawl-meetings --eol-username myuser --eol-password mypass
 ```
 
 **Method 2: Interactive Prompt**
+
 ```bash
 tdoc-crawler crawl-meetings --prompt-credentials
 # Tool will prompt for credentials when needed
 ```
 
 **Method 3: Environment Variables (without .env file)**
+
 ```bash
 export EOL_USERNAME=myuser
 export EOL_PASSWORD=mypass
@@ -105,28 +116,34 @@ tdoc-crawler crawl-meetings
 ### ✅ Implemented
 
 1. **`.env` in `.gitignore`**
+
    - Actual `.env` file is excluded from version control
    - Only `.env.example` template is committed
 
-2. **Clear Documentation**
+1. **Clear Documentation**
+
    - Warning in `.env.example`: "Never commit the actual .env file to version control!"
    - Instructions in README.md emphasize this
 
-3. **Multiple Authentication Methods**
+1. **Multiple Authentication Methods**
+
    - Users can choose the method that fits their security requirements
    - Interactive prompts avoid storing credentials in files
 
 ### 📋 Recommendations for Users
 
 1. **Never commit `.env` files**
+
    - Already protected by `.gitignore`
    - Double-check before committing sensitive changes
 
-2. **Use environment-specific credentials**
+1. **Use environment-specific credentials**
+
    - Different credentials for development/production
    - Rotate passwords regularly
 
-3. **Consider credential managers**
+1. **Consider credential managers**
+
    - Use OS keychain/credential manager when possible
    - GitHub CLI uses keyring (as seen in setup)
 
@@ -135,9 +152,10 @@ tdoc-crawler crawl-meetings
 ✅ **Environment Variable Loading:** `.env` file is automatically loaded via `python-dotenv` in `cli.py`
 
 ✅ **Credential Handling:** Three methods implemented as specified:
+
 1. Environment variables (`EOL_USERNAME`, `EOL_PASSWORD`)
-2. CLI parameters (`--eol-username`, `--eol-password`)
-3. Interactive prompts (`--prompt-credentials`)
+1. CLI parameters (`--eol-username`, `--eol-password`)
+1. Interactive prompts (`--prompt-credentials`)
 
 ✅ **Security:** `.env` files excluded from version control via `.gitignore`
 
@@ -146,20 +164,22 @@ tdoc-crawler crawl-meetings
 ## Files Modified
 
 1. **Created:** `.env.example` - Template for environment variables
-2. **Updated:** `README.md` - Added Configuration section
-3. **Staged:** `.env.example` ready to commit
+1. **Updated:** `README.md` - Added Configuration section
+1. **Staged:** `.env.example` ready to commit
 
 ## Next Steps
 
 ### For Project Maintainers
 
 1. **Commit the changes:**
+
    ```bash
    git add .env.example README.md
    git commit -m "Add .env.example template for credential configuration"
    ```
 
-2. **Consider adding to documentation:**
+1. **Consider adding to documentation:**
+
    - How to obtain EOL account
    - Troubleshooting authentication issues
    - Rate limiting considerations
@@ -167,16 +187,19 @@ tdoc-crawler crawl-meetings
 ### For Users
 
 1. **Create `.env` file:**
+
    ```bash
    cp .env.example .env
    ```
 
-2. **Sign up for EOL account:**
+1. **Sign up for EOL account:**
+
    - Visit https://portal.etsi.org/
    - Register for an account
    - Add credentials to `.env`
 
-3. **Test authentication:**
+1. **Test authentication:**
+
    ```bash
    tdoc-crawler crawl-meetings --limit-meetings 1
    ```
@@ -184,9 +207,9 @@ tdoc-crawler crawl-meetings
 ## Benefits
 
 1. **User-Friendly:** Clear template with instructions
-2. **Secure:** Credentials not hardcoded or committed
-3. **Flexible:** Multiple authentication methods
-4. **Standard Practice:** Follows common `.env.example` convention
-5. **Self-Documenting:** Comments explain each variable
+1. **Secure:** Credentials not hardcoded or committed
+1. **Flexible:** Multiple authentication methods
+1. **Standard Practice:** Follows common `.env.example` convention
+1. **Self-Documenting:** Comments explain each variable
 
 The `.env.example` file provides a professional, secure way for users to configure their credentials while maintaining best practices for credential management.
