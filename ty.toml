@@ -9,6 +9,10 @@ include = [
     "src",
     "tests",
 ]
+exclude = [
+    ".venv",
+    ".config/skills",
+]
 
 [terminal]
 error-on-warning = true

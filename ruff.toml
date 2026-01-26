@@ -1,6 +1,6 @@
 
 unsafe-fixes = true
-exclude = [".venv"]
+exclude = [".venv", ".config/skills"]
 target-version = "py314"
 line-length = 160
 fix = true
