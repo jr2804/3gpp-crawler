@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-working-groups description: Working group nomenclature, tbid/SubTB identifiers, subgroup hierarchy, and TSG structure. Use when working with 3GPP working groups, parsing meeting codes, or understanding TBID mappings. metadata: related: [3gpp-basics, 3gpp-meetings, 3gpp-tdocs]
+---
+name: 3gpp-working-groups
+description: Working group nomenclature, tbid/SubTB identifiers, subgroup hierarchy, and TSG structure. Use when working with 3GPP working groups, parsing meeting codes, or understanding TBID mappings.
+metadata:
+  related: [3gpp-basics, 3gpp-meetings, 3gpp-tdocs]
+---
 
 # 3GPP Working Groups
 

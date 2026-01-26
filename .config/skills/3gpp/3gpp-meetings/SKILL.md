@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-meetings description: Meeting structure, naming conventions, quarterly plenaries, and meeting pages. Use when parsing 3GPP meeting data, understanding meeting schedules, or working with meeting metadata from 3GPP portal. metadata: related: [3gpp-basics, 3gpp-working-groups, 3gpp-tdocs, 3gpp-portal-authentication]
+---
+name: 3gpp-meetings
+description: Meeting structure, naming conventions, quarterly plenaries, and meeting pages. Use when parsing 3GPP meeting data, understanding meeting schedules, or working with meeting metadata from 3GPP portal.
+metadata:
+  related: [3gpp-basics, 3gpp-working-groups, 3gpp-tdocs, 3gpp-portal-authentication]
+---
 
 # 3GPP Meetings
 

@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-portal-authentication description: EOL authentication, AJAX login patterns, 3GPP portal data fetching, and session management. Use when accessing protected 3GPP portal resources that require EOL login, fetching TDoc metadata, or working with 3GPP portal APIs. metadata: related: [3gpp-tdocs, 3gpp-meetings, 3gpp-specifications, 3gpp-change-request]
+---
+name: 3gpp-portal-authentication
+description: EOL authentication, AJAX login patterns, 3GPP portal data fetching, and session management. Use when accessing protected 3GPP portal resources that require EOL login, fetching TDoc metadata, or working with 3GPP portal APIs.
+metadata:
+  related: [3gpp-tdocs, 3gpp-meetings, 3gpp-specifications, 3gpp-change-request]
+---
 
 # 3GPP Portal Authentication
 

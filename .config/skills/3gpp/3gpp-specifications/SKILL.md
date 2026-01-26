@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-specifications description: TS and TR numbering, spec file formats, FTP directory structure, and accessing 3GPP specifications. Use when working with 3GPP specification numbering, finding spec files, or understanding spec directory organization. metadata: related: [3gpp-basics, 3gpp-releases, 3gpp-working-groups, 3gpp-tdocs, 3gpp-meetings, 3gpp-portal-authentication, 3gpp-change-request]
+---
+name: 3gpp-specifications
+description: TS and TR numbering, spec file formats, FTP directory structure, and accessing 3GPP specifications. Use when working with 3GPP specification numbering, finding spec files, or understanding spec directory organization.
+metadata:
+  related: [3gpp-basics, 3gpp-releases, 3gpp-working-groups, 3gpp-tdocs, 3gpp-meetings, 3gpp-portal-authentication, 3gpp-change-request]
+---
 
 # 3GPP Specifications
 

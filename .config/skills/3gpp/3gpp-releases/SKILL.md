@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-releases description: 3GPP release structure, versioning, TSG rounds, and release freeze concept. Use when understanding 3GPP release numbering, TSG round schedules, or finding specifications in releases. metadata: related: [3gpp-basics, 3gpp-working-groups, 3gpp-meetings, 3gpp-tdocs, 3gpp-portal-authentication, 3gpp-specifications, 3gpp-change-request]
+---
+name: 3gpp-releases
+description: 3GPP release structure, versioning, TSG rounds, and release freeze concept. Use when understanding 3GPP release numbering, TSG round schedules, or finding specifications in releases.
+metadata:
+  related: [3gpp-basics, 3gpp-working-groups, 3gpp-meetings, 3gpp-tdocs, 3gpp-portal-authentication, 3gpp-specifications, 3gpp-change-request]
+---
 
 # 3GPP Releases
 

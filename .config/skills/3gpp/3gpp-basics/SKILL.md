@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-basics description: General 3GPP organization overview, partnerships, scope, and fundamental concepts. Use when working with 3GPP data structures, understanding 3GPP hierarchy, or needing context about 3GPP as an organization. metadata: related: [3gpp-working-groups, 3gpp-meetings, 3gpp-tdocs, 3gpp-portal-authentication]
+---
+name: 3gpp-basics
+description: General 3GPP organization overview, partnerships, scope, and fundamental concepts. Use when working with 3GPP data structures, understanding 3GPP hierarchy, or needing context about 3GPP as an organization.
+metadata:
+  related: [3gpp-working-groups, 3gpp-meetings, 3gpp-tdocs, 3gpp-portal-authentication]
+---
 
 # 3GPP Basics
 

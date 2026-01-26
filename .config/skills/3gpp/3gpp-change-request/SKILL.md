@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-change-request description: Change Request procedure, workflow, status tracking, CR database, and step-by-step instructions. Use when working with 3GPP Change Requests to modify specifications, understanding CR lifecycle, or querying CR status. metadata: related: [3gpp-specifications, 3gpp-basics, 3gpp-working-groups, 3gpp-tdocs, 3gpp-portal-authentication, 3gpp-releases]
+---
+name: 3gpp-change-request
+description: Change Request procedure, workflow, status tracking, CR database, and step-by-step instructions. Use when working with 3GPP Change Requests to modify specifications, understanding CR lifecycle, or querying CR status.
+metadata:
+  related: [3gpp-specifications, 3gpp-basics, 3gpp-working-groups, 3gpp-tdocs, 3gpp-portal-authentication, 3gpp-releases]
+---
 
 # 3GPP Change Requests - Reference
 

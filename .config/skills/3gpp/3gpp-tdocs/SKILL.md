@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: 3gpp-tdocs description: TDoc patterns, filename conventions, metadata structure, HTTP/FTP server access, and TDoc identification. Use when crawling TDocs from FTP directories, parsing TDoc metadata from portal, or validating TDoc numbers. metadata: related: [3gpp-working-groups, 3gpp-meetings, 3gpp-portal-authentication]
+---
+name: 3gpp-tdocs
+description: TDoc patterns, filename conventions, metadata structure, HTTP/FTP server access, and TDoc identification. Use when crawling TDocs from FTP directories, parsing TDoc metadata from portal, or validating TDoc numbers.
+metadata:
+  related: [3gpp-working-groups, 3gpp-meetings, 3gpp-portal-authentication]
+---
 
 # TDocs (Temporary Documents)
 
