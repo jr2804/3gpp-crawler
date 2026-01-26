@@ -9,11 +9,11 @@ from api.code_transform import rename_identifier
 
 # Rename function across all Python files
 result = rename_identifier(
-    pattern='.',  # Current directory
-    old_name='getUserData',
-    new_name='fetchUserData',
-    file_pattern='**/*.py',  # All Python files recursively
-    regex=False  # Exact identifier match
+    pattern=".",  # Current directory
+    old_name="getUserData",
+    new_name="fetchUserData",
+    file_pattern="**/*.py",  # All Python files recursively
+    regex=False,  # Exact identifier match
 )
 
 # Result contains summary only (not all file contents!)

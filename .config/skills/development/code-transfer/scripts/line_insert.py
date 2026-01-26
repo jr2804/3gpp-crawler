@@ -18,8 +18,8 @@ Examples:
 
 import argparse
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 
 def validate_file_path(file_path: Path) -> None:
@@ -64,12 +64,7 @@ def create_backup(file_path: Path) -> Path:
     return backup_path
 
 
-def insert_code(
-    file_path: Path,
-    line_number: int,
-    code: str,
-    create_backup_flag: bool = False
-) -> None:
+def insert_code(file_path: Path, line_number: int, code: str, create_backup_flag: bool = False) -> None:
     """
     Insert code at a specific line number in a file.
 
@@ -95,7 +90,7 @@ def insert_code(
 
     # Read existing content or start with empty
     if file_path.exists():
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
     else:
         lines = []
@@ -104,8 +99,8 @@ def insert_code(
     # Prepare code lines to insert
     code_lines = code.splitlines(keepends=True)
     # Ensure last line has newline if inserting in middle of file
-    if code_lines and not code_lines[-1].endswith('\n'):
-        code_lines[-1] += '\n'
+    if code_lines and not code_lines[-1].endswith("\n"):
+        code_lines[-1] += "\n"
 
     # Insert at the specified line (1-based index)
     # Line 1 means insert at the beginning
@@ -114,14 +109,14 @@ def insert_code(
 
     if insert_index > len(lines):
         # If line number is beyond file, pad with empty lines
-        lines.extend(['\\n'] * (insert_index - len(lines)))
+        lines.extend(["\\n"] * (insert_index - len(lines)))
 
     # Insert the code
     lines[insert_index:insert_index] = code_lines
 
     # Write back to file
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(file_path, 'w', encoding='utf-8') as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
 
     print(f"✅ Inserted {len(code_lines)} line(s) at line {line_number} in {file_path}", file=sys.stderr)
@@ -142,42 +137,21 @@ Examples:
 
   # Insert with backup
   %(prog)s src/main.py 10 "print('hello')" --backup
-        """
+        """,
     )
 
-    parser.add_argument(
-        'file_path',
-        type=Path,
-        help='Path to the target file'
-    )
+    parser.add_argument("file_path", type=Path, help="Path to the target file")
 
-    parser.add_argument(
-        'line_number',
-        type=int,
-        help='Line number where code should be inserted (1-based)'
-    )
+    parser.add_argument("line_number", type=int, help="Line number where code should be inserted (1-based)")
 
-    parser.add_argument(
-        'code',
-        type=str,
-        help='Code to insert (use \\n for newlines)'
-    )
+    parser.add_argument("code", type=str, help="Code to insert (use \\n for newlines)")
 
-    parser.add_argument(
-        '--backup',
-        action='store_true',
-        help='Create a backup before modifying the file'
-    )
+    parser.add_argument("--backup", action="store_true", help="Create a backup before modifying the file")
 
     args = parser.parse_args()
 
     try:
-        insert_code(
-            file_path=args.file_path,
-            line_number=args.line_number,
-            code=args.code,
-            create_backup_flag=args.backup
-        )
+        insert_code(file_path=args.file_path, line_number=args.line_number, code=args.code, create_backup_flag=args.backup)
         sys.exit(0)
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)

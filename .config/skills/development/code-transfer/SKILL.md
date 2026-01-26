@@ -1,7 +1,6 @@
----
-name: code-transfer
-description: Transfer code between files with line-based precision. Use when users request copying code from one location to another, moving functions or classes between files, extracting code blocks, or inserting code at specific line numbers.
----
+______________________________________________________________________
+
+## name: code-transfer description: Transfer code between files with line-based precision. Use when users request copying code from one location to another, moving functions or classes between files, extracting code blocks, or inserting code at specific line numbers.
 
 # Code Transfer
 
@@ -10,9 +9,11 @@ Transfer code between files with precise line-based control. **Dual-mode operati
 ## Operation Modes
 
 ### Basic Mode (Default)
+
 Use Read, Edit, Bash scripts for 1-10 file operations. Works immediately, no setup required.
 
 ### Execution Mode (10+ files)
+
 ```python
 from api.filesystem import batch_copy
 from api.code_analysis import find_functions
@@ -39,6 +40,7 @@ batch_copy(operations)
 ## Core Operations
 
 ### 1. Extract Source Code
+
 ```
 Read(file_path="src/auth.py")                              # Full file
 Read(file_path="src/auth.py", offset=10, limit=20)         # Line range
@@ -46,6 +48,7 @@ Grep(pattern="def authenticate", -n=true, -A=10)           # Find function
 ```
 
 ### 2. Insert at Specific Line
+
 Use `line_insert.py` script for line-based insertion:
 
 ```bash
@@ -53,6 +56,7 @@ python3 skills/code-transfer/scripts/line_insert.py <file> <line_number> <code> 
 ```
 
 **Examples:**
+
 ```bash
 # Insert function at line 50
 python3 skills/code-transfer/scripts/line_insert.py src/utils.py 50 "def helper():\n    pass"
@@ -65,11 +69,13 @@ python3 skills/code-transfer/scripts/line_insert.py src/new.py 1 "import os"
 ```
 
 **When to use:**
+
 - User specifies exact line number
 - Inserting into new/empty files
 - Inserting at beginning/end without context
 
 ### 3. Insert Relative to Content
+
 Use **Edit** when insertion point is relative to existing code:
 
 ```
@@ -83,50 +89,58 @@ Edit(
 ## Workflow Examples
 
 ### Copy Function Between Files
+
 1. Find: `Grep(pattern="def validate_user", -n=true, -A=20)`
-2. Extract: `Read(file_path="auth.py", offset=45, limit=15)`
-3. Check target: `Read(file_path="validators.py")`
-4. Insert: Use `line_insert.py` or Edit based on context
+1. Extract: `Read(file_path="auth.py", offset=45, limit=15)`
+1. Check target: `Read(file_path="validators.py")`
+1. Insert: Use `line_insert.py` or Edit based on context
 
 ### Extract Class to New File
+
 1. Locate: `Grep(pattern="class DatabaseConnection", -n=true, -A=50)`
-2. Extract: `Read(file_path="original.py", offset=100, limit=50)`
-3. Create: `Write(file_path="database.py", content="<extracted>")`
-4. Update imports: `Edit` in original file
-5. Remove old class: `Edit` with replacement
+1. Extract: `Read(file_path="original.py", offset=100, limit=50)`
+1. Create: `Write(file_path="database.py", content="<extracted>")`
+1. Update imports: `Edit` in original file
+1. Remove old class: `Edit` with replacement
 
 ### Insert at Specific Line
+
 1. Validate: `Read(file_path="main.py", offset=20, limit=10)`
-2. Insert: `python3 skills/code-transfer/scripts/line_insert.py main.py 25 "logger.info('...')" --backup`
-3. Verify: `Read(file_path="main.py", offset=23, limit=5)`
+1. Insert: `python3 skills/code-transfer/scripts/line_insert.py main.py 25 "logger.info('...')" --backup`
+1. Verify: `Read(file_path="main.py", offset=23, limit=5)`
 
 ### Reorganize Into Modules
+
 1. Analyze: `Read(file_path="utils.py")`
-2. Identify groups: `Grep(pattern="^def |^class ", -n=true)`
-3. Extract each category: `Write` new files
-4. Update original: Re-export or redirect
+1. Identify groups: `Grep(pattern="^def |^class ", -n=true)`
+1. Extract each category: `Write` new files
+1. Update original: Re-export or redirect
 
 ## Best Practices
 
 **Planning:**
+
 - Understand dependencies (imports, references)
 - Identify exact start/end of code block
 - Check target file structure
 - Ensure necessary imports included
 
 **Preservation:**
+
 - Include docstrings and comments
 - Transfer related functions together
 - Update imports in both files
 - Maintain formatting/indentation
 
 **Validation:**
+
 - Verify insertion placement
 - Check syntax
 - Test imports
 - Suggest running tests
 
 **Backups:**
+
 - Use `--backup` for significant changes
 - Critical file operations
 - Large deletions

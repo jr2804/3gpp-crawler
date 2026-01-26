@@ -1,7 +1,6 @@
----
-name: code-execution
-description: Execute Python code locally with marketplace API access for 90%+ token savings on bulk operations. Activates when user requests bulk operations (10+ files), complex multi-step workflows, iterative processing, or mentions efficiency/performance.
----
+______________________________________________________________________
+
+## name: code-execution description: Execute Python code locally with marketplace API access for 90%+ token savings on bulk operations. Activates when user requests bulk operations (10+ files), complex multi-step workflows, iterative processing, or mentions efficiency/performance.
 
 # Code Execution
 
@@ -48,12 +47,13 @@ git.git_commit('feat: refactor code')
 ## Pattern
 
 1. **Analyze locally** (metadata only, not source)
-2. **Process locally** (all operations in execution)
-3. **Return summary** (not data!)
+1. **Process locally** (all operations in execution)
+1. **Return summary** (not data!)
 
 ## Examples
 
 **Bulk refactor (50 files):**
+
 ```python
 from execution_runtime import transform
 result = transform.rename_identifier('.', 'oldName', 'newName', '**/*.py')
@@ -61,6 +61,7 @@ result = transform.rename_identifier('.', 'oldName', 'newName', '**/*.py')
 ```
 
 **Extract functions:**
+
 ```python
 from execution_runtime import code, fs
 
@@ -73,6 +74,7 @@ result = {'functions_moved': len(functions)}
 ```
 
 **Code audit (100 files):**
+
 ```python
 from execution_runtime import code
 from pathlib import Path

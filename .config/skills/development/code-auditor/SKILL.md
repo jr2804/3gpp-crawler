@@ -1,7 +1,6 @@
----
-name: code-auditor
-description: Performs comprehensive codebase analysis covering architecture, code quality, security, performance, testing, and maintainability. Use when user wants to audit code quality, identify technical debt, find security issues, assess test coverage, or get a codebase health check.
----
+______________________________________________________________________
+
+## name: code-auditor description: Performs comprehensive codebase analysis covering architecture, code quality, security, performance, testing, and maintainability. Use when user wants to audit code quality, identify technical debt, find security issues, assess test coverage, or get a codebase health check.
 
 # Code Auditor
 
@@ -20,6 +19,7 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 ## What It Analyzes
 
 ### 1. Architecture & Design
+
 - Overall structure and organization
 - Design patterns in use
 - Module boundaries and separation of concerns
@@ -27,6 +27,7 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 - Architectural decisions and trade-offs
 
 ### 2. Code Quality
+
 - Complexity hotspots (cyclomatic complexity)
 - Code duplication (DRY violations)
 - Naming conventions and consistency
@@ -34,6 +35,7 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 - Code smells and anti-patterns
 
 ### 3. Security
+
 - Common vulnerabilities (OWASP Top 10)
 - Input validation and sanitization
 - Authentication and authorization
@@ -41,6 +43,7 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 - Dependency vulnerabilities
 
 ### 4. Performance
+
 - Algorithmic complexity issues
 - Database query optimization
 - Memory usage patterns
@@ -48,6 +51,7 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 - Resource leaks
 
 ### 5. Testing
+
 - Test coverage assessment
 - Test quality and effectiveness
 - Missing test scenarios
@@ -55,6 +59,7 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 - Integration vs unit test balance
 
 ### 6. Maintainability
+
 - Technical debt assessment
 - Coupling and cohesion
 - Ease of future changes
@@ -64,10 +69,10 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 ## Approach
 
 1. **Explore** using Explore agent (thorough mode)
-2. **Identify patterns** with Grep and Glob
-3. **Read critical files** for detailed analysis
-4. **Run static analysis tools** if available
-5. **Synthesize findings** into actionable report
+1. **Identify patterns** with Grep and Glob
+1. **Read critical files** for detailed analysis
+1. **Run static analysis tools** if available
+1. **Synthesize findings** into actionable report
 
 ## Thoroughness Levels
 
@@ -136,6 +141,7 @@ Comprehensive codebase analysis covering architecture, code quality, security, p
 ## Configuration
 
 Can focus on specific areas:
+
 - Security-only audit
 - Performance-only audit
 - Testing-only assessment

@@ -1,7 +1,6 @@
----
-name: codebase-documenter
-description: Generates comprehensive documentation explaining how a codebase works, including architecture, key components, data flow, and development guidelines. Use when user wants to understand unfamiliar code, create onboarding docs, document architecture, or explain how the system works.
----
+______________________________________________________________________
+
+## name: codebase-documenter description: Generates comprehensive documentation explaining how a codebase works, including architecture, key components, data flow, and development guidelines. Use when user wants to understand unfamiliar code, create onboarding docs, document architecture, or explain how the system works.
 
 # Codebase Documenter
 
@@ -19,6 +18,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 ## What It Documents
 
 ### 1. Project Overview
+
 - Purpose & vision
 - Target users
 - Key features
@@ -26,6 +26,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Project status
 
 ### 2. Architecture
+
 - High-level structure
 - Design patterns
 - Data flow
@@ -34,6 +35,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Architectural decisions
 
 ### 3. Directory Structure
+
 - Organization purpose
 - Naming conventions
 - Entry points
@@ -41,6 +43,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Configuration locations
 
 ### 4. Key Components
+
 - Major modules
 - Classes & functions
 - Responsibilities
@@ -49,6 +52,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Code examples
 
 ### 5. External Integrations
+
 - APIs consumed
 - Databases & schemas
 - Authentication
@@ -57,6 +61,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - File storage
 
 ### 6. Data Models
+
 - Database schema
 - Data structures
 - Validation
@@ -64,6 +69,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Data transformations
 
 ### 7. Development Setup
+
 - Prerequisites
 - Installation steps
 - Configuration
@@ -73,6 +79,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Troubleshooting
 
 ### 8. Development Guidelines
+
 - Coding conventions
 - Testing approach
 - Error handling
@@ -81,6 +88,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Performance patterns
 
 ### 9. Deployment
+
 - Build process
 - Deployment steps
 - Environments
@@ -88,6 +96,7 @@ Generates comprehensive documentation for codebases - architecture, components, 
 - Rollback procedures
 
 ### 10. Contributing
+
 - Development workflow
 - Code review guidelines
 - Testing requirements
@@ -96,16 +105,17 @@ Generates comprehensive documentation for codebases - architecture, components, 
 ## Approach
 
 1. **Explore** using Explore agent (thorough)
-2. **Map structure** with Glob
-3. **Read critical files** (README, entry points, core modules)
-4. **Identify patterns** with Grep (imports, exports)
-5. **Trace execution** paths
-6. **Extract knowledge** from docs, comments, tests
-7. **Synthesize** into cohesive documentation
+1. **Map structure** with Glob
+1. **Read critical files** (README, entry points, core modules)
+1. **Identify patterns** with Grep (imports, exports)
+1. **Trace execution** paths
+1. **Extract knowledge** from docs, comments, tests
+1. **Synthesize** into cohesive documentation
 
 ## Output
 
 Creates markdown documentation:
+
 ```
 docs/
 ├── README.md              # Overview and quick start
