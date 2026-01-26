@@ -124,6 +124,10 @@ src/tdoc_crawler/
 1. **Type Safety**: All modules use comprehensive type hints with `from __future__ import annotations`
 1. **Import Pattern**: Other modules import from `tdoc_crawler.models` and `tdoc_crawler.crawlers`, not from submodules directly
 
+## Virtual Environment Activation (MANDATORY)
+
+Whenever you execute shell commands (including via `just`, `uv`, `pytest`, or any CLI), you MUST ensure the Python virtual environment is activated for that session. This applies to all shell commands, scripts, and subprocesses. If using `uv`, activate the environment as required by the project setup before running any command. This ensures correct dependencies and isolation.
+
 ## Usage of uv and project management
 
 - Use `uv` for creating isolated Python environments instead of `virtualenv` or `venv`
@@ -195,3 +199,17 @@ The project maintains three levels of documentation:
 After several implementation steps, the present file (`AGENTS.md`) might need an update. When explicitly asked, use/update the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md` for that purpose.
 
 The actual update of `AGENTS.md` will be done only after explicit user confirmation.
+
+## Issue Tracking
+
+This project uses **bd (beads)** for issue tracking.
+Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
+
+**Quick reference:**
+
+- `bd ready` - Find unblocked work
+- `bd create "Title" --type task --priority 2` - Create issue
+- `bd close <id>` - Complete work
+- `bd sync` - Sync with git (run at session end)
+
+For full workflow details: `bd prime`
