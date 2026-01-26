@@ -6,7 +6,7 @@ run = [
     "ruff format .",
     "isort .",
     "undersort .",
-    "mdformat src/ docs/ tests/ .config/skills",
+    "mdformat src/ docs/ tests/ --exclude .config/skills",
 ]
 
 [tasks.lint]
