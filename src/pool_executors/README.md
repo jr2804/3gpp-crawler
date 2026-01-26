@@ -75,8 +75,8 @@ executor = create_executor(
 This package was created to:
 
 1. **Provide serial execution**: Sometimes you need to disable parallelism for debugging or when overhead outweighs benefits
-2. **Unify executor creation**: Single factory function for all executor types with consistent interface
-3. **Enable future extraction**: Designed as standalone package for easy repository separation
+1. **Unify executor creation**: Single factory function for all executor types with consistent interface
+1. **Enable future extraction**: Designed as standalone package for easy repository separation
 
 ## Requirements
 
