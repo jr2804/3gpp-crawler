@@ -71,15 +71,9 @@ class BaseSchemaValidator:
     XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
 
     # Common OOXML namespaces used across validators
-    PACKAGE_RELATIONSHIPS_NAMESPACE = (
-        "http://schemas.openxmlformats.org/package/2006/relationships"
-    )
-    OFFICE_RELATIONSHIPS_NAMESPACE = (
-        "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-    )
-    CONTENT_TYPES_NAMESPACE = (
-        "http://schemas.openxmlformats.org/package/2006/content-types"
-    )
+    PACKAGE_RELATIONSHIPS_NAMESPACE = "http://schemas.openxmlformats.org/package/2006/relationships"
+    OFFICE_RELATIONSHIPS_NAMESPACE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    CONTENT_TYPES_NAMESPACE = "http://schemas.openxmlformats.org/package/2006/content-types"
 
     # Folders where we should clean ignorable namespaces
     MAIN_CONTENT_FOLDERS = {"word", "ppt", "xl"}
@@ -113,9 +107,7 @@ class BaseSchemaValidator:
 
         # Get all XML and .rels files
         patterns = ["*.xml", "*.rels"]
-        self.xml_files = [
-            f for pattern in patterns for f in self.unpacked_dir.rglob(pattern)
-        ]
+        self.xml_files = [f for pattern in patterns for f in self.unpacked_dir.rglob(pattern)]
 
         if not self.xml_files:
             print(f"Warning: No XML files found in {self.unpacked_dir}")
@@ -133,15 +125,9 @@ class BaseSchemaValidator:
                 # Try to parse the XML file
                 lxml.etree.parse(str(xml_file))
             except lxml.etree.XMLSyntaxError as e:
-                errors.append(
-                    f"  {xml_file.relative_to(self.unpacked_dir)}: "
-                    f"Line {e.lineno}: {e.msg}"
-                )
+                errors.append(f"  {xml_file.relative_to(self.unpacked_dir)}: Line {e.lineno}: {e.msg}")
             except Exception as e:
-                errors.append(
-                    f"  {xml_file.relative_to(self.unpacked_dir)}: "
-                    f"Unexpected error: {str(e)}"
-                )
+                errors.append(f"  {xml_file.relative_to(self.unpacked_dir)}: Unexpected error: {str(e)}")
 
         if errors:
             print(f"FAILED - Found {len(errors)} XML violations:")
@@ -162,15 +148,9 @@ class BaseSchemaValidator:
                 root = lxml.etree.parse(str(xml_file)).getroot()
                 declared = set(root.nsmap.keys()) - {None}  # Exclude default namespace
 
-                for attr_val in [
-                    v for k, v in root.attrib.items() if k.endswith("Ignorable")
-                ]:
+                for attr_val in [v for k, v in root.attrib.items() if k.endswith("Ignorable")]:
                     undeclared = set(attr_val.split()) - declared
-                    errors.extend(
-                        f"  {xml_file.relative_to(self.unpacked_dir)}: "
-                        f"Namespace '{ns}' in Ignorable but not declared"
-                        for ns in undeclared
-                    )
+                    errors.extend(f"  {xml_file.relative_to(self.unpacked_dir)}: Namespace '{ns}' in Ignorable but not declared" for ns in undeclared)
             except lxml.etree.XMLSyntaxError:
                 continue
 
@@ -194,20 +174,14 @@ class BaseSchemaValidator:
                 file_ids = {}  # Track IDs that must be unique within this file
 
                 # Remove all mc:AlternateContent elements from the tree
-                mc_elements = root.xpath(
-                    ".//mc:AlternateContent", namespaces={"mc": self.MC_NAMESPACE}
-                )
+                mc_elements = root.xpath(".//mc:AlternateContent", namespaces={"mc": self.MC_NAMESPACE})
                 for elem in mc_elements:
                     elem.getparent().remove(elem)
 
                 # Now check IDs in the cleaned tree
                 for elem in root.iter():
                     # Get the element name without namespace
-                    tag = (
-                        elem.tag.split("}")[-1].lower()
-                        if "}" in elem.tag
-                        else elem.tag.lower()
-                    )
+                    tag = elem.tag.split("}")[-1].lower() if "}" in elem.tag else elem.tag.lower()
 
                     # Check if this element type has ID uniqueness requirements
                     if tag in self.UNIQUE_ID_REQUIREMENTS:
@@ -216,11 +190,7 @@ class BaseSchemaValidator:
                         # Look for the specified attribute
                         id_value = None
                         for attr, value in elem.attrib.items():
-                            attr_local = (
-                                attr.split("}")[-1].lower()
-                                if "}" in attr
-                                else attr.lower()
-                            )
+                            attr_local = attr.split("}")[-1].lower() if "}" in attr else attr.lower()
                             if attr_local == attr_name:
                                 id_value = value
                                 break
@@ -229,9 +199,7 @@ class BaseSchemaValidator:
                             if scope == "global":
                                 # Check global uniqueness
                                 if id_value in global_ids:
-                                    prev_file, prev_line, prev_tag = global_ids[
-                                        id_value
-                                    ]
+                                    prev_file, prev_line, prev_tag = global_ids[id_value]
                                     errors.append(
                                         f"  {xml_file.relative_to(self.unpacked_dir)}: "
                                         f"Line {elem.sourceline}: Global ID '{id_value}' in <{tag}> "
@@ -260,9 +228,7 @@ class BaseSchemaValidator:
                                     file_ids[key][id_value] = elem.sourceline
 
             except (lxml.etree.XMLSyntaxError, Exception) as e:
-                errors.append(
-                    f"  {xml_file.relative_to(self.unpacked_dir)}: Error: {e}"
-                )
+                errors.append(f"  {xml_file.relative_to(self.unpacked_dir)}: Error: {e}")
 
         if errors:
             print(f"FAILED - Found {len(errors)} ID uniqueness violations:")
@@ -291,20 +257,14 @@ class BaseSchemaValidator:
         # Get all files in the unpacked directory (excluding reference files)
         all_files = []
         for file_path in self.unpacked_dir.rglob("*"):
-            if (
-                file_path.is_file()
-                and file_path.name != "[Content_Types].xml"
-                and not file_path.name.endswith(".rels")
-            ):  # This file is not referenced by .rels
+            if file_path.is_file() and file_path.name != "[Content_Types].xml" and not file_path.name.endswith(".rels"):  # This file is not referenced by .rels
                 all_files.append(file_path.resolve())
 
         # Track all files that are referenced by any .rels file
         all_referenced_files = set()
 
         if self.verbose:
-            print(
-                f"Found {len(rels_files)} .rels files and {len(all_files)} target files"
-            )
+            print(f"Found {len(rels_files)} .rels files and {len(all_files)} target files")
 
         # Check each .rels file
         for rels_file in rels_files:
@@ -324,9 +284,7 @@ class BaseSchemaValidator:
                     namespaces={"ns": self.PACKAGE_RELATIONSHIPS_NAMESPACE},
                 ):
                     target = rel.get("Target")
-                    if target and not target.startswith(
-                        ("http", "mailto:")
-                    ):  # Skip external URLs
+                    if target and not target.startswith(("http", "mailto:")):  # Skip external URLs
                         # Resolve the target path relative to the .rels file location
                         if rels_file.name == ".rels":
                             # Root .rels file - targets are relative to unpacked_dir
@@ -352,9 +310,7 @@ class BaseSchemaValidator:
                 if broken_refs:
                     rel_path = rels_file.relative_to(self.unpacked_dir)
                     for broken_ref, line_num in broken_refs:
-                        errors.append(
-                            f"  {rel_path}: Line {line_num}: Broken reference to {broken_ref}"
-                        )
+                        errors.append(f"  {rel_path}: Line {line_num}: Broken reference to {broken_ref}")
 
             except Exception as e:
                 rel_path = rels_file.relative_to(self.unpacked_dir)
@@ -380,9 +336,7 @@ class BaseSchemaValidator:
             return False
         else:
             if self.verbose:
-                print(
-                    "PASSED - All references are valid and all files are properly referenced"
-                )
+                print("PASSED - All references are valid and all files are properly referenced")
             return True
 
     def validate_all_relationship_ids(self):
@@ -414,23 +368,16 @@ class BaseSchemaValidator:
                 rels_root = lxml.etree.parse(str(rels_file)).getroot()
                 rid_to_type = {}
 
-                for rel in rels_root.findall(
-                    f".//{{{self.PACKAGE_RELATIONSHIPS_NAMESPACE}}}Relationship"
-                ):
+                for rel in rels_root.findall(f".//{{{self.PACKAGE_RELATIONSHIPS_NAMESPACE}}}Relationship"):
                     rid = rel.get("Id")
                     rel_type = rel.get("Type", "")
                     if rid:
                         # Check for duplicate rIds
                         if rid in rid_to_type:
                             rels_rel_path = rels_file.relative_to(self.unpacked_dir)
-                            errors.append(
-                                f"  {rels_rel_path}: Line {rel.sourceline}: "
-                                f"Duplicate relationship ID '{rid}' (IDs must be unique)"
-                            )
+                            errors.append(f"  {rels_rel_path}: Line {rel.sourceline}: Duplicate relationship ID '{rid}' (IDs must be unique)")
                         # Extract just the type name from the full URL
-                        type_name = (
-                            rel_type.split("/")[-1] if "/" in rel_type else rel_type
-                        )
+                        type_name = rel_type.split("/")[-1] if "/" in rel_type else rel_type
                         rid_to_type[rid] = type_name
 
                 # Parse the XML file to find all r:id references
@@ -442,9 +389,7 @@ class BaseSchemaValidator:
                     rid_attr = elem.get(f"{{{self.OFFICE_RELATIONSHIPS_NAMESPACE}}}id")
                     if rid_attr:
                         xml_rel_path = xml_file.relative_to(self.unpacked_dir)
-                        elem_name = (
-                            elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
-                        )
+                        elem_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
 
                         # Check if the ID exists
                         if rid_attr not in rid_to_type:
@@ -455,9 +400,7 @@ class BaseSchemaValidator:
                             )
                         # Check if we have type expectations for this element
                         elif self.ELEMENT_RELATIONSHIP_TYPES:
-                            expected_type = self._get_expected_relationship_type(
-                                elem_name
-                            )
+                            expected_type = self._get_expected_relationship_type(elem_name)
                             if expected_type:
                                 actual_type = rid_to_type[rid_attr]
                                 # Check if the actual type matches or contains the expected type
@@ -536,17 +479,13 @@ class BaseSchemaValidator:
             declared_extensions = set()
 
             # Get Override declarations (specific files)
-            for override in root.findall(
-                f".//{{{self.CONTENT_TYPES_NAMESPACE}}}Override"
-            ):
+            for override in root.findall(f".//{{{self.CONTENT_TYPES_NAMESPACE}}}Override"):
                 part_name = override.get("PartName")
                 if part_name is not None:
                     declared_parts.add(part_name.lstrip("/"))
 
             # Get Default declarations (by extension)
-            for default in root.findall(
-                f".//{{{self.CONTENT_TYPES_NAMESPACE}}}Default"
-            ):
+            for default in root.findall(f".//{{{self.CONTENT_TYPES_NAMESPACE}}}Default"):
                 extension = default.get("Extension")
                 if extension is not None:
                     declared_extensions.add(extension.lower())
@@ -581,15 +520,10 @@ class BaseSchemaValidator:
 
             # Check all XML files for Override declarations
             for xml_file in self.xml_files:
-                path_str = str(xml_file.relative_to(self.unpacked_dir)).replace(
-                    "\\", "/"
-                )
+                path_str = str(xml_file.relative_to(self.unpacked_dir)).replace("\\", "/")
 
                 # Skip non-content files
-                if any(
-                    skip in path_str
-                    for skip in [".rels", "[Content_Types]", "docProps/", "_rels/"]
-                ):
+                if any(skip in path_str for skip in [".rels", "[Content_Types]", "docProps/", "_rels/"]):
                     continue
 
                 try:
@@ -597,9 +531,7 @@ class BaseSchemaValidator:
                     root_name = root_tag.split("}")[-1] if "}" in root_tag else root_tag
 
                     if root_name in declarable_roots and path_str not in declared_parts:
-                        errors.append(
-                            f"  {path_str}: File with <{root_name}> root not declared in [Content_Types].xml"
-                        )
+                        errors.append(f"  {path_str}: File with <{root_name}> root not declared in [Content_Types].xml")
 
                 except Exception:
                     continue  # Skip unparseable files
@@ -633,9 +565,7 @@ class BaseSchemaValidator:
             return False
         else:
             if self.verbose:
-                print(
-                    "PASSED - All content files are properly declared in [Content_Types].xml"
-                )
+                print("PASSED - All content files are properly declared in [Content_Types].xml")
             return True
 
     def validate_file_against_xsd(self, xml_file, verbose=False):
@@ -653,9 +583,7 @@ class BaseSchemaValidator:
         unpacked_dir = self.unpacked_dir.resolve()
 
         # Validate current file
-        is_valid, current_errors = self._validate_single_file_xsd(
-            xml_file, unpacked_dir
-        )
+        is_valid, current_errors = self._validate_single_file_xsd(xml_file, unpacked_dir)
 
         if is_valid is None:
             return None, set()  # Skipped
@@ -680,9 +608,7 @@ class BaseSchemaValidator:
         else:
             # All errors existed in original
             if verbose:
-                print(
-                    f"PASSED - No new errors (original had {len(current_errors)} errors)"
-                )
+                print(f"PASSED - No new errors (original had {len(current_errors)} errors)")
             return True, set()
 
     def validate_against_xsd(self):
@@ -694,9 +620,7 @@ class BaseSchemaValidator:
 
         for xml_file in self.xml_files:
             relative_path = str(xml_file.relative_to(self.unpacked_dir))
-            is_valid, new_file_errors = self.validate_file_against_xsd(
-                xml_file, verbose=False
-            )
+            is_valid, new_file_errors = self.validate_file_against_xsd(xml_file, verbose=False)
 
             if is_valid is None:
                 skipped_count += 1
@@ -713,9 +637,7 @@ class BaseSchemaValidator:
             # Has new errors
             new_errors.append(f"  {relative_path}: {len(new_file_errors)} new error(s)")
             for error in list(new_file_errors)[:3]:  # Show first 3 errors
-                new_errors.append(
-                    f"    - {error[:250]}..." if len(error) > 250 else f"    - {error}"
-                )
+                new_errors.append(f"    - {error[:250]}..." if len(error) > 250 else f"    - {error}")
 
         # Print summary
         if self.verbose:
@@ -724,9 +646,7 @@ class BaseSchemaValidator:
             print(f"  - Skipped (no schema): {skipped_count}")
             if original_error_count:
                 print(f"  - With original errors (ignored): {original_error_count}")
-            print(
-                f"  - With NEW errors: {len(new_errors) > 0 and len([e for e in new_errors if not e.startswith('    ')]) or 0}"
-            )
+            print(f"  - With NEW errors: {len(new_errors) > 0 and len([e for e in new_errors if not e.startswith('    ')]) or 0}")
 
         if new_errors:
             print("\nFAILED - Found NEW validation errors:")
@@ -833,9 +753,7 @@ class BaseSchemaValidator:
             # Load schema
             with open(schema_path, "rb") as xsd_file:
                 parser = lxml.etree.XMLParser()
-                xsd_doc = lxml.etree.parse(
-                    xsd_file, parser=parser, base_url=str(schema_path)
-                )
+                xsd_doc = lxml.etree.parse(xsd_file, parser=parser, base_url=str(schema_path))
                 schema = lxml.etree.XMLSchema(xsd_doc)
 
             # Load and preprocess XML
@@ -847,10 +765,7 @@ class BaseSchemaValidator:
 
             # Clean ignorable namespaces if needed
             relative_path = xml_file.relative_to(base_path)
-            if (
-                relative_path.parts
-                and relative_path.parts[0] in self.MAIN_CONTENT_FOLDERS
-            ):
+            if relative_path.parts and relative_path.parts[0] in self.MAIN_CONTENT_FOLDERS:
                 xml_doc = self._clean_ignorable_namespaces(xml_doc)
 
             # Validate
@@ -898,9 +813,7 @@ class BaseSchemaValidator:
                 return set()
 
             # Validate the specific file in original
-            is_valid, errors = self._validate_single_file_xsd(
-                original_xml_file, temp_path
-            )
+            is_valid, errors = self._validate_single_file_xsd(original_xml_file, temp_path)
             return errors if errors else set()
 
     def _remove_template_tags_from_text_nodes(self, xml_doc):
@@ -926,9 +839,7 @@ class BaseSchemaValidator:
             matches = list(template_pattern.finditer(text))
             if matches:
                 for match in matches:
-                    warnings.append(
-                        f"Found template tag in {content_type}: {match.group()}"
-                    )
+                    warnings.append(f"Found template tag in {content_type}: {match.group()}")
                 return template_pattern.sub("", text)
             return text
 
