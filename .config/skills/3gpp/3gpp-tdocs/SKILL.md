@@ -1,11 +1,6 @@
----
-name: 3gpp-tdocs
-description: TDoc patterns, filename conventions, metadata structure, HTTP/FTP server access, and TDoc identification. Use when crawling TDocs from FTP directories, parsing TDoc metadata from portal, or validating TDoc numbers.
-related: 
-  - 3gpp-working-groups
-  - 3gpp-meetings
-  - 3gpp-portal-authentication
----
+______________________________________________________________________
+
+## name: 3gpp-tdocs description: TDoc patterns, filename conventions, metadata structure, HTTP/FTP server access, and TDoc identification. Use when crawling TDocs from FTP directories, parsing TDoc metadata from portal, or validating TDoc numbers. metadata: related: [3gpp-working-groups, 3gpp-meetings, 3gpp-portal-authentication]
 
 # TDocs (Temporary Documents)
 
@@ -158,10 +153,10 @@ TDocs are typically stored in subdirectories like "Docs/" rather than directly i
 ### Detection Process
 
 1. **Fetch base meeting directory** from `files_url`
-2. **Parse HTML** to extract directory links
-3. **Check for TDoc subdirectories** (case-insensitive matching)
-4. **If subdirectories found**: Crawl each subdirectory
-5. **If no subdirectories**: Crawl base directory directly
+1. **Parse HTML** to extract directory links
+1. **Check for TDoc subdirectories** (case-insensitive matching)
+1. **If subdirectories found**: Crawl each subdirectory
+1. **If no subdirectories**: Crawl base directory directly
 
 ### TDoc Subdirectories
 
@@ -219,11 +214,11 @@ When validating TDocs via portal page, parse these fields:
 ### Metadata Parsing
 
 1. **Ensure authenticated** with 3GPP portal before fetching
-2. **Fetch portal page** with mode=view parameter
-3. **Parse HTML** using BeautifulSoup
-4. **Extract form fields** (labels and values)
-5. **Handle agenda_item split**: Separate number and title
-6. **Return dictionary** of key-value pairs
+1. **Fetch portal page** with mode=view parameter
+1. **Parse HTML** using BeautifulSoup
+1. **Extract form fields** (labels and values)
+1. **Handle agenda_item split**: Separate number and title
+1. **Return dictionary** of key-value pairs
 
 ### Code Pattern
 
@@ -271,10 +266,10 @@ normalized_id = normalize_tdoc_id("r1-2301234")  # Returns "R1-2301234"
 ### When Crawling TDocs
 
 1. **Use TDOC_PATTERN** to match files in HTTP directory listings
-2. **Extract TDoc ID** from filename stem using `group(1)` of regex match
-3. **Store normalized ID** (uppercase) in database
-4. **Build full HTTP URL** to TDoc file
-5. **Validate via portal** if needed (uses `3gpp-portal-authentication` skill)
+1. **Extract TDoc ID** from filename stem using `group(1)` of regex match
+1. **Store normalized ID** (uppercase) in database
+1. **Build full HTTP URL** to TDoc file
+1. **Validate via portal** if needed (uses `3gpp-portal-authentication` skill)
 
 ### Example Implementation
 

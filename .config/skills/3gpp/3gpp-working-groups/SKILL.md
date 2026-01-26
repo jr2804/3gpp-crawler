@@ -1,11 +1,6 @@
----
-name: 3gpp-working-groups
-description: Working group nomenclature, tbid/SubTB identifiers, subgroup hierarchy, and TSG structure. Use when working with 3GPP working groups, parsing meeting codes, or understanding TBID mappings.
-related: 
-  - 3gpp-basics
-  - 3gpp-meetings
-  - 3gpp-tdocs
----
+______________________________________________________________________
+
+## name: 3gpp-working-groups description: Working group nomenclature, tbid/SubTB identifiers, subgroup hierarchy, and TSG structure. Use when working with 3GPP working groups, parsing meeting codes, or understanding TBID mappings. metadata: related: [3gpp-basics, 3gpp-meetings, 3gpp-tdocs]
 
 # 3GPP Working Groups
 
@@ -32,39 +27,39 @@ Each TSG is responsible for:
 
 Each TSG has a unique `tbid` identifier used in 3GPP systems:
 
-| TSG  | tbid | FTP Root URL |
+| TSG | tbid | FTP Root URL |
 |------|------|--------------|
-| RAN  | 373  | <https://www.3gpp.org/ftp/tsg_ran/> |
-| SA   | 375  | <https://www.3gpp.org/ftp/tsg_sa/> |
-| CT   | 649  | <https://www.3gpp.org/ftp/tsg_ct/> |
+| RAN | 373 | <https://www.3gpp.org/ftp/tsg_ran/> |
+| SA | 375 | <https://www.3gpp.org/ftp/tsg_sa/> |
+| CT | 649 | <https://www.3gpp.org/ftp/tsg_ct/> |
 
 ### SubTB (Sub-Technical Body ID)
 
 Each Working Group within a TSG has a unique `SubTB` identifier:
 
-| TSG  | WG  | SubTB | Focus Area |
+| TSG | WG | SubTB | Focus Area |
 |------|-----|-------|-----------|
-| RAN  | RAN Plenary | 373  | TSG RAN overview |
-| RAN  | RAN1 | 379  | Radio Layer 1 (Physical layer) |
-| RAN  | RAN2 | 380  | Radio Layer 2/3 (Radio Resource Control) |
-| RAN  | RAN3 | 381  | UTRAN/E-UTRAN/NG-RAN architecture |
-| RAN  | RAN4 | 382  | Radio Performance and Protocol Aspects |
-| RAN  | RAN5 | 657  | Mobile terminal conformance testing |
-| RAN  | RAN6 | 843  | Radio Access Network (Legacy/Closed) |
-| SA   | SA Plenary | 375  | TSG SA overview |
-| SA   | SA1 | 384  | Services |
-| SA   | SA2 | 385  | System Architecture and Services |
-| SA   | SA3 | 386  | Security and Privacy |
-| SA   | SA4 | 387  | Multimedia Codecs, Systems and Services |
-| SA   | SA5 | 388  | Management, Orchestration and Charging |
-| SA   | SA6 | 825  | Application Enablement and Critical Communication Applications |
-| CT   | CT Plenary | 649  | TSG CT overview |
-| CT   | CT1 | 651  | User Equipment to Core Network protocols |
-| CT   | CT2 | 652  | Interworking with External Networks & Policy and Charging Control |
-| CT   | CT3 | 653  | Closed Group (was GERAN coordination) |
-| CT   | CT4 | 654  | Core Network Protocols |
-| CT   | CT5 | 655  | Core Network and Terminals (Architecture) |
-| CT   | CT6 | 656  | Smart Card Application Aspects |
+| RAN | RAN Plenary | 373 | TSG RAN overview |
+| RAN | RAN1 | 379 | Radio Layer 1 (Physical layer) |
+| RAN | RAN2 | 380 | Radio Layer 2/3 (Radio Resource Control) |
+| RAN | RAN3 | 381 | UTRAN/E-UTRAN/NG-RAN architecture |
+| RAN | RAN4 | 382 | Radio Performance and Protocol Aspects |
+| RAN | RAN5 | 657 | Mobile terminal conformance testing |
+| RAN | RAN6 | 843 | Radio Access Network (Legacy/Closed) |
+| SA | SA Plenary | 375 | TSG SA overview |
+| SA | SA1 | 384 | Services |
+| SA | SA2 | 385 | System Architecture and Services |
+| SA | SA3 | 386 | Security and Privacy |
+| SA | SA4 | 387 | Multimedia Codecs, Systems and Services |
+| SA | SA5 | 388 | Management, Orchestration and Charging |
+| SA | SA6 | 825 | Application Enablement and Critical Communication Applications |
+| CT | CT Plenary | 649 | TSG CT overview |
+| CT | CT1 | 651 | User Equipment to Core Network protocols |
+| CT | CT2 | 652 | Interworking with External Networks & Policy and Charging Control |
+| CT | CT3 | 653 | Closed Group (was GERAN coordination) |
+| CT | CT4 | 654 | Core Network Protocols |
+| CT | CT5 | 655 | Core Network and Terminals (Architecture) |
+| CT | CT6 | 656 | Smart Card Application Aspects |
 
 ## Meeting Code Convention
 
@@ -203,15 +198,18 @@ Each TSG meeting list page contains tables with:
 When parsing CLI arguments or user input:
 
 1. **Plenary Aliases** (short codes):
+
    - `RP` → `RAN` Plenary
    - `SP` → `SA` Plenary
    - `CP` → `CT` Plenary
 
-2. **Subgroup Codes**:
+1. **Subgroup Codes**:
+
    - Use canonical codes: `R1`, `S4`, `C1`, etc. (not `RAN1`, `SA4`, `C1`)
    - For CLI parameters, normalize `SA4` → `S4`, `RAN1` → `R1`, `CT1` → `C1`
 
-3. **TBID Mappings** (used in database):
+1. **TBID Mappings** (used in database):
+
    - RAN groups: tbid=373, SubTB: 373-389
    - SA groups: tbid=375, SubTB: 375-388
    - CT groups: tbid=649, SubTB: 649-656
@@ -245,9 +243,9 @@ def get_tbid_from_wg(wg: WorkingGroup) -> int:
 When resolving portal meeting names to database meeting IDs:
 
 1. Try exact match (case-insensitive)
-2. Try normalized name match
-3. Try prefix/suffix matching (handle "3GPPSA4" vs "SA4")
-4. Use Levenshtein distance for minor typos
+1. Try normalized name match
+1. Try prefix/suffix matching (handle "3GPPSA4" vs "SA4")
+1. Use Levenshtein distance for minor typos
 
 **Avoid**: Substring matching (`%SA4%`) which matches fragments
 

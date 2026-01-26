@@ -1,12 +1,6 @@
----
-name: 3gpp-meetings
-description: Meeting structure, naming conventions, quarterly plenaries, and meeting pages. Use when parsing 3GPP meeting data, understanding meeting schedules, or working with meeting metadata from 3GPP portal.
-related: 
-  - 3gpp-basics
-  - 3gpp-working-groups
-  - 3gpp-tdocs
-  - 3gpp-portal-authentication
----
+______________________________________________________________________
+
+## name: 3gpp-meetings description: Meeting structure, naming conventions, quarterly plenaries, and meeting pages. Use when parsing 3GPP meeting data, understanding meeting schedules, or working with meeting metadata from 3GPP portal. metadata: related: [3gpp-basics, 3gpp-working-groups, 3gpp-tdocs, 3gpp-portal-authentication]
 
 # 3GPP Meetings
 
@@ -92,12 +86,12 @@ Each meeting list page contains an HTML table with the following columns:
 ### Columns
 
 1. **Meeting** - Short name (link to meeting details)
-2. **Start Date** - Meeting start date
-3. **End Date** - Meeting end date (if multi-day)
-4. **Location** - Physical location
-5. **Status** - Meeting status (e.g., "Upcoming", "Held")
-6. **Files** - Link to TDoc FTP directory (CRITICAL for TDoc crawling)
-7. **Registration** - Registration deadline
+1. **Start Date** - Meeting start date
+1. **End Date** - Meeting end date (if multi-day)
+1. **Location** - Physical location
+1. **Status** - Meeting status (e.g., "Upcoming", "Held")
+1. **Files** - Link to TDoc FTP directory (CRITICAL for TDoc crawling)
+1. **Registration** - Registration deadline
 
 ### Files Column - Critical for TDoc Crawling
 
@@ -126,8 +120,8 @@ Meeting dates in the portal tables are in various formats:
 ### Registration Process
 
 1. **Registration Deadline**: Usually 2-3 weeks before meeting
-2. **Check-in**: On-site registration at venue
-3. **Meeting Documents Templates**: Available from 3GPP portal
+1. **Check-in**: On-site registration at venue
+1. **Meeting Documents Templates**: Available from 3GPP portal
 
 **Resources:**
 
@@ -155,26 +149,26 @@ The 3GPP Meeting Calendar is available on the 3GU Portal:
 ## Common Mistakes
 
 1. **Using meeting name for database lookups** - Always use `meeting_id` integer
-2. **Parsing date strings directly** - Normalize to ISO format first
-3. **Skipping empty Files column** - Don't attempt crawl, skip meeting
-4. **Year format changes** - Early years use different conventions
+1. **Parsing date strings directly** - Normalize to ISO format first
+1. **Skipping empty Files column** - Don't attempt crawl, skip meeting
+1. **Year format changes** - Early years use different conventions
 
 ## Best Practices
 
 ### When Working with Meeting Data
 
 1. **Use meeting_id Integer**: Primary key for database operations
-2. **Do NOT parse meeting names**: Use for display only
-3. **Check Files column**: Before attempting TDoc crawl
-4. **Normalize dates**: Store as ISO format in database
-5. **Handle empty Files column**: Skip meeting if no TDocs available
+1. **Do NOT parse meeting names**: Use for display only
+1. **Check Files column**: Before attempting TDoc crawl
+1. **Normalize dates**: Store as ISO format in database
+1. **Handle empty Files column**: Skip meeting if no TDocs available
 
 ### Common Pitfalls
 
 1. **Parsing meeting names**: Different formats (e.g., `SA4#134` vs `SA4-e`) cannot be reliably parsed
-2. **Date format inconsistency**: Multiple formats in portal tables
-3. **Empty Files column**: Don't attempt TDoc crawl for meetings without files
-4. **Year format changes**: Early years use different conventions
+1. **Date format inconsistency**: Multiple formats in portal tables
+1. **Empty Files column**: Don't attempt TDoc crawl for meetings without files
+1. **Year format changes**: Early years use different conventions
 
 ## Resources
 

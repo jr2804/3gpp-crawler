@@ -1,12 +1,6 @@
----
-name: 3gpp-portal-authentication
-description: EOL authentication, AJAX login patterns, 3GPP portal data fetching, and session management. Use when accessing protected 3GPP portal resources that require EOL login, fetching TDoc metadata, or working with 3GPP portal APIs.
-related: 
-  - 3gpp-tdocs
-  - 3gpp-meetings
-  - 3gpp-specifications
-  - 3gpp-change-request
----
+______________________________________________________________________
+
+## name: 3gpp-portal-authentication description: EOL authentication, AJAX login patterns, 3GPP portal data fetching, and session management. Use when accessing protected 3GPP portal resources that require EOL login, fetching TDoc metadata, or working with 3GPP portal APIs. metadata: related: [3gpp-tdocs, 3gpp-meetings, 3gpp-specifications, 3gpp-change-request]
 
 # 3GPP Portal Authentication
 
@@ -50,8 +44,8 @@ The 3GPP portal uses JavaScript-based AJAX login via `LoginEOL.ashx` endpoint.
 ### Login Process
 
 1. **Session Establishment**: Visit login page to establish session cookies
-2. **AJAX Request**: POST to `LoginEOL.ashx` with credentials
-3. **Session Validation**: Parse JSON response for authentication status
+1. **AJAX Request**: POST to `LoginEOL.ashx` with credentials
+1. **Session Validation**: Parse JSON response for authentication status
 
 ### Code Pattern
 
@@ -277,10 +271,10 @@ response = session.get("https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/R1
 ## Best Practices
 
 1. **Check authentication requirement** before attempting protected operations
-2. **Use session context** to maintain authentication state
-3. **Handle auth failures** gracefully with clear error messages
-4. **Don't cache credentials** in code or environment files
-5. **Use environment variables** (`EOL_USERNAME`, `EOL_PASSWORD`) for credentials
+1. **Use session context** to maintain authentication state
+1. **Handle auth failures** gracefully with clear error messages
+1. **Don't cache credentials** in code or environment files
+1. **Use environment variables** (`EOL_USERNAME`, `EOL_PASSWORD`) for credentials
 
 ## Cross-References
 

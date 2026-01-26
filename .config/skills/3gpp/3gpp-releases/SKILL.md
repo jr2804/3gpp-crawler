@@ -1,15 +1,6 @@
----
-name: 3gpp-releases
-description: 3GPP release structure, versioning, TSG rounds, and release freeze concept. Use when understanding 3GPP release numbering, TSG round schedules, or finding specifications in releases.
-related: 
-  - 3gpp-basics
-  - 3gpp-working-groups
-  - 3gpp-meetings
-  - 3gpp-tdocs
-  - 3gpp-portal-authentication
-  - 3gpp-specifications
-  - 3gpp-change-request
----
+______________________________________________________________________
+
+## name: 3gpp-releases description: 3GPP release structure, versioning, TSG rounds, and release freeze concept. Use when understanding 3GPP release numbering, TSG round schedules, or finding specifications in releases. metadata: related: [3gpp-basics, 3gpp-working-groups, 3gpp-meetings, 3gpp-tdocs, 3gpp-portal-authentication, 3gpp-specifications, 3gpp-change-request]
 
 # 3GPP Releases
 
@@ -54,9 +45,9 @@ related:
 A TSG round is a quarterly plenary meeting where specifications are made available. Each TSG round produces:
 
 1. **Newly under change control** specs (80%+ complete)
-2. **Unchanged** specs from previous version
-3. **Revised** specs incorporating approved Change Requests
-4. **Upgraded** specs to current Release (at freeze time)
+1. **Unchanged** specs from previous version
+1. **Revised** specs incorporating approved Change Requests
+1. **Upgraded** specs to current Release (at freeze time)
 
 ### TSG Round Schedule
 

@@ -84,9 +84,9 @@ Essential fields for CR submission:
 ## Common Pitfalls
 
 1. **Wrong Release**: Can't use Rel-6 WI code for Rel-4 spec
-2. **Missing mirrors**: Need separate CR for each Release if spec is in multiple
-3. **Out-of-date base**: Writing CR against old version that's been updated
-4. **Wrong category**: Use TEI for enhancements, F for corrections
+1. **Missing mirrors**: Need separate CR for each Release if spec is in multiple
+1. **Out-of-date base**: Writing CR against old version that's been updated
+1. **Wrong category**: Use TEI for enhancements, F for corrections
 
 ## See Also
 

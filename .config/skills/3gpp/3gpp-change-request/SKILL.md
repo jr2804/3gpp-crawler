@@ -1,14 +1,6 @@
----
-name: 3gpp-change-request
-description: Change Request procedure, workflow, status tracking, CR database, and step-by-step instructions. Use when working with 3GPP Change Requests to modify specifications, understanding CR lifecycle, or querying CR status.
-related:
-  - 3gpp-specifications
-  - 3gpp-basics
-  - 3gpp-working-groups
-  - 3gpp-tdocs
-  - 3gpp-portal-authentication
-  - 3gpp-releases
----
+______________________________________________________________________
+
+## name: 3gpp-change-request description: Change Request procedure, workflow, status tracking, CR database, and step-by-step instructions. Use when working with 3GPP Change Requests to modify specifications, understanding CR lifecycle, or querying CR status. metadata: related: [3gpp-specifications, 3gpp-basics, 3gpp-working-groups, 3gpp-tdocs, 3gpp-portal-authentication, 3gpp-releases]
 
 # 3GPP Change Requests - Reference
 
@@ -31,17 +23,17 @@ A CR is a **temporary document** (tdoc) to a meeting which specifies in precise 
 Three main reasons for creating a CR:
 
 1. **Add a new feature** to a Release still under development
-2. **Correct / clarify / enhance** an existing feature in a Release still under development
-3. **Correct an error** in a spec which is functionally frozen
+1. **Correct / clarify / enhance** an existing feature in a Release still under development
+1. **Correct an error** in a spec which is functionally frozen
 
 ## CR Development and Approval
 
 ### Submission Process
 
 1. **WG Level**: Any 3GPP member organization can propose a CR to the Working Group responsible for the spec
-2. **WG Agreement**: WG discusses and agrees CR is valid and required
-3. **TSG Approval**: WG presents CR to parent TSG plenary for final approval
-4. **MCC Incorporation**: After TSG approval, 3GPP Support Team (MCC) incorporates CR into new spec version
+1. **WG Agreement**: WG discusses and agrees CR is valid and required
+1. **TSG Approval**: WG presents CR to parent TSG plenary for final approval
+1. **MCC Incorporation**: After TSG approval, 3GPP Support Team (MCC) incorporates CR into new spec version
 
 ### CR Status Meanings
 
@@ -110,24 +102,24 @@ Each spec maintains a history box listing all CRs that have been approved for th
 **Key Sections:**
 
 1. Header (meeting details, WG document number)
-2. Spec number, CR number
-3. CR revision number (for revised CRs only)
-4. Current version
-5. Title
-6. Source to WG
-7. Source to TSG
-8. Work item code
-9. Date
-10. Category
-11. Release
-12. Consequences if not approved
-13. Clauses affected
-14. Other specs affected
-15. Other comments
-16. CR revision history
-17. Filename convention
-18. Body of CR
-19. Other considerations
+1. Spec number, CR number
+1. CR revision number (for revised CRs only)
+1. Current version
+1. Title
+1. Source to WG
+1. Source to TSG
+1. Work item code
+1. Date
+1. Category
+1. Release
+1. Consequences if not approved
+1. Clauses affected
+1. Other specs affected
+1. Other comments
+1. CR revision history
+1. Filename convention
+1. Body of CR
+1. Other considerations
 
 ## CR Categories
 
@@ -175,25 +167,25 @@ Each CR must be associated with a **Work Item (WI) code**:
 ## CR Submission Checklist
 
 1. [ ] Unique_ID value from Work Item
-2. [ ] TDoc number of Work Item Description (WID) document
-3. [ ] Name of rapporteur for TS/TR (or contact coords for TR)
-4. [ ] Target date from WID (approval date)
-5. [ ] Source to WG (responsible 3GPP member)
-6. [ ] Source to TSG (if presented directly to TSG)
-7. [ ] Work item code (from WI list)
-8. [ ] Release (one only)
-9. [ ] Category (TEI for technical enhancements)
-10. [ ] Title (descriptive, not redundant)
-11. [ ] Reason for change
-12. [ ] Summary of changes
-13. [ ] Consequences if not approved
-14. [ ] Clauses affected (list individually)
-15. [ ] Other specs affected
-16. [ ] Other comments (optional)
-17. [ ] Date (format: yyyy-MM-dd)
-18. [ ] Release (Rel-4, Rel-5, etc.)
-19. [ ] (U)SIM - ME/UE - Radio Access Network - Core Network checkboxes
-20. [ ] UICC field (change to (U)SIM or ISIM)
+1. [ ] TDoc number of Work Item Description (WID) document
+1. [ ] Name of rapporteur for TS/TR (or contact coords for TR)
+1. [ ] Target date from WID (approval date)
+1. [ ] Source to WG (responsible 3GPP member)
+1. [ ] Source to TSG (if presented directly to TSG)
+1. [ ] Work item code (from WI list)
+1. [ ] Release (one only)
+1. [ ] Category (TEI for technical enhancements)
+1. [ ] Title (descriptive, not redundant)
+1. [ ] Reason for change
+1. [ ] Summary of changes
+1. [ ] Consequences if not approved
+1. [ ] Clauses affected (list individually)
+1. [ ] Other specs affected
+1. [ ] Other comments (optional)
+1. [ ] Date (format: yyyy-MM-dd)
+1. [ ] Release (Rel-4, Rel-5, etc.)
+1. [ ] (U)SIM - ME/UE - Radio Access Network - Core Network checkboxes
+1. [ ] UICC field (change to (U)SIM or ISIM)
 
 ### CR Revision History
 
@@ -257,20 +249,20 @@ New spec version becomes available
 ## Common Pitfalls
 
 1. **Multiple Releases**: One spec may be maintained in multiple Releases
-2. **Parallel CRs**: Need separate CRs for each Release with same WI code
-3. **Editorial Changes**: Use "dot-one" versions, not full CRs
-4. **Wrong Release**: Can't use Release 6 WI code for Release 4 spec
-5. **Out-of-date Specs**: Writing CR to old version that's been updated
+1. **Parallel CRs**: Need separate CRs for each Release with same WI code
+1. **Editorial Changes**: Use "dot-one" versions, not full CRs
+1. **Wrong Release**: Can't use Release 6 WI code for Release 4 spec
+1. **Out-of-date Specs**: Writing CR to old version that's been updated
 
 ## Best Practices
 
 1. **Always use WI codes** from official list
-2. **Check spec version** before writing CR (is it in Release 4, Release 5, or current?)
-3. **Target correct Release**: Each CR should target only one Release (unless mirror CR)
-4. **Use proper categories**: TEI for technical enhancements, F for correctives
-5. **Mirror CR requirements**: Include mirror CRs for all affected Releases if maintaining parallel versions
-6. **Document revisions**: Use CR revision history field for tracking changes
-7. **Format dates correctly**: Use `yyyy-MM-DD` format
+1. **Check spec version** before writing CR (is it in Release 4, Release 5, or current?)
+1. **Target correct Release**: Each CR should target only one Release (unless mirror CR)
+1. **Use proper categories**: TEI for technical enhancements, F for correctives
+1. **Mirror CR requirements**: Include mirror CRs for all affected Releases if maintaining parallel versions
+1. **Document revisions**: Use CR revision history field for tracking changes
+1. **Format dates correctly**: Use `yyyy-MM-DD` format
 
 ## Cross-References
 
