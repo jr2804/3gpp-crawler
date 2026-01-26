@@ -219,3 +219,5 @@ __marimo__/
 # test cache/database
 /tests/test-cache
 /cache
+.opencode/opencode.json
+.grepai/
