@@ -8,7 +8,16 @@ import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urljoin
 
+import requests
+from bs4 import BeautifulSoup
+
+from tdoc_crawler.crawlers.constants import (EXCLUDED_DIRS,
+                                             EXCLUDED_DIRS_NORMALIZED,
+                                             TDOC_PATTERN_STR, TDOC_SUBDIRS,
+                                             TDOC_SUBDIRS_NORMALIZED)
+from tdoc_crawler.http_client import create_cached_session
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +230,8 @@ def fetch_meeting_document_list_subinterpreter(
     """
     try:
         # Import inside function for subinterpreter context
-        from tdoc_crawler.crawlers.meeting_doclist import fetch_meeting_document_list  # noqa: PLC0415
+        from tdoc_crawler.crawlers.meeting_doclist import \
+            fetch_meeting_document_list  # noqa: PLC0415
 
         # Convert string path to Path object
         cache_dir_path = Path(cache_dir)

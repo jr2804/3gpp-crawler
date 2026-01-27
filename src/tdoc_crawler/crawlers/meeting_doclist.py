@@ -8,6 +8,10 @@ import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+
+import pandas as pd
+
+from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
@@ -99,17 +103,29 @@ def parse_excel_document_list(
 
         logger.debug(f"Found {len(df)} rows in TDoc_List sheet for meeting {meeting_id}")
 
+        # Check if the dataframe has any recognizable TDoc ID columns
+        # Look for any column that might contain TDoc IDs
+        tdoc_columns_found = False
+        for col in df.columns:
+            col_str = str(col).lower()
+            if any(keyword in col_str for keyword in ["tdoc", "contribution", "document", "id", "number"]):
+                tdoc_columns_found = True
+                break
+
+        if not tdoc_columns_found:
+            raise DocumentListError(f"No recognizable TDoc ID columns found in Excel file for meeting {meeting_id}")
+
         # Convert DataFrame rows to TDocMetadata instances
         tdoc_metadata_list = []
-        for index, row in df.iterrows():
+        for i, (_idx, row) in enumerate(df.iterrows()):
             try:
                 tdoc_metadata = convert_excel_row_to_tdoc_metadata(row, meeting_id)
                 if tdoc_metadata:
                     tdoc_metadata_list.append(tdoc_metadata)
                 else:
-                    logger.debug(f"Skipping row {index + 1}: missing required TDoc ID")
+                    logger.debug(f"Skipping row {i + 1}: missing required TDoc ID")
             except Exception as exc:
-                logger.warning(f"Failed to parse row {index + 1} for meeting {meeting_id}: {exc}")
+                logger.warning(f"Failed to parse row {i + 1} for meeting {meeting_id}: {exc}")
                 continue
 
         logger.info(f"Successfully parsed {len(tdoc_metadata_list)} TDoc metadata entries for meeting {meeting_id}")
