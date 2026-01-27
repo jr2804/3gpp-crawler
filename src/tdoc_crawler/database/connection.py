@@ -11,10 +11,17 @@ from pathlib import Path
 from pydantic_sqlite import DataBase
 
 from tdoc_crawler.database.errors import DatabaseError
-from tdoc_crawler.models import (CODE_INDEX, WORKING_GROUP_RECORDS,
-                                 CrawlLogEntry, MeetingMetadata,
-                                 MeetingQueryConfig, QueryConfig, TDocMetadata,
-                                 WorkingGroup, utc_now)
+from tdoc_crawler.models import (
+    CODE_INDEX,
+    WORKING_GROUP_RECORDS,
+    CrawlLogEntry,
+    MeetingMetadata,
+    MeetingQueryConfig,
+    QueryConfig,
+    TDocMetadata,
+    WorkingGroup,
+    utc_now,
+)
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 
 

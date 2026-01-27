@@ -9,12 +9,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from tdoc_crawler.crawlers.executor_adapter import Runner
-from tdoc_crawler.crawlers.parallel import (
-    fetch_meeting_document_list_subinterpreter, fetch_meeting_tdocs)
+from tdoc_crawler.crawlers.parallel import fetch_meeting_document_list_subinterpreter, fetch_meeting_tdocs
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import (CrawlLimits, MeetingMetadata,
-                                 MeetingQueryConfig, SortOrder,
-                                 TDocCrawlConfig, TDocMetadata, WorkingGroup)
+from tdoc_crawler.models import CrawlLimits, MeetingMetadata, MeetingQueryConfig, SortOrder, TDocCrawlConfig, TDocMetadata, WorkingGroup
 
 logger = logging.getLogger(__name__)
 

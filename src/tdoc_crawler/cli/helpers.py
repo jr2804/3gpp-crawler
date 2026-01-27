@@ -18,12 +18,9 @@ from urllib.request import urlopen
 import typer
 from rich.console import Console
 
-from tdoc_crawler.crawlers import (normalize_subgroup_alias,
-                                   normalize_working_group_alias)
+from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import (CrawlLimits, HttpCacheConfig,
-                                 MeetingQueryConfig, PortalCredentials,
-                                 SortOrder, TDocMetadata, WorkingGroup)
+from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, PortalCredentials, SortOrder, TDocMetadata, WorkingGroup
 
 console = Console()
 _logger = logging.getLogger(__name__)
@@ -344,19 +341,13 @@ def resolve_http_cache_config(cache_ttl: int | None = None, cache_refresh_on_acc
         ttl = cache_ttl
     else:
         env_ttl = os.getenv("HTTP_CACHE_TTL")
-        if env_ttl:
-            ttl = int(env_ttl)
-        else:
-            ttl = 7200  # default TTL of 2 hours
+        ttl = int(env_ttl) if env_ttl else 7200
 
     # Handle refresh on access - check CLI param, then env var, then default
     if cache_refresh_on_access is not None:
         refresh_on_access = cache_refresh_on_access
     else:
         env_refresh = os.getenv("HTTP_CACHE_REFRESH_ON_ACCESS", "").lower()
-        if env_refresh:
-            refresh_on_access = env_refresh in ("true", "1", "yes", "on", "t", "y")
-        else:
-            refresh_on_access = True  # default to True
+        refresh_on_access = env_refresh in ("true", "1", "yes", "on", "t", "y") if env_refresh else True
 
     return HttpCacheConfig(ttl=ttl, refresh_ttl_on_access=refresh_on_access)

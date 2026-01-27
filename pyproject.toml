@@ -64,6 +64,10 @@ tdoc-crawler = "tdoc_crawler.cli:app"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# Suppress Pydantic deprecation warning from pydantic-sqlite library (external dependency)
+filterwarnings = [
+    "ignore:.*Accessing the 'model_fields' attribute on the instance is deprecated.*:DeprecationWarning",
+]
 
 
 [tool.coverage.report]

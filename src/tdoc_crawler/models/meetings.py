@@ -8,8 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .base import (DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials,
-                   SortOrder, utc_now)
+from .base import DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials, SortOrder, utc_now
 from .crawl_limits import CrawlLimits, _new_crawl_limits
 from .subworking_groups import CODE_INDEX, SUBTB_INDEX
 from .working_groups import WorkingGroup

@@ -10,10 +10,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from tdoc_crawler.crawlers import (DocumentListError, HybridCrawlResult,
-                                   HybridTDocCrawler,
-                                   fetch_meeting_document_list,
-                                   parse_excel_document_list)
+from tdoc_crawler.crawlers import DocumentListError, HybridCrawlResult, HybridTDocCrawler, fetch_meeting_document_list, parse_excel_document_list
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingMetadata, TDocCrawlConfig, WorkingGroup
 from tdoc_crawler.models.tdocs import TDocMetadata

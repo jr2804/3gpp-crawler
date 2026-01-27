@@ -8,12 +8,10 @@ from unittest.mock import MagicMock, patch
 
 from conftest import insert_sample_meetings
 
-from tdoc_crawler.cli.fetching import (fetch_missing_tdocs,
-                                       maybe_fetch_missing_tdocs)
+from tdoc_crawler.cli.fetching import fetch_missing_tdocs, maybe_fetch_missing_tdocs
 from tdoc_crawler.cli.helpers import infer_working_groups_from_ids
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import (PortalCredentials, QueryConfig, TDocMetadata,
-                                 WorkingGroup)
+from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata, WorkingGroup
 
 
 class TestInferWorkingGroups:

@@ -9,7 +9,7 @@ from collections.abc import Callable
 from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
 
-from tdoc_crawler.crawlers.executor_adapter import Runner
+from pool_executors.pool_executors import create_executor
 from tdoc_crawler.crawlers.parallel import fetch_meeting_tdocs
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import CrawlLimits, MeetingMetadata, MeetingQueryConfig, SortOrder, TDocCrawlConfig, TDocMetadata, WorkingGroup
