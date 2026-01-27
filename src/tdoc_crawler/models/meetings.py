@@ -8,8 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .base import (DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials,
-                   SortOrder, utc_now)
+from .base import DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials, SortOrder, utc_now
 from .crawl_limits import CrawlLimits, _new_crawl_limits
 from .subworking_groups import CODE_INDEX, SUBTB_INDEX
 from .working_groups import WorkingGroup
@@ -72,7 +71,7 @@ class MeetingMetadata(BaseModel):
 
     @field_validator("working_group", mode="before")
     @classmethod
-    def _validate_working_group(cls, value):
+    def _validate_working_group(cls, value: WorkingGroup | str | None) -> str | None:
         if value is None:
             return None
         # Accept enum or str, store as str
@@ -111,7 +110,6 @@ class MeetingCrawlConfig(BaseConfigModel):
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup]) -> list[WorkingGroup]:
         """Ensure the working groups list only contains valid enum members."""
-
         normalized: list[WorkingGroup] = []
         for item in value:
             normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
@@ -121,7 +119,6 @@ class MeetingCrawlConfig(BaseConfigModel):
     @classmethod
     def _normalize_subgroups(cls, value: Iterable[str] | None) -> list[str] | None:
         """Normalize subgroup names (uppercase and strip whitespace)."""
-
         if value is None:
             return None
         return [str(item).strip().upper() for item in value]
@@ -141,7 +138,6 @@ class MeetingQueryConfig(BaseConfigModel):
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup] | None) -> list[WorkingGroup] | None:
         """Ensure the working group list is comprised of enum members."""
-
         if value is None:
             return None
         normalized: list[WorkingGroup] = []
@@ -153,7 +149,6 @@ class MeetingQueryConfig(BaseConfigModel):
     @classmethod
     def _normalize_subgroups(cls, value: Iterable[str] | None) -> list[str] | None:
         """Normalize subgroup names (uppercase and strip whitespace)."""
-
         if value is None:
             return None
         return [str(item).strip().upper() for item in value]
