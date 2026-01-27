@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from conftest import insert_sample_meetings
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import TDocMetadata
+from tdoc_crawler.models import TDocMetadata, WorkingGroup
 
 runner = CliRunner()
 
@@ -300,8 +301,6 @@ class TestQueryMeetingsCommand:
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with working group alias (SP -> SA)."""
-        from tdoc_crawler.models import WorkingGroup
-
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
@@ -323,8 +322,6 @@ class TestQueryMeetingsCommand:
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with combined working group and subgroup filters."""
-        from tdoc_crawler.models import WorkingGroup
-
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
@@ -351,8 +348,6 @@ class TestStatsCommand:
         sample_meetings: list[dict],
     ) -> None:
         """Test stats command execution."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:

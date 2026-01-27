@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import TDocMetadata
+from tdoc_crawler.models import MeetingMetadata, TDocMetadata, WorkingGroup
 
 
 @pytest.fixture
@@ -46,9 +47,6 @@ def sample_tdocs() -> list[TDocMetadata]:
     Returns:
         List of sample TDocMetadata instances
     """
-    from datetime import UTC
-    from decimal import Decimal
-
     return [
         TDocMetadata(
             tdoc_id="R1-2301234",
@@ -188,10 +186,6 @@ def insert_sample_meetings(database: TDocDatabase, meetings: list[dict]) -> None
             - location: Meeting location
             - files_url: URL to meeting files
     """
-    from datetime import date
-
-    from tdoc_crawler.models import MeetingMetadata, WorkingGroup
-
     # Map tbid to WorkingGroup enum
     tbid_to_wg = {
         373: WorkingGroup.RAN,  # RAN

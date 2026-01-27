@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from conftest import insert_sample_meetings
 
 from tdoc_crawler.database import DatabaseError, TDocDatabase
-from tdoc_crawler.models import (MeetingMetadata, MeetingQueryConfig,
-                                 QueryConfig, SortOrder, TDocMetadata,
-                                 WorkingGroup)
+from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, QueryConfig, SortOrder, TDocMetadata, WorkingGroup
 
 
 class TestTDocDatabase:
@@ -18,7 +18,6 @@ class TestTDocDatabase:
 
     def test_database_initialization(self, test_db_path: Path) -> None:
         """Initialize database and create schema."""
-
         db = TDocDatabase(test_db_path)
         assert test_db_path.parent.exists()
 
@@ -29,8 +28,6 @@ class TestTDocDatabase:
 
     def test_upsert_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Insert a TDoc record and validate persistence."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             created, changed = db.upsert_tdoc(sample_tdocs[0])
@@ -43,8 +40,6 @@ class TestTDocDatabase:
 
     def test_case_insensitive_query(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Ensure TDoc IDs are matched case-insensitively."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             db.upsert_tdoc(sample_tdocs[0])
@@ -58,8 +53,6 @@ class TestTDocDatabase:
 
     def test_query_by_working_group(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Filter by working group."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
@@ -73,8 +66,6 @@ class TestTDocDatabase:
 
     def test_query_with_limit(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Respect limit parameter when querying TDocs."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
@@ -85,10 +76,6 @@ class TestTDocDatabase:
 
     def test_query_with_date_range(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Apply start and end date filters."""
-        from datetime import UTC
-
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
@@ -105,8 +92,6 @@ class TestTDocDatabase:
 
     def test_get_statistics(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Compute summary statistics for stored TDocs."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
@@ -122,7 +107,6 @@ class TestTDocDatabase:
 
     def test_crawl_logging(self, test_db_path: Path) -> None:
         """Persist crawl run metadata."""
-
         with TDocDatabase(test_db_path) as db:
             crawl_id = db.log_crawl_start("tdoc", [WorkingGroup.RAN], incremental=True)
             assert crawl_id
@@ -131,10 +115,6 @@ class TestTDocDatabase:
 
     def test_update_existing_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Update metadata for existing TDocs."""
-        from decimal import Decimal
-
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             db.upsert_tdoc(sample_tdocs[0])
@@ -168,8 +148,6 @@ class TestTDocDatabase:
 
     def test_get_existing_tdoc_ids(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
         """Return existing TDoc identifiers for incremental crawls."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
@@ -182,7 +160,6 @@ class TestTDocDatabase:
 
     def test_meeting_upsert_and_query(self, test_db_path: Path) -> None:
         """Persist and query meeting metadata."""
-
         meeting = MeetingMetadata(
             meeting_id=12345,
             tbid=373,
@@ -218,7 +195,6 @@ class TestTDocDatabase:
 
     def test_get_existing_meeting_ids(self, test_db_path: Path) -> None:
         """Retrieve meeting identifiers for incremental meeting crawls."""
-
         meeting = MeetingMetadata(
             meeting_id=6789,
             tbid=375,
@@ -243,7 +219,6 @@ class TestTDocDatabase:
 
     def test_context_manager(self, test_db_path: Path) -> None:
         """Raise when accessing connection outside active context."""
-
         db = TDocDatabase(test_db_path)
         with db:
             assert db.connection is not None

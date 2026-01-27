@@ -14,7 +14,6 @@ class TestRunner:
 
     def test_runner_initialization(self) -> None:
         """Test runner initialization with default and custom parameters."""
-
         # Default initialization
         runner = Runner()
         assert runner.workers == 4
@@ -29,7 +28,6 @@ class TestRunner:
 
     def test_start_context_manager(self) -> None:
         """Test that start() creates and manages executor lifecycle."""
-
         runner = Runner(workers=2, executor_type="threading")
 
         with runner.start() as started_runner:
@@ -83,7 +81,6 @@ class TestRunner:
 
     def test_run_without_start_raises_error(self) -> None:
         """Test that calling run() without start() raises RuntimeError."""
-
         runner = Runner(workers=2)
 
         async def test_async():
@@ -130,7 +127,6 @@ class TestRunner:
 
     def test_context_manager_methods(self) -> None:
         """Test that __enter__ and __exit__ methods exist and work."""
-
         runner = Runner(workers=2)
 
         # These methods should exist but not be used (start() is preferred)

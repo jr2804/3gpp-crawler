@@ -8,10 +8,9 @@ from unittest.mock import MagicMock, patch
 
 from bs4 import BeautifulSoup
 
-from tdoc_crawler.crawlers import (EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler,
-                                   TDocCrawler)
+from tdoc_crawler.crawlers import EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler, TDocCrawler
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import QueryConfig, TDocCrawlConfig, WorkingGroup
+from tdoc_crawler.models import MeetingMetadata, QueryConfig, TDocCrawlConfig, WorkingGroup
 
 
 class TestTDocCrawler:
@@ -19,19 +18,16 @@ class TestTDocCrawler:
 
     def test_crawler_initialization(self, test_db_path: Path) -> None:
         """Ensure crawler stores the provided database instance."""
-
         with TDocDatabase(test_db_path) as database:
             crawler = TDocCrawler(database)
             assert crawler.database is database
 
     def test_excluded_dirs(self) -> None:
         """Ensure excluded directory registry contains expected entries."""
-
         assert {"Inbox", "Draft", "Drafts", "Agenda", "Invitation", "Report"}.issubset(EXCLUDED_DIRS)
 
     def test_tdoc_pattern(self) -> None:
         """Verify TDoc filename regex matches expected inputs."""
-
         assert TDOC_PATTERN.search("R1-2301234.zip")
         assert TDOC_PATTERN.search("S4-2301890.zip")
         assert TDOC_PATTERN.search("C1-2300456.zip")
@@ -48,7 +44,6 @@ class TestTDocCrawler:
         test_db_path: Path,
     ) -> None:
         """Handle HTTP connection failures gracefully."""
-
         mock_session = MagicMock()
         mock_session.get.side_effect = OSError("Connection refused")
         mock_session_class.return_value = mock_session
@@ -79,8 +74,6 @@ class TestTDocCrawler:
         test_db_path: Path,
     ) -> None:
         """Collect TDocs and persist them to the database."""
-        from tdoc_crawler.models import MeetingMetadata
-
         # Mock HTML directory listing
         html_content = """
         <html><body>
@@ -164,8 +157,6 @@ class TestTDocCrawler:
         test_db_path: Path,
     ) -> None:
         """Respect target identifiers by only persisting requested TDocs."""
-        from tdoc_crawler.models import MeetingMetadata
-
         # Mock HTML directory listing with multiple files
         html_content = """
         <html><body>
@@ -245,7 +236,6 @@ class TestMeetingCrawler:
 
     def test_parse_single_date(self, test_db_path: Path) -> None:
         """Verify single date parsing from text."""
-
         with TDocDatabase(test_db_path) as database:
             crawler = MeetingCrawler(database)
             # Regular hyphen-minus (U+002D)
@@ -261,7 +251,6 @@ class TestMeetingCrawler:
 
     def test_parse_meeting_row_with_separate_date_columns(self, test_db_path: Path) -> None:
         """Verify meeting row parsing with start and end dates in separate columns."""
-
         html = """
         <tr>
             <td><a href="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345">SA4#134</a></td>
