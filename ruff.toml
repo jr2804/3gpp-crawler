@@ -63,6 +63,10 @@ ignore = [
 [lint.pylint]
 max-locals = 20
 
+[lint.per-file-ignores]
+"tests/*.py" = ["S101"]
+"tests/**/*.py" = ["S101"]
+
 [lint.pydocstyle]
 convention = "google"
 
