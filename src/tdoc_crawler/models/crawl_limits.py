@@ -27,7 +27,6 @@ class CrawlLimits(BaseConfigModel):
 
 def _new_crawl_limits() -> CrawlLimits:
     """Return an empty crawl limits instance for Field default factories."""
-
     return CrawlLimits(
         limit_tdocs=None,
         limit_meetings=None,

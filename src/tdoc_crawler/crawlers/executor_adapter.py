@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from concurrent.futures import Executor
-from contextlib import contextmanager
 from typing import Any, TypeVar
 
-from pool_executors import ExecutorType, create_executor
+from pool_executors import create_executor
 
 T = TypeVar("T")
 
@@ -31,7 +30,7 @@ class _RunnerContextManager:
             asyncio.set_event_loop(self.runner._loop)
         return self.runner
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None) -> None:
         """Shutdown executor."""
         if self.runner._executor:
             self.runner._executor.shutdown(wait=True)
@@ -88,7 +87,7 @@ class Runner:
         """Context manager entry - not used, use start() instead."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None) -> None:
         """Context manager exit - not used, use start() instead."""
         pass
 

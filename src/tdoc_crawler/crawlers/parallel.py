@@ -14,10 +14,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from tdoc_crawler.crawlers.constants import (EXCLUDED_DIRS,
-                                             EXCLUDED_DIRS_NORMALIZED,
-                                             TDOC_PATTERN_STR, TDOC_SUBDIRS,
-                                             TDOC_SUBDIRS_NORMALIZED)
+from tdoc_crawler.crawlers.constants import EXCLUDED_DIRS, EXCLUDED_DIRS_NORMALIZED, TDOC_PATTERN_STR, TDOC_SUBDIRS, TDOC_SUBDIRS_NORMALIZED
 from tdoc_crawler.http_client import create_cached_session
 
 if TYPE_CHECKING:  # pragma: no cover - helpful for type checkers only
@@ -28,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 def _parse_file_size(text_content: str) -> int | None:
     """Extract file size in bytes from text fragments."""
-
     size_match = re.search(r"(\d+)\s*([KMG]?)B", text_content, re.IGNORECASE)
     if not size_match:
         return None
@@ -112,7 +108,6 @@ def fetch_meeting_tdocs(
 
 def _fetch_directory(session: requests.Session, url: str, timeout: int) -> str | None:
     """Fetch a directory listing and return its HTML content."""
-
     try:
         response = session.get(url, timeout=timeout)
         response.raise_for_status()
@@ -124,7 +119,6 @@ def _fetch_directory(session: requests.Session, url: str, timeout: int) -> str |
 
 def _extract_subdirectories(base_url: str, html: str) -> list[str]:
     """Detect potential TDoc subdirectories (Docs/, Documents/, ...)."""
-
     soup = BeautifulSoup(html, "html.parser")
     subdirs: list[str] = []
     for link in soup.find_all("a"):
@@ -154,7 +148,6 @@ def _collect_tdocs_from_html(
     seen_ids: set[str],
 ) -> list[str]:
     """Parse a directory HTML listing for TDoc links."""
-
     soup = BeautifulSoup(html, "html.parser")
     serialized: list[str] = []
 
@@ -234,14 +227,12 @@ def fetch_meeting_document_list_subinterpreter(
         timeout: Request timeout in seconds
 
     Returns:
-        JSON string containing TDocMetadata list
+        tuple[str, ...]: TDoc IDs from the meeting or errors
     """
-    import json
-    from pathlib import Path
-
-    from tdoc_crawler.crawlers.meeting_doclist import fetch_meeting_document_list, parse_excel_document_list
-
     try:
+        # Import inside function for subinterpreter context
+        from tdoc_crawler.crawlers.meeting_doclist import fetch_meeting_document_list  # noqa: PLC0415
+
         # Convert string path to Path object
         cache_dir_path = Path(cache_dir)
 
@@ -275,7 +266,6 @@ __all__ = [
     "EXCLUDED_DIRS",
     "TDOC_PATTERN_STR",
     "TDOC_SUBDIRS",
-    "fetch_meeting_document_list",
     "fetch_meeting_document_list_subinterpreter",
     "fetch_meeting_tdocs",
 ]

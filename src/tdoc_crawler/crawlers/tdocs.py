@@ -8,11 +8,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from tdoc_crawler.crawlers.executor_adapter import Runner
-
 from tdoc_crawler.crawlers.parallel import fetch_meeting_tdocs
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import (CrawlLimits, MeetingMetadata, TDocCrawlConfig,
-                                 TDocMetadata, WorkingGroup)
+from tdoc_crawler.models import CrawlLimits, MeetingMetadata, MeetingQueryConfig, SortOrder, TDocCrawlConfig, TDocMetadata, WorkingGroup
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +28,44 @@ class TDocCrawlResult:
 class TDocCrawler:
     """Configuration-driven crawler orchestrating subinterpreter workers."""
 
+    def __init__(self, database: TDocDatabase) -> None:
+        self.database = database
+
+    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> TDocCrawlResult:
+        """Execute a crawl using the provided configuration."""
+        meetings = self._get_meetings_to_crawl(config)
+        if not meetings:
+            logger.warning("No meetings found matching criteria")
+            return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found"])
+
+        meetings = self._apply_meeting_limits(meetings, config.limits)
+        if not meetings:
+            logger.warning("Meetings filtered out by limits configuration")
+            return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found after applying limits"])
+
+        existing_ids: set[str] = set()
+        if config.incremental:
+            existing_ids = {tdoc_id.upper() for tdoc_id in self.database.get_existing_tdoc_ids(config.working_groups)}
+
+        targets = set(config.target_ids) if config.target_ids else None
+
+        collected: list[TDocMetadata] = []
+        errors = asyncio.run(self._crawl_meetings_parallel(meetings, config, collected, existing_ids, targets))
+
+        inserted = 0
+        updated = 0
+        if collected:
+            inserted, updated = self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
+
+        return TDocCrawlResult(
+            processed=len(collected),
+            inserted=inserted,
+            updated=updated,
+            errors=errors,
+        )
+
     def _apply_meeting_limits(self, meetings: list, limits: CrawlLimits) -> list:
         """Apply crawl limits to the meeting list."""
-
         limited = list(meetings)
 
         if limits.limit_meetings is not None and limits.limit_meetings != 0:
@@ -71,9 +104,6 @@ class TDocCrawler:
 
     def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
         """Query meetings from the database based on configuration filters."""
-
-        from tdoc_crawler.models import MeetingQueryConfig, SortOrder
-
         meeting_config = MeetingQueryConfig(
             cache_dir=config.cache_dir,
             working_groups=config.working_groups,
@@ -142,7 +172,6 @@ class TDocCrawler:
         targets: set[str] | None,
     ) -> list[str]:
         """Launch subinterpreter workers to crawl meetings in parallel."""
-
         errors: list[str] = []
         seen_ids: set[str] = set()
         max_tdocs = None
@@ -224,7 +253,6 @@ class TDocCrawler:
         Returns True when a crawl limit (target IDs or limit_tdocs) has been
         reached and processing should stop.
         """
-
         for json_payload in payloads:
             metadata = TDocMetadata.model_validate_json(json_payload)
             tdoc_id = metadata.tdoc_id
@@ -246,43 +274,6 @@ class TDocCrawler:
                 return True
 
         return False
-
-    def __init__(self, database: TDocDatabase) -> None:
-        self.database = database
-
-    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> TDocCrawlResult:
-        """Execute a crawl using the provided configuration."""
-
-        meetings = self._get_meetings_to_crawl(config)
-        if not meetings:
-            logger.warning("No meetings found matching criteria")
-            return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found"])
-
-        meetings = self._apply_meeting_limits(meetings, config.limits)
-        if not meetings:
-            logger.warning("Meetings filtered out by limits configuration")
-            return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found after applying limits"])
-
-        existing_ids: set[str] = set()
-        if config.incremental:
-            existing_ids = {tdoc_id.upper() for tdoc_id in self.database.get_existing_tdoc_ids(config.working_groups)}
-
-        targets = set(config.target_ids) if config.target_ids else None
-
-        collected: list[TDocMetadata] = []
-        errors = asyncio.run(self._crawl_meetings_parallel(meetings, config, collected, existing_ids, targets))
-
-        inserted = 0
-        updated = 0
-        if collected:
-            inserted, updated = self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
-
-        return TDocCrawlResult(
-            processed=len(collected),
-            inserted=inserted,
-            updated=updated,
-            errors=errors,
-        )
 
 
 __all__ = [

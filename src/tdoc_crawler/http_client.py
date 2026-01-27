@@ -40,11 +40,7 @@ def create_cached_session(
     # Create cache database path
     cache_db_path = cache_dir / "http-cache.sqlite3"
 
-    logger.debug(
-        f"Creating cached HTTP session: cache_db={cache_db_path}, "
-        f"ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, "
-        f"max_retries={max_retries}"
-    )
+    logger.debug(f"Creating cached HTTP session: cache_db={cache_db_path}, ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, max_retries={max_retries}")
 
     # Create SQLite storage backend
     storage = SyncSqliteStorage(

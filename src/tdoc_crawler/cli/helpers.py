@@ -18,11 +18,9 @@ from urllib.request import urlopen
 import typer
 from rich.console import Console
 
-from tdoc_crawler.crawlers import (normalize_subgroup_alias,
-                                   normalize_working_group_alias)
+from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import (CrawlLimits, PortalCredentials, TDocMetadata,
-                                 WorkingGroup)
+from tdoc_crawler.models import CrawlLimits, MeetingQueryConfig, PortalCredentials, SortOrder, TDocMetadata, WorkingGroup
 
 console = Console()
 _logger = logging.getLogger(__name__)
@@ -214,8 +212,6 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
     Returns:
         Meeting ID if found, None otherwise
     """
-    from tdoc_crawler.models import MeetingQueryConfig, SortOrder
-
     # Query all meetings from database
     config = MeetingQueryConfig(
         cache_dir=database.db_path.parent,

@@ -18,7 +18,6 @@ class SubWorkingGroupRecord(BaseModel):
     @property
     def working_group(self) -> WorkingGroup:
         """Return the parent working group enum for the record."""
-
         for working_group in WorkingGroup:
             if working_group.tbid == self.tbid:
                 return working_group

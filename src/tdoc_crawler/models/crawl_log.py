@@ -29,7 +29,6 @@ class CrawlLogEntry(BaseModel):
     @classmethod
     def _normalize_working_groups(cls, value: list[str]) -> list[str]:
         """Ensure codes are stored as unique uppercase values."""
-
         normalized = sorted({item.strip().upper() for item in value if item})
         return normalized
 
