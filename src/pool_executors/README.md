@@ -78,9 +78,37 @@ This package was created to:
 1. **Unify executor creation**: Single factory function for all executor types with consistent interface
 1. **Enable future extraction**: Designed as standalone package for easy repository separation
 
+## Subinterpreter Support
+
+### Why Subinterpreters?
+
+Python's Global Interpreter Lock (GIL) and thread-safety issues in many C extensions limit the effectiveness of standard threading. Subinterpreters provide an alternative approach:
+
+- **Thread Safety**: Each subinterpreter has its own GIL, providing true isolation between tasks
+- **Performance**: Similar to real threading without the thread-safety concerns of shared-memory threading
+- **Encapsulation**: Each subinterpreter runs in complete isolation with its own interpreter state
+
+### Subinterpreters vs Other Execution Strategies
+
+| Strategy | Pros | Cons |
+|----------|------|------|
+| **Serial** | No overhead, deterministic, easy debugging | No parallelism |
+| **Threading** | Low overhead, shared memory | GIL contention, thread-safety issues in many libraries |
+| **Multiprocessing** | True parallelism, no GIL | High inter-process communication overhead, especially on Windows |
+| **Subinterpreter** | Thread-safety isolation, good performance | Python 3.14+ required, still maturing |
+
+### Future Outlook
+
+As Python 3.14+ matures and more libraries become subinterpreter-safe, this approach will provide a clean path toward concurrent execution without the overhead of multiprocessing. Until then, using well-encapsulated subinterpreters offers a good balance between thread-safety and performance characteristics similar to real multi-threading.
+
+### Fallback Behavior
+
+When `InterpreterPoolExecutor` is not available (Python < 3.14), the factory automatically falls back to `ProcessPoolExecutor` with a warning log message.
+
 ## Requirements
 
 - Python 3.13 or higher
+- Python 3.14+ recommended for subinterpreter support
 - No external dependencies (stdlib only)
 
 ## License

@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import (Executor, ProcessPoolExecutor,
-                                ThreadPoolExecutor)
+from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any
 
-from pool_executors.serial import SerialPoolExecutor
-from pool_executors.types import ExecutorType
+from .serial import SerialPoolExecutor
+from .types import ExecutorType
 
 # Import InterpreterPoolExecutor for Python 3.14+, handle gracefully for older versions
 try:
-    from concurrent.futures import \
-        InterpreterPoolExecutor  # type: ignore[attr-defined]  # noqa: PLC0415
+    from concurrent.futures import InterpreterPoolExecutor  # noqa: PLC0415
 
     HAS_INTERPRETER_POOL_EXECUTOR = True
 except (ImportError, AttributeError):

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import Any, TypeVar
 
-from tdoc_crawler.pool_executors import create_executor
+from pool_executors.pool_executors import create_executor
 
 T = TypeVar("T")
 

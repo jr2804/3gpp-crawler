@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 from collections.abc import Callable
 from concurrent.futures import Executor, Future
