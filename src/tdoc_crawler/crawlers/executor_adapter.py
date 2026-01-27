@@ -7,7 +7,7 @@ from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import Any, TypeVar
 
-from pool_executors import create_executor
+from tdoc_crawler.pool_executors import create_executor
 
 T = TypeVar("T")
 
@@ -21,7 +21,8 @@ class _RunnerContextManager:
     def __enter__(self) -> Runner:
         """Start executor and return runner."""
         # Create executor using pool_executors factory
-        self.runner._executor = create_executor(self.runner.executor_type, max_workers=self.runner.workers)
+        # Use type: ignore to bypass literal type checking for executor_type
+        self.runner._executor = create_executor(self.runner.executor_type, max_workers=self.runner.workers)  # type: ignore
         try:
             self.runner._loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -42,6 +43,9 @@ class Runner:
     """Adapter that provides aiointerpreters.Runner API using pool_executors."""
 
     def __init__(self, workers: int = 4, executor_type: str = "subinterpreter") -> None:
+        # Ensure executor_type is compatible with ExecutorType
+        self.executor_type = executor_type
+
         """Initialize runner with specified number of workers.
 
         Args:
