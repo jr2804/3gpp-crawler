@@ -67,12 +67,10 @@ class TestTDocCrawler:
         assert result.updated == 0
         assert result.errors
 
-    @patch("tdoc_crawler.crawlers.tdocs.Runner")
     @patch("tdoc_crawler.crawlers.parallel.requests.Session")
     def test_crawl_collects_tdocs(
         self,
         mock_session_class: MagicMock,
-        mock_runner_class: MagicMock,
         test_db_path: Path,
     ) -> None:
         """Collect TDocs and persist them to the database."""
@@ -90,27 +88,6 @@ class TestTDocCrawler:
         mock_session.get.return_value = mock_response
         mock_session.close.return_value = None
         mock_session_class.return_value = mock_session
-
-        class _StubRunner:
-            def __init__(self) -> None:
-                self.workers = 1
-
-            def start(self) -> _StubRunner:
-                return self
-
-            def __enter__(self) -> _StubRunner:
-                return self
-
-            def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[override]
-                return None
-
-            def run(self, func, *args, **kwargs):  # type: ignore[no-untyped-def]
-                async def _inner() -> tuple[str, ...]:
-                    return func(*args, **kwargs)
-
-                return _inner()
-
-        mock_runner_class.return_value = _StubRunner()
 
         with TDocDatabase(test_db_path) as database:
             # Add a sample meeting with files_url
@@ -135,6 +112,8 @@ class TestTDocCrawler:
                 cache_dir=test_db_path.parent,
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
+                workers=1,  # Use serial executor for deterministic testing
+                overall_timeout=10,  # Prevent infinite loop/hang during test
                 max_retries=3,
                 timeout=30,
                 verbose=False,
@@ -150,12 +129,10 @@ class TestTDocCrawler:
             assert stored[0].tdoc_id == "R1-2301234"
             assert stored[0].file_size == 2048
 
-    @patch("tdoc_crawler.crawlers.tdocs.Runner")
     @patch("tdoc_crawler.crawlers.parallel.requests.Session")
     def test_crawl_targets_specific_ids(
         self,
         mock_session_class: MagicMock,
-        mock_runner_class: MagicMock,
         test_db_path: Path,
     ) -> None:
         """Respect target identifiers by only persisting requested TDocs."""
@@ -175,27 +152,6 @@ class TestTDocCrawler:
         mock_session.close.return_value = None
         mock_session_class.return_value = mock_session
 
-        class _StubRunner:
-            def __init__(self) -> None:
-                self.workers = 1
-
-            def start(self) -> _StubRunner:
-                return self
-
-            def __enter__(self) -> _StubRunner:
-                return self
-
-            def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[override]
-                return None
-
-            def run(self, func, *args, **kwargs):  # type: ignore[no-untyped-def]
-                async def _inner() -> tuple[str, ...]:
-                    return func(*args, **kwargs)
-
-                return _inner()
-
-        mock_runner_class.return_value = _StubRunner()
-
         with TDocDatabase(test_db_path) as database:
             # Add a sample meeting with files_url
             meeting = MeetingMetadata(
@@ -219,6 +175,8 @@ class TestTDocCrawler:
                 cache_dir=test_db_path.parent,
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
+                workers=1,  # Use serial executor for deterministic testing
+                overall_timeout=10,  # Prevent infinite loop/hang during test
                 max_retries=1,
                 timeout=5,
                 verbose=False,

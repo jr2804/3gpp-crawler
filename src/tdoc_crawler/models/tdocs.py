@@ -66,7 +66,17 @@ class TDocCrawlConfig(BaseConfigModel):
     end_date: date | None = Field(None, description="Filter meetings until this date")
     incremental: bool = Field(True, description="Incremental crawl (only new items)")
     force_revalidate: bool = Field(False, description="Re-validate existing TDocs via portal")
-    workers: int = Field(4, ge=1, le=16, description="Number of parallel workers")
+    workers: int = Field(
+        4,
+        ge=1,
+        le=16,
+        description="Number of parallel workers. ProcessPoolExecutor (Python <3.14) has higher memory overhead than subinterpreters; consider lower worker counts on constrained systems.",
+    )
+    overall_timeout: int | None = Field(
+        None,
+        ge=1,
+        description="Maximum total crawl duration in seconds (None = unlimited). When exceeded remaining futures are cancelled and crawl ends early.",
+    )
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="Request timeout seconds")
     verbose: bool = Field(False, description="Verbose logging")

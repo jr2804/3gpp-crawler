@@ -51,6 +51,7 @@ dev = [
     "mdformat>=1.0.0",
     "isort>=7.0.0",
     "undersort>=0.1.5",
+    "beads-mcp>=0.44.0",
 ]
 
 [build-system]

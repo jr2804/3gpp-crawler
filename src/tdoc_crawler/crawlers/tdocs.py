@@ -1,18 +1,18 @@
-"""TDoc crawler orchestrating asynchronous subinterpreter workers."""
+"""TDoc crawler orchestrating parallel workers."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
+from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
 
 from tdoc_crawler.crawlers.executor_adapter import Runner
 from tdoc_crawler.crawlers.parallel import fetch_meeting_tdocs
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import (CrawlLimits, MeetingMetadata,
-                                 MeetingQueryConfig, SortOrder,
-                                 TDocCrawlConfig, TDocMetadata, WorkingGroup)
+from tdoc_crawler.models import CrawlLimits, MeetingMetadata, MeetingQueryConfig, SortOrder, TDocCrawlConfig, TDocMetadata, WorkingGroup
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ class TDocCrawler:
 
         return filtered
 
-    async def _crawl_meetings_parallel(
+    def _crawl_meetings_parallel(
         self,
         meetings: list,
         config: TDocCrawlConfig,
@@ -185,58 +185,75 @@ class TDocCrawler:
 
         target_tuple = tuple(targets) if targets else None
 
-        runner = Runner(workers=config.workers)
-        with runner.start():
-            tasks: dict[asyncio.Task[tuple[str, ...]], MeetingMetadata] = {}
+        # Select executor based on worker count
+        if config.workers == 1:
+            executor = create_executor("serial")
+            executor_type = "serial"
+        else:
+            # Auto-selects InterpreterPoolExecutor (Python 3.14+) or ProcessPoolExecutor (fallback)
+            executor = create_executor("subinterpreter", max_workers=config.workers)
+            executor_type = "subinterpreter/process"
+
+        logger.debug("Using %s executor with %d worker(s)", executor_type, config.workers)
+
+        # Track start time for overall timeout enforcement
+        start_time = time.monotonic()
+
+        with executor:
+            futures: dict[Future[tuple[str, ...]], MeetingMetadata] = {}
 
             for meeting in meetings:
                 base_url = meeting.files_url.rstrip("/") + "/"
-                task = asyncio.create_task(
-                    runner.run(
-                        fetch_meeting_tdocs,
-                        meeting.meeting_id,
-                        base_url,
-                        meeting.short_name or "",
-                        config.timeout,
-                        config.max_retries,
-                        target_tuple,
-                        str(config.cache_dir),
-                        config.http_cache.ttl,
-                        config.http_cache.refresh_ttl_on_access,
-                    )
+                future = executor.submit(
+                    fetch_meeting_tdocs,
+                    meeting.meeting_id,
+                    base_url,
+                    meeting.short_name or "",
+                    config.timeout,
+                    config.max_retries,
+                    target_tuple,
+                    str(config.cache_dir),
+                    config.http_cache.ttl,
+                    config.http_cache.refresh_ttl_on_access,
                 )
-                tasks[task] = meeting
+                futures[future] = meeting
 
-            pending = set(tasks.keys())
-            while pending:
-                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-                for task in done:
-                    meeting = tasks[task]
-                    try:
-                        payloads = task.result()
-                    except Exception as exc:  # pragma: no cover - defensive, depends on network
-                        short_name = meeting.short_name or str(meeting.meeting_id)
-                        message = f"Meeting {short_name}: {exc}"
+            # Process results as they complete
+            for future in as_completed(futures):
+                meeting = futures[future]
+                try:
+                    payloads = future.result()
+                except Exception as exc:  # pragma: no cover - defensive, depends on network
+                    short_name = meeting.short_name or str(meeting.meeting_id)
+                    message = f"Meeting {short_name}: {exc}"
+                    logger.warning(message)
+                    errors.append(message)
+                    continue
+
+                limit_reached = self._process_payloads(
+                    payloads,
+                    collected,
+                    seen_ids,
+                    existing_ids,
+                    config.incremental,
+                    targets,
+                    max_tdocs,
+                )
+
+                # Check if overall timeout exceeded
+                elapsed = time.monotonic() - start_time
+                timeout_exceeded = config.overall_timeout is not None and elapsed >= config.overall_timeout
+
+                if limit_reached or (targets is not None and not targets) or timeout_exceeded:
+                    # Cancel remaining futures
+                    for pending_future in futures:
+                        if not pending_future.done():
+                            pending_future.cancel()
+                    if timeout_exceeded:
+                        message = f"Overall timeout of {config.overall_timeout}s exceeded after {elapsed:.1f}s"
                         logger.warning(message)
                         errors.append(message)
-                        continue
-
-                    limit_reached = self._process_payloads(
-                        payloads,
-                        collected,
-                        seen_ids,
-                        existing_ids,
-                        config.incremental,
-                        targets,
-                        max_tdocs,
-                    )
-
-                    if limit_reached or (targets is not None and not targets):
-                        for pending_task in pending:
-                            pending_task.cancel()
-                        if pending:
-                            await asyncio.gather(*pending, return_exceptions=True)
-                        return errors
+                    break
 
         return errors
 
