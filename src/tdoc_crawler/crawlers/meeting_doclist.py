@@ -8,16 +8,7 @@ import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-import pandas as pd
-
-from tdoc_crawler.http_client import create_cached_session
-
-if TYPE_CHECKING:
-    from tdoc_crawler.models.tdocs import TDocMetadata
-else:
-    from tdoc_crawler.models.tdocs import TDocMetadata  # noqa: PLC0415
+from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 

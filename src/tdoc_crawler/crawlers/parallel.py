@@ -8,17 +8,7 @@ import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
-from urllib.parse import urljoin
 
-import requests
-from bs4 import BeautifulSoup
-
-from tdoc_crawler.crawlers.constants import EXCLUDED_DIRS, EXCLUDED_DIRS_NORMALIZED, TDOC_PATTERN_STR, TDOC_SUBDIRS, TDOC_SUBDIRS_NORMALIZED
-from tdoc_crawler.http_client import create_cached_session
-
-if TYPE_CHECKING:  # pragma: no cover - helpful for type checkers only
-    pass
 
 logger = logging.getLogger(__name__)
 

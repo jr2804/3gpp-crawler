@@ -4,15 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-import requests
-from hishel import SyncSqliteStorage
-from hishel.requests import CacheAdapter
-from urllib3.util.retry import Retry
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
