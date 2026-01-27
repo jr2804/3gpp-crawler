@@ -1,9 +1,5 @@
 # Assistant Rules for TDoc-Crawler - Command line tool for querying structured 3GPP TDoc data
 
-______________________________________________________________________
-
-## description: General Guidelines alwaysApply: true
-
 ## Quick Start for Coding Assistants
 
 Before implementing features, review these critical sections:
@@ -19,21 +15,45 @@ Before implementing features, review these critical sections:
 - `src/tdoc_crawler/crawlers/*.py` - Crawler implementations
 - `tests/conftest.py` - Shared test fixtures
 
-## 3GPP Knowledge
+## Issue Tracking with beads (bd)
 
-For detailed knowledge about 3GPP terms, nomenclature, working groups, meeting structures, TDoc formats, and other telecom-specific information, use the `3gpp` skill:
+This project uses **bd (beads)** for issue tracking.
+Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
 
-```bash
-# Example: Get overview of 3GPP working groups
-skill 3gpp --query "working groups"
-```
+**Quick reference:**
 
-The skill provides authoritative information on:
+- `bd ready` - Find unblocked work
+- `bd create "Title" --type task --priority 2` - Create issue
+- `bd close <id>` - Complete work
+- `bd sync` - Sync with git (run at session end)
 
-- Working groups (RAN, SA, CT) and their subgroups
-- TDoc naming conventions and patterns
-- Meeting identification and structure
-- 3GPP portal and FTP server organization
+For full workflow details: `bd prime`
+
+## Using skills
+
+This project includes specialized skills for different domains. Skills are loaded based on context and provide domain-specific patterns, best practices, and implementation guidance. Skills are located in logical subdirectories under the `.config/skills/` directory.
+
+### 3GPP Knowledge Skills
+
+For detailed knowledge about 3GPP terms, nomenclature, working groups, meeting structures, TDoc formats, and other telecom-specific information, use the following skills, which are located in the `.config/skills/3gpp/` directory:
+
+| Skill Name | Description | When to Use |
+|-----------|-------------|-------------|
+| `3gpp-basics` | General 3GPP organization overview, partnerships, scope, and fundamental concepts | Understanding 3GPP data structures, hierarchy, or organizational context |
+| `3gpp-change-request` | Change Request procedure, workflow, status tracking, CR database | Working with 3GPP Change Requests to modify specifications or querying CR status |
+| `3gpp-meetings` | Meeting structure, naming conventions, quarterly plenaries, and meeting pages | Parsing 3GPP meeting data, understanding meeting schedules, or working with meeting metadata |
+| `3gpp-portal-authentication` | EOL authentication, AJAX login patterns, 3GPP portal data fetching | Accessing protected 3GPP portal resources, fetching TDoc metadata, or working with 3GPP portal APIs |
+
+### General Programming Skills
+
+For general programming best practices, coding standards, and design patterns, use the following skills, which are located in the `.config/skills/general/` directory:
+
+| Skill Name | Description | When to Use |
+|-----------|-------------|-------------|
+| `verification-before-completion` | Ensuring tasks are thoroughly tested and reviewed before marking complete | Finalizing features, running tests, ensuring quality before completion |
+| `test-driven-development` | TDD methodology with pytest, mocking, and coverage analysis | Writing test-first code, improving test coverage, using pytest and fixtures |
+| `systematic-debugging` | Systematic debugging approach using scientific method, logging, and isolation | Debugging complex issues, isolating problems, using logging effectively |
+
 
 ## General Coding Guidelines
 
@@ -49,7 +69,7 @@ Therefore:
 
 - If instructions are unclear or there are two or more ways to fulfill the request that are substantially different, make a tentative plan (or offer options) and ask for confirmation.
 
-- If you can think of a much better approach that the user requests, be sure to mention it. It's your responsibility to suggest approaches that lead to better, simpler solutions.
+- If you can think of a much better approach than the user requests, be sure to mention it. It's your responsibility to suggest approaches that lead to better, simpler solutions.
 
 - Give thoughtful opinions on better/worse approaches, but NEVER say "great idea!" or "good job" or other compliments, encouragement, or non-essential banter. Your job is to give expert opinions and to solve problems, not to motivate the user.
 
@@ -81,48 +101,6 @@ Therefore:
 
 - Use emojis in output if it enhances the clarity and can be done consistently. You may use ✔︎ and ✘ to indicate success and failure, and ∆ and ‼︎ for user-facing warnings and errors, for example, but be sure to do it consistently. DO NOT use emojis gratuitously in comments or output. You may use then ONLY when they have clear meanings (like success or failure). Unless the user says otherwise, avoid emojis and Unicode in comments as clutters the output with little benefit.
 
-## Project Structure
-
-The project follows a modular architecture with clear separation of concerns:
-
-### Source Code Organization
-
-```
-src/tdoc_crawler/
-├── models/              # Data models and configuration
-│   ├── __init__.py      # Re-exports all public symbols
-│   ├── base.py          # BaseConfigModel, utilities, enums, PortalCredentials
-│   ├── working_groups.py  # WorkingGroup enum
-│   ├── subworking_groups.py  # SubworkingGroup model
-│   ├── crawl_limits.py  # CrawlLimits configuration
-│   ├── tdocs.py         # TDocMetadata, TDocRecord, TDocCrawlConfig, QueryConfig
-│   ├── meetings.py      # MeetingMetadata, MeetingRecord, MeetingCrawlConfig
-├── crawlers/            # Web scraping and HTTP crawling logic
-│   ├── __init__.py      # Re-exports all public symbols
-│   ├── tdocs.py         # TDocCrawler
-│   ├── meetings.py      # MeetingCrawler
-│   ├── portal.py        # PortalSession, fetch_tdoc_metadata
-├── database/            # Database schema and operations
-│   ├── __init__.py      # Re-exports TDocDatabase
-│   ├── connection.py    # TDocDatabase context manager and facade
-│   ├── tdocs.py         # TDoc-specific queries and operations
-│   ├── statistics.py    # Statistics and crawl log queries
-├── cli/                 # CLI commands and helpers
-│   ├── __init__.py      # Package initialization
-│   ├── app.py           # Typer application and command registration
-│   ├── helpers.py       # Path resolution, credential handling
-│   ├── fetching.py      # Targeted fetch logic
-│   ├── printing.py      # Output formatting
-├── __init__.py          # Package initialization
-└── __main__.py          # Entry point
-```
-
-### Module Design Principles
-
-1. **Submodule Re-exports**: Both `models/` and `crawlers/` use `__init__.py` to re-export all public symbols
-1. **Single Responsibility**: Each file focuses on one concern
-1. **Type Safety**: All modules use comprehensive type hints with `from __future__ import annotations`
-1. **Import Pattern**: Other modules import from `tdoc_crawler.models` and `tdoc_crawler.crawlers`, not from submodules directly
 
 ## Virtual Environment Activation (MANDATORY)
 
@@ -199,17 +177,3 @@ The project maintains three levels of documentation:
 After several implementation steps, the present file (`AGENTS.md`) might need an update. When explicitly asked, use/update the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md` for that purpose.
 
 The actual update of `AGENTS.md` will be done only after explicit user confirmation.
-
-## Issue Tracking
-
-This project uses **bd (beads)** for issue tracking.
-Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
-
-**Quick reference:**
-
-- `bd ready` - Find unblocked work
-- `bd create "Title" --type task --priority 2` - Create issue
-- `bd close <id>` - Complete work
-- `bd sync` - Sync with git (run at session end)
-
-For full workflow details: `bd prime`
