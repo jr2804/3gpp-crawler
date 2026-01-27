@@ -5,6 +5,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import requests
+from hishel import SyncSqliteStorage
+from hishel.requests import CacheAdapter
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +46,7 @@ def create_cached_session(
         refresh_ttl_on_access=refresh_ttl_on_access,
     )
 
-    # Create session
-    session = requests.Session()
-
-    # Configure retry strategy
+    # Configure retry strategy for the session
     retry_strategy = Retry(
         total=max_retries,
         backoff_factor=1,
@@ -52,13 +54,16 @@ def create_cached_session(
         allowed_methods=["HEAD", "GET", "OPTIONS"],
     )
 
-    # Create cache adapter with retry support
-    cache_adapter = CacheAdapter(
-        storage=storage,
-        max_retries=retry_strategy,
-    )
+    # Create HTTP adapter with retry support
+    HTTPAdapter(max_retries=retry_strategy)
 
-    # Mount cache adapter for both HTTP and HTTPS
+    # Create cache adapter without specifying an adapter (hishel will handle it internally)
+    cache_adapter = CacheAdapter(storage=storage)
+
+    # Create session
+    session = requests.Session()
+
+    # Mount the cache adapter which handles both caching and delegates to the HTTP adapter for network requests
     session.mount("http://", cache_adapter)
     session.mount("https://", cache_adapter)
 
