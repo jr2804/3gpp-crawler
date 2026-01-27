@@ -13,16 +13,22 @@ import typer
 import yaml
 from dotenv import load_dotenv
 from rich.console import Console
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
+from rich.progress import (BarColumn, MofNCompleteColumn, Progress,
+                           SpinnerColumn, TextColumn)
 from rich.table import Table
 
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
+from tdoc_crawler.models import (MeetingCrawlConfig, MeetingQueryConfig,
+                                 OutputFormat, QueryConfig, SortOrder,
+                                 TDocCrawlConfig)
 
 from .fetching import maybe_fetch_missing_tdocs
-from .helpers import build_limits, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file, resolve_credentials
-from .printing import meeting_to_dict, print_meeting_table, print_tdoc_table, tdoc_to_dict
+from .helpers import (build_limits, database_path, launch_file,
+                      parse_subgroups, parse_working_groups, prepare_tdoc_file,
+                      resolve_credentials)
+from .printing import (meeting_to_dict, print_meeting_table, print_tdoc_table,
+                       tdoc_to_dict)
 
 load_dotenv()
 

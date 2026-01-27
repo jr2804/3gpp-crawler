@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 import requests
 
-from tdoc_crawler.crawlers.portal import PortalAuthenticationError, PortalParsingError, fetch_tdoc_metadata
+from tdoc_crawler.crawlers.portal import (PortalAuthenticationError,
+                                          PortalParsingError,
+                                          fetch_tdoc_metadata)
 from tdoc_crawler.models.base import PortalCredentials
 
 
@@ -106,4 +108,4 @@ def test_fetch_tdoc_metadata_invalid_credentials() -> None:
     tdoc_id = "S4-251364"
 
     with pytest.raises(PortalAuthenticationError):
-        fetch_tdoc_metadata(tdoc_id, invalid_credentials, timeout=30)
+        fetch_tdoc_metadata(tdoc_id, invalid_credentials, Path("."), timeout=30)

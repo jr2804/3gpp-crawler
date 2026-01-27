@@ -11,7 +11,8 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
-from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_VIEW_URL
+from tdoc_crawler.crawlers.constants import (LOGIN_URL, PORTAL_BASE_URL,
+                                             TDOC_VIEW_URL)
 from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.models.tdocs import TDocMetadata
 

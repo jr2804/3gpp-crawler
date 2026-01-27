@@ -3,33 +3,20 @@
 from __future__ import annotations
 
 # Re-export all public symbols
-from .base import (  # noqa: F401
-    DEFAULT_CACHE_DIR,
-    BaseConfigModel,
-    OutputFormat,
-    PortalCredentials,
-    SortOrder,
-    utc_now,
-)
+from .base import (DEFAULT_CACHE_DIR, BaseConfigModel,  # noqa: F401
+                   HttpCacheConfig, OutputFormat, PortalCredentials, SortOrder,
+                   utc_now)
 from .crawl_limits import CrawlLimits  # noqa: F401
 from .crawl_log import CrawlLogEntry  # noqa: F401
-from .meetings import (  # noqa: F401
-    MeetingCrawlConfig,
-    MeetingMetadata,
-    MeetingQueryConfig,
-)
-from .subworking_groups import (  # noqa: F401
-    CODE_INDEX,
-    SUBTB_INDEX,
-    SUBWORKING_GROUP_RECORDS,
-    SubWorkingGroupRecord,
-)
-from .tdocs import CrawlConfig, QueryConfig, TDocCrawlConfig, TDocMetadata  # noqa: F401
-from .working_groups import (  # noqa: F401
-    WORKING_GROUP_RECORDS,
-    WorkingGroup,
-    WorkingGroupRecord,
-)
+from .meetings import (MeetingCrawlConfig, MeetingMetadata,  # noqa: F401
+                       MeetingQueryConfig)
+from .subworking_groups import (CODE_INDEX, SUBTB_INDEX,  # noqa: F401
+                                SUBWORKING_GROUP_RECORDS,
+                                SubWorkingGroupRecord)
+from .tdocs import (CrawlConfig, QueryConfig, TDocCrawlConfig,  # noqa: F401
+                    TDocMetadata)
+from .working_groups import (WORKING_GROUP_RECORDS, WorkingGroup,  # noqa: F401
+                             WorkingGroupRecord)
 
 __all__ = [
     "CODE_INDEX",
@@ -41,6 +28,7 @@ __all__ = [
     "CrawlConfig",
     "CrawlLimits",
     "CrawlLogEntry",
+    "HttpCacheConfig",
     "MeetingCrawlConfig",
     "MeetingMetadata",
     "MeetingQueryConfig",
