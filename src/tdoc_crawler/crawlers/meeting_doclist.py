@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -15,6 +16,8 @@ from tdoc_crawler.http_client import create_cached_session
 
 if TYPE_CHECKING:
     from tdoc_crawler.models.tdocs import TDocMetadata
+else:
+    from tdoc_crawler.models.tdocs import TDocMetadata  # noqa: PLC0415
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +68,9 @@ def fetch_meeting_document_list(
 
         # Check if we got a valid Excel file
         content_type = response.headers.get("content-type", "").lower()
-        if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" not in content_type:
+        if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" not in content_type and not response.content.startswith(b"PK"):
             # Some responses might not set content-type correctly, check file signature
-            if not response.content.startswith(b"PK"):
-                raise DocumentListError(f"Expected Excel file for meeting {meeting_id}, got content-type: {content_type}")
+            raise DocumentListError(f"Expected Excel file for meeting {meeting_id}, got content-type: {content_type}")
 
         # Parse Excel file
         logger.debug(f"Parsing Excel document list for meeting {meeting_id}")
@@ -139,8 +141,6 @@ def convert_excel_row_to_tdoc_metadata(
     Returns:
         TDocMetadata instance or None if conversion fails
     """
-    from tdoc_crawler.models.tdocs import TDocMetadata
-
     # Map Excel columns to TDocMetadata fields
     # Try multiple possible column names to handle different Excel formats
     tdoc_id = _extract_tdoc_id(row)
@@ -229,8 +229,6 @@ def _is_valid_tdoc_id(tdoc_id: str) -> bool:
     Returns:
         True if valid TDoc ID format
     """
-    import re
-
     # TDoc ID pattern: [RSC][1-6P] followed by 4-10 chars
     pattern = re.compile(r"^[RSC][1-6P].{4,10}$", re.IGNORECASE)
     return bool(pattern.match(tdoc_id.strip()))
@@ -325,7 +323,7 @@ def _parse_date(date_value: str | None) -> datetime | None:
 
 __all__ = [
     "DocumentListError",
+    "convert_excel_row_to_tdoc_metadata",
     "fetch_meeting_document_list",
     "parse_excel_document_list",
-    "convert_excel_row_to_tdoc_metadata",
 ]

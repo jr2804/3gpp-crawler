@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -9,15 +10,9 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from tdoc_crawler.crawlers import (
-    DocumentListError,
-    HybridCrawlResult,
-    HybridTDocCrawler,
-    fetch_meeting_document_list,
-    parse_excel_document_list,
-)
+from tdoc_crawler.crawlers import DocumentListError, HybridCrawlResult, HybridTDocCrawler, fetch_meeting_document_list, parse_excel_document_list
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import TDocCrawlConfig, WorkingGroup
+from tdoc_crawler.models import MeetingMetadata, TDocCrawlConfig, WorkingGroup
 from tdoc_crawler.models.tdocs import TDocMetadata
 
 
@@ -165,7 +160,6 @@ class TestMeetingDocumentList:
 
         with patch.object(crawler, "_get_meetings_to_crawl") as mock_get_meetings:
             # Mock meeting
-            from tdoc_crawler.models import MeetingMetadata
 
             mock_meeting = MeetingMetadata(
                 meeting_id=12345,
@@ -213,8 +207,6 @@ class TestMeetingDocumentList:
         )
 
         with patch.object(crawler, "_get_meetings_to_crawl") as mock_get_meetings:
-            from tdoc_crawler.models import MeetingMetadata
-
             mock_meeting = MeetingMetadata(
                 meeting_id=12345,
                 tbid=373,  # RAN
@@ -231,15 +223,15 @@ class TestMeetingDocumentList:
             with patch("tdoc_crawler.crawlers.meeting_doclist.fetch_meeting_document_list") as mock_fetch:
                 mock_fetch.side_effect = DocumentListError("Document list not available")
 
-                with patch("asyncio.run") as mock_asyncio:
-                    # Mock parallel crawling result
-                    mock_asyncio.return_value = ([], 1)  # (errors, meetings_processed)
+            with patch("asyncio.run") as mock_asyncio:
+                # Mock parallel crawling result
+                mock_asyncio.return_value = ([], 1)  # (errors, meetings_processed)
 
-                    result = crawler.crawl(config)
+                result = crawler.crawl(config)
 
-                    assert isinstance(result, HybridCrawlResult)
-                    assert result.fallbacks == 1
-                    assert result.document_list_meetings == 1
+                assert isinstance(result, HybridCrawlResult)
+                assert result.fallbacks == 1
+                assert result.document_list_meetings == 1
 
     def test_hybrid_crawler_force_parallel(self) -> None:
         """Test hybrid crawler with forced parallel crawling."""
@@ -262,8 +254,6 @@ class TestMeetingDocumentList:
         )
 
         with patch.object(crawler, "_get_meetings_to_crawl") as mock_get_meetings:
-            from tdoc_crawler.models import MeetingMetadata
-
             mock_meeting = MeetingMetadata(
                 meeting_id=12345,
                 tbid=373,  # RAN
@@ -290,8 +280,6 @@ class TestMeetingDocumentList:
 
 def _create_test_excel_bytes(df: pd.DataFrame) -> bytes:
     """Create test Excel file bytes from DataFrame."""
-    import io
-
     # Use xlsxwriter for writing Excel files (as per AGENTS.md)
     output = io.BytesIO()
 
