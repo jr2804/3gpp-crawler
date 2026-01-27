@@ -295,7 +295,7 @@ class TestExecutorType:
 
     def test_executor_type_invalid_raises(self) -> None:
         """Test that invalid string raises ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"'invalid' is not a valid ExecutorType"):
             ExecutorType("invalid")
 
 
@@ -388,7 +388,7 @@ class TestFactoryCoverage:
 
     def test_invalid_executor_type_error_message(self) -> None:
         """Test that invalid executor type shows valid types in error."""
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="Invalid executor type") as exc_info:
             create_executor("unknown")
 
         error_message = str(exc_info.value)

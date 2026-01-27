@@ -118,11 +118,11 @@ class TestRunner:
         for exec_type in executor_types:
             runner = Runner(workers=1, executor_type=exec_type)
 
-            async def test_async() -> str:
-                with runner.start() as started_runner:
+            async def _execute_test(_runner: Runner) -> str:
+                with _runner.start() as started_runner:
                     return await started_runner.run(simple_function)
 
-            result = asyncio.run(test_async())
+            result = asyncio.run(_execute_test(runner))
             assert result == "success"
 
     def test_context_manager_methods(self) -> None:

@@ -68,7 +68,11 @@ class TDocCrawlConfig(BaseConfigModel):
         4,
         ge=1,
         le=16,
-        description="Number of parallel workers. ProcessPoolExecutor (Python <3.14) has higher memory overhead than subinterpreters; consider lower worker counts on constrained systems.",
+        description=(
+            "Number of parallel workers. ProcessPoolExecutor (Python <3.14) "
+            "has higher memory overhead than subinterpreters; "
+            "consider lower worker counts on constrained systems."
+        ),
     )
     overall_timeout: int | None = Field(
         None,
