@@ -8,6 +8,7 @@ import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
 import typer
 import yaml
@@ -29,6 +30,8 @@ load_dotenv()
 app = typer.Typer(help="TDoc crawler - crawl and query structured 3GPP metadata")
 console = Console()
 
+DEFAULT_CACHE_DIR = Path.home() / ".tdoc-crawler"
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 HELP_PANEL_CRAWLING = "Crawling Commands"
@@ -37,20 +40,20 @@ HELP_PANEL_QUERY = "Query Commands"
 
 @app.command("crawl-tdocs", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_tdocs(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Working groups to crawl"),
-    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s", help="Filter by sub-working group"),
-    incremental: bool = typer.Option(True, "--incremental/--full", help="Toggle incremental mode"),
-    clear_tdocs: bool = typer.Option(False, "--clear-tdocs", help="Clear all TDocs before crawling"),
-    limit_tdocs: int | None = typer.Option(None, "--limit-tdocs", help="Limit number of TDocs"),
-    limit_meetings: int | None = typer.Option(None, "--limit-meetings", help="Limit meetings considered"),
-    limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg", help="Limit meetings per working group"),
-    limit_wgs: int | None = typer.Option(None, "--limit-wgs", help="Limit number of working groups"),
-    workers: int = typer.Option(4, "--workers", help="Number of parallel subinterpreter workers"),
-    overall_timeout: int | None = typer.Option(None, "--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)"),
-    max_retries: int = typer.Option(3, "--max-retries", help="HTTP connection retry attempts"),
-    timeout: int = typer.Option(30, "--timeout", help="HTTP request timeout seconds"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")] = DEFAULT_CACHE_DIR,
+    working_group: Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Working groups to crawl")] = None,
+    subgroup: Annotated[list[str] | None, typer.Option("--sub-group", "-s", help="Filter by sub-working group")] = None,
+    incremental: Annotated[bool, typer.Option("--incremental/--full", help="Toggle incremental mode")] = True,
+    clear_tdocs: Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")] = False,
+    limit_tdocs: Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs")] = None,
+    limit_meetings: Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings considered")] = None,
+    limit_meetings_per_wg: Annotated[int | None, typer.Option("--limit-meetings-per-wg", help="Limit meetings per working group")] = None,
+    limit_wgs: Annotated[int | None, typer.Option("--limit-wgs", help="Limit number of working groups")] = None,
+    workers: Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers")] = 4,
+    overall_timeout: Annotated[int | None, typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)")] = None,
+    max_retries: Annotated[int, typer.Option("--max-retries", help="HTTP connection retry attempts")] = 3,
+    timeout: Annotated[int, typer.Option("--timeout", help="HTTP request timeout seconds")] = 30,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging")] = False,
 ) -> None:
     """Crawl TDocs from 3GPP FTP directories."""
     subgroups = parse_subgroups(subgroup)
@@ -143,20 +146,20 @@ def crawl_tdocs(
 
 @app.command("crawl-meetings", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_meetings(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Working groups to crawl"),
-    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s", help="Filter by sub-working group"),
-    incremental: bool = typer.Option(True, "--incremental/--full", help="Toggle incremental mode"),
-    clear_db: bool = typer.Option(False, "--clear-db", help="Clear all meetings and TDocs before crawling"),
-    limit_meetings: int | None = typer.Option(None, "--limit-meetings", help="Limit meetings overall"),
-    limit_meetings_per_wg: int | None = typer.Option(None, "--limit-meetings-per-wg", help="Limit meetings per working group"),
-    limit_wgs: int | None = typer.Option(None, "--limit-wgs", help="Limit number of working groups"),
-    max_retries: int = typer.Option(3, "--max-retries", help="HTTP retry attempts"),
-    timeout: int = typer.Option(30, "--timeout", help="HTTP timeout seconds"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
-    eol_username: str | None = typer.Option(None, "--eol-username", help="ETSI Online account username"),
-    eol_password: str | None = typer.Option(None, "--eol-password", help="ETSI Online account password"),
-    prompt_credentials: bool = typer.Option(True, "--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing"),
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")] = DEFAULT_CACHE_DIR,
+    working_group: Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Working groups to crawl")] = None,
+    subgroup: Annotated[list[str] | None, typer.Option("--sub-group", "-s", help="Filter by sub-working group")] = None,
+    incremental: Annotated[bool, typer.Option("--incremental/--full", help="Toggle incremental mode")] = True,
+    clear_db: Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")] = False,
+    limit_meetings: Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall")] = None,
+    limit_meetings_per_wg: Annotated[int | None, typer.Option("--limit-meetings-per-wg", help="Limit meetings per working group")] = None,
+    limit_wgs: Annotated[int | None, typer.Option("--limit-wgs", help="Limit number of working groups")] = None,
+    max_retries: Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts")] = 3,
+    timeout: Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds")] = 30,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging")] = False,
+    eol_username: Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username")] = None,
+    eol_password: Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password")] = None,
+    prompt_credentials: Annotated[bool, typer.Option("--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing")] = True,
 ) -> None:
     """Crawl meeting metadata from 3GPP portal."""
     subgroups = parse_subgroups(subgroup)
@@ -234,17 +237,17 @@ def crawl_meetings(
 
 @app.command("query-tdocs", rich_help_panel=HELP_PANEL_QUERY)
 def query_tdocs(
-    tdoc_ids: list[str] | None = typer.Argument(None, help="TDoc identifiers to query"),
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Filter by working group"),
-    output_format: str = typer.Option(OutputFormat.TABLE.value, "--output", "-o", help="Output format"),
-    limit: int | None = typer.Option(None, "--limit", "-l", help="Maximum number of rows"),
-    order: str = typer.Option(SortOrder.DESC.value, "--order", help="Sort order (asc|desc)"),
-    start_date: str | None = typer.Option(None, "--start-date", help="Filter from ISO timestamp"),
-    end_date: str | None = typer.Option(None, "--end-date", help="Filter until ISO timestamp"),
-    no_fetch: bool = typer.Option(False, "--no-fetch", help="Disable automatic fetching of missing TDocs from portal"),
-    eol_username: str | None = typer.Option(None, "--eol-username", help="ETSI Online Account username"),
-    eol_password: str | None = typer.Option(None, "--eol-password", help="ETSI Online Account password"),
+    tdoc_ids: Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")] = None,
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")] = DEFAULT_CACHE_DIR,
+    working_group: Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Filter by working group")] = None,
+    output_format: Annotated[str, typer.Option("--output", "-o", help="Output format")] = OutputFormat.TABLE.value,
+    limit: Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")] = None,
+    order: Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")] = SortOrder.DESC.value,
+    start_date: Annotated[str | None, typer.Option("--start-date", help="Filter from ISO timestamp")] = None,
+    end_date: Annotated[str | None, typer.Option("--end-date", help="Filter until ISO timestamp")] = None,
+    no_fetch: Annotated[bool, typer.Option("--no-fetch", help="Disable automatic fetching of missing TDocs from portal")] = False,
+    eol_username: Annotated[str | None, typer.Option("--eol-username", help="ETSI Online Account username")] = None,
+    eol_password: Annotated[str | None, typer.Option("--eol-password", help="ETSI Online Account password")] = None,
 ) -> None:
     """Query TDoc metadata from database."""
     working_groups = parse_working_groups(working_group)
@@ -302,13 +305,13 @@ def query_tdocs(
 
 @app.command("query-meetings", rich_help_panel=HELP_PANEL_QUERY)
 def query_meetings(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
-    working_group: list[str] | None = typer.Option(None, "--working-group", "-w", help="Filter by working group"),
-    subgroup: list[str] | None = typer.Option(None, "--sub-group", "-s", help="Filter by sub-working group"),
-    output_format: str = typer.Option(OutputFormat.TABLE.value, "--output", "-o", help="Output format"),
-    limit: int | None = typer.Option(None, "--limit", "-l", help="Maximum number of rows"),
-    order: str = typer.Option(SortOrder.DESC.value, "--order", help="Sort order (asc|desc)"),
-    include_without_files: bool = typer.Option(False, "--include-without-files", help="Include meetings without files URLs"),
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")] = DEFAULT_CACHE_DIR,
+    working_group: Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Filter by working group")] = None,
+    subgroup: Annotated[list[str] | None, typer.Option("--sub-group", "-s", help="Filter by sub-working group")] = None,
+    output_format: Annotated[str, typer.Option("--output", "-o", help="Output format")] = OutputFormat.TABLE.value,
+    limit: Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")] = None,
+    order: Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")] = SortOrder.DESC.value,
+    include_without_files: Annotated[bool, typer.Option("--include-without-files", help="Include meetings without files URLs")] = False,
 ) -> None:
     """Query meeting metadata from database."""
     working_groups = parse_working_groups(working_group)
@@ -351,8 +354,8 @@ def query_meetings(
 
 @app.command("open")
 def open_tdoc(
-    tdoc_id: str = typer.Argument(..., help="TDoc identifier to download and open"),
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
+    tdoc_id: Annotated[str, typer.Argument(help="TDoc identifier to download and open")],
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")] = DEFAULT_CACHE_DIR,
 ) -> None:
     """Download, extract, and open a TDoc file."""
     normalized_id = tdoc_id.strip().upper()
@@ -382,7 +385,7 @@ def open_tdoc(
 
 @app.command()
 def stats(
-    cache_dir: Path = typer.Option(Path.home() / ".tdoc-crawler", "--cache-dir", "-c", help="Cache directory"),
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")] = DEFAULT_CACHE_DIR,
 ) -> None:
     """Display database statistics."""
     db_path = database_path(cache_dir)

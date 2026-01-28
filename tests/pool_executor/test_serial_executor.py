@@ -10,6 +10,11 @@ from concurrent.futures import (
 )
 from functools import partial
 
+try:
+    from concurrent.futures import InterpreterPoolExecutor
+except ImportError:
+    InterpreterPoolExecutor = None  # type: ignore[misc]
+
 import pytest
 
 from pool_executors.pool_executors import ExecutorType, SerialPoolExecutor, create_executor
@@ -228,9 +233,7 @@ class TestCreateExecutorContinued:
 
     def test_create_subinterpreter_fallback(self: TestCreateExecutorContinued) -> None:
         """Test subinterpreter uses InterpreterPoolExecutor on Python 3.14+."""
-        try:
-            from concurrent.futures import InterpreterPoolExecutor
-        except ImportError:
+        if InterpreterPoolExecutor is None:
             executor = create_executor("subinterpreter")
             # Falls back to ProcessPoolExecutor when InterpreterPoolExecutor unavailable
             assert isinstance(executor, ProcessPoolExecutor)
@@ -241,12 +244,7 @@ class TestCreateExecutorContinued:
 
     def test_create_subinterpreter_aliases(self: TestCreateExecutorContinued) -> None:
         """Test subinterpreter aliases."""
-        try:
-            from concurrent.futures import InterpreterPoolExecutor
-        except ImportError:
-            expected_type = ProcessPoolExecutor
-        else:
-            expected_type = InterpreterPoolExecutor
+        expected_type = ProcessPoolExecutor if InterpreterPoolExecutor is None else InterpreterPoolExecutor
 
         for alias in ["sub", "si"]:
             executor = create_executor(alias)
