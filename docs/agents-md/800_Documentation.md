@@ -62,7 +62,7 @@ This repository maintains separate documentation for humans and for coding agent
 
 Focus updates on these key areas:
 
-- **Domain/crawling changes** → `200_*` and `400_*`
+- **3GPP domain/crawling changes** → Use skills in `.config/skills/3gpp/`
 - **Architecture changes** → `300_*`
 - **Database contract changes** → `320_*`
 - **Engineering standards** → `600_*`

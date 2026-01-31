@@ -25,10 +25,8 @@ The documentation uses a numbered system for easy extension and logical organiza
 - `110_Tool_beads.md` - Tool usage: beads issue tracking
 - `120_Tool_memorygraph.md` - Tool usage: memory-graph
 - `130_Tool_sequential_thinking.md` - Tool usage: sequential-thinking
-- `200_Project_Domain_3GPP_TDocs_Meetings.md` - Domain context for 3GPP meetings and TDocs
-- `300_Repo_Architecture_and_Key_Files.md` - Repository architecture and “source of truth” map
+- `300_Repo_Architecture_and_Key_Files.md` - Repository architecture and "source of truth" map
 - `320_Database_Schema_and_Invariants.md` - Database schema contract and invariants
-- `400_Crawling_and_Portal_Patterns.md` - Crawling, portal validation, and resolution patterns
 - `600_Engineering_Standards.md` - Engineering standards for agents (workflow, style, constraints)
 - `700_Testing_and_Mocking_Patterns.md` - Testing patterns and mocking boundaries
 - `800_Documentation.md` - Documentation requirements and guidelines

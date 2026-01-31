@@ -50,6 +50,5 @@ When changing behavior, update code first, then update documentation:
 
 ## Links
 
-- Domain context: [docs/agents-md/200_Project_Domain_3GPP_TDocs_Meetings.md](200_Project_Domain_3GPP_TDocs_Meetings.md)
 - DB schema invariants: [docs/agents-md/320_Database_Schema_and_Invariants.md](320_Database_Schema_and_Invariants.md)
-- Crawling patterns: [docs/agents-md/400_Crawling_and_Portal_Patterns.md](400_Crawling_and_Portal_Patterns.md)
+- 3GPP domain knowledge: Use skills in `.config/skills/3gpp/` (see AGENTS.md for skill list)
