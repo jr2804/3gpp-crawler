@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from dataclasses import dataclass
 from tdoc_crawler.crawlers.executor_adapter import Runner
 from tdoc_crawler.crawlers.parallel import fetch_meeting_document_list_subinterpreter, fetch_meeting_tdocs
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import CrawlLimits, MeetingMetadata, TDocCrawlConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import CrawlLimits, MeetingMetadata, MeetingQueryConfig, SortOrder, TDocCrawlConfig, TDocMetadata, WorkingGroup
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,101 @@ class HybridCrawlResult:
 class HybridTDocCrawler:
     """Hybrid crawler that supports both document list and parallel crawling methods."""
 
+    def __init__(self, database: TDocDatabase) -> None:
+        self.database = database
+
+    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> HybridCrawlResult:
+        """Execute a hybrid crawl using the provided configuration.
+
+        This method supports both document list and parallel crawling methods
+        with automatic fallbacks based on configuration.
+        """
+        meetings = self._get_meetings_to_crawl(config)
+        if not meetings:
+            logger.warning("No meetings found matching criteria")
+            return HybridCrawlResult(
+                processed=0, inserted=0, updated=0, document_list_meetings=0, parallel_meetings=0, fallbacks=0, errors=["No meetings found"]
+            )
+
+        meetings = self._apply_meeting_limits(meetings, config.limits)
+        if not meetings:
+            logger.warning("Meetings filtered out by limits configuration")
+            return HybridCrawlResult(
+                processed=0,
+                inserted=0,
+                updated=0,
+                document_list_meetings=0,
+                parallel_meetings=0,
+                fallbacks=0,
+                errors=["No meetings found after applying limits"],
+            )
+
+        existing_ids: set[str] = set()
+        if config.incremental:
+            existing_ids = {tdoc_id.upper() for tdoc_id in self.database.get_existing_tdoc_ids(config.working_groups)}
+
+        targets = set(config.target_ids) if config.target_ids else None
+
+        collected: list[TDocMetadata] = []
+        errors: list[str] = []
+
+        # Phase 1: Document list method
+        document_list_meetings = []
+        parallel_meetings = []
+
+        for meeting in meetings:
+            if self._should_use_document_list_method(config, meeting):
+                document_list_meetings.append(meeting)
+            else:
+                parallel_meetings.append(meeting)
+
+        document_list_errors, doc_list_meetings_processed = [], 0
+        if document_list_meetings:
+            logger.info(f"Starting document list crawl for {len(document_list_meetings)} meetings")
+            document_list_errors, doc_list_meetings_processed = asyncio.run(
+                self._crawl_meetings_document_list(document_list_meetings, config, collected, existing_ids, targets)
+            )
+            errors.extend(document_list_errors)
+
+        # Phase 2: Parallel method (for meetings not processed by document list or as fallback)
+        parallel_meetings_final = []
+        for meeting in parallel_meetings:
+            parallel_meetings_final.append(meeting)
+
+        # Add failed meetings as fallback if configured
+        if config.allow_parallel_fallback:
+            for meeting in document_list_meetings:
+                if meeting.files_url and meeting.meeting_id not in [m.meeting_id for m in parallel_meetings_final]:
+                    # Check if this meeting failed in document list phase
+                    # This is a simple heuristic - in practice we'd track failures more precisely
+                    parallel_meetings_final.append(meeting)
+
+        parallel_errors, parallel_meetings_processed = [], 0
+        if parallel_meetings_final:
+            logger.info(f"Starting parallel crawl for {len(parallel_meetings_final)} meetings")
+            parallel_errors, parallel_meetings_processed = asyncio.run(
+                self._crawl_meetings_parallel(parallel_meetings_final, config, collected, existing_ids, targets)
+            )
+            errors.extend(parallel_errors)
+
+        # Database operations
+        inserted = 0
+        updated = 0
+        if collected:
+            inserted, updated = self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
+
+        return HybridCrawlResult(
+            processed=len(collected),
+            inserted=inserted,
+            updated=updated,
+            document_list_meetings=doc_list_meetings_processed,
+            parallel_meetings=parallel_meetings_processed,
+            fallbacks=len(parallel_meetings_final) - len(parallel_meetings) if config.allow_parallel_fallback else 0,
+            errors=errors,
+        )
+
     def _apply_meeting_limits(self, meetings: list, limits: CrawlLimits) -> list:
         """Apply crawl limits to the meeting list."""
-
         limited = list(meetings)
 
         if limits.limit_meetings is not None and limits.limit_meetings != 0:
@@ -72,9 +165,6 @@ class HybridTDocCrawler:
 
     def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
         """Query meetings from the database based on configuration filters."""
-
-        from tdoc_crawler.models import MeetingQueryConfig, SortOrder
-
         meeting_config = MeetingQueryConfig(
             cache_dir=config.cache_dir,
             working_groups=config.working_groups,
@@ -172,7 +262,6 @@ class HybridTDocCrawler:
         targets: set[str] | None,
     ) -> tuple[list[str], int]:
         """Launch subinterpreter workers to crawl meetings in parallel."""
-
         errors: list[str] = []
         seen_ids: set[str] = set()
         max_tdocs = None
@@ -248,7 +337,6 @@ class HybridTDocCrawler:
         targets: set[str] | None,
     ) -> tuple[list[str], int]:
         """Launch subinterpreter workers to crawl meetings in parallel using document list method."""
-
         errors: list[str] = []
         seen_ids: set[str] = set()
         max_tdocs = None
@@ -294,8 +382,6 @@ class HybridTDocCrawler:
                         continue
 
                     # Parse the JSON response (could be error or success)
-                    import json
-
                     try:
                         response_data = json.loads(json_payload)
 
@@ -310,8 +396,6 @@ class HybridTDocCrawler:
                         # Process successful TDoc metadata
                         tdoc_metadata_list = []
                         for tdoc_json in response_data:
-                            from tdoc_crawler.models.tdocs import TDocMetadata
-
                             tdoc_metadata = TDocMetadata.model_validate_json(tdoc_json)
                             tdoc_metadata_list.append(tdoc_metadata)
 
@@ -369,7 +453,6 @@ class HybridTDocCrawler:
         Returns True when a crawl limit (target IDs or limit_tdocs) has been
         reached and processing should stop.
         """
-
         for json_payload in payloads:
             metadata = TDocMetadata.model_validate_json(json_payload)
             tdoc_id = metadata.tdoc_id
@@ -391,100 +474,6 @@ class HybridTDocCrawler:
                 return True
 
         return False
-
-    def __init__(self, database: TDocDatabase) -> None:
-        self.database = database
-
-    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> HybridCrawlResult:
-        """Execute a hybrid crawl using the provided configuration.
-
-        This method supports both document list and parallel crawling methods
-        with automatic fallbacks based on configuration.
-        """
-
-        meetings = self._get_meetings_to_crawl(config)
-        if not meetings:
-            logger.warning("No meetings found matching criteria")
-            return HybridCrawlResult(
-                processed=0, inserted=0, updated=0, document_list_meetings=0, parallel_meetings=0, fallbacks=0, errors=["No meetings found"]
-            )
-
-        meetings = self._apply_meeting_limits(meetings, config.limits)
-        if not meetings:
-            logger.warning("Meetings filtered out by limits configuration")
-            return HybridCrawlResult(
-                processed=0,
-                inserted=0,
-                updated=0,
-                document_list_meetings=0,
-                parallel_meetings=0,
-                fallbacks=0,
-                errors=["No meetings found after applying limits"],
-            )
-
-        existing_ids: set[str] = set()
-        if config.incremental:
-            existing_ids = {tdoc_id.upper() for tdoc_id in self.database.get_existing_tdoc_ids(config.working_groups)}
-
-        targets = set(config.target_ids) if config.target_ids else None
-
-        collected: list[TDocMetadata] = []
-        errors: list[str] = []
-
-        # Phase 1: Document list method
-        document_list_meetings = []
-        parallel_meetings = []
-
-        for meeting in meetings:
-            if self._should_use_document_list_method(config, meeting):
-                document_list_meetings.append(meeting)
-            else:
-                parallel_meetings.append(meeting)
-
-        document_list_errors, doc_list_meetings_processed = [], 0
-        if document_list_meetings:
-            logger.info(f"Starting document list crawl for {len(document_list_meetings)} meetings")
-            document_list_errors, doc_list_meetings_processed = asyncio.run(
-                self._crawl_meetings_document_list(document_list_meetings, config, collected, existing_ids, targets)
-            )
-            errors.extend(document_list_errors)
-
-        # Phase 2: Parallel method (for meetings not processed by document list or as fallback)
-        parallel_meetings_final = []
-        for meeting in parallel_meetings:
-            parallel_meetings_final.append(meeting)
-
-        # Add failed meetings as fallback if configured
-        if config.allow_parallel_fallback:
-            for meeting in document_list_meetings:
-                if meeting.files_url and meeting.meeting_id not in [m.meeting_id for m in parallel_meetings_final]:
-                    # Check if this meeting failed in document list phase
-                    # This is a simple heuristic - in practice we'd track failures more precisely
-                    parallel_meetings_final.append(meeting)
-
-        parallel_errors, parallel_meetings_processed = [], 0
-        if parallel_meetings_final:
-            logger.info(f"Starting parallel crawl for {len(parallel_meetings_final)} meetings")
-            parallel_errors, parallel_meetings_processed = asyncio.run(
-                self._crawl_meetings_parallel(parallel_meetings_final, config, collected, existing_ids, targets)
-            )
-            errors.extend(parallel_errors)
-
-        # Database operations
-        inserted = 0
-        updated = 0
-        if collected:
-            inserted, updated = self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
-
-        return HybridCrawlResult(
-            processed=len(collected),
-            inserted=inserted,
-            updated=updated,
-            document_list_meetings=doc_list_meetings_processed,
-            parallel_meetings=parallel_meetings_processed,
-            fallbacks=len(parallel_meetings_final) - len(parallel_meetings) if config.allow_parallel_fallback else 0,
-            errors=errors,
-        )
 
 
 __all__ = [

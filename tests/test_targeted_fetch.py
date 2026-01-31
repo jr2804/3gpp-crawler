@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from tdoc_crawler.cli.fetching import (fetch_missing_tdocs,
-                                       maybe_fetch_missing_tdocs)
+from conftest import insert_sample_meetings
+
+from tdoc_crawler.cli.fetching import fetch_missing_tdocs, maybe_fetch_missing_tdocs
 from tdoc_crawler.cli.helpers import infer_working_groups_from_ids
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import QueryConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata, WorkingGroup
 
 
 class TestInferWorkingGroups:
@@ -70,12 +72,6 @@ class TestFetchMissingTdocs:
         sample_meetings: list[dict],
     ) -> None:
         """Ensure targeted fetch creates proper config."""
-        from decimal import Decimal
-
-        from conftest import insert_sample_meetings
-
-        from tdoc_crawler.models import PortalCredentials, TDocMetadata
-
         # Mock portal response (now returns TDocMetadata)
         mock_fetch_portal.return_value = TDocMetadata(
             tdoc_id="R1-2301234",
@@ -117,12 +113,6 @@ class TestFetchMissingTdocs:
         sample_meetings: list[dict],
     ) -> None:
         """Verify working groups are inferred from target IDs."""
-        from decimal import Decimal
-
-        from conftest import insert_sample_meetings
-
-        from tdoc_crawler.models import PortalCredentials, TDocMetadata
-
         # Mock portal responses (now return TDocMetadata instances)
         mock_fetch_portal.side_effect = [
             TDocMetadata(
@@ -186,8 +176,6 @@ class TestMaybeFetchMissingTdocs:
         sample_meetings: list[dict],
     ) -> None:
         """Skip fetch when all requested TDocs are present."""
-        from conftest import insert_sample_meetings
-
         with TDocDatabase(test_db_path) as database:
             insert_sample_meetings(database, sample_meetings)
             for tdoc in sample_tdocs:
@@ -276,8 +264,6 @@ class TestMaybeFetchMissingTdocs:
         sample_meetings: list[dict],
     ) -> None:
         """Fetch only the missing TDocs when some are present."""
-        from conftest import insert_sample_meetings
-
         mock_fetch.return_value = MagicMock(
             processed=1,
             inserted=1,

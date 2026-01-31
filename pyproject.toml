@@ -16,6 +16,7 @@ classifiers = [
 dependencies = [
     "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
+    "hishel>=1.1.8",
     "lxml>=6.0.2",
     "pandas>=2.3.3",
     "pydantic>=2.12.2",
@@ -48,9 +49,9 @@ dev = [
     "mkdocstrings[python]>=0.26.1",
     "pytest-asyncio>=1.2.0",
     "mdformat>=1.0.0",
-    "rust-just>=1.46.0",
     "isort>=7.0.0",
     "undersort>=0.1.5",
+    "beads-mcp>=0.44.0",
 ]
 
 [build-system]
@@ -63,6 +64,10 @@ tdoc-crawler = "tdoc_crawler.cli:app"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# Suppress Pydantic deprecation warning from pydantic-sqlite library (external dependency)
+filterwarnings = [
+    "ignore:.*Accessing the 'model_fields' attribute on the instance is deprecated.*:DeprecationWarning",
+]
 
 
 [tool.coverage.report]

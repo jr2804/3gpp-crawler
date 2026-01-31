@@ -27,13 +27,11 @@ class WorkingGroup(StrEnum):
     @property
     def ftp_root(self) -> str:
         """Return the FTP root path segment for the working group."""
-
         return f"/tsg_{self.value.lower()}"
 
     @property
     def portal_meetings_code(self) -> str:
         """Return the meetings code (two characters) used for the dynareport endpoint."""
-
         mapping: dict[WorkingGroup, str] = {
             WorkingGroup.RAN: "R",
             WorkingGroup.SA: "S",

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
-from tdoc_crawler.models import (CrawlConfig, QueryConfig, TDocMetadata,
-                                 WorkingGroup)
+from tdoc_crawler.models import CrawlConfig, QueryConfig, TDocMetadata, WorkingGroup
 
 
 class TestTDocMetadata:
@@ -13,8 +13,6 @@ class TestTDocMetadata:
 
     def test_creation(self) -> None:
         """Test creating TDocMetadata instance."""
-        from decimal import Decimal
-
         metadata = TDocMetadata(
             tdoc_id="R1-2301234",
             meeting_id=0,
@@ -30,8 +28,6 @@ class TestTDocMetadata:
 
     def test_case_normalization(self) -> None:
         """Test TDoc ID case normalization to uppercase."""
-        from decimal import Decimal
-
         metadata = TDocMetadata(
             tdoc_id="r1-2301234",
             meeting_id=0,
@@ -45,8 +41,6 @@ class TestTDocMetadata:
 
     def test_optional_fields(self) -> None:
         """Test optional fields in TDocMetadata."""
-        from decimal import Decimal
-
         metadata = TDocMetadata(
             tdoc_id="S4-2301890",
             meeting_id=12345,

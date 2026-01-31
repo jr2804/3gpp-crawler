@@ -51,29 +51,29 @@ Meeting lists come from the “dynareport” pages:
 
 Where `<ID>` is one of the codes below:
 
-| ID | Title       | tbid | SubTB |
+| ID | Title | tbid | SubTB |
 |----|-------------|------|-------|
-| SP | SA Plenary  | 375  | 375   |
-| S1 | SA1         | 375  | 384   |
-| S2 | SA2         | 375  | 385   |
-| S3 | SA3         | 375  | 386   |
-| S4 | SA4         | 375  | 387   |
-| S5 | SA5         | 375  | 388   |
-| S6 | SA6         | 375  | 825   |
-| CP | CT Plenary  | 649  | 649   |
-| C1 | CT1         | 649  | 651   |
-| C2 | CT2         | 649  | 652   |
-| C3 | CT3         | 649  | 653   |
-| C4 | CT4         | 649  | 654   |
-| C5 | CT5         | 649  | 655   |
-| C6 | CT6         | 649  | 656   |
-| RP | RAN Plenary | 373  | 373   |
-| R1 | RAN1        | 373  | 379   |
-| R2 | RAN2        | 373  | 380   |
-| R3 | RAN3        | 373  | 381   |
-| R4 | RAN4        | 373  | 382   |
-| R5 | RAN5        | 373  | 657   |
-| R6 | RAN6        | 373  | 843   |
+| SP | SA Plenary | 375 | 375 |
+| S1 | SA1 | 375 | 384 |
+| S2 | SA2 | 375 | 385 |
+| S3 | SA3 | 375 | 386 |
+| S4 | SA4 | 375 | 387 |
+| S5 | SA5 | 375 | 388 |
+| S6 | SA6 | 375 | 825 |
+| CP | CT Plenary | 649 | 649 |
+| C1 | CT1 | 649 | 651 |
+| C2 | CT2 | 649 | 652 |
+| C3 | CT3 | 649 | 653 |
+| C4 | CT4 | 649 | 654 |
+| C5 | CT5 | 649 | 655 |
+| C6 | CT6 | 649 | 656 |
+| RP | RAN Plenary | 373 | 373 |
+| R1 | RAN1 | 373 | 379 |
+| R2 | RAN2 | 373 | 380 |
+| R3 | RAN3 | 373 | 381 |
+| R4 | RAN4 | 373 | 382 |
+| R5 | RAN5 | 373 | 657 |
+| R6 | RAN6 | 373 | 843 |
 
 Operational notes:
 

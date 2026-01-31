@@ -1,8 +1,8 @@
 """Executor pool extensions with serial execution support."""
 
-from pool_executors.factory import create_executor
-from pool_executors.serial import SerialPoolExecutor
-from pool_executors.types import ExecutorType
+from .factory import create_executor
+from .serial import SerialPoolExecutor
+from .types import ExecutorType
 
 __version__ = "0.1.0"
 

@@ -1,73 +1,19 @@
 {
     "servers": {
-        "ncp": {
-            "command": "npx",
+        "skillz": {
+            "command": "uvx",
             "args": [
-                "-y",
-                "@portel/ncp@latest"
-            ]
-        },
-        "mcpadvisor": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@xiaohui-wang/mcpadvisor@latest"
-            ]
-        },
-        "fetch": {
-            "args": [
-                "mcp-server-fetch"
+                "skillz@latest",
+                ".config/skills"
             ],
-            "command": "uvx"
         },
-        "gh_grep": {
-            "type": "http",
-            "url": "https://mcp.grep.app"
-        },
-        "mcp-compass": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@liuyoshio/mcp-compass@latest"
-            ]
-        },
-        "upstash-context7": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@upstash/context7-mcp"
-            ]
-        },
-        "memorygraph": {
-            "command": "memorygraph",
+        "grepai": {
             "type": "stdio",
+            "command": "grepai",
             "args": [
-                "--profile",
-                "extended"
-            ],
-            "env": {
-                "PYTHONIOENCODING": "utf-8"
-            }
-        },
-        "sequential-thinking": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-sequential-thinking@latest"
+                "mcp-serve"
             ]
-        },
-        "desktop-commander": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@wonderwhy-er/desktop-commander@latest",
-                "--no-onboarding"
-            ]
-        },
-        "beads": {
-            "command": "beads-mcp",
-            "args": [],
-            "type": "stdio"
         }
+
     }
 }

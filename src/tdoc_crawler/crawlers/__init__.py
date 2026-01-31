@@ -7,7 +7,7 @@ from typing import Any
 
 # No direct imports for any symbols listed in __all__; all are dynamically imported via __getattr__
 
-__all__ = [
+__all__ = [  # noqa: F822
     "EXCLUDED_DIRS",
     "EXCLUDED_DIRS_NORMALIZED",
     "MEETING_CODE_REGISTRY",

@@ -6,8 +6,17 @@ import logging
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any
 
-from pool_executors.serial import SerialPoolExecutor
-from pool_executors.types import ExecutorType
+from .serial import SerialPoolExecutor
+from .types import ExecutorType
+
+# Import InterpreterPoolExecutor for Python 3.14+, handle gracefully for older versions
+try:
+    from concurrent.futures import InterpreterPoolExecutor  # noqa: PLC0415
+
+    HAS_INTERPRETER_POOL_EXECUTOR = True
+except (ImportError, AttributeError):
+    InterpreterPoolExecutor = None  # type: ignore[assignment, misc]
+    HAS_INTERPRETER_POOL_EXECUTOR = False
 
 logger = logging.getLogger("pool_executors.factory")
 
@@ -58,12 +67,10 @@ def create_executor(executor_type: ExecutorType | str, **kwargs: Any) -> Executo
         return ThreadPoolExecutor(**kwargs)
 
     if exec_type in (ExecutorType.SUBINTERPRETER, ExecutorType.SUB, ExecutorType.SI):
-        # Try to import InterpreterPoolExecutor (Python 3.14+)
-        try:
-            from concurrent.futures import InterpreterPoolExecutor  # type: ignore[attr-defined]
-
+        # Use InterpreterPoolExecutor if available (Python 3.14+)
+        if HAS_INTERPRETER_POOL_EXECUTOR and InterpreterPoolExecutor is not None:
             return InterpreterPoolExecutor(**kwargs)
-        except (ImportError, AttributeError):
+        else:
             logger.warning("InterpreterPoolExecutor not available (Python 3.14+ required), falling back to ProcessPoolExecutor")
             return ProcessPoolExecutor(**kwargs)
 

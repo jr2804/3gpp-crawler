@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 from collections.abc import Callable
 from concurrent.futures import Executor, Future
@@ -14,24 +13,19 @@ T = TypeVar("T")
 
 
 class SerialFuture(Future[T]):
-    """Future for serial execution that runs task on first result() call.
+    """Future for serial execution that executes immediately.
 
-    This future does not execute the task immediately when created. Instead,
-    the task is executed lazily when result() is first called. Subsequent
-    calls return the cached result.
+    This future executes the task immediately upon creation to ensure
+    compatibility with as_completed(). The result is cached and returned
+    from result() calls.
 
-    Attributes:
-        _fn: Callable to execute
-        _args: Positional arguments for callable
-        _kwargs: Keyword arguments for callable
-        _result: Cached result after execution
-        _exception: Stored exception if task failed
-        _done: Flag indicating if task has been executed
-        _callbacks: List of callbacks to invoke after execution
+    This differs from lazy execution but is necessary for as_completed()
+    to work correctly, as it waits on internal completion events that are
+    only triggered by set_result() or set_exception().
     """
 
     def __init__(self, fn: Callable[..., T], args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:
-        """Initialize serial future with callable and arguments.
+        """Initialize and immediately execute serial future.
 
         Args:
             fn: Callable to execute
@@ -39,118 +33,23 @@ class SerialFuture(Future[T]):
             kwargs: Keyword arguments
         """
         super().__init__()
-        self._fn = fn
-        self._args = args
-        self._kwargs = kwargs
-        self._result: T | None = None
-        self._exception: BaseException | None = None
-        self._done = False
-        self._callbacks: list[Callable[[Future[T]], object]] = []
 
-    def result(self, timeout: float | None = None) -> T:
-        """Execute task if not done, return result.
-
-        The timeout parameter is ignored for serial execution as tasks
-        run synchronously in the calling thread.
-
-        Args:
-            timeout: Ignored for serial execution
-
-        Returns:
-            Task result
-
-        Raises:
-            Exception: If task raised an exception
-        """
-        if not self._done:
-            try:
-                self._result = self._fn(*self._args, **self._kwargs)
-            except BaseException as e:
-                self._exception = e
-            finally:
-                self._done = True
-                # Invoke callbacks after task completion
-                for callback in self._callbacks:
-                    try:
-                        callback(self)
-                    except Exception:
-                        logger.exception("Exception in callback")
-
-        if self._exception:
-            raise self._exception
-        return self._result  # type: ignore[return-value]
-
-    def exception(self, timeout: float | None = None) -> BaseException | None:
-        """Return exception raised by task, or None.
-
-        Args:
-            timeout: Ignored for serial execution
-
-        Returns:
-            Exception if task failed, None otherwise
-        """
-        if not self._done:
-            with contextlib.suppress(BaseException):
-                self.result()
-        return self._exception
-
-    def done(self) -> bool:
-        """Check if task has been executed.
-
-        Returns:
-            True if task has been executed, False otherwise
-        """
-        return self._done
-
-    def cancel(self) -> bool:
-        """Attempt to cancel task.
-
-        Serial tasks cannot be cancelled as they execute synchronously.
-
-        Returns:
-            Always False
-        """
-        return False
-
-    def cancelled(self) -> bool:
-        """Check if task was cancelled.
-
-        Returns:
-            Always False (serial tasks cannot be cancelled)
-        """
-        return False
-
-    def running(self) -> bool:
-        """Check if task is currently running.
-
-        Returns:
-            False (serial tasks complete before returning)
-        """
-        return False
-
-    def add_done_callback(self, fn: Callable[[Future[T]], object]) -> None:
-        """Add callback to invoke after task completion.
-
-        If task is already done, callback is invoked immediately.
-        Otherwise, it's stored and invoked after task execution.
-
-        Args:
-            fn: Callback function taking this future as argument
-        """
-        if self._done:
-            try:
-                fn(self)
-            except Exception:
-                logger.exception("Exception in callback")
-        else:
-            self._callbacks.append(fn)
+        # Execute immediately and set result/exception
+        # This triggers the internal _Waiter event that as_completed() depends on
+        try:
+            self.set_running_or_notify_cancel()
+            result = fn(*args, **kwargs)
+            self.set_result(result)
+        except BaseException as e:
+            self.set_exception(e)
 
 
 class SerialPoolExecutor(Executor):
-    """Executor that runs tasks sequentially in the main thread.
+    """Executor that runs tasks immediately and sequentially in the main thread.
 
-    Tasks are collected via submit() but not executed until shutdown()
-    is called with wait=True (or when used as context manager).
+    Tasks are executed synchronously when submit() is called. This ensures
+    compatibility with as_completed() and other concurrent.futures utilities
+    that depend on internal completion events.
 
     This is useful for:
     - Debugging parallel code by forcing serial execution
@@ -160,7 +59,7 @@ class SerialPoolExecutor(Executor):
     Example:
         >>> with SerialPoolExecutor() as executor:
         ...     futures = [executor.submit(func, i) for i in range(10)]
-        ...     results = [f.result() for f in futures]
+        ...     results = [f.result() for f in futures]  # Already executed
     """
 
     def __init__(self, max_workers: int | None = None, **kwargs: Any) -> None:
@@ -176,11 +75,11 @@ class SerialPoolExecutor(Executor):
         self._shutdown = False
 
     def submit(self, fn: Callable[..., T], /, *args: Any, **kwargs: Any) -> Future[T]:
-        """Submit task for serial execution.
+        """Submit task for immediate serial execution.
 
-        Task is not executed immediately. It will be executed when
-        result() is called on the returned future, or when shutdown(wait=True)
-        is called.
+        Task is executed synchronously in the calling thread before this
+        method returns. The returned future already contains the result
+        or exception.
 
         Args:
             fn: Callable to execute
@@ -188,7 +87,7 @@ class SerialPoolExecutor(Executor):
             **kwargs: Keyword arguments
 
         Returns:
-            SerialFuture that will execute task lazily
+            SerialFuture with task already executed
 
         Raises:
             RuntimeError: If executor is shutdown
@@ -202,20 +101,16 @@ class SerialPoolExecutor(Executor):
         return future
 
     def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
-        """Shutdown executor and optionally execute pending tasks.
+        """Shutdown executor.
+
+        All tasks are already executed immediately upon submit(), so this
+        method only sets the shutdown flag.
 
         Args:
-            wait: If True, execute all pending tasks. If False, leave tasks unexecuted
+            wait: Ignored (tasks already executed)
             cancel_futures: Ignored (serial tasks cannot be cancelled)
         """
         self._shutdown = True
-        if wait:
-            # Execute all pending tasks
-            for future in self._pending:
-                if not future.done():
-                    with contextlib.suppress(Exception):
-                        # Exceptions are stored in future, will be raised when result() called
-                        future.result()
 
     def __enter__(self) -> SerialPoolExecutor:
         """Enter context manager.
@@ -226,7 +121,9 @@ class SerialPoolExecutor(Executor):
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit context manager, executing all pending tasks.
+        """Exit context manager.
+
+        All tasks are already executed, so this just calls shutdown().
 
         Args:
             exc_type: Exception type if exception occurred

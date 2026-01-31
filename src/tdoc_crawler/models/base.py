@@ -15,13 +15,11 @@ DEFAULT_CACHE_DIR = Path.home() / ".tdoc-crawler"
 
 def utc_now() -> datetime:
     """Return the current UTC timestamp as an aware datetime."""
-
     return datetime.now(UTC)
 
 
 def _normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
     """Uppercase and strip whitespace from TDoc identifiers."""
-
     return [str(value).strip().upper() for value in ids]
 
 

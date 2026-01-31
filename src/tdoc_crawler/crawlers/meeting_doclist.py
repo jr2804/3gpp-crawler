@@ -4,17 +4,15 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from tdoc_crawler.http_client import create_cached_session
-
-if TYPE_CHECKING:
-    from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +63,9 @@ def fetch_meeting_document_list(
 
         # Check if we got a valid Excel file
         content_type = response.headers.get("content-type", "").lower()
-        if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" not in content_type:
+        if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" not in content_type and not response.content.startswith(b"PK"):
             # Some responses might not set content-type correctly, check file signature
-            if not response.content.startswith(b"PK"):
-                raise DocumentListError(f"Expected Excel file for meeting {meeting_id}, got content-type: {content_type}")
+            raise DocumentListError(f"Expected Excel file for meeting {meeting_id}, got content-type: {content_type}")
 
         # Parse Excel file
         logger.debug(f"Parsing Excel document list for meeting {meeting_id}")
@@ -106,17 +103,29 @@ def parse_excel_document_list(
 
         logger.debug(f"Found {len(df)} rows in TDoc_List sheet for meeting {meeting_id}")
 
+        # Check if the dataframe has any recognizable TDoc ID columns
+        # Look for any column that might contain TDoc IDs
+        tdoc_columns_found = False
+        for col in df.columns:
+            col_str = str(col).lower()
+            if any(keyword in col_str for keyword in ["tdoc", "contribution", "document", "id", "number"]):
+                tdoc_columns_found = True
+                break
+
+        if not tdoc_columns_found:
+            raise DocumentListError(f"No recognizable TDoc ID columns found in Excel file for meeting {meeting_id}")
+
         # Convert DataFrame rows to TDocMetadata instances
         tdoc_metadata_list = []
-        for index, row in df.iterrows():
+        for i, (_idx, row) in enumerate(df.iterrows()):
             try:
                 tdoc_metadata = convert_excel_row_to_tdoc_metadata(row, meeting_id)
                 if tdoc_metadata:
                     tdoc_metadata_list.append(tdoc_metadata)
                 else:
-                    logger.debug(f"Skipping row {index + 1}: missing required TDoc ID")
+                    logger.debug(f"Skipping row {i + 1}: missing required TDoc ID")
             except Exception as exc:
-                logger.warning(f"Failed to parse row {index + 1} for meeting {meeting_id}: {exc}")
+                logger.warning(f"Failed to parse row {i + 1} for meeting {meeting_id}: {exc}")
                 continue
 
         logger.info(f"Successfully parsed {len(tdoc_metadata_list)} TDoc metadata entries for meeting {meeting_id}")
@@ -139,8 +148,6 @@ def convert_excel_row_to_tdoc_metadata(
     Returns:
         TDocMetadata instance or None if conversion fails
     """
-    from tdoc_crawler.models.tdocs import TDocMetadata
-
     # Map Excel columns to TDocMetadata fields
     # Try multiple possible column names to handle different Excel formats
     tdoc_id = _extract_tdoc_id(row)
@@ -229,8 +236,6 @@ def _is_valid_tdoc_id(tdoc_id: str) -> bool:
     Returns:
         True if valid TDoc ID format
     """
-    import re
-
     # TDoc ID pattern: [RSC][1-6P] followed by 4-10 chars
     pattern = re.compile(r"^[RSC][1-6P].{4,10}$", re.IGNORECASE)
     return bool(pattern.match(tdoc_id.strip()))
@@ -325,7 +330,7 @@ def _parse_date(date_value: str | None) -> datetime | None:
 
 __all__ = [
     "DocumentListError",
+    "convert_excel_row_to_tdoc_metadata",
     "fetch_meeting_document_list",
     "parse_excel_document_list",
-    "convert_excel_row_to_tdoc_metadata",
 ]

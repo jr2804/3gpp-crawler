@@ -13,10 +13,10 @@ This document describes the database contract that crawlers and CLI code must ma
 The database has five tables with foreign keys:
 
 1. `working_groups` (reference)
-2. `subworking_groups` (reference)
-3. `meetings`
-4. `tdocs`
-5. `crawl_log`
+1. `subworking_groups` (reference)
+1. `meetings`
+1. `tdocs`
+1. `crawl_log`
 
 ## Reference tables
 

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from concurrent.futures import Executor
-from contextlib import contextmanager
 from typing import Any, TypeVar
 
-from pool_executors import ExecutorType, create_executor
+from pool_executors.pool_executors import create_executor
 
 T = TypeVar("T")
 
@@ -22,7 +21,8 @@ class _RunnerContextManager:
     def __enter__(self) -> Runner:
         """Start executor and return runner."""
         # Create executor using pool_executors factory
-        self.runner._executor = create_executor(self.runner.executor_type, max_workers=self.runner.workers)
+        # Use type: ignore to bypass literal type checking for executor_type
+        self.runner._executor = create_executor(self.runner.executor_type, max_workers=self.runner.workers)  # type: ignore
         try:
             self.runner._loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -31,7 +31,7 @@ class _RunnerContextManager:
             asyncio.set_event_loop(self.runner._loop)
         return self.runner
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None) -> None:
         """Shutdown executor."""
         if self.runner._executor:
             self.runner._executor.shutdown(wait=True)
@@ -43,6 +43,9 @@ class Runner:
     """Adapter that provides aiointerpreters.Runner API using pool_executors."""
 
     def __init__(self, workers: int = 4, executor_type: str = "subinterpreter") -> None:
+        # Ensure executor_type is compatible with ExecutorType
+        self.executor_type = executor_type
+
         """Initialize runner with specified number of workers.
 
         Args:
@@ -88,7 +91,7 @@ class Runner:
         """Context manager entry - not used, use start() instead."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None) -> None:
         """Context manager exit - not used, use start() instead."""
         pass
 

@@ -1,0 +1,31 @@
+[tasks.default]
+run = "mise tasks"
+
+[tasks.format]
+run = [
+    "ruff format .",
+    "isort .",
+    "undersort .",
+    "mdformat src/ docs/ tests/ --exclude .config/skills",
+]
+
+[tasks.lint]
+run = "ruff check src tests"
+
+[tasks.lint-fix]
+run = "ruff check --fix src tests"
+
+[tasks.type-check]
+run = "ty src/ tests/"
+
+[tasks.test]
+run = "uv run pytest tests/ -v"
+
+[tasks.test-coverage]
+run = "uv run pytest tests/ -v --cov=src/tdoc_crawler --cov-report=html"
+
+
+[tasks.convert-mcp-cfg]
+run = """
+    uvx --from https://github.com/jr2804/mcp-config-converter.git mcp-config-converter convert .vscode/mcp.json --provider{% if args %} {{ args }}{% endif %}
+"""

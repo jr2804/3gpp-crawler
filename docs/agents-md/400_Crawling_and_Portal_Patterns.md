@@ -43,9 +43,9 @@ The portal meeting label may differ from the meeting name stored in the database
 Resolution strategy should be multi-stage (in order):
 
 1. Exact match (case-insensitive)
-2. Normalized match (e.g., replace `#` with `-`, normalize `SA4` → `S4`)
-3. Prefix/suffix matching for common portal vs stored naming variants
-4. Edit-distance fallback (use carefully to avoid false positives)
+1. Normalized match (e.g., replace `#` with `-`, normalize `SA4` → `S4`)
+1. Prefix/suffix matching for common portal vs stored naming variants
+1. Edit-distance fallback (use carefully to avoid false positives)
 
 Avoid substring “contains” matching that can create false positives.
 

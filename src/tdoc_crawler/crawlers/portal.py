@@ -5,15 +5,37 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
-from tdoc_crawler.crawlers.constants import (LOGIN_URL, PORTAL_BASE_URL,
+from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_VIEW_URL
+from tdoc_crawler.models.base import PortalCredentials
+from tdoc_crawler.models.tdocs import TDocMetadata
 
-if TYPE_CHECKING:
-    from tdoc_crawler.models.base import PortalCredentials
-    from tdoc_crawler.models.tdocs import TDocMetadata
+
+def create_cached_session(cache_dir: Path, ttl: int = 7200, refresh_ttl_on_access: bool = True, max_retries: int = 3) -> requests.Session:
+    """Create an HTTP session with caching."""
+    # Create session
+    session = requests.Session()
+
+    # Add retry strategy
+    retry_strategy = Retry(
+        total=max_retries,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+    )
+
+    # Add adapter with retry strategy
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    session.mount("ftp://", adapter)
+
+    return session
+
 
 logger = logging.getLogger(__name__)
 
@@ -185,8 +207,6 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         - status: Document status (optional)
         - is_revision_of: Reference to previous TDoc version (optional)
     """
-    from tdoc_crawler.models.tdocs import TDocMetadata
-
     soup = BeautifulSoup(html, "html.parser")
 
     # Check for "not found" or error messages
