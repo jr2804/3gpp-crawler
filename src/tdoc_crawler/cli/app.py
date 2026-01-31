@@ -17,6 +17,7 @@ from rich.console import Console
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from tdoc_crawler.checkout import checkout_tdoc
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
@@ -381,6 +382,61 @@ def open_tdoc(
 
     console.print(f"[green]Opening {target_file}")
     launch_file(target_file)
+
+
+@app.command()
+def checkout(
+    tdoc_id: Annotated[list[str], typer.Argument(help="TDoc identifier(s) to checkout")],
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")] = DEFAULT_CACHE_DIR,
+    force: Annotated[bool, typer.Option("--force", "-f", help="Re-download even if already checked out")] = False,
+) -> None:
+    """Download and extract TDoc(s) to checkout folder."""
+    normalized_ids = [tid.strip().upper() for tid in tdoc_id]
+    config = QueryConfig(
+        cache_dir=cache_dir,
+        tdoc_ids=normalized_ids,
+    )
+
+    db_path = database_path(cache_dir)
+    with TDocDatabase(db_path) as database:
+        results = database.query_tdocs(config)
+        results = maybe_fetch_missing_tdocs(database, cache_dir, config, results)
+
+        # Check which TDocs were found
+        found_ids = {r.tdoc_id for r in results}
+        missing_ids = set(normalized_ids) - found_ids
+
+        if missing_ids:
+            console.print(f"[red]TDoc(s) not found: {', '.join(sorted(missing_ids))}[/red]")
+            if not results:
+                raise typer.Exit(code=1)
+
+    checkout_dir = cache_dir / "checkout"
+    success_count = 0
+    error_count = 0
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Checking out TDocs...", total=len(results))
+
+        for metadata in results:
+            try:
+                checkout_path = checkout_tdoc(metadata, checkout_dir, force=force)
+                progress.console.print(f"[green]✓ {metadata.tdoc_id} → {checkout_path}")
+                success_count += 1
+            except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+                progress.console.print(f"[red]✗ {metadata.tdoc_id}: {exc}")
+                error_count += 1
+            progress.advance(task)
+
+    console.print(f"\n[cyan]Checked out {success_count} TDoc(s)[/cyan]")
+    if error_count:
+        console.print(f"[red]Failed: {error_count} TDoc(s)[/red]")
 
 
 @app.command()
