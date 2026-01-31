@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import time
-from concurrent.futures import (
-    ProcessPoolExecutor,
-    ThreadPoolExecutor,
-    as_completed,
-)
+from concurrent.futures import (ProcessPoolExecutor, ThreadPoolExecutor,
+                                as_completed)
 from functools import partial
 
 try:
@@ -17,7 +14,8 @@ except ImportError:
 
 import pytest
 
-from pool_executors.pool_executors import ExecutorType, SerialPoolExecutor, create_executor
+from pool_executors.pool_executors import (ExecutorType, SerialPoolExecutor,
+                                           create_executor)
 
 
 class TestSerialFuture:
