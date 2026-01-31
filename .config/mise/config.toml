@@ -26,6 +26,6 @@ run = "uv run pytest tests/ -v --cov=src/tdoc_crawler --cov-report=html"
 
 
 [tasks.convert-mcp-cfg]
-run = """
-    uvx --from https://github.com/jr2804/mcp-config-converter.git mcp-config-converter convert .vscode/mcp.json --provider{% if args %} {{ args }}{% endif %}
-"""
+run = ["cls",
+    "uvx --from https://github.com/jr2804/mcp-config-converter.git mcp-config-converter convert .vscode/mcp.json --provider{% if args %} {{ args }}{% endif %}"
+]
