@@ -3,10 +3,10 @@ run = "mise tasks"
 
 [tasks.format]
 run = [
-    "ruff format .",
-    "isort .",
-    "undersort .",
-    "mdformat src/ docs/ tests/ --exclude .config/skills",
+    "undersort src/ tests/ --exclude .config/",
+    "isort src/ tests/",
+    "ruff format src/ tests/ --exclude .config",
+    "mdformat src/ docs/ tests/ --exclude .config/",
 ]
 
 [tasks.lint]
