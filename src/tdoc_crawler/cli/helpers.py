@@ -13,8 +13,8 @@ from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.request import urlopen
 
+import requests
 import typer
 from rich.console import Console
 
@@ -261,8 +261,25 @@ def download_to_path(url: str, destination: Path) -> None:
     lowered = url.lower()
     if not lowered.startswith(ALLOWED_DOWNLOAD_SCHEMES):
         raise ValueError("unsupported-url-scheme")
-    with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response, destination.open("wb") as target:  # noqa: S310
-        shutil.copyfileobj(response, target)
+
+    # Use requests with browser-like headers to avoid 403 Forbidden
+    session = requests.Session()
+    session.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+    )
+
+    response = session.get(url, timeout=DOWNLOAD_TIMEOUT)
+    response.raise_for_status()
+    with destination.open("wb") as target:
+        target.write(response.content)
 
 
 def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path) -> Path:
