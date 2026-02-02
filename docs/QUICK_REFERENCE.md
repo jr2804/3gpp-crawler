@@ -107,6 +107,7 @@ tdoc-crawler crawl-tdocs [OPTIONS]
 Crawl TDoc metadata from the 3GPP FTP server. TDocs are fetched based on the meetings stored in the database ( populated by `crawl-meetings`).
 
 **When to Use:**
+
 - Initial TDoc metadata population
 - Incremental updates to your local TDoc database
 - After running `crawl-meetings` to refresh TDoc data
@@ -170,6 +171,7 @@ tdoc-crawler crawl-meetings [OPTIONS]
 Crawl meeting metadata from the 3GPP portal. This command is required before crawling TDocs, as it populates the meetings database that `crawl-tdocs` uses to determine which meetings to crawl.
 
 **When to Use:**
+
 - Initial setup (required before first TDoc crawl)
 - Periodic updates to meeting schedules
 - Adding new working groups to crawl
@@ -226,6 +228,7 @@ tdoc-crawler query-tdocs [TDoc IDs] [OPTIONS]
 Query TDoc metadata from the local database. If specific TDoc IDs are requested but not found, automatically triggers a targeted crawl to fetch missing data.
 
 **When to Use:**
+
 - Search for specific TDocs by ID
 - Filter TDocs by working group, date range
 - Export TDoc metadata as JSON or YAML
@@ -255,11 +258,12 @@ Query TDoc metadata from the local database. If specific TDoc IDs are requested 
 **Automatic Fetch Behavior:**
 
 When you specify TDoc IDs that don't exist in your database, `query-tdocs` automatically:
+
 1. Infers working groups from TDoc ID prefixes (`R*`→RAN, `S*`→SA, `T*`→CT, `C*`→CT)
-2. Crawls the 3GPP portal to find meeting information for those TDocs
-3. Crawls the FTP server to fetch TDoc metadata
-4. Upserts the newly discovered data
-5. Returns the complete results
+1. Crawls the 3GPP portal to find meeting information for those TDocs
+1. Crawls the FTP server to fetch TDoc metadata
+1. Upserts the newly discovered data
+1. Returns the complete results
 
 This means you can often get away with just `tdoc-crawler query-tdocs R1-2400001` without manually running `crawl-meetings` and `crawl-tdocs` first.
 
@@ -300,6 +304,7 @@ tdoc-crawler query-meetings [OPTIONS]
 Query meeting metadata from the local database. Unlike `query-tdocs`, this command only searches already-crawled meetings and does not trigger automatic fetching.
 
 **When to Use:**
+
 - Browse meeting schedules
 - Find meetings by date range
 - List meetings for specific working groups
@@ -370,15 +375,17 @@ tdoc-crawler open <TDoc ID> [--cache-dir PATH]
 Download (if needed), extract, and open a TDoc file with the system default application.
 
 **When to Use:**
+
 - Quickly view a specific TDoc document
 - Access TDoc attachments
 - Open meeting materials directly from CLI
 
 **Behavior:**
+
 1. Queries the database; if missing, runs targeted crawl workflow
-2. Downloads the TDoc into `<cache-dir>/tdocs/`
-3. Extracts `.zip` payloads into `<cache-dir>/tdocs/<TDoc ID>/`
-4. Opens the first file with the default system application
+1. Downloads the TDoc into `<cache-dir>/tdocs/`
+1. Extracts `.zip` payloads into `<cache-dir>/tdocs/<TDoc ID>/`
+1. Opens the first file with the default system application
 
 **Examples:**
 
@@ -399,6 +406,7 @@ tdoc-crawler checkout <TDoc IDs...> [--cache-dir PATH] [--force]
 Download and extract TDoc(s) to a checkout folder (`<cache-dir>/checkout/`) for offline access.
 
 **When to Use:**
+
 - Batch download TDocs for offline review
 - Extract meeting materials to a shared location
 - Prepare TDoc collections for distribution
@@ -425,6 +433,7 @@ tdoc-crawler stats [--cache-dir PATH]
 Display high-level database statistics including TDoc counts per working group, date ranges, and document type distribution.
 
 **When to Use:**
+
 - Check database population status
 - Verify crawl results
 - Get overview of stored data

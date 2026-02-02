@@ -12,45 +12,53 @@ Updated `docs/QUICK_REFERENCE.md` with comprehensive documentation for all CLI c
 ### Documentation Enhancements
 
 1. **Added Command Overview Section**
+
    - Introduced command categories (Crawling, Querying, Utilities)
    - Documented short aliases (`ct`, `cm`, `qt`, `qm`)
    - Added typical workflow guide (Initial Setup → Incremental Updates → Querying)
 
-2. **Added Command Differences Section**
+1. **Added Command Differences Section**
+
    - Created comparison table for `crawl-tdocs` vs `crawl-meetings`
    - Created comparison table for `query-tdocs` vs `query-meetings`
    - Explained execution order requirements
    - Documented data sources and credential requirements
 
-3. **Enhanced `crawl-tdocs` Documentation**
+1. **Enhanced `crawl-tdocs` Documentation**
+
    - Added "When to Use" section
    - Comprehensive options table with descriptions
    - Expanded examples with more use cases
    - Documented parallel worker configuration
 
-4. **Enhanced `crawl-meetings` Documentation**
+1. **Enhanced `crawl-meetings` Documentation**
+
    - Added "When to Use" section
    - Comprehensive options table with descriptions
    - Documented ETSI Online credential usage
    - Added subgroup crawling examples
 
-5. **Enhanced `query-tdocs` Documentation**
+1. **Enhanced `query-tdocs` Documentation**
+
    - Added "When to Use" section
    - Documented automatic fetch behavior (targeted crawl)
    - Explained TDoc ID auto-inference from prefixes
    - Comprehensive options table
 
-6. **Enhanced `query-meetings` Documentation**
+1. **Enhanced `query-meetings` Documentation**
+
    - Added "When to Use" section
    - Clarified no automatic fetch (vs query-tdocs)
    - Documented subgroup aliases table
    - Comprehensive options table
 
-7. **Enhanced Utility Commands Documentation**
+1. **Enhanced Utility Commands Documentation**
+
    - Added "When to Use" sections for `open`, `checkout`, `stats`
    - Documented behavior details for `open` command
 
-8. **Restructured Document Organization**
+1. **Restructured Document Organization**
+
    - Command Overview first (workflow, aliases, categories)
    - Detailed command documentation with comparison tables
    - Utility commands section
@@ -69,12 +77,14 @@ Updated `docs/QUICK_REFERENCE.md` with comprehensive documentation for all CLI c
 ### Key Differences Documented
 
 **`crawl-tdocs` vs `crawl-meetings`:**
+
 - Data source (FTP vs Portal)
 - Prerequisites (meetings DB required vs none)
 - Execution order (after vs before)
 - Credentials (none vs optional)
 
 **`query-tdocs` vs `query-meetings`:**
+
 - Returns (TDoc documents vs meeting schedules)
 - Targeted fetch (automatic vs none)
 - TDoc ID argument support (yes vs no)
