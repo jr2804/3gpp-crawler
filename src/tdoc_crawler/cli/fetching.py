@@ -5,15 +5,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from rich.console import Console
-
 from tdoc_crawler.crawlers import TDocCrawlResult, fetch_tdoc_metadata
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata
 
+from .console import get_console
 from .helpers import resolve_meeting_id
 
-console = Console()
+console = get_console()
 _logger = logging.getLogger(__name__)
 
 

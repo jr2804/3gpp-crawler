@@ -16,13 +16,14 @@ from urllib.parse import urlparse
 
 import requests
 import typer
-from rich.console import Console
 
 from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, PortalCredentials, SortOrder, TDocMetadata, WorkingGroup
 
-console = Console()
+from .console import get_console
+
+console = get_console()
 _logger = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_FILENAME = "tdoc_crawler.db"

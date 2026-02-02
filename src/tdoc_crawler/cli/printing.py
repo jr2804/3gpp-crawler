@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from rich.console import Console
 from rich.table import Table
 
 from tdoc_crawler.models import MeetingMetadata, TDocMetadata
 
-console = Console()
+from .console import get_console
+
+console = get_console()
 
 
 def tdoc_to_dict(result: TDocMetadata) -> dict[str, Any]:
