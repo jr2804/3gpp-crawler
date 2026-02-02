@@ -52,6 +52,7 @@ dev = [
     "isort>=7.0.0",
     "undersort>=0.1.5",
     "beads-mcp>=0.44.0",
+    "specify-cli",
 ]
 
 [build-system]
@@ -97,3 +98,6 @@ source = "uv-dynamic-versioning"
 [tool.uv-dynamic-versioning]
 vcs = "git"
 style = "semver"
+
+[tool.uv.sources]
+specify-cli = { git = "https://github.com/github/spec-kit.git" }

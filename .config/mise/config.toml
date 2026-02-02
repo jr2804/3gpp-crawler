@@ -24,6 +24,13 @@ run = "uv run pytest tests/ -v"
 [tasks.test-coverage]
 run = "uv run pytest tests/ -v --cov=src/tdoc_crawler --cov-report=html"
 
+[tasks.spec-init]
+description = "Initialize Github Spec Kit in the current directory"
+usage = '''
+arg "<ai_agent>" help="AI assistant to use: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, amp, shai, q, bob, or qoder"
+arg "[script]" help="Script variant to use: sh (bash/zsh) or ps (PowerShell)" default="ps"
+'''
+run = ["cls", "uv run specify init --here --ai {{usage.ai_agent}} --script {{usage.script}}", "uv run specify check"]
 
 [tasks.convert-mcp-cfg]
 run = ["cls",
