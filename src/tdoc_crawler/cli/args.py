@@ -39,7 +39,7 @@ NoFetchOption = Annotated[
 EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username")]
 EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password")]
 PromptCredentialsOption = Annotated[
-    bool,
+    bool | None,
     typer.Option("--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing"),
 ]
 IncludeWithoutFilesOption = Annotated[

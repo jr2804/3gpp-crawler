@@ -190,7 +190,7 @@ def crawl_meetings(
     verbose: VerboseOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
-    prompt_credentials: PromptCredentialsOption = True,
+    prompt_credentials: PromptCredentialsOption = None,
 ) -> None:
     """Crawl meeting metadata from 3GPP portal."""
     subgroups = parse_subgroups(subgroup)

@@ -566,3 +566,70 @@ Get-Item "$env:USERPROFILE\.tdoc-crawler\http-cache.sqlite3" | Select-Object Len
 
 **Q: Is the cache shared between commands?**
 **A:** Yes! All commands share the same cache database at `~/.tdoc-crawler/http-cache.sqlite3`
+
+## 🔐 ETSI Online (EOL) Credentials
+
+Credentials are used for authenticated access to the 3GPP portal. Most commands work without credentials using unauthenticated endpoints. Credentials are only prompted or required when:
+
+- Crawling meeting metadata from authenticated portal endpoints
+- Fetching TDoc metadata that requires authentication
+
+### Credential Resolution
+
+Credentials are resolved in this order:
+
+1. **CLI parameters** (`--eol-username`, `--eol-password`)
+2. **Environment variables** (`EOL_USERNAME`, `EOL_PASSWORD`)
+3. **Interactive prompt** (only if `EOL_PROMPT=true` or `--prompt-credentials` is set)
+
+### Configuration
+
+**Environment Variables** (add to `.env` file):
+
+```bash
+EOL_USERNAME=your_username      # Your ETSI Online account username
+EOL_PASSWORD=your_password      # Your ETSI Online account password
+EOL_PROMPT=false                # Set to "true" to enable interactive prompting
+```
+
+**CLI Parameters** (for `crawl-meetings` and `query-tdocs`):
+
+```bash
+--eol-username USER             # ETSI Online username
+--eol-password PASS             # ETSI Online password
+--prompt-credentials            # Prompt for credentials if missing
+--no-prompt-credentials         # Never prompt (default)
+```
+
+### No Prompting by Default
+
+By default, the CLI **does not prompt** for credentials. This means:
+
+| Scenario | Behavior |
+|----------|----------|
+| Credentials in `.env` | Used automatically |
+| Credentials via CLI args | Used automatically |
+| No credentials provided | Command proceeds without auth (uses unauthenticated endpoints) |
+| `EOL_PROMPT=true` | Prompts interactively when credentials missing |
+
+### Examples
+
+```bash
+# Using environment variables
+export EOL_USERNAME=myuser
+export EOL_PASSWORD=mypass
+tdoc-crawler crawl-meetings
+
+# Using CLI parameters
+tdoc-crawler crawl-meetings --eol-username myuser --eol-password mypass
+
+# Enabling interactive prompting
+export EOL_PROMPT=true
+tdoc-crawler crawl-meetings  # Will prompt if credentials missing
+
+# Or use CLI flag
+tdoc-crawler crawl-meetings --prompt-credentials
+
+# Running without credentials (uses unauthenticated endpoints)
+tdoc-crawler crawl-meetings  # Works, may be slower
+```
