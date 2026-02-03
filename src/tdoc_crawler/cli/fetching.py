@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from tdoc_crawler.crawlers import TDocCrawlResult, fetch_tdoc_metadata
+from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata
 
@@ -35,6 +36,8 @@ def fetch_missing_tdocs(
     """
     errors = []
 
+    if not credentials:
+        credentials = resolve_credentials(None, None)
     if not credentials:
         errors.append("Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD.")
         return TDocCrawlResult(processed=len(missing_ids), inserted=0, updated=0, errors=errors)

@@ -19,7 +19,7 @@ import typer
 
 from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, PortalCredentials, SortOrder, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, SortOrder, TDocMetadata, WorkingGroup
 
 from .console import get_console
 
@@ -120,43 +120,6 @@ def build_limits(
         limit_meetings_per_wg=limit_meetings_per_wg,
         limit_wgs=limit_wgs,
     )
-
-
-def resolve_credentials(
-    username: str | None,
-    password: str | None,
-    prompt: bool | None = None,
-) -> PortalCredentials | None:
-    """Resolve portal credentials from parameters, environment, or prompt.
-
-    Resolution order:
-    1. CLI parameters (username, password)
-    2. Environment variables (EOL_USERNAME, EOL_PASSWORD)
-    3. Interactive prompt (if EOL_PROMPT=true or prompt=True)
-
-    Args:
-        username: CLI-provided username
-        password: CLI-provided password
-        prompt: Whether to prompt interactively. If None, reads from EOL_PROMPT env var.
-
-    Returns:
-        PortalCredentials instance if resolved, None otherwise
-    """
-    resolved_username = username or os.getenv("EOL_USERNAME")
-    resolved_password = password or os.getenv("EOL_PASSWORD")
-
-    if resolved_username and resolved_password:
-        return PortalCredentials(username=resolved_username, password=resolved_password)
-
-    # Only prompt if explicitly requested via parameter or EOL_PROMPT env var
-    should_prompt = prompt if prompt is not None else os.getenv("EOL_PROMPT", "").lower() in ("true", "1", "yes")
-
-    if should_prompt:
-        resolved_username = typer.prompt("EOL username")
-        resolved_password = typer.prompt("EOL password", hide_input=True)
-        return PortalCredentials(username=resolved_username, password=resolved_password)
-
-    return None
 
 
 def database_path(cache_dir: Path) -> Path:

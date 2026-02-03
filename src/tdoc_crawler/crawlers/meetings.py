@@ -13,6 +13,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup, Tag
 
 from tdoc_crawler.crawlers.constants import DATE_PATTERN, MEETING_CODE_REGISTRY, MEETINGS_BASE_URL, PORTAL_BASE_URL
+from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models import CrawlLimits, MeetingCrawlConfig, MeetingMetadata, WorkingGroup
@@ -107,6 +108,7 @@ class MeetingCrawler:
         existing_ids: set[int] = set()
         if config.incremental:
             existing_ids = self.database.get_existing_meeting_ids(working_groups)
+        credentials = config.credentials or resolve_credentials(None, None)
         session = create_cached_session(
             cache_dir=config.cache_dir,
             ttl=config.http_cache.ttl,
@@ -114,8 +116,8 @@ class MeetingCrawler:
             max_retries=config.max_retries,
         )
         session.headers["User-Agent"] = "tdoc-crawler/0.0.1"
-        if config.credentials is not None:
-            session.auth = (config.credentials.username, config.credentials.password)
+        if credentials is not None:
+            session.auth = (credentials.username, credentials.password)
 
         try:
             for working_group in working_groups:

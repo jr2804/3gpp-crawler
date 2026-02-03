@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +16,7 @@ from rich.table import Table
 
 from tdoc_crawler.checkout import checkout_tdoc
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
+from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
 
@@ -53,7 +53,7 @@ from .args import (
 )
 from .console import get_console
 from .fetching import maybe_fetch_missing_tdocs
-from .helpers import build_limits, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file, resolve_credentials
+from .helpers import build_limits, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file
 from .printing import meeting_to_dict, print_meeting_table, print_tdoc_table, tdoc_to_dict
 
 load_dotenv()
@@ -196,7 +196,7 @@ def crawl_meetings(
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
-    credentials = resolve_credentials(eol_username, eol_password, prompt_credentials)
+    set_credentials(eol_username, eol_password, prompt_credentials)
     config = MeetingCrawlConfig(
         cache_dir=cache_dir,
         working_groups=working_groups,
@@ -206,7 +206,7 @@ def crawl_meetings(
         timeout=timeout,
         verbose=verbose,
         limits=limits,
-        credentials=credentials,
+        credentials=None,
     )
 
     db_path = database_path(config.cache_dir)
@@ -311,16 +311,14 @@ def query_tdocs(
     )
 
     # Resolve credentials (only if --no-fetch is not set)
-    credentials = None
     if not no_fetch:
-        prompt_for_credentials = sys.stdin.isatty()
-        credentials = resolve_credentials(eol_username, eol_password, prompt=prompt_for_credentials)
+        set_credentials(eol_username, eol_password, prompt=None)
 
     db_path = database_path(config.cache_dir)
     with TDocDatabase(db_path) as database:
         results = database.query_tdocs(config)
         if not no_fetch:
-            results = maybe_fetch_missing_tdocs(database, config.cache_dir, config, results, credentials)
+            results = maybe_fetch_missing_tdocs(database, config.cache_dir, config, results, None)
 
     if not results:
         console.print("[yellow]No TDocs found[/yellow]")
