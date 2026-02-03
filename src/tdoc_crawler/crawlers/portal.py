@@ -301,9 +301,8 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         logger.warning(error_msg)
         raise PortalParsingError(error_msg)
 
-    # Generate URL if not provided
-    if url is None:
-        url = f"https://www.3gpp.org/ftp/tsg_ran/.../{tdoc_id.upper()}.zip"
+    # URL is extracted from the status field download link during parsing
+    # If no download link was found, url will be None
 
     # Parse agenda_item_nbr as Decimal
     try:
