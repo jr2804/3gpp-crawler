@@ -221,13 +221,6 @@ __marimo__/
 /cache
 .opencode/opencode.json
 .grepai/
-.opencode/command/speckit.analyze.md
-.opencode/command/speckit.checklist.md
-.opencode/command/speckit.clarify.md
-.opencode/command/speckit.constitution.md
-.opencode/command/speckit.implement.md
-.opencode/command/speckit.plan.md
-.opencode/command/speckit.specify.md
-.opencode/command/speckit.tasks.md
-.opencode/command/speckit.taskstoissues.md
+.opencode/command/speckit.*
 nul
+.sisyphus

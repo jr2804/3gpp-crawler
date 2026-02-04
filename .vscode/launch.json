@@ -136,6 +136,20 @@
 					"--cache-dir",
 					"./tests/test-cache"
 				]
+			},
+			{
+				"name": "Debug: open (S4-260001)",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "tdoc_crawler",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"open",
+					"S4-260001",
+					"--cache-dir",
+					"./tests/test-cache"
+				]
 			}
 		]
 }
