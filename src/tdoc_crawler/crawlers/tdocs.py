@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections.abc import Callable
@@ -52,7 +51,7 @@ class TDocCrawler:
         targets = set(config.target_ids) if config.target_ids else None
 
         collected: list[TDocMetadata] = []
-        errors = asyncio.run(self._crawl_meetings_parallel(meetings, config, collected, existing_ids, targets))
+        errors = self._crawl_meetings_parallel(meetings, config, collected, existing_ids, targets)
 
         inserted = 0
         updated = 0
@@ -190,9 +189,10 @@ class TDocCrawler:
             executor = create_executor("serial")
             executor_type = "serial"
         else:
-            # Auto-selects InterpreterPoolExecutor (Python 3.14+) or ProcessPoolExecutor (fallback)
-            executor = create_executor("subinterpreter", max_workers=config.workers)
-            executor_type = "subinterpreter/process"
+            # Note: Using multiprocessing by default because numpy/pandas (used in document list parsing)
+            # are currently incompatible with subinterpreters in Python 3.14.
+            executor = create_executor("multiprocessing", max_workers=config.workers)
+            executor_type = "multiprocessing"
 
         logger.debug("Using %s executor with %d worker(s)", executor_type, config.workers)
 

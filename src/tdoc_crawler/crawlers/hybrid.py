@@ -41,6 +41,10 @@ class HybridTDocCrawler:
         This method supports both document list and parallel crawling methods
         with automatic fallbacks based on configuration.
         """
+        return asyncio.run(self._crawl(config, progress_callback))
+
+    async def _crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> HybridCrawlResult:
+        """Internal asynchronous crawl implementation."""
         meetings = self._get_meetings_to_crawl(config)
         if not meetings:
             logger.warning("No meetings found matching criteria")
@@ -83,8 +87,8 @@ class HybridTDocCrawler:
         document_list_errors, doc_list_meetings_processed = [], 0
         if document_list_meetings:
             logger.info(f"Starting document list crawl for {len(document_list_meetings)} meetings")
-            document_list_errors, doc_list_meetings_processed = asyncio.run(
-                self._crawl_meetings_document_list(document_list_meetings, config, collected, existing_ids, targets)
+            document_list_errors, doc_list_meetings_processed = await self._crawl_meetings_document_list(
+                document_list_meetings, config, collected, existing_ids, targets
             )
             errors.extend(document_list_errors)
 
@@ -104,8 +108,8 @@ class HybridTDocCrawler:
         parallel_errors, parallel_meetings_processed = [], 0
         if parallel_meetings_final:
             logger.info(f"Starting parallel crawl for {len(parallel_meetings_final)} meetings")
-            parallel_errors, parallel_meetings_processed = asyncio.run(
-                self._crawl_meetings_parallel(parallel_meetings_final, config, collected, existing_ids, targets)
+            parallel_errors, parallel_meetings_processed = await self._crawl_meetings_parallel(
+                parallel_meetings_final, config, collected, existing_ids, targets
             )
             errors.extend(parallel_errors)
 
