@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import logging
+import re
+import tempfile
 from decimal import Decimal
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_VIEW_URL
-from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.models.tdocs import TDocMetadata
 
 
@@ -163,6 +165,15 @@ class PortalSession:
             PortalAuthenticationError: If authentication is required but fails
             PortalParsingError: If page parsing fails or TDoc not found
         """
+        # If no URL provided, try to extract it from unauthenticated endpoint first
+        if url is None:
+            try:
+                url = extract_tdoc_url_from_portal(tdoc_id, timeout=min(self.timeout, 15))
+                logger.debug(f"Using URL extracted from unauthenticated endpoint for {tdoc_id}")
+            except Exception as e:
+                logger.debug(f"URL extraction failed for {tdoc_id}, using authenticated method: {e}")
+                # Continue with authenticated method below
+
         # Ensure authenticated
         self.authenticate()
 
@@ -337,16 +348,113 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         logger.debug(f"Successfully parsed metadata for TDoc {tdoc_id}")
         return tdoc_metadata
 
+    except ValidationError as exc:
+        # Extract and display only the actual validation errors, not the full stack trace
+        validation_errors = []
+        for error in exc.errors():
+            field = error["loc"][0] if error["loc"] else "unknown"
+            message = error["msg"]
+            validation_errors.append(f"{field}: {message}")
+
+        error_msg = f"Failed to create TDocMetadata for TDoc {tdoc_id}: {'; '.join(validation_errors)}"
+        logger.warning(error_msg)
+        raise PortalParsingError(error_msg) from exc
     except Exception as exc:
         error_msg = f"Failed to create TDocMetadata for TDoc {tdoc_id}: {exc}"
         logger.warning(error_msg)
         raise PortalParsingError(error_msg) from exc
 
 
+def extract_tdoc_url_from_portal(tdoc_id: str, timeout: int = 15) -> str:
+    """Extract direct FTP download URL for a TDoc using unauthenticated DownloadTDoc.aspx endpoint.
+
+    Args:
+        tdoc_id: TDoc identifier (e.g., 'S4-251364')
+        timeout: Request timeout in seconds (default 15 seconds)
+
+    Returns:
+        Direct FTP URL (e.g., 'https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_133-e/Docs/S4-251364.zip')
+
+    Raises:
+        PortalParsingError: If TDoc ID is invalid or URL extraction fails
+        requests.RequestException: For network errors
+    """
+    logger.debug(f"Attempting to extract TDoc URL from DownloadTDoc endpoint for {tdoc_id}")
+
+    # Build the URL for the DownloadTDoc endpoint
+    download_url = f"{TDOC_DOWNLOAD_URL}?contributionUid={tdoc_id}"
+
+    # Create a session with browser-like headers to avoid 403 Forbidden
+    session = requests.Session()
+    session.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+    )
+
+    try:
+        # Fetch the DownloadTDoc page
+        response = session.get(download_url, timeout=timeout)
+        response.raise_for_status()
+
+        # Check if the response contains an error message
+        if "cannot be found" in response.text.lower() or "not found" in response.text.lower():
+            raise PortalParsingError(f"TDoc {tdoc_id} not found on portal")
+
+        # Extract URL from JavaScript redirect pattern
+        # Pattern: window.location.href='https://www.3gpp.org/ftp/...'
+        # The response may contain: javascript: window.location.href='https://www.3gpp.org/ftp/...';//]]>
+        pattern = r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]"
+        match = re.search(pattern, response.text)
+
+        if not match:
+            # Also try for the pattern in the CDATA section
+            cdata_pattern = r"<!\[CDATA\[(.*?)\]\]>"
+            cdata_matches = re.findall(cdata_pattern, response.text)
+            for cdata_match in cdata_matches:
+                inner_match = re.search(r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]", cdata_match)
+                if inner_match:
+                    match = inner_match
+                    break
+
+        if not match:
+            raise PortalParsingError(f"Failed to extract URL for TDoc {tdoc_id}: JavaScript redirect not found")
+
+        extracted_url = match.group(1).strip()
+
+        # Validate that the extracted URL is a proper URL format
+        if not extracted_url.startswith(("http://", "https://", "ftp://")):
+            raise PortalParsingError(f"Invalid URL format for TDoc {tdoc_id}: {extracted_url}")
+
+        # Additional validation: check if the URL contains the TDoc ID (case-insensitive)
+        if tdoc_id.lower() not in extracted_url.lower():
+            logger.debug(f"Extracted URL for {tdoc_id} does not contain the TDoc ID: {extracted_url}")
+
+        logger.debug(f"Successfully extracted TDoc URL for {tdoc_id}: {extracted_url}")
+        return extracted_url
+
+    except requests.RequestException as e:
+        logger.error(f"Network error extracting URL for TDoc {tdoc_id}: {e}")
+        raise
+    except Exception as e:
+        error_msg = f"Failed to extract URL for TDoc {tdoc_id}: {e}"
+        logger.error(error_msg)
+        raise PortalParsingError(error_msg) from e
+    finally:
+        session.close()
+
+
+# TODO: ambigious name with PortalSession.fetch_tdoc_metadata!
 def fetch_tdoc_metadata(
     tdoc_id: str,
     credentials: PortalCredentials,
-    cache_dir: Path,
+    cache_dir: Path | None = None,
     cache_ttl: int = 7200,
     cache_refresh_on_access: bool = True,
     timeout: int = 30,
@@ -357,7 +465,7 @@ def fetch_tdoc_metadata(
     Args:
         tdoc_id: TDoc identifier (e.g., 'S4-251364')
         credentials: ETSI Online Account credentials
-        cache_dir: Directory for HTTP cache storage
+        cache_dir: Directory for HTTP cache storage (defaults to temp directory)
         cache_ttl: HTTP cache TTL in seconds
         cache_refresh_on_access: Whether to refresh cache TTL on access
         timeout: Request timeout in seconds
@@ -370,5 +478,18 @@ def fetch_tdoc_metadata(
         PortalAuthenticationError: If authentication fails
         PortalParsingError: If page parsing fails or TDoc not found
     """
+    # Use temporary directory if no cache_dir provided for backward compatibility
+    if cache_dir is None:
+        cache_dir = Path(tempfile.gettempdir()) / "tdoc_crawler_test"
+        cache_dir.mkdir(exist_ok=True)
+
+    # Try to extract URL from unauthenticated endpoint first
+    if url is None:
+        try:
+            url = extract_tdoc_url_from_portal(tdoc_id, timeout=min(timeout, 15))
+        except Exception as e:
+            logger.debug(f"URL extraction failed for {tdoc_id}, falling back to authenticated method: {e}")
+            # Continue with authenticated method below
+
     with PortalSession(credentials, cache_dir, cache_ttl, cache_refresh_on_access, timeout) as session:
         return session.fetch_tdoc_metadata(tdoc_id, url)

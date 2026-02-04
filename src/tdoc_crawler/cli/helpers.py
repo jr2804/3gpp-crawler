@@ -265,10 +265,13 @@ def download_to_path(url: str, destination: Path) -> None:
 
 def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path) -> Path:
     """Prepare TDoc file for opening (download and extract if needed)."""
-    downloads_dir = cache_dir / "tdocs"
+    downloads_dir = cache_dir / "checkout"
     downloads_dir.mkdir(parents=True, exist_ok=True)
     path = urlparse(metadata.url).path
     filename = posixpath.basename(path)
+
+    # TODO: unnecessary check for suffix here, download_to_path() is called in any case (should be called just once)?
+    # TODO: Only extraction of tdoc is optional/if it is a zip, but not the download itself.
     suffix = Path(filename).suffix.lower()
 
     if suffix == ".zip":

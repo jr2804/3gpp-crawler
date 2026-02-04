@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from tdoc_crawler.crawlers import TDocCrawlResult, fetch_tdoc_metadata
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata
+from tdoc_crawler.models import HttpCacheConfig, PortalCredentials, QueryConfig, TDocMetadata
 
 from .console import get_console
 from .helpers import resolve_meeting_id
@@ -36,9 +38,14 @@ def fetch_missing_tdocs(
     """
     errors = []
 
-    if not credentials:
+    # Only try to resolve credentials if not explicitly provided
+    if credentials is None:
         credentials = resolve_credentials(None, None)
+
+    # If still no credentials, log that portal fetch will be skipped
+    # The caller may attempt whatthespec fallback if credentials are unavailable
     if not credentials:
+        _logger.info("Portal credentials not available, skipping portal authentication fetch")
         errors.append("Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD.")
         return TDocCrawlResult(processed=len(missing_ids), inserted=0, updated=0, errors=errors)
 
@@ -67,9 +74,20 @@ def fetch_missing_tdocs(
 
             _logger.info(f"Successfully fetched and stored {tdoc_id}")
 
+        except ValidationError as exc:
+            # Extract and display only actual validation errors, not full stack trace
+            validation_errors = []
+            for error in exc.errors():
+                field = error["loc"][0] if error["loc"] else "unknown"
+                message = error["msg"]
+                validation_errors.append(f"{field}: {message}")
+
+            error_msg = f"Failed to fetch {tdoc_id}: {'; '.join(validation_errors)}"
+            _logger.warning(error_msg)
+            errors.append(error_msg)
         except Exception as exc:
             error_msg = f"Failed to fetch {tdoc_id}: {exc}"
-            _logger.exception(error_msg)
+            _logger.error(error_msg)
             errors.append(error_msg)
 
     return TDocCrawlResult(
@@ -78,6 +96,41 @@ def fetch_missing_tdocs(
         updated=updated_count,
         errors=errors,
     )
+
+
+def _fetch_via_whatthespec(
+    database: TDocDatabase,
+    cache_dir: Path,
+    missing_ids: list[str],
+) -> None:
+    """Fetch missing TDocs using whatthespec.net fallback.
+
+    Args:
+        database: Database connection
+        cache_dir: Cache directory path
+        missing_ids: List of TDoc IDs to fetch
+    """
+    # Import at runtime to avoid circular dependency
+    from tdoc_crawler.crawlers import (  # noqa: PLC0415
+        WhatTheSpecResolutionError,
+        resolve_via_whatthespec,
+    )
+
+    http_cache = HttpCacheConfig()
+
+    for tdoc_id in missing_ids:
+        try:
+            metadata = resolve_via_whatthespec(tdoc_id, cache_dir, http_cache)
+            if metadata:
+                inserted, updated = database.upsert_tdoc(metadata)
+                if inserted or updated:
+                    _logger.info(f"Successfully fetched {tdoc_id} via whatthespec")
+            else:
+                _logger.warning(f"WhatTheSpec returned no data for {tdoc_id}")
+        except WhatTheSpecResolutionError as exc:
+            _logger.warning(f"WhatTheSpec resolution failed for {tdoc_id}: {exc}")
+        except Exception as exc:
+            _logger.exception(f"Unexpected error fetching {tdoc_id} via whatthespec: {exc}")
 
 
 def maybe_fetch_missing_tdocs(
@@ -113,6 +166,21 @@ def maybe_fetch_missing_tdocs(
         console.print(f"[yellow]{len(fetch_result.errors)} issues detected during targeted crawl[/yellow]")
         for error in fetch_result.errors[:3]:
             console.print(f"  - {error}")
+
+    # Check if we should try whatthespec fallback
+    credentials_unavailable = credentials is None
+    has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
+    should_try_whatthespec = credentials_unavailable and has_credentials_error
+
+    # Try whatthespec fallback for remaining unresolved TDocs
+    if should_try_whatthespec:
+        refreshed = database.query_tdocs(config)
+        refreshed_ids = {item.tdoc_id for item in refreshed}
+        still_missing = [value for value in requested if value not in refreshed_ids]
+
+        if still_missing:
+            console.print(f"[cyan]Trying whatthespec fallback for {len(still_missing)} TDoc(s)[/cyan]")
+            _fetch_via_whatthespec(database, cache_dir, still_missing)
 
     refreshed = database.query_tdocs(config)
     refreshed_ids = {item.tdoc_id for item in refreshed}

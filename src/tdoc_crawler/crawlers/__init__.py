@@ -6,8 +6,9 @@ from importlib import import_module
 from typing import Any
 
 # No direct imports for any symbols listed in __all__; all are dynamically imported via __getattr__
+# TODO: Why is this complicated dynamic import needed? Must be simplified dramatically!
 
-__all__ = [  # noqa: F822
+__all__ = [
     "EXCLUDED_DIRS",
     "EXCLUDED_DIRS_NORMALIZED",
     "MEETING_CODE_REGISTRY",
@@ -26,6 +27,7 @@ __all__ = [  # noqa: F822
     "Runner",
     "TDocCrawlResult",
     "TDocCrawler",
+    "WhatTheSpecResolutionError",
     "convert_excel_row_to_tdoc_metadata",
     "fetch_meeting_document_list",
     "fetch_meeting_tdocs",
@@ -34,8 +36,9 @@ __all__ = [  # noqa: F822
     "normalize_working_group_alias",
     "parse_excel_document_list",
     "parse_tdoc_portal_page",
+    "resolve_via_whatthespec",
 ]
-
+# TODO: overcomplicated dynamic import mechanism; simplify!
 _ATTR_MODULES: dict[str, tuple[str, str]] = {
     "DocumentListError": ("tdoc_crawler.crawlers.meeting_doclist", "DocumentListError"),
     "EXCLUDED_DIRS": ("tdoc_crawler.crawlers.constants", "EXCLUDED_DIRS"),
@@ -55,6 +58,7 @@ _ATTR_MODULES: dict[str, tuple[str, str]] = {
     "TDOC_SUBDIRS_NORMALIZED": ("tdoc_crawler.crawlers.constants", "TDOC_SUBDIRS_NORMALIZED"),
     "TDocCrawlResult": ("tdoc_crawler.crawlers.tdocs", "TDocCrawlResult"),
     "TDocCrawler": ("tdoc_crawler.crawlers.tdocs", "TDocCrawler"),
+    "WhatTheSpecResolutionError": ("tdoc_crawler.crawlers.whatthespec", "WhatTheSpecResolutionError"),
     "convert_excel_row_to_tdoc_metadata": ("tdoc_crawler.crawlers.meeting_doclist", "convert_excel_row_to_tdoc_metadata"),
     "fetch_meeting_document_list": ("tdoc_crawler.crawlers.meeting_doclist", "fetch_meeting_document_list"),
     "fetch_meeting_tdocs": ("tdoc_crawler.crawlers.parallel", "fetch_meeting_tdocs"),
@@ -63,9 +67,11 @@ _ATTR_MODULES: dict[str, tuple[str, str]] = {
     "normalize_working_group_alias": ("tdoc_crawler.crawlers.meetings", "normalize_working_group_alias"),
     "parse_excel_document_list": ("tdoc_crawler.crawlers.meeting_doclist", "parse_excel_document_list"),
     "parse_tdoc_portal_page": ("tdoc_crawler.crawlers.portal", "parse_tdoc_portal_page"),
+    "resolve_via_whatthespec": ("tdoc_crawler.crawlers.whatthespec", "resolve_via_whatthespec"),
 }
 
 
+# TODO: overcomplicated dynamic import mechanism; simplify!
 def __getattr__(name: str) -> Any:
     try:
         module_name, attr_name = _ATTR_MODULES[name]
@@ -78,5 +84,6 @@ def __getattr__(name: str) -> Any:
     return value
 
 
+# TODO: overcomplicated dynamic import mechanism; simplify!
 def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))

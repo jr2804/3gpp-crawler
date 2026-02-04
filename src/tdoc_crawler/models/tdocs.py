@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
+import requests
 from pydantic import BaseModel, Field, field_validator
 
 from .base import DEFAULT_CACHE_DIR, BaseConfigModel, HttpCacheConfig, OutputFormat, PortalCredentials, SortOrder, _normalize_tdoc_ids, utc_now
 from .crawl_limits import CrawlLimits, _new_crawl_limits
 from .working_groups import WorkingGroup
+
+_logger = logging.getLogger(__name__)
 
 
 class TDocMetadata(BaseModel):
@@ -42,6 +46,73 @@ class TDocMetadata(BaseModel):
     date_updated: datetime = Field(default_factory=utc_now, description="Timestamp of the last database update")
     validated: bool = Field(False, description="Flag indicating successful portal validation")
     validation_failed: bool = Field(False, description="Flag indicating cached failed validation")
+
+    @property
+    def is_valid(self) -> bool:
+        """Check if TDoc metadata is valid and downloadable.
+
+        Validates:
+        - tdoc_id is not empty
+        - url is present and well-formed (not containing placeholder patterns like "/.../")
+
+        Note: This does not actually download the file, only validates URL structure.
+        URLs without explicit scheme (relative paths) are considered valid for checkout purposes.
+        URL scheme validation (http/https/ftp) happens during download.
+        """
+        if not self.tdoc_id or not self.tdoc_id.strip():
+            return False
+        if not self.url or not self.url.strip():
+            return False
+        # Check for placeholder/corrupt URL patterns
+        return not ("/.../" in self.url or "..." in self.url)
+
+    @property
+    def has_valid_url(self) -> bool:
+        """Check if URL is present and valid (alias for is_valid)."""
+        return self.is_valid
+
+    def validate_url_accessible(self, timeout: int = 10) -> bool:
+        """Validate that the URL is accessible via HTTP.
+
+        Makes an HTTP HEAD request to check if the URL returns a successful
+        status code (2xx or 3xx). This is a lightweight check that doesn't
+        download the full file.
+
+        Args:
+            timeout: Request timeout in seconds (default: 10)
+
+        Returns:
+            True if URL is accessible (2xx/3xx status), False otherwise
+
+        Note:
+            Returns False for network errors, timeouts, or 4xx/5xx responses.
+            Logs warnings for failed requests.
+        """
+        if not self.is_valid:
+            _logger.debug(f"URL validation skipped for {self.tdoc_id}: basic validation failed")
+            return False
+
+        try:
+            # Use HEAD request to check accessibility without downloading
+            response = requests.head(self.url, timeout=timeout, allow_redirects=True)
+
+            # Check for successful response (2xx or 3xx)
+            if response.status_code < 400:
+                _logger.debug(f"URL accessible for {self.tdoc_id}: {self.url} (status {response.status_code})")
+                return True
+            else:
+                _logger.warning(f"URL returned error for {self.tdoc_id}: {self.url} (status {response.status_code})")
+                return False
+
+        except requests.exceptions.Timeout:
+            _logger.warning(f"URL validation timeout for {self.tdoc_id}: {self.url}")
+            return False
+        except requests.exceptions.ConnectionError as exc:
+            _logger.warning(f"URL validation connection error for {self.tdoc_id}: {exc}")
+            return False
+        except requests.exceptions.RequestException as exc:
+            _logger.warning(f"URL validation failed for {self.tdoc_id}: {exc}")
+            return False
 
     @field_validator("tdoc_id")
     @classmethod

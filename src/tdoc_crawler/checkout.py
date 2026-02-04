@@ -8,14 +8,66 @@ directory structure as the server.
 from __future__ import annotations
 
 import logging
-import shutil
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+import requests
+
 from tdoc_crawler.models import TDocMetadata
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_path_component(component: str) -> str:
+    """Sanitize a path component to be valid on all platforms.
+
+    Removes or replaces characters that are invalid in file/directory names:
+    - Windows reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+    - Invalid characters: < > : " | ? *
+    - Special sequences like "..." which can cause issues
+
+    Args:
+        component: Path component to sanitize
+
+    Returns:
+        Sanitized path component
+    """
+    if not component:
+        return "_"
+
+    # Replace problematic sequences
+    sanitized = component.replace("...", "_")
+
+    # Windows reserved names (case-insensitive)
+    reserved = {
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        "com1",
+        "com2",
+        "com3",
+        "com4",
+        "com5",
+        "com6",
+        "com7",
+        "com8",
+        "com9",
+        "lpt1",
+        "lpt2",
+        "lpt3",
+        "lpt4",
+        "lpt5",
+        "lpt6",
+        "lpt7",
+        "lpt8",
+        "lpt9",
+    }
+    if sanitized.lower() in reserved:
+        sanitized = f"_{sanitized}"
+
+    return sanitized
 
 
 def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
@@ -32,7 +84,14 @@ def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
 
     Returns:
         Path to the checkout directory for this TDoc
+
+    Raises:
+        ValueError: If the URL is invalid or contains placeholder patterns
     """
+    # Validate URL before processing
+    if not metadata.is_valid:
+        raise ValueError(f"Invalid or corrupt URL for TDoc {metadata.tdoc_id}: {metadata.url}")
+
     url_path = urlparse(metadata.url).path
 
     # Normalize the path: remove leading slash and split into components
@@ -52,8 +111,11 @@ def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
     if relative_parts:
         relative_parts = relative_parts[:-1]
 
+    # Sanitize path components to avoid invalid directory names
+    sanitized_parts = [_sanitize_path_component(part) for part in relative_parts if part]
+
     # Build the checkout path: checkout_dir / path / tdoc_id
-    checkout_path = checkout_dir.joinpath(*relative_parts) / metadata.tdoc_id if relative_parts else checkout_dir / metadata.tdoc_id
+    checkout_path = checkout_dir.joinpath(*sanitized_parts) / metadata.tdoc_id if sanitized_parts else checkout_dir / metadata.tdoc_id
 
     return checkout_path
 
@@ -120,8 +182,6 @@ def _download_file(url: str, destination: Path) -> None:
         ValueError: If URL scheme is not supported
         FileNotFoundError: If download fails
     """
-    from urllib.request import urlopen
-
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     # Validate URL scheme
@@ -131,8 +191,15 @@ def _download_file(url: str, destination: Path) -> None:
         raise ValueError(f"unsupported-url-scheme: {url}")
 
     try:
-        with urlopen(url, timeout=300) as response, destination.open("wb") as target:  # noqa: S310
-            shutil.copyfileobj(response, target)
+        response = requests.get(url, timeout=300, stream=True)  # noqa: S113
+        response.raise_for_status()
+        with destination.open("wb") as target:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    target.write(chunk)
+    except requests.exceptions.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else "unknown"
+        raise FileNotFoundError(f"failed-to-download ({status_code}): {url}") from exc
     except Exception as exc:
         raise FileNotFoundError(f"failed-to-download: {url}") from exc
 

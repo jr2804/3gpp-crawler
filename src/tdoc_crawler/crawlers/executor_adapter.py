@@ -7,7 +7,7 @@ from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import Any, TypeVar
 
-from pool_executors.pool_executors import create_executor
+from pool_executors.pool_executors import ExecutorType, create_executor
 
 T = TypeVar("T")
 
@@ -42,18 +42,16 @@ class _RunnerContextManager:
 class Runner:
     """Adapter that provides aiointerpreters.Runner API using pool_executors."""
 
-    def __init__(self, workers: int = 4, executor_type: str = "multiprocessing") -> None:
-        # Ensure executor_type is compatible with ExecutorType
-        self.executor_type = executor_type
-
+    def __init__(self, workers: int = 4, executor_type: ExecutorType | str = "multiprocessing") -> None:
         """Initialize runner with specified number of workers.
 
         Args:
             workers: Number of worker processes/threads
             executor_type: Type of executor ("subinterpreter", "multiprocessing", "threading", "serial")
         """
+        # Ensure executor_type is compatible with ExecutorType
+        self.executor_type = ExecutorType(executor_type)
         self.workers = workers
-        self.executor_type = executor_type
         self._executor: Executor | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
 

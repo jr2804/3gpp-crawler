@@ -294,3 +294,329 @@ class TestMaybeFetchMissingTdocs:
         missing_ids = call_args[0][2]
         assert "R1-9999999" in missing_ids
         assert "R1-2301234" not in missing_ids
+
+
+class TestWhatTheSpecFallback:
+    """Integration tests for whatthespec fallback in maybe_fetch_missing_tdocs."""
+
+    def test_maybe_fetch_uses_whatthespec_when_no_credentials(
+        self,
+        test_db_path: Path,
+        sample_meetings: list[dict],
+    ) -> None:
+        """Verify whatthespec fallback is used when credentials unavailable.
+
+        This test simulates:
+        1. Database lookup fails to find TDoc
+        2. No portal credentials available (credentials=None)
+        3. Portal fetch returns credentials error
+        4. whatthespec fallback is triggered
+        5. whatthespec returns TDocMetadata
+        6. TDoc is inserted into database
+        """
+        config = QueryConfig(
+            cache_dir=test_db_path.parent,
+            tdoc_ids=["S4-260001"],
+        )
+
+        with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
+            # Start with empty results (TDoc not in database)
+            results: list[TDocMetadata] = []
+            # Call maybe_fetch_missing_tdocs with NO credentials
+            # Mock fetch_missing_tdocs to return credentials error
+            with patch(
+                "tdoc_crawler.cli.fetching.fetch_missing_tdocs",
+                return_value=MagicMock(
+                    processed=1,
+                    inserted=0,
+                    updated=0,
+                    errors=["Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD."],
+                ),
+            ):
+                # Mock the _fetch_via_whatthespec to actually do something useful
+                with patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch:
+
+                    def insert_via_whatthespec(database, cache_dir, missing_ids) -> None:
+                        """Helper to insert TDoc via mocked whatthespec."""
+                        metadata = TDocMetadata(
+                            tdoc_id="S4-260001",
+                            meeting_id=0,
+                            meeting_name="S4-135",
+                            title="SA4#135 meeting agenda",
+                            url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
+                            source="SA WG4 Chair",
+                            contact="Test Contact",
+                            tdoc_type="agenda",
+                            for_purpose="Approval",
+                            agenda_item_nbr=Decimal("2"),
+                            status="available",
+                            validated=False,
+                        )
+                        database.upsert_tdoc(metadata)
+
+                    mock_whatthespec_fetch.side_effect = insert_via_whatthespec
+                    refreshed = maybe_fetch_missing_tdocs(
+                        database,
+                        test_db_path.parent,
+                        config,
+                        results,
+                        credentials=None,
+                    )
+
+            # Verify whatthespec was called
+            assert mock_whatthespec_fetch.called
+            # Verify TDoc was fetched and inserted
+            assert len(refreshed) == 1
+            assert refreshed[0].tdoc_id == "S4-260001"
+
+    def test_whatthespec_fallback_multiple_tdocs(
+        self,
+        test_db_path: Path,
+        sample_meetings: list[dict],
+    ) -> None:
+        """Verify whatthespec fetches multiple TDocs.
+
+        This test verifies:
+        1. Multiple TDocs missing from database
+        2. No credentials available
+        3. whatthespec resolves all TDocs
+        4. All TDocs inserted into database
+        """
+        config = QueryConfig(
+            cache_dir=test_db_path.parent,
+            tdoc_ids=["S4-260001", "S4-260002"],
+        )
+
+        with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
+            results: list[TDocMetadata] = []
+            with (
+                patch(
+                    "tdoc_crawler.cli.fetching.fetch_missing_tdocs",
+                    return_value=MagicMock(
+                        processed=2,
+                        inserted=0,
+                        updated=0,
+                        errors=["Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD."],
+                    ),
+                ),
+                patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch,
+            ):
+
+                def insert_multiple_via_whatthespec(database, cache_dir, missing_ids) -> None:
+                    """Helper to insert multiple TDocs via mocked whatthespec."""
+                    for tdoc_id in missing_ids:
+                        if tdoc_id == "S4-260001":
+                            metadata = TDocMetadata(
+                                tdoc_id="S4-260001",
+                                meeting_id=0,
+                                meeting_name="S4-135",
+                                title="SA4#135 meeting agenda",
+                                url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
+                                source="SA WG4 Chair",
+                                contact="Test Contact",
+                                tdoc_type="agenda",
+                                for_purpose="Approval",
+                                agenda_item_nbr=Decimal("2"),
+                                status="available",
+                                validated=False,
+                            )
+                        elif tdoc_id == "S4-260002":
+                            metadata = TDocMetadata(
+                                tdoc_id="S4-260002",
+                                meeting_id=0,
+                                meeting_name="S4-135",
+                                title="SA4#135 another document",
+                                url="https://www.3gpp.org/tsg_sa/WG4/s4-260002.zip",
+                                source="SA WG4 Chair",
+                                contact="Test Contact",
+                                tdoc_type="discussion",
+                                for_purpose="Discussion",
+                                agenda_item_nbr=Decimal("3"),
+                                status="available",
+                                validated=False,
+                            )
+                        else:
+                            continue
+                        database.upsert_tdoc(metadata)
+
+                mock_whatthespec_fetch.side_effect = insert_multiple_via_whatthespec
+                refreshed = maybe_fetch_missing_tdocs(
+                    database,
+                    test_db_path.parent,
+                    config,
+                    results,
+                    credentials=None,
+                )
+
+            # Verify whatthespec was called
+            assert mock_whatthespec_fetch.called
+            assert len(refreshed) >= 2
+            fetched_ids = {tdoc.tdoc_id for tdoc in refreshed}
+            assert "S4-260001" in fetched_ids
+            assert "S4-260002" in fetched_ids
+
+    def test_whatthespec_fallback_graceful_failure(
+        self,
+        test_db_path: Path,
+        sample_meetings: list[dict],
+    ) -> None:
+        """Verify whatthespec failure is handled gracefully.
+
+        This test verifies:
+        1. whatthespec raises error or returns no data
+        2. Error is caught and logged (not crashing CLI)
+        3. Function continues processing
+        4. Results reflect TDoc still missing
+        """
+        config = QueryConfig(
+            cache_dir=test_db_path.parent,
+            tdoc_ids=["S4-999999"],
+        )
+
+        with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
+            results: list[TDocMetadata] = []
+            # This should not raise, but handle gracefully
+            with (
+                patch(
+                    "tdoc_crawler.cli.fetching.fetch_missing_tdocs",
+                    return_value=MagicMock(
+                        processed=1,
+                        inserted=0,
+                        updated=0,
+                        errors=["Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD."],
+                    ),
+                ),
+                patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch,
+            ):
+                # No-op for fallback (simulates failure)
+                mock_whatthespec_fetch.side_effect = lambda *args, **kwargs: None
+                refreshed = maybe_fetch_missing_tdocs(
+                    database,
+                    test_db_path.parent,
+                    config,
+                    results,
+                    credentials=None,
+                )
+
+        # Verify whatthespec was called
+        assert mock_whatthespec_fetch.called
+        # TDoc should still be missing (fallback failed)
+        assert len(refreshed) == 0
+
+    def test_no_whatthespec_when_credentials_available(
+        self,
+        test_db_path: Path,
+        sample_meetings: list[dict],
+    ) -> None:
+        """Verify whatthespec is NOT used when credentials available.
+
+        This test verifies:
+        1. Portal credentials are provided
+        2. Portal fetch returns no error
+        3. whatthespec fallback is NOT triggered
+        """
+        config = QueryConfig(
+            cache_dir=test_db_path.parent,
+            tdoc_ids=["S4-260001"],
+        )
+
+        with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
+            results: list[TDocMetadata] = []
+            credentials = PortalCredentials(username="test", password="test")
+            # Mock fetch_missing_tdocs to succeed (no error)
+            with (
+                patch(
+                    "tdoc_crawler.cli.fetching.fetch_missing_tdocs",
+                    return_value=MagicMock(
+                        processed=1,
+                        inserted=1,
+                        updated=0,
+                        errors=[],
+                    ),
+                ),
+                patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch,
+            ):
+                maybe_fetch_missing_tdocs(
+                    database,
+                    test_db_path.parent,
+                    config,
+                    results,
+                    credentials=credentials,
+                )
+
+        # Verify whatthespec was NOT called (credentials took precedence)
+        mock_whatthespec_fetch.assert_not_called()
+
+    def test_whatthespec_inserts_to_database(
+        self,
+        test_db_path: Path,
+        sample_meetings: list[dict],
+    ) -> None:
+        """Verify whatthespec-resolved TDoc is inserted into database.
+
+        This test verifies:
+        1. whatthespec returns TDocMetadata
+        2. TDoc is successfully inserted into database
+        3. Subsequent query finds the TDoc
+        """
+        metadata = TDocMetadata(
+            tdoc_id="S4-260001",
+            meeting_id=0,
+            meeting_name="S4-135",
+            title="SA4#135 meeting agenda",
+            url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
+            source="SA WG4 Chair",
+            contact="Gilles Teniou",
+            tdoc_type="agenda",
+            for_purpose="Approval",
+            agenda_item_nbr=Decimal("2"),
+            status="available",
+            validated=False,
+        )
+
+        config = QueryConfig(
+            cache_dir=test_db_path.parent,
+            tdoc_ids=["S4-260001"],
+        )
+
+        with TDocDatabase(test_db_path) as database:
+            insert_sample_meetings(database, sample_meetings)
+            results: list[TDocMetadata] = []
+            with (
+                patch(
+                    "tdoc_crawler.cli.fetching.fetch_missing_tdocs",
+                    return_value=MagicMock(
+                        processed=1,
+                        inserted=0,
+                        updated=0,
+                        errors=["Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD."],
+                    ),
+                ),
+                patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch,
+            ):
+
+                def insert_metadata(database, cache_dir, missing_ids) -> None:
+                    database.upsert_tdoc(metadata)
+
+                mock_whatthespec_fetch.side_effect = insert_metadata
+                maybe_fetch_missing_tdocs(
+                    database,
+                    test_db_path.parent,
+                    config,
+                    results,
+                    credentials=None,
+                )
+
+        # Query database to verify TDoc was inserted
+        with TDocDatabase(test_db_path) as database:
+            query_config = QueryConfig(cache_dir=test_db_path.parent, tdoc_ids=["S4-260001"])
+            results = database.query_tdocs(query_config)
+            assert len(results) >= 1
+            assert results[0].tdoc_id == "S4-260001"
+            assert results[0].title == "SA4#135 meeting agenda"
+            assert results[0].source == "SA WG4 Chair"
+            assert results[0].contact == "Gilles Teniou"

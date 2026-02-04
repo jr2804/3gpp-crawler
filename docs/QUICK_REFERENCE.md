@@ -448,6 +448,72 @@ tdoc-crawler stats
 tdoc-crawler stats --cache-dir /path/to/cache
 ```
 
+## 🔄 WhatTheSpec Fallback (Automatic TDoc Resolution)
+
+The `open` and `checkout` commands support automatic TDoc resolution via **WhatTheSpec** when the 3GPP portal is unavailable or you lack EOL credentials.
+
+### What is WhatTheSpec?
+
+WhatTheSpec (whatthespec.net) is a community-maintained indexing service that catalogs 3GPP technical documents with searchable metadata. It provides **no-authentication** access to TDoc information, making it ideal as a fallback when portal credentials are unavailable.
+
+### Automatic Fallback Behavior
+
+When using `open` or `checkout` commands:
+
+1. **First:** Attempts to fetch missing TDoc metadata from the 3GPP portal (if credentials available)
+1. **If credentials unavailable:** Uses WhatTheSpec as automatic fallback
+1. **Result:** TDoc file downloads and opens normally without requiring EOL login
+
+**Key Point:** This is **transparent** to the user. The system automatically tries WhatTheSpec if needed—no additional flags or configuration required.
+
+### When WhatTheSpec is Used
+
+| Scenario | Portal Fetch | WhatTheSpec Fallback |
+|----------|--------------|---------------------|
+| Credentials available | ✓ Attempted first | - (skipped) |
+| Credentials unavailable | ✓ Attempted (will fail) | ✓ Used for remaining TDocs |
+| Portal credentials invalid | ✓ Attempted (will fail) | ✓ Used for remaining TDocs |
+
+### Examples
+
+```bash
+# No credentials needed – WhatTheSpec handles it automatically
+tdoc-crawler open R1-2400001
+
+# Batch checkout multiple TDocs without credentials
+tdoc-crawler checkout R1-2400001 S2-2400567 S4-2400100
+
+# Mix: Some TDocs from portal, others from WhatTheSpec (if credentials available)
+tdoc-crawler open S2-2400001
+```
+
+### Benefits
+
+- **No credentials required** – Works without EOL account
+- **Faster access** – No authentication overhead
+- **Resilient** – Falls back gracefully if portal is unavailable
+- **Transparent** – Existing commands work unchanged
+
+### Limitations
+
+- **Metadata only** – WhatTheSpec provides basic document metadata
+- **Slower fallback** – Portal fetch typically faster than WhatTheSpec for large numbers of TDocs
+- **Coverage** – Older or obscure TDocs may not be indexed on WhatTheSpec
+
+### How to Use EOL Credentials (Alternative)
+
+If you prefer to use portal credentials for better performance or availability:
+
+```bash
+export EOL_USERNAME=your_username
+export EOL_PASSWORD=your_password
+
+# Now portal fetch is attempted first (faster, more comprehensive)
+tdoc-crawler open R1-2400001
+```
+
+See **Configuration** section for credential setup details.
+
 ## 🚀 HTTP Caching
 
 HTTP caching is **enabled by default** with sensible settings. All HTTP requests are automatically cached to a persistent SQLite database, dramatically improving performance for incremental crawls.
@@ -579,8 +645,8 @@ Credentials are used for authenticated access to the 3GPP portal. Most commands 
 Credentials are resolved in this order:
 
 1. **CLI parameters** (`--eol-username`, `--eol-password`)
-2. **Environment variables** (`EOL_USERNAME`, `EOL_PASSWORD`)
-3. **Interactive prompt** (only if `EOL_PROMPT=true` or `--prompt-credentials` is set)
+1. **Environment variables** (`EOL_USERNAME`, `EOL_PASSWORD`)
+1. **Interactive prompt** (only if `EOL_PROMPT=true` or `--prompt-credentials` is set)
 
 ### Configuration
 

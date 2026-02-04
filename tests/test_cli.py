@@ -428,3 +428,311 @@ class TestOpenCommand:
 
         assert result.exit_code == 1
         assert "not found" in result.stdout
+
+    @patch("tdoc_crawler.cli.app.launch_file")
+    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
+    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_open_with_whatthespec_fallback(
+        self,
+        mock_db_class: MagicMock,
+        mock_fetch_portal: MagicMock,
+        mock_whatthespec_fetch: MagicMock,
+        mock_prepare: MagicMock,
+        mock_launch: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test open command uses whatthespec fallback when TDoc missing and no credentials.
+
+        This integration test verifies:
+        1. TDoc not found in database
+        2. maybe_fetch_missing_tdocs is called
+        3. Portal fetch fails (no credentials)
+        4. whatthespec fallback is triggered
+        5. whatthespec returns valid metadata
+        6. TDoc is inserted and file is opened
+        """
+        from decimal import Decimal
+
+        from tdoc_crawler.models import TDocMetadata
+
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        # Database returns no results initially
+        mock_db.query_tdocs.return_value = []
+        # After fetch, database returns the fetched TDoc
+        mock_db.upsert_tdoc.return_value = (True, False)
+
+        # Mock portal fetch to return credentials error
+        mock_fetch_portal.return_value = MagicMock(
+            processed=1,
+            inserted=0,
+            updated=0,
+            errors=["Portal credentials required"],
+        )
+
+        metadata = TDocMetadata(
+            tdoc_id="S4-260001",
+            meeting_id=0,
+            meeting_name="S4-135",
+            title="SA4#135 meeting agenda",
+            url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
+            source="SA WG4 Chair",
+            contact="Test Contact",
+            tdoc_type="agenda",
+            for_purpose="Approval",
+            agenda_item_nbr=Decimal("2"),
+            status="available",
+            validated=False,
+        )
+
+        def insert_via_fetch(database, cache_dir, missing_ids) -> None:
+            """Mock whatthespec fetch that inserts TDoc."""
+            database.upsert_tdoc(metadata)
+
+        mock_whatthespec_fetch.side_effect = insert_via_fetch
+
+        mock_file = test_cache_dir / "test.pdf"
+        mock_prepare.return_value = mock_file
+
+        # Mock the re-query after fetch to return the TDoc
+        # query_tdocs is called 3 times: initial, after portal fetch, after whatthespec
+        mock_db.query_tdocs.side_effect = [
+            [],  # First call: initial query
+            [],  # Second call: after portal fetch fails
+            [metadata],  # Third call: after whatthespec succeeds
+        ]
+
+        result = runner.invoke(
+            app,
+            ["open", "S4-260001", "--cache-dir", str(test_cache_dir)],
+        )
+
+        assert result.exit_code == 0
+        mock_whatthespec_fetch.assert_called_once()
+        mock_prepare.assert_called_once()
+        mock_launch.assert_called_once()
+
+    @patch("tdoc_crawler.cli.app.launch_file")
+    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
+    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_open_with_whatthespec_no_credentials_required(
+        self,
+        mock_db_class: MagicMock,
+        mock_fetch_portal: MagicMock,
+        mock_whatthespec_fetch: MagicMock,
+        mock_prepare: MagicMock,
+        mock_launch: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test open command works without EOL credentials when whatthespec available.
+
+        This integration test verifies:
+        1. No EOL credentials set (None)
+        2. TDoc not in database
+        3. whatthespec resolver provides metadata
+        4. TDoc is opened without requiring portal credentials
+        """
+        from decimal import Decimal
+
+        from tdoc_crawler.models import TDocMetadata
+
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_tdocs.return_value = []
+        mock_db.upsert_tdoc.return_value = (True, False)
+
+        # Mock portal fetch to return credentials error
+        mock_fetch_portal.return_value = MagicMock(
+            processed=1,
+            inserted=0,
+            updated=0,
+            errors=["Portal credentials required"],
+        )
+
+        metadata = TDocMetadata(
+            tdoc_id="R1-260001",
+            meeting_id=0,
+            meeting_name="RAN1#100",
+            title="RAN1 discussion document",
+            url="https://www.3gpp.org/tsg_ran/RAN1/r1-260001.zip",
+            source="RAN1 Chair",
+            contact="Test Contact",
+            tdoc_type="discussion",
+            for_purpose="Discussion",
+            agenda_item_nbr=Decimal("3.1"),
+            status="available",
+            validated=False,
+        )
+
+        def insert_via_fetch(database, cache_dir, missing_ids) -> None:
+            database.upsert_tdoc(metadata)
+
+        mock_whatthespec_fetch.side_effect = insert_via_fetch
+
+        mock_file = test_cache_dir / "test.pdf"
+        mock_prepare.return_value = mock_file
+
+        # query_tdocs is called 3 times: initial, after portal fetch, after whatthespec
+        mock_db.query_tdocs.side_effect = [
+            [],  # First call: initial query
+            [],  # Second call: after portal fetch fails
+            [metadata],  # Third call: after whatthespec succeeds
+        ]
+
+        result = runner.invoke(
+            app,
+            ["open", "R1-260001", "--cache-dir", str(test_cache_dir)],
+        )
+
+        # Should succeed (exit code 0) and use whatthespec fallback
+        assert result.exit_code == 0
+        # Verify whatthespec was called as fallback
+        mock_whatthespec_fetch.assert_called_once()
+        # Verify output indicates whatthespec was used
+        assert "whatthespec fallback" in result.stdout.lower() or "trying whatthespec" in result.stdout.lower()
+
+
+class TestCheckoutCommand:
+    """Tests for checkout command with whatthespec fallback."""
+
+    @patch("tdoc_crawler.cli.app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
+    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_checkout_with_whatthespec_fallback(
+        self,
+        mock_db_class: MagicMock,
+        mock_fetch_portal: MagicMock,
+        mock_whatthespec_fetch: MagicMock,
+        mock_checkout: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test checkout command uses whatthespec fallback for missing TDocs.
+
+        This integration test verifies:
+        1. Multiple TDocs requested
+        2. TDocs not found in database
+        3. Portal fetch fails (no credentials)
+        4. whatthespec fallback resolves TDocs
+        5. checkout_tdoc called for resolved TDocs
+        """
+        from decimal import Decimal
+
+        from tdoc_crawler.models import TDocMetadata
+
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_tdocs.return_value = []
+        mock_db.upsert_tdoc.return_value = (True, False)
+
+        # Mock portal fetch to return credentials error
+        mock_fetch_portal.return_value = MagicMock(
+            processed=2,
+            inserted=0,
+            updated=0,
+            errors=["Portal credentials required"],
+        )
+
+        # Setup metadata for both TDocs
+        tdoc1 = TDocMetadata(
+            tdoc_id="S4-260001",
+            meeting_id=0,
+            meeting_name="S4-135",
+            title="SA4#135 agenda",
+            url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
+            source="SA WG4 Chair",
+            contact="Test Contact",
+            tdoc_type="agenda",
+            for_purpose="Approval",
+            agenda_item_nbr=Decimal("2"),
+            status="available",
+            validated=False,
+        )
+        tdoc2 = TDocMetadata(
+            tdoc_id="S4-260002",
+            meeting_id=0,
+            meeting_name="S4-135",
+            title="SA4#135 document",
+            url="https://www.3gpp.org/tsg_sa/WG4/s4-260002.zip",
+            source="SA WG4 Chair",
+            contact="Test Contact",
+            tdoc_type="discussion",
+            for_purpose="Discussion",
+            agenda_item_nbr=Decimal("3"),
+            status="available",
+            validated=False,
+        )
+
+        def insert_via_fetch(database, cache_dir, missing_ids) -> None:
+            for tdoc_id in missing_ids:
+                if tdoc_id == "S4-260001":
+                    database.upsert_tdoc(tdoc1)
+                elif tdoc_id == "S4-260002":
+                    database.upsert_tdoc(tdoc2)
+
+        mock_whatthespec_fetch.side_effect = insert_via_fetch
+        mock_db.query_tdocs.side_effect = [
+            [],  # First call: initial query
+            [],  # Second call: after portal fetch fails
+            [tdoc1, tdoc2],  # Third call: after whatthespec succeeds
+        ]
+
+        result = runner.invoke(
+            app,
+            ["checkout", "S4-260001", "S4-260002", "--cache-dir", str(test_cache_dir)],
+        )
+
+        assert result.exit_code == 0
+        # whatthespec should have been called
+        mock_whatthespec_fetch.assert_called_once()
+        # checkout_tdoc should have been called for both TDocs
+        assert mock_checkout.call_count == 2
+
+    @patch("tdoc_crawler.cli.app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
+    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_checkout_with_whatthespec_graceful_failure(
+        self,
+        mock_db_class: MagicMock,
+        mock_fetch_portal: MagicMock,
+        mock_whatthespec_fetch: MagicMock,
+        mock_checkout: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Test checkout handles whatthespec failure gracefully.
+
+        This integration test verifies:
+        1. whatthespec fetch doesn't insert any TDocs
+        2. CLI does NOT crash
+        3. CLI reports missing TDocs
+        4. Exit code indicates partial failure
+        """
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_tdocs.return_value = []
+
+        # Mock portal fetch to return credentials error
+        mock_fetch_portal.return_value = MagicMock(
+            processed=1,
+            inserted=0,
+            updated=0,
+            errors=["Portal credentials required"],
+        )
+
+        # Mock whatthespec to not insert anything (failure case)
+        mock_whatthespec_fetch.side_effect = lambda *args, **kwargs: None
+
+        result = runner.invoke(
+            app,
+            ["checkout", "S4-999999", "--cache-dir", str(test_cache_dir)],
+        )
+
+        # Should exit with error code due to missing TDoc
+        assert result.exit_code == 1
+        # Should report missing TDoc in output
+        assert "missing" in result.stdout.lower() or "not found" in result.stdout.lower()

@@ -17,6 +17,7 @@ EXCLUDED_DIRS_NORMALIZED: Final[frozenset[str]] = frozenset(entry.upper() for en
 MEETINGS_BASE_URL: Final[str] = "https://www.3gpp.org/dynareport?code=Meetings-{code}.htm"
 PORTAL_BASE_URL: Final[str] = "https://portal.3gpp.org"
 TDOC_VIEW_URL: Final[str] = f"{PORTAL_BASE_URL}/ngppapp/CreateTdoc.Aspx"
+TDOC_DOWNLOAD_URL: Final[str] = f"{PORTAL_BASE_URL}/ngppapp/DownloadTDoc.aspx"
 LOGIN_URL: Final[str] = f"{PORTAL_BASE_URL}/login.aspx"
 
 DATE_PATTERN: Final[re.Pattern[str]] = re.compile(r"(\d{4}[\-\u2010-\u2015]\d{2}[\-\u2010-\u2015]\d{2})")

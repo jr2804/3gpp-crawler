@@ -147,8 +147,7 @@
 				"args": [
 					"open",
 					"S4-260001",
-					"--cache-dir",
-					"./tests/test-cache"
+
 				]
 			}
 		]
