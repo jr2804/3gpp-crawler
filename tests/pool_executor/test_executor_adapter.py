@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from tdoc_crawler.crawlers.executor_adapter import Runner
+from pool_executors.pool_executors import Runner
 
 
 class TestRunner:
