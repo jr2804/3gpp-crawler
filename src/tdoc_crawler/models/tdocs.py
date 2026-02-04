@@ -25,7 +25,7 @@ class TDocMetadata(BaseModel):
     tdoc_id: str = Field(..., description="Unique TDoc identifier (case-normalized)")
     meeting_id: int = Field(..., description="Foreign key reference to the meetings table")
     title: str = Field(..., description="Document title as published on the portal")
-    url: str = Field(..., description="Full URL to the TDoc resource")
+    url: str | None = Field(None, description="Full URL to the TDoc resource, None if not available")
     source: str = Field(..., description="Contact person or organization")
     contact: str = Field(..., description="Contact person or organization")
 
