@@ -8,7 +8,9 @@ directory structure as the server.
 from __future__ import annotations
 
 import logging
-import zipfile
+import posixpath
+import shutil
+from contextlib import suppress
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -151,22 +153,44 @@ def checkout_tdoc(
     # Create checkout directory
     checkout_path.mkdir(parents=True, exist_ok=True)
 
-    # Download the file
-    temp_zip_path = checkout_path / f"{metadata.tdoc_id}.zip"
+    cache_dir = checkout_dir.parent if checkout_dir.name == "checkout" else checkout_dir
 
+    if force:
+        downloads_dir = cache_dir / "checkout"
+        extract_dir = downloads_dir / metadata.tdoc_id
+        if extract_dir.exists():
+            shutil.rmtree(extract_dir)
+        zip_path = downloads_dir / f"{metadata.tdoc_id}.zip"
+        with suppress(FileNotFoundError):
+            zip_path.unlink()
+        filename = posixpath.basename(urlparse(metadata.url).path)
+        if filename:
+            with suppress(FileNotFoundError):
+                (downloads_dir / filename).unlink()
+
+    import importlib
+
+    from tdoc_crawler.cli.helpers import prepare_tdoc_file
+
+    cli_helpers = importlib.import_module("tdoc_crawler.cli.helpers")
+    original_download = cli_helpers.download_to_path
     try:
-        _download_file(metadata.url, temp_zip_path)
-
-        # Extract the zip file
-        with zipfile.ZipFile(temp_zip_path) as archive:
-            archive.extractall(checkout_path)
-
-        logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
-
+        cli_helpers.download_to_path = _download_file
+        prepared_path = prepare_tdoc_file(metadata, cache_dir, return_dir=True)
     finally:
-        # Clean up the zip file
-        if temp_zip_path.exists():
-            temp_zip_path.unlink()
+        cli_helpers.download_to_path = original_download
+    if prepared_path.is_dir():
+        if prepared_path != checkout_path:
+            shutil.copytree(prepared_path, checkout_path, dirs_exist_ok=True)
+            shutil.rmtree(prepared_path)
+    else:
+        target_path = checkout_path / prepared_path.name
+        shutil.copy2(prepared_path, target_path)
+        if prepared_path != target_path:
+            with suppress(FileNotFoundError):
+                prepared_path.unlink()
+
+    logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
 
     return checkout_path
 

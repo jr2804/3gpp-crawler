@@ -263,8 +263,17 @@ def download_to_path(url: str, destination: Path) -> None:
         target.write(response.content)
 
 
-def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path) -> Path:
-    """Prepare TDoc file for opening (download and extract if needed)."""
+def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool = False) -> Path:
+    """Prepare TDoc file for opening (download and extract if needed).
+
+    Args:
+        metadata: TDoc metadata with download URL.
+        cache_dir: Cache directory for downloads and extracted files.
+        return_dir: When True and the TDoc is a zip, return the extract directory.
+
+    Returns:
+        Path to the downloaded file, or the extract directory when return_dir is True.
+    """
     downloads_dir = cache_dir / "checkout"
     downloads_dir.mkdir(parents=True, exist_ok=True)
     path = urlparse(metadata.url).path
@@ -279,7 +288,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path) -> Path:
         if extract_dir.exists():
             files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
             if files:
-                return files[0]
+                return extract_dir if return_dir else files[0]
             shutil.rmtree(extract_dir)
         zip_path = downloads_dir / f"{metadata.tdoc_id}.zip"
         download_to_path(metadata.url, zip_path)
@@ -292,7 +301,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path) -> Path:
         files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
         if not files:
             raise FileNotFoundError("no-files-in-archive")
-        return files[0]
+        return extract_dir if return_dir else files[0]
 
     target_suffix = suffix or ""
     target_name = filename if filename else f"{metadata.tdoc_id}{target_suffix or '.bin'}"
