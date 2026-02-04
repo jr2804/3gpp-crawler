@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 from decimal import Decimal
 from pathlib import Path
@@ -173,9 +174,16 @@ class TestMeetingDocumentList:
             )
             mock_get_meetings.return_value = [mock_meeting]
 
-            with patch("tdoc_crawler.crawlers.meeting_doclist.fetch_meeting_document_list") as mock_fetch:
-                mock_fetch.return_value = test_metadata
+            with patch.object(crawler, "_crawl_meetings_document_list") as mock_doc_list:
 
+                async def doc_list_side_effect(meetings, config, collected, existing_ids, targets):
+                    collected.extend(test_metadata)
+                    return [], 1
+
+                mock_doc_list.side_effect = doc_list_side_effect
+
+                # Use async patch for the internal _crawl_meetings_parallel as well if needed
+                # But here we just want to mock the top level crawl to return metadata
                 result = crawler.crawl(config)
 
                 assert isinstance(result, HybridCrawlResult)
@@ -223,9 +231,14 @@ class TestMeetingDocumentList:
             with patch("tdoc_crawler.crawlers.meeting_doclist.fetch_meeting_document_list") as mock_fetch:
                 mock_fetch.side_effect = DocumentListError("Document list not available")
 
-            with patch("asyncio.run") as mock_asyncio:
+            with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
                 # Mock parallel crawling result
-                mock_asyncio.return_value = ([], 1)  # (errors, meetings_processed)
+                def side_effect(*args, **kwargs):
+                    f = asyncio.Future()
+                    f.set_result(([], 1))
+                    return f
+
+                mock_parallel.side_effect = side_effect
 
                 result = crawler.crawl(config)
 
@@ -266,9 +279,14 @@ class TestMeetingDocumentList:
             )
             mock_get_meetings.return_value = [mock_meeting]
 
-            with patch("asyncio.run") as mock_asyncio:
+            with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
                 # Mock parallel crawling result
-                mock_asyncio.return_value = ([], 1)  # (errors, meetings_processed)
+                def side_effect(*args, **kwargs):
+                    f = asyncio.Future()
+                    f.set_result(([], 1))
+                    return f
+
+                mock_parallel.side_effect = side_effect
 
                 result = crawler.crawl(config)
 
