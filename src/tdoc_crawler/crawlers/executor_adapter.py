@@ -42,7 +42,7 @@ class _RunnerContextManager:
 class Runner:
     """Adapter that provides aiointerpreters.Runner API using pool_executors."""
 
-    def __init__(self, workers: int = 4, executor_type: str = "subinterpreter") -> None:
+    def __init__(self, workers: int = 4, executor_type: str = "multiprocessing") -> None:
         # Ensure executor_type is compatible with ExecutorType
         self.executor_type = executor_type
 
@@ -84,8 +84,12 @@ class Runner:
         if self._loop is None:
             raise RuntimeError("Event loop not available")
 
-        # Run function in executor and return awaitable
-        return await self._loop.run_in_executor(self._executor, lambda: func(*args, **kwargs))
+        # Run function in executor
+        if kwargs:
+            import functools
+
+            return await self._loop.run_in_executor(self._executor, functools.partial(func, *args, **kwargs))
+        return await self._loop.run_in_executor(self._executor, func, *args)
 
     def __enter__(self) -> Runner:
         """Context manager entry - not used, use start() instead."""
