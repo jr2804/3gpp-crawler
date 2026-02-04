@@ -14,10 +14,10 @@ class TestRunner:
 
     def test_runner_initialization(self) -> None:
         """Test runner initialization with default and custom parameters."""
-        # Default initialization
+        # Default initialization (defaulted to multiprocessing for stability)
         runner = Runner()
         assert runner.workers == 4
-        assert runner.executor_type == "subinterpreter"
+        assert runner.executor_type == "multiprocessing"
         assert runner._executor is None
         assert runner._loop is None
 
