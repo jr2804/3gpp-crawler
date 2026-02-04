@@ -107,7 +107,7 @@ class TestMeetingDocumentList:
         with pytest.raises(Exception):  # DocumentListError or pandas error
             parse_excel_document_list(excel_content, meeting_id=12345)
 
-    def test_fetch_meeting_document_list_network_error(self) -> None:
+    def test_fetch_meeting_document_list_network_error(self, tmp_path: Path) -> None:
         """Test handling of network errors."""
         with patch("tdoc_crawler.crawlers.meeting_doclist.create_cached_session") as mock_session:
             mock_response = MagicMock()
@@ -117,7 +117,7 @@ class TestMeetingDocumentList:
             with pytest.raises(DocumentListError):
                 fetch_meeting_document_list(
                     meeting_id=12345,
-                    cache_dir=Path("/tmp"),
+                    cache_dir=tmp_path,
                 )
 
     def test_hybrid_crawler_document_list_only(self) -> None:

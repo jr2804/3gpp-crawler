@@ -168,9 +168,9 @@ def checkout_tdoc(
             with suppress(FileNotFoundError):
                 (downloads_dir / filename).unlink()
 
-    import importlib
+    import importlib  # noqa: PLC0415
 
-    from tdoc_crawler.cli.helpers import prepare_tdoc_file
+    from tdoc_crawler.cli.helpers import prepare_tdoc_file  # noqa: PLC0415
 
     cli_helpers = importlib.import_module("tdoc_crawler.cli.helpers")
     original_download = cli_helpers.download_to_path

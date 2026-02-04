@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -453,10 +454,6 @@ class TestOpenCommand:
         5. whatthespec returns valid metadata
         6. TDoc is inserted and file is opened
         """
-        from decimal import Decimal
-
-        from tdoc_crawler.models import TDocMetadata
-
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         # Database returns no results initially
@@ -536,10 +533,6 @@ class TestOpenCommand:
         3. whatthespec resolver provides metadata
         4. TDoc is opened without requiring portal credentials
         """
-        from decimal import Decimal
-
-        from tdoc_crawler.models import TDocMetadata
-
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_tdocs.return_value = []
@@ -620,10 +613,6 @@ class TestCheckoutCommand:
         4. whatthespec fallback resolves TDocs
         5. checkout_tdoc called for resolved TDocs
         """
-        from decimal import Decimal
-
-        from tdoc_crawler.models import TDocMetadata
-
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_tdocs.return_value = []

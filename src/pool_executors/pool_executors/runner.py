@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import Any, TypeVar
@@ -85,8 +86,6 @@ class Runner:
 
         # Run function in executor
         if kwargs:
-            import functools
-
             return await self._loop.run_in_executor(self._executor, functools.partial(func, *args, **kwargs))
         return await self._loop.run_in_executor(self._executor, func, *args)
 
