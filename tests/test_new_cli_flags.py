@@ -1,4 +1,4 @@
-"""Tests for the new CLI flags functionality."""
+"""Tests for the new CLI flags --full-metadata and --use-whatthespec."""
 
 from __future__ import annotations
 
@@ -9,238 +9,224 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli.app import app
-from tdoc_crawler.models import TDocMetadata
+from tdoc_crawler.models.tdocs import TDocMetadata
 
 
 @pytest.fixture
 def runner() -> CliRunner:
-    """Create a CLI runner for testing."""
+    """Provides a CliRunner for testing."""
     return CliRunner()
 
 
 @pytest.fixture
-def mock_database() -> Mock:
-    """Create a mock database for testing."""
-    return Mock()
-
-
-@pytest.fixture
 def sample_tdoc_metadata() -> TDocMetadata:
-    """Create sample TDoc metadata for testing."""
+    """Provides a sample TDocMetadata object."""
     return TDocMetadata(
         tdoc_id="S4-260001",
-        url="https://www.example.com/S4-260001.zip",
-        title="Sample TDoc",
         meeting_id=123,
-        source="Sample Source",
-        contact="Sample Contact",
-        agenda_item_nbr=1,
-        date="2026-01-01",
-        revision_of="",
-        technical_committee="SA",
-        working_group="S4",
-        type="LS",
-        status="Published",
-        referenced_documents=[],
-        filename="S4-260001.zip",
-        size=1024,
-        validated=True,
-        validation_failed=False,
+        title="Sample TDoc",
+        source="Qualcomm",
+        contact="John Doe",
+        agenda_item_nbr=1.1,
+        work_item="WI_123",
+        url="https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_123/Docs/S4-260001.zip",
     )
 
 
-class TestNewCliFlags:
-    """Test the new CLI flags functionality."""
+class TestNewCLIFlags:
+    """Test suite for new CLI flags in open and checkout commands."""
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.fetching.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_full_metadata_flag(
         self,
+        mock_launch: Mock,
+        mock_prepare: Mock,
         mock_fetch: Mock,
         mock_database_class: Mock,
         mock_database_path: Mock,
         runner: CliRunner,
         sample_tdoc_metadata: TDocMetadata,
+        tmp_path: Path,
     ) -> None:
         """Test open command with --full-metadata flag."""
         # Setup mocks
         mock_db_instance = Mock()
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
-        mock_database_path.return_value = Path("/tmp/test.db")
+        mock_database_path.return_value = tmp_path / "test.db"
+        mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
+        mock_prepare.return_value = tmp_path / "S4-260001.zip"
 
-        mock_db_instance.query_tdocs.return_value = [sample_tdoc_metadata]
-        mock_fetch.return_value = [sample_tdoc_metadata]
-
-        # Run command with --full-metadata flag
+        # Execute
         result = runner.invoke(app, ["open", "S4-260001", "--full-metadata"])
 
-        # Verify success
+        # Verify
         assert result.exit_code == 0
-
-        # Verify maybe_fetch_missing_tdocs was called with correct parameters
         mock_fetch.assert_called_once()
-        call_args = mock_fetch.call_args
-        assert call_args[1]["full_metadata"] is True
-        assert call_args[1]["use_whatthespec"] is False
+        args, kwargs = mock_fetch.call_args
+        assert kwargs["full_metadata"] is True
+        assert kwargs["use_whatthespec"] is False
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.fetching.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_whatthespec_flag(
         self,
+        mock_launch: Mock,
+        mock_prepare: Mock,
         mock_fetch: Mock,
         mock_database_class: Mock,
         mock_database_path: Mock,
         runner: CliRunner,
         sample_tdoc_metadata: TDocMetadata,
+        tmp_path: Path,
     ) -> None:
         """Test open command with --use-whatthespec flag."""
         # Setup mocks
         mock_db_instance = Mock()
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
-        mock_database_path.return_value = Path("/tmp/test.db")
+        mock_database_path.return_value = tmp_path / "test.db"
+        mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
+        mock_prepare.return_value = tmp_path / "S4-260001.zip"
 
-        mock_db_instance.query_tdocs.return_value = [sample_tdoc_metadata]
-        mock_fetch.return_value = [sample_tdoc_metadata]
-
-        # Run command with --use-whatthespec flag
+        # Execute
         result = runner.invoke(app, ["open", "S4-260001", "--use-whatthespec"])
 
-        # Verify success
+        # Verify
         assert result.exit_code == 0
-
-        # Verify maybe_fetch_missing_tdocs was called with correct parameters
         mock_fetch.assert_called_once()
-        call_args = mock_fetch.call_args
-        assert call_args[1]["full_metadata"] is False
-        assert call_args[1]["use_whatthespec"] is True
+        args, kwargs = mock_fetch.call_args
+        assert kwargs["use_whatthespec"] is True
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.fetching.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_both_flags(
         self,
+        mock_launch: Mock,
+        mock_prepare: Mock,
         mock_fetch: Mock,
         mock_database_class: Mock,
         mock_database_path: Mock,
         runner: CliRunner,
         sample_tdoc_metadata: TDocMetadata,
+        tmp_path: Path,
     ) -> None:
-        """Test open command with both --full-metadata and --use-whatthespec flags."""
+        """Test open command with both flags."""
         # Setup mocks
         mock_db_instance = Mock()
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
-        mock_database_path.return_value = Path("/tmp/test.db")
+        mock_database_path.return_value = tmp_path / "test.db"
+        mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
+        mock_prepare.return_value = tmp_path / "S4-260001.zip"
 
-        mock_db_instance.query_tdocs.return_value = [sample_tdoc_metadata]
-        mock_fetch.return_value = [sample_tdoc_metadata]
-
-        # Run command with both flags
+        # Execute
         result = runner.invoke(app, ["open", "S4-260001", "--full-metadata", "--use-whatthespec"])
 
-        # Verify success
+        # Verify
         assert result.exit_code == 0
-
-        # Verify maybe_fetch_missing_tdocs was called with correct parameters
-        # use_whatthespec should take precedence
         mock_fetch.assert_called_once()
-        call_args = mock_fetch.call_args
-        assert call_args[1]["full_metadata"] is False  # Overridden by use_whatthespec
-        assert call_args[1]["use_whatthespec"] is True
+        args, kwargs = mock_fetch.call_args
+        assert kwargs["full_metadata"] is True
+        assert kwargs["use_whatthespec"] is True
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.fetching.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.checkout_tdoc")
     def test_checkout_with_full_metadata_flag(
         self,
+        mock_checkout: Mock,
         mock_fetch: Mock,
         mock_database_class: Mock,
         mock_database_path: Mock,
         runner: CliRunner,
         sample_tdoc_metadata: TDocMetadata,
+        tmp_path: Path,
     ) -> None:
         """Test checkout command with --full-metadata flag."""
         # Setup mocks
         mock_db_instance = Mock()
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
-        mock_database_path.return_value = Path("/tmp/test.db")
+        mock_database_path.return_value = tmp_path / "test.db"
+        mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
 
-        mock_db_instance.query_tdocs.return_value = [sample_tdoc_metadata]
-        mock_fetch.return_value = [sample_tdoc_metadata]
-
-        # Run command with --full-metadata flag
+        # Execute
         result = runner.invoke(app, ["checkout", "S4-260001", "--full-metadata"])
 
-        # Verify success
+        # Verify
         assert result.exit_code == 0
-
-        # Verify maybe_fetch_missing_tdocs was called with correct parameters
         mock_fetch.assert_called_once()
-        call_args = mock_fetch.call_args
-        assert call_args[1]["full_metadata"] is True
-        assert call_args[1]["use_whatthespec"] is False
+        args, kwargs = mock_fetch.call_args
+        assert kwargs["full_metadata"] is True
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.fetching.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.checkout_tdoc")
     def test_checkout_with_whatthespec_flag(
         self,
+        mock_checkout: Mock,
         mock_fetch: Mock,
         mock_database_class: Mock,
         mock_database_path: Mock,
         runner: CliRunner,
         sample_tdoc_metadata: TDocMetadata,
+        tmp_path: Path,
     ) -> None:
         """Test checkout command with --use-whatthespec flag."""
         # Setup mocks
         mock_db_instance = Mock()
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
-        mock_database_path.return_value = Path("/tmp/test.db")
+        mock_database_path.return_value = tmp_path / "test.db"
+        mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
 
-        mock_db_instance.query_tdocs.return_value = [sample_tdoc_metadata]
-        mock_fetch.return_value = [sample_tdoc_metadata]
-
-        # Run command with --use-whatthespec flag
+        # Execute
         result = runner.invoke(app, ["checkout", "S4-260001", "--use-whatthespec"])
 
-        # Verify success
+        # Verify
         assert result.exit_code == 0
-
-        # Verify maybe_fetch_missing_tdocs was called with correct parameters
         mock_fetch.assert_called_once()
-        call_args = mock_fetch.call_args
-        assert call_args[1]["full_metadata"] is False
-        assert call_args[1]["use_whatthespec"] is True
+        args, kwargs = mock_fetch.call_args
+        assert kwargs["use_whatthespec"] is True
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.fetching.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.app.launch_file")
     def test_default_behavior_unchanged(
         self,
+        mock_launch: Mock,
+        mock_prepare: Mock,
         mock_fetch: Mock,
         mock_database_class: Mock,
         mock_database_path: Mock,
         runner: CliRunner,
         sample_tdoc_metadata: TDocMetadata,
+        tmp_path: Path,
     ) -> None:
-        """Test that default behavior is unchanged when no flags are provided."""
+        """Test that default behavior (no flags) still works as expected."""
         # Setup mocks
         mock_db_instance = Mock()
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
-        mock_database_path.return_value = Path("/tmp/test.db")
+        mock_database_path.return_value = tmp_path / "test.db"
+        mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
+        mock_prepare.return_value = tmp_path / "S4-260001.zip"
 
-        mock_db_instance.query_tdocs.return_value = [sample_tdoc_metadata]
-        mock_fetch.return_value = [sample_tdoc_metadata]
-
-        # Run command without any new flags
+        # Execute
         result = runner.invoke(app, ["open", "S4-260001"])
 
-        # Verify success
+        # Verify
         assert result.exit_code == 0
-
-        # Verify maybe_fetch_missing_tdocs was called with default parameters
         mock_fetch.assert_called_once()
-        call_args = mock_fetch.call_args
-        assert call_args[1]["full_metadata"] is False
-        assert call_args[1]["use_whatthespec"] is False
+        args, kwargs = mock_fetch.call_args
+        assert kwargs["full_metadata"] is False
+        assert kwargs["use_whatthespec"] is False

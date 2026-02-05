@@ -14,11 +14,12 @@ A command-line tool for crawling the 3GPP FTP server, caching TDoc metadata in a
 ## Features
 
 - **Crawl 3GPP FTP Server**: Automatically retrieve TDoc links from RAN, SA, and CT working groups
-- **Local SQLite Database**: Store TDoc metadata for fast querying
+- **Spec Catalog**: Crawl and query normalized 3GPP Technical Specifications (TS/TR) from multiple sources
+- **Local SQLite Database**: Store TDoc and Spec metadata for fast querying
 - **Persistent HTTP Caching**: 50-90% faster incremental crawls with automatic request caching
 - **Case-Insensitive Queries**: Search for TDocs regardless of case
 - **Multiple Output Formats**: Export results as table, JSON, or YAML
-- **Incremental Updates**: Only fetch new TDocs on subsequent crawls
+- **Incremental Updates**: Only fetch new data on subsequent crawls
 - **Rich CLI**: Beautiful terminal output with progress indicators
 
 ## Installation
@@ -158,7 +159,22 @@ tdoc-crawler query R1-2301234 --format json --output results.json
 tdoc-crawler query --working-group SA --format yaml
 ```
 
-### 4. View Database Statistics
+### 4. Crawl and Query Specifications
+
+Populate and search the spec catalog:
+
+```bash
+# Crawl spec metadata from all sources
+tdoc-crawler crawl-specs
+
+# Query specific specifications
+tdoc-crawler query-specs 23.501 38.331
+
+# Open latest document for a spec
+tdoc-crawler open-spec 23.501
+```
+
+### 5. View Database Statistics
 
 ```bash
 tdoc-crawler stats

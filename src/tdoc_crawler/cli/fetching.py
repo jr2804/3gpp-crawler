@@ -7,13 +7,12 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from tdoc_crawler.crawlers import TDocCrawlResult, fetch_tdoc_metadata
+from tdoc_crawler.cli.console import get_console
+from tdoc_crawler.cli.helpers import resolve_meeting_id
+from tdoc_crawler.crawlers import TDocCrawlResult, WhatTheSpecResolutionError, extract_tdoc_url_from_portal, fetch_tdoc_metadata, resolve_via_whatthespec
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import HttpCacheConfig, PortalCredentials, QueryConfig, TDocMetadata
-
-from .console import get_console
-from .helpers import resolve_meeting_id
 
 console = get_console()
 _logger = logging.getLogger(__name__)
@@ -45,9 +44,6 @@ def fetch_tdoc(
     Raises:
         Exception: If fetching fails for any reason.
     """
-    # Import here to avoid circular imports
-    from tdoc_crawler.crawlers import extract_tdoc_url_from_portal, resolve_via_whatthespec
-
     if use_whatthespec:
         # Always use WhatTheSpec method (Method 3)
         _logger.debug(f"Fetching {tdoc_id} via WhatTheSpec API")
@@ -178,12 +174,6 @@ def _fetch_via_whatthespec(
         cache_dir: Cache directory path
         missing_ids: List of TDoc IDs to fetch
     """
-    # Import at runtime to avoid circular dependency
-    from tdoc_crawler.crawlers import (  # noqa: PLC0415
-        WhatTheSpecResolutionError,
-        resolve_via_whatthespec,
-    )
-
     http_cache = HttpCacheConfig()
 
     for tdoc_id in missing_ids:

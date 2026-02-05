@@ -1,5 +1,6 @@
 """Tests for TDoc checkout functionality."""
 
+import io
 import zipfile
 from decimal import Decimal
 from pathlib import Path
@@ -74,23 +75,28 @@ class TestGetCheckoutPath:
 class TestCheckoutTDoc:
     """Tests for checkout_tdoc function."""
 
-    @patch("tdoc_crawler.cli.helpers.download_to_path")
+    @patch("tdoc_crawler.checkout.requests.get")
     def test_successful_checkout(
         self,
-        mock_download: Mock,
+        mock_requests_get: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
         """Test successful TDoc checkout."""
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
 
-        # Mock download to create a zip file
-        def mock_download_impl(url: str, dest: Path, **kwargs) -> None:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            with zipfile.ZipFile(dest, "w") as zf:
+        # Mock requests.get to return a valid response with zip content
+        def mock_get(url: str, **kwargs: object) -> Mock:
+            response = Mock()
+            response.status_code = 200
+            response.raise_for_status = Mock()
+            content = io.BytesIO()
+            with zipfile.ZipFile(content, "w") as zf:
                 zf.writestr("test.txt", "test content")
+            response.iter_content = lambda chunk_size: [content.getvalue()]
+            return response
 
-        mock_download.side_effect = mock_download_impl
+        mock_requests_get.side_effect = mock_get
 
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir)
 
@@ -99,10 +105,10 @@ class TestCheckoutTDoc:
         assert (result / "test.txt").exists()
         assert not (result / "S4-251234.zip").exists()  # Zip should be cleaned up
 
-    @patch("tdoc_crawler.cli.helpers.download_to_path")
+    @patch("tdoc_crawler.checkout.requests.get")
     def test_already_checked_out(
         self,
-        mock_download: Mock,
+        mock_requests_get: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
@@ -114,12 +120,12 @@ class TestCheckoutTDoc:
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir)
 
         assert result == checkout_path
-        mock_download.assert_not_called()
+        mock_requests_get.assert_not_called()
 
-    @patch("tdoc_crawler.cli.helpers.download_to_path")
+    @patch("tdoc_crawler.checkout.requests.get")
     def test_force_recheckout(
         self,
-        mock_download: Mock,
+        mock_requests_get: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
@@ -127,16 +133,22 @@ class TestCheckoutTDoc:
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
         checkout_path.mkdir(parents=True)
 
-        def mock_download_impl(url: str, dest: Path, **kwargs) -> None:
-            with zipfile.ZipFile(dest, "w") as zf:
+        def mock_get(url: str, **kwargs: object) -> Mock:
+            response = Mock()
+            response.status_code = 200
+            response.raise_for_status = Mock()
+            content = io.BytesIO()
+            with zipfile.ZipFile(content, "w") as zf:
                 zf.writestr("new.txt", "new content")
+            response.iter_content = lambda chunk_size: [content.getvalue()]
+            return response
 
-        mock_download.side_effect = mock_download_impl
+        mock_requests_get.side_effect = mock_get
 
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir, force=True)
 
         assert result == checkout_path
-        mock_download.assert_called_once()
+        mock_requests_get.assert_called_once()
 
     def test_invalid_url_scheme(self, checkout_dir: Path) -> None:
         """Test that invalid URL scheme raises ValueError."""

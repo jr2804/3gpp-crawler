@@ -484,7 +484,7 @@ class TestOpenCommand:
             validated=False,
         )
 
-        def insert_via_fetch(database, cache_dir, missing_ids) -> None:
+        def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
             """Mock whatthespec fetch that inserts TDoc."""
             database.upsert_tdoc(metadata)
 
@@ -561,7 +561,7 @@ class TestOpenCommand:
             validated=False,
         )
 
-        def insert_via_fetch(database, cache_dir, missing_ids) -> None:
+        def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
             database.upsert_tdoc(metadata)
 
         mock_whatthespec_fetch.side_effect = insert_via_fetch
@@ -656,7 +656,7 @@ class TestCheckoutCommand:
             validated=False,
         )
 
-        def insert_via_fetch(database, cache_dir, missing_ids) -> None:
+        def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
             for tdoc_id in missing_ids:
                 if tdoc_id == "S4-260001":
                     database.upsert_tdoc(tdoc1)

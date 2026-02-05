@@ -176,7 +176,9 @@ class TestMeetingDocumentList:
 
             with patch.object(crawler, "_crawl_meetings_document_list") as mock_doc_list:
 
-                async def doc_list_side_effect(meetings, config, collected, existing_ids, targets):
+                async def doc_list_side_effect(
+                    meetings: list[Meeting], config: CrawlerConfig, collected: list[TDocMetadata], existing_ids: set[str], targets: set[str]
+                ) -> tuple[list[str], int]:
                     collected.extend(test_metadata)
                     return [], 1
 
@@ -233,8 +235,8 @@ class TestMeetingDocumentList:
 
             with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
                 # Mock parallel crawling result
-                def side_effect(*args, **kwargs):
-                    f = asyncio.Future()
+                def side_effect(*args: object, **kwargs: object) -> asyncio.Future[tuple[list[str], int]]:
+                    f: asyncio.Future[tuple[list[str], int]] = asyncio.Future()
                     f.set_result(([], 1))
                     return f
 
@@ -242,9 +244,9 @@ class TestMeetingDocumentList:
 
                 result = crawler.crawl(config)
 
-                assert isinstance(result, HybridCrawlResult)
-                assert result.fallbacks == 1
-                assert result.document_list_meetings == 1
+            assert isinstance(result, HybridCrawlResult)
+            assert result.fallbacks == 1
+            assert result.document_list_meetings == 1
 
     def test_hybrid_crawler_force_parallel(self) -> None:
         """Test hybrid crawler with forced parallel crawling."""

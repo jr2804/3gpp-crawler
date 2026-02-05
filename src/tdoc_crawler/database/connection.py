@@ -1,12 +1,12 @@
 """Database access layer backed by pydantic_sqlite."""
 
-from __future__ import annotations
-
+import json
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic_sqlite import DataBase
 
@@ -22,7 +22,11 @@ from tdoc_crawler.models import (
     WorkingGroup,
     utc_now,
 )
+from tdoc_crawler.models.specs import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
+
+if TYPE_CHECKING:
+    from tdoc_crawler.specs.query import SpecQueryFilters, SpecQueryResult
 
 
 class TDocDatabase:
@@ -372,6 +376,140 @@ class TDocDatabase:
         }
 
     # ------------------------------------------------------------------
+    # Spec operations
+    # ------------------------------------------------------------------
+    def upsert_specification(self, specification: Specification) -> tuple[bool, bool]:
+        """Upsert a specification record."""
+        existing = self._get_specification(specification.spec_number)
+        if existing is None:
+            self.connection.add("specs", specification, pk="spec_number")
+            return True, False
+
+        changed = self._spec_changed(existing, specification)
+        self.connection.add("specs", specification, pk="spec_number")
+        return False, changed
+
+    def upsert_spec_source_record(self, record: SpecificationSourceRecord) -> tuple[bool, bool]:
+        """Upsert a spec source record."""
+        record_id = record.record_id or f"{record.spec_number}:{record.source_name}"
+        updated_record = record.model_copy(update={"record_id": record_id})
+        existing = self._get_spec_source_record(record_id)
+        if existing is None:
+            self.connection.add("spec_source_records", updated_record, pk="record_id")
+            return True, False
+
+        changed = self._spec_source_changed(existing, updated_record)
+        self.connection.add("spec_source_records", updated_record, pk="record_id")
+        return False, changed
+
+    def upsert_spec_version(self, version: SpecificationVersion) -> tuple[bool, bool]:
+        """Upsert a spec version record."""
+        record_id = version.record_id or f"{version.spec_number}:{version.version}:{version.source_name}"
+        updated_version = version.model_copy(update={"record_id": record_id})
+        existing = self._get_spec_version(record_id)
+        if existing is None:
+            self.connection.add("spec_versions", updated_version, pk="record_id")
+            return True, False
+
+        changed = self._spec_version_changed(existing, updated_version)
+        self.connection.add("spec_versions", updated_version, pk="record_id")
+        return False, changed
+
+    def get_spec_versions(self, spec_number: str) -> list[SpecificationVersion]:
+        """Get all versions for a spec."""
+        try:
+            cursor = self.connection._db.execute("SELECT * FROM spec_versions WHERE spec_number = ?", (spec_number,))
+            columns = [description[0] for description in cursor.description]
+            rows = cursor.fetchall()
+
+            result = []
+            for row in rows:
+                row_dict = dict(zip(columns, row, strict=False))
+                result.append(SpecificationVersion(**row_dict))
+            return result
+        except Exception:
+            return []
+
+    def log_spec_download(self, download: SpecificationDownload) -> None:
+        """Persist download/extraction outcomes for a spec version."""
+        record_id = download.record_id or f"{download.spec_number}:{download.version}"
+        # Convert Path objects to strings for SQLite compatibility
+        updated_download = download.model_copy(
+            update={
+                "record_id": record_id,
+                "checkout_path": str(download.checkout_path),
+                "document_path": str(download.document_path),
+                "attachment_paths": [str(p) for p in download.attachment_paths],
+            }
+        )
+        self.connection.add("spec_downloads", updated_download, pk="record_id")
+
+    def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
+        """Query stored spec metadata."""
+        from tdoc_crawler.specs.query import SpecQueryResult  # noqa: PLC0415
+
+        specs = self._spec_table_rows()
+        source_records = self._table_rows("spec_source_records")
+        records_by_spec: dict[str, list[SpecificationSourceRecord]] = defaultdict(list)
+        for record in source_records:
+            records_by_spec[record.spec_number].append(record)
+
+        if filters.spec_numbers:
+            allowed = {value.strip() for value in filters.spec_numbers}
+            specs = [spec for spec in specs if spec.spec_number in allowed]
+
+        if filters.title:
+            needle = filters.title.strip().lower()
+            specs = [spec for spec in specs if needle in (spec.title or "").lower()]
+
+        if filters.working_group:
+            needle = filters.working_group.strip().lower()
+            specs = [spec for spec in specs if (spec.working_group or "").lower() == needle]
+
+        if filters.status:
+            needle = filters.status.strip().lower()
+            specs = [spec for spec in specs if (spec.status or "").lower() == needle]
+
+        def build_source_differences(records: list[SpecificationSourceRecord]) -> dict[str, dict[str, str | None]]:
+            if len(records) < 2:
+                return {}
+
+            fields = ("title", "status", "working_group", "latest_version", "spec_type", "series")
+            differences: dict[str, dict[str, str | None]] = {}
+            for field in fields:
+                values: dict[str, str | None] = {}
+                normalized_values: set[str] = set()
+                for record in records:
+                    payload = record.metadata_payload
+                    if isinstance(payload, str):
+                        try:
+                            payload = json.loads(payload)
+                        except json.JSONDecodeError:
+                            payload = {}
+                    if not isinstance(payload, dict):
+                        payload = {}
+                    raw_value = payload.get(field)
+                    value = str(raw_value) if raw_value is not None else None
+                    values[record.source_name] = value
+                    normalized_values.add((value or "").strip().lower())
+
+                if len(normalized_values) > 1:
+                    differences[field] = values
+
+            return differences
+
+        return [
+            SpecQueryResult(
+                spec_number=spec.spec_number,
+                title=spec.title,
+                status=spec.status,
+                working_group=spec.working_group,
+                source_differences=build_source_differences(records_by_spec.get(spec.spec_number, [])),
+            )
+            for spec in specs
+        ]
+
+    # ------------------------------------------------------------------
     # Crawl logging and statistics
     # ------------------------------------------------------------------
     def log_crawl_start(
@@ -538,6 +676,10 @@ class TDocDatabase:
             "tdocs": TDocMetadata,
             "meetings": MeetingMetadata,
             "crawl_log": CrawlLogEntry,
+            "specs": Specification,
+            "spec_source_records": SpecificationSourceRecord,
+            "spec_versions": SpecificationVersion,
+            "spec_downloads": SpecificationDownload,
         }
 
         if table not in model_map:
@@ -564,6 +706,19 @@ class TDocDatabase:
                                 row_dict[key] = datetime.fromisoformat(value)
                         except (ValueError, AttributeError):
                             pass
+                if table == "spec_source_records":
+                    metadata_payload = row_dict.get("metadata_payload")
+                    if isinstance(metadata_payload, str):
+                        try:
+                            row_dict["metadata_payload"] = json.loads(metadata_payload)
+                        except json.JSONDecodeError:
+                            row_dict["metadata_payload"] = {}
+                    versions = row_dict.get("versions")
+                    if isinstance(versions, str):
+                        try:
+                            row_dict["versions"] = json.loads(versions)
+                        except json.JSONDecodeError:
+                            row_dict["versions"] = []
                 result.append(model_class(**row_dict))
             return result
         except Exception:
@@ -584,6 +739,27 @@ class TDocDatabase:
         except KeyError:
             return None
 
+    def _spec_table_rows(self) -> list[Specification]:
+        return self._table_rows("specs")
+
+    def _get_specification(self, spec_number: str) -> Specification | None:
+        try:
+            return self.connection.model_from_table("specs", spec_number)  # type: ignore[arg-type]
+        except KeyError:
+            return None
+
+    def _get_spec_source_record(self, record_id: str) -> SpecificationSourceRecord | None:
+        try:
+            return self.connection.model_from_table("spec_source_records", record_id)  # type: ignore[arg-type]
+        except KeyError:
+            return None
+
+    def _get_spec_version(self, record_id: str) -> SpecificationVersion | None:
+        try:
+            return self.connection.model_from_table("spec_versions", record_id)  # type: ignore[arg-type]
+        except KeyError:
+            return None
+
     @staticmethod
     def _tdoc_changed(current: TDocMetadata, candidate: TDocMetadata) -> bool:
         for field in TDocMetadata.model_fields:
@@ -601,3 +777,15 @@ class TDocDatabase:
             if getattr(current, field) != getattr(candidate, field):
                 return True
         return False
+
+    @staticmethod
+    def _spec_changed(current: Specification, candidate: Specification) -> bool:
+        return any(getattr(current, field) != getattr(candidate, field) for field in Specification.model_fields)
+
+    @staticmethod
+    def _spec_source_changed(current: SpecificationSourceRecord, candidate: SpecificationSourceRecord) -> bool:
+        return any(getattr(current, field) != getattr(candidate, field) for field in SpecificationSourceRecord.model_fields)
+
+    @staticmethod
+    def _spec_version_changed(current: SpecificationVersion, candidate: SpecificationVersion) -> bool:
+        return any(getattr(current, field) != getattr(candidate, field) for field in SpecificationVersion.model_fields)

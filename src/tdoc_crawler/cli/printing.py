@@ -7,6 +7,8 @@ from typing import Any
 from rich.table import Table
 
 from tdoc_crawler.models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.specs import SpecCrawlResult
+from tdoc_crawler.specs.query import SpecQueryResult
 
 from .console import get_console
 
@@ -76,5 +78,91 @@ def print_meeting_table(results: list[MeetingMetadata]) -> None:
             meeting.location or "-",
             meeting.files_url or "-",
         )
+
+    console.print(table)
+
+
+def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, Any]:
+    """Convert SpecCrawlResult to dictionary for JSON/YAML output."""
+    return {
+        "spec_number": result.spec_number,
+        "release": result.release,
+        "status": result.status,
+        "latest_version": result.latest_version,
+        "sources": [
+            {
+                "source_name": outcome.source_name,
+                "status": outcome.status,
+                "versions": outcome.versions,
+                "message": outcome.message,
+            }
+            for outcome in result.sources
+        ],
+        "message": result.message,
+    }
+
+
+def spec_query_to_dict(result: SpecQueryResult) -> dict[str, Any]:
+    """Convert SpecQueryResult to dictionary for JSON/YAML output."""
+    return {
+        "spec_number": result.spec_number,
+        "title": result.title,
+        "status": result.status,
+        "working_group": result.working_group,
+        "source_differences": result.source_differences,
+    }
+
+
+def print_spec_crawl_table(results: list[SpecCrawlResult]) -> None:
+    """Print spec crawl results as formatted table."""
+    table = Table(title=f"Spec crawl results ({len(results)} rows)")
+    table.add_column("Spec", style="cyan")
+    table.add_column("Status", style="magenta")
+    table.add_column("Release", style="yellow")
+    table.add_column("Latest", style="green")
+    table.add_column("Sources", style="blue")
+
+    for result in results[:100]:
+        sources = ", ".join(f"{outcome.source_name}:{outcome.status}" for outcome in result.sources) or "-"
+        table.add_row(
+            result.spec_number,
+            result.status,
+            result.release,
+            result.latest_version or "-",
+            sources,
+        )
+
+    console.print(table)
+
+
+def print_spec_table(results: list[SpecQueryResult]) -> None:
+    """Print spec query results as formatted table."""
+    table = Table(title=f"Specs ({len(results)} rows)")
+    table.add_column("Spec", style="cyan")
+    table.add_column("Title", style="yellow")
+    table.add_column("WG", style="magenta")
+    table.add_column("Status", style="green")
+    table.add_column("Diffs", style="blue")
+
+    for result in results[:100]:
+        differences = ", ".join(sorted(result.source_differences.keys())) if result.source_differences else "-"
+        table.add_row(
+            result.spec_number,
+            result.title or "-",
+            result.working_group or "-",
+            result.status or "-",
+            differences,
+        )
+
+    console.print(table)
+
+
+def print_checkout_results(results: list[Any]) -> None:
+    """Print checkout results as formatted table."""
+    table = Table(title=f"Checked out {len(results)} specs")
+    table.add_column("Checkout Path", style="green")
+
+    for path in results:
+        table.add_row(str(path))
 
     console.print(table)

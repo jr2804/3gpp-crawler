@@ -7,6 +7,7 @@ import logging
 import zipfile
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
 import typer
 import yaml
@@ -19,12 +20,19 @@ from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
+from tdoc_crawler.specs import SpecCatalog
+from tdoc_crawler.specs.downloads import SpecDownloads
+from tdoc_crawler.specs.query import SpecQueryFilters
+from tdoc_crawler.specs.sources import fetch_threegpp_metadata, fetch_whatthespec_metadata
+from tdoc_crawler.specs.sources.base import FunctionSpecSource
 
 from .args import (
     CacheDirOption,
+    CheckoutDirOption,
     CheckoutTDocIdsArgument,
     ClearDbOption,
     ClearTDocsOption,
+    DocOnlyOption,
     EndDateOption,
     EolPasswordOption,
     EolUsernameOption,
@@ -43,6 +51,9 @@ from .args import (
     OutputFormatOption,
     OverallTimeoutOption,
     PromptCredentialsOption,
+    ReleaseOption,
+    SpecFileOption,
+    SpecOption,
     StartDateOption,
     SubgroupOption,
     TDocIdArgument,
@@ -55,8 +66,18 @@ from .args import (
 )
 from .console import get_console
 from .fetching import maybe_fetch_missing_tdocs
-from .helpers import build_limits, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file
-from .printing import meeting_to_dict, print_meeting_table, print_tdoc_table, tdoc_to_dict
+from .helpers import build_limits, collect_spec_numbers, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file
+from .printing import (
+    meeting_to_dict,
+    print_checkout_results,
+    print_meeting_table,
+    print_spec_crawl_table,
+    print_spec_table,
+    print_tdoc_table,
+    spec_crawl_to_dict,
+    spec_query_to_dict,
+    tdoc_to_dict,
+)
 
 load_dotenv()
 
@@ -383,6 +404,51 @@ def query_meetings(
         print_meeting_table(meetings)
 
 
+@app.command("query-specs", rich_help_panel=HELP_PANEL_QUERY)
+def query_specs(
+    spec: SpecOption = None,
+    spec_file: SpecFileOption = None,
+    title: str = typer.Option(None, help="Filter by title contains"),
+    working_group: WorkingGroupOption = None,
+    status: str = typer.Option(None, help="Filter by status"),
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Query spec metadata from database."""
+    specs = collect_spec_numbers(spec, spec_file)
+    working_groups = parse_working_groups(working_group)
+    wg_filter = working_groups[0].value if working_groups else None
+
+    filters = SpecQueryFilters(
+        spec_numbers=specs,
+        title=title,
+        working_group=wg_filter,
+        status=status,
+    )
+
+    try:
+        output = OutputFormat(output_format.lower())
+    except ValueError as exc:
+        console.print("[red]Invalid output format; use table, json, or yaml")
+        raise typer.Exit(code=2) from exc
+
+    db_path = database_path(cache_dir)
+    with TDocDatabase(db_path) as database:
+        catalog = SpecCatalog(database)
+        results = catalog.query_specs(filters, release="latest")
+
+    if not results:
+        console.print("[yellow]No specs found[/yellow]")
+        return
+
+    if output is OutputFormat.JSON:
+        console.print(json.dumps([spec_query_to_dict(result) for result in results], indent=2))
+    elif output is OutputFormat.YAML:
+        console.print(yaml.dump([spec_query_to_dict(result) for result in results], sort_keys=False))
+    else:
+        print_spec_table(results)
+
+
 @app.command("open")
 def open_tdoc(
     tdoc_id: TDocIdArgument,
@@ -501,6 +567,93 @@ def stats(
     table.add_row("Unique document types", str(stats_dict.get("unique_document_types", 0)))
 
     console.print(table)
+
+
+@app.command("crawl-specs", rich_help_panel=HELP_PANEL_CRAWLING)
+def crawl_specs(
+    spec: SpecOption = None,
+    spec_file: SpecFileOption = None,
+    release: ReleaseOption = "latest",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Crawl spec metadata from configured sources."""
+    specs = collect_spec_numbers(spec, spec_file)
+    try:
+        output = OutputFormat(output_format.lower())
+    except ValueError as exc:
+        console.print("[red]Invalid output format; use table, json, or yaml")
+        raise typer.Exit(code=2) from exc
+
+    sources = [
+        FunctionSpecSource("3gpp", fetch_threegpp_metadata),
+        FunctionSpecSource("whatthespec", fetch_whatthespec_metadata),
+    ]
+
+    db_path = database_path(cache_dir)
+    with TDocDatabase(db_path) as database:
+        catalog = SpecCatalog(database)
+        results = catalog.crawl_specs(specs, release, sources)
+
+    if not results:
+        console.print("[yellow]No specs crawled[/yellow]")
+        return
+
+    if output is OutputFormat.JSON:
+        console.print(json.dumps([spec_crawl_to_dict(result) for result in results], indent=2))
+    elif output is OutputFormat.YAML:
+        console.print(yaml.dump([spec_crawl_to_dict(result) for result in results], sort_keys=False))
+    else:
+        print_spec_crawl_table(results)
+
+
+@app.command("checkout-spec", rich_help_panel=HELP_PANEL_QUERY)
+def checkout_spec(
+    spec: SpecOption = None,
+    spec_file: SpecFileOption = None,
+    release: ReleaseOption = "latest",
+    doc_only: DocOnlyOption = False,
+    checkout_dir: CheckoutDirOption = None,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Download and extract spec documents."""
+    specs = collect_spec_numbers(spec, spec_file)
+    if not specs:
+        console.print("[red]No specs provided[/red]")
+        raise typer.Exit(code=1)
+
+    effective_checkout_dir = checkout_dir or (cache_dir / "checkout")
+
+    db_path = database_path(cache_dir)
+    with TDocDatabase(db_path) as database:
+        downloader = SpecDownloads(database)
+        results = downloader.checkout_specs(specs, doc_only, effective_checkout_dir, release)
+
+    # Output formatting
+    print_checkout_results(results)
+
+
+@app.command("open-spec")
+def open_spec(
+    spec: Annotated[str, typer.Argument(help="Spec number")],
+    release: ReleaseOption = "latest",
+    doc_only: DocOnlyOption = False,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Download and open a spec document."""
+    normalized = spec.strip()
+    checkout_dir = cache_dir / "checkout"
+
+    db_path = database_path(cache_dir)
+    with TDocDatabase(db_path) as database:
+        downloader = SpecDownloads(database)
+        try:
+            path = downloader.open_spec(normalized, doc_only, checkout_dir, release)
+            console.print(f"[green]Opening {path}[/green]")
+            launch_file(path)
+        except Exception as exc:
+            console.print(f"[red]Failed to open spec: {exc}[/red]")
+            raise typer.Exit(code=1)
 
 
 # Register command aliases

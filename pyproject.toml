@@ -28,6 +28,7 @@ dependencies = [
     "rich>=14.2.0",
     "typer>=0.19.2",
     "xlsxwriter>=3.2.9",
+    "zipinspect>=0.1.2",
 ]
 
 [project.urls]
