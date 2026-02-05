@@ -39,4 +39,4 @@ run = ["cls",
 
 [tasks.beads-up]
 description = "Installs beads (bd.exe) to virtual environment's scripts directory"
-run = ["bin install https://github.com/steveyegge/beads {{env.VIRTUAL_ENV}}/scripts/"]
+run = ["taskkill /f /im bd.exe", "bin install https://github.com/steveyegge/beads {{env.VIRTUAL_ENV}}/scripts/", "bd daemon start"]
