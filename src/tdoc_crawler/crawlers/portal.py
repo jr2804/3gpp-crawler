@@ -15,7 +15,9 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
+from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.models.tdocs import TDocMetadata
+
 
 # TODO: cache_dir not used at all in PortalSession? should be used for caching HTTP requests to portal pages via hishel package - wrong HTTPAdapter? See tdoc_crawler.models.base.HttpCacheConfig
 def create_cached_session(cache_dir: Path, ttl: int = 7200, refresh_ttl_on_access: bool = True, max_retries: int = 3) -> requests.Session:
