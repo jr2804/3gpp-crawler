@@ -13,27 +13,10 @@ from .constants import (
     TDOC_SUBDIRS_NORMALIZED,
 )
 from .hybrid import HybridCrawlResult, HybridTDocCrawler
-from .meeting_doclist import (
-    DocumentListError,
-    convert_excel_row_to_tdoc_metadata,
-    fetch_meeting_document_list,
-    parse_excel_document_list,
-)
-from .meetings import (
-    MeetingCrawler,
-    MeetingCrawlResult,
-    normalize_subgroup_alias,
-    normalize_working_group_alias,
-)
+from .meeting_doclist import DocumentListError, convert_excel_row_to_tdoc_metadata, fetch_meeting_document_list, parse_excel_document_list
+from .meetings import MeetingCrawler, MeetingCrawlResult, normalize_subgroup_alias, normalize_working_group_alias
 from .parallel import fetch_meeting_tdocs
-from .portal import (
-    PortalAuthenticationError,
-    PortalParsingError,
-    PortalSession,
-    extract_tdoc_url_from_portal,
-    fetch_tdoc_metadata,
-    parse_tdoc_portal_page,
-)
+from .portal import PortalAuthenticationError, PortalParsingError, PortalSession, extract_tdoc_url_from_portal, fetch_tdoc_metadata, parse_tdoc_portal_page
 from .tdocs import TDocCrawler, TDocCrawlResult
 from .whatthespec import WhatTheSpecResolutionError, resolve_via_whatthespec
 

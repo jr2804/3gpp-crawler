@@ -229,24 +229,24 @@ class TestMeetingDocumentList:
             )
             mock_get_meetings.return_value = [mock_meeting]
 
-             # Mock document list to fail, parallel to succeed
-             with patch("tdoc_crawler.crawlers.meeting_doclist.fetch_meeting_document_list") as mock_fetch:
-                 mock_fetch.side_effect = DocumentListError("Document list not available")
+            # Mock document list to fail, parallel to succeed
+            with patch("tdoc_crawler.crawlers.meeting_doclist.fetch_meeting_document_list") as mock_fetch:
+                mock_fetch.side_effect = DocumentListError("Document list not available")
 
-             with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
-                 # Mock parallel crawling result
-                 def side_effect(*args: object, **kwargs: object) -> asyncio.Future[tuple[list[str], int]]:
-                     f: asyncio.Future[tuple[list[str], int]] = asyncio.Future()
-                     f.set_result(([], 1))
-                     return f
+            with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
+                # Mock parallel crawling result
+                def side_effect(*args: object, **kwargs: object) -> asyncio.Future[tuple[list[str], int]]:
+                    f: asyncio.Future[tuple[list[str], int]] = asyncio.Future()
+                    f.set_result(([], 1))
+                    return f
 
-                 mock_parallel.side_effect = side_effect
+                mock_parallel.side_effect = side_effect
 
-                 result = crawler.crawl(config)
+                result = crawler.crawl(config)
 
-                assert isinstance(result, HybridCrawlResult)
-                assert result.fallbacks == 1
-                assert result.document_list_meetings == 1
+            assert isinstance(result, HybridCrawlResult)
+            assert result.fallbacks == 1
+            assert result.document_list_meetings == 1
 
     def test_hybrid_crawler_force_parallel(self) -> None:
         """Test hybrid crawler with forced parallel crawling."""

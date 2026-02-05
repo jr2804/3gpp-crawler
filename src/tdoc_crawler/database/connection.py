@@ -1,5 +1,6 @@
 """Database access layer backed by pydantic_sqlite."""
 
+import json
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
@@ -417,10 +418,7 @@ class TDocDatabase:
     def get_spec_versions(self, spec_number: str) -> list[SpecificationVersion]:
         """Get all versions for a spec."""
         try:
-            cursor = self.connection._db.execute(
-                "SELECT * FROM spec_versions WHERE spec_number = ?",
-                (spec_number,)
-            )
+            cursor = self.connection._db.execute("SELECT * FROM spec_versions WHERE spec_number = ?", (spec_number,))
             columns = [description[0] for description in cursor.description]
             rows = cursor.fetchall()
 
@@ -451,6 +449,10 @@ class TDocDatabase:
         from tdoc_crawler.specs.query import SpecQueryResult  # noqa: PLC0415
 
         specs = self._spec_table_rows()
+        source_records = self._table_rows("spec_source_records")
+        records_by_spec: dict[str, list[SpecificationSourceRecord]] = defaultdict(list)
+        for record in source_records:
+            records_by_spec[record.spec_number].append(record)
 
         if filters.spec_numbers:
             allowed = {value.strip() for value in filters.spec_numbers}
@@ -468,12 +470,41 @@ class TDocDatabase:
             needle = filters.status.strip().lower()
             specs = [spec for spec in specs if (spec.status or "").lower() == needle]
 
+        def build_source_differences(records: list[SpecificationSourceRecord]) -> dict[str, dict[str, str | None]]:
+            if len(records) < 2:
+                return {}
+
+            fields = ("title", "status", "working_group", "latest_version", "spec_type", "series")
+            differences: dict[str, dict[str, str | None]] = {}
+            for field in fields:
+                values: dict[str, str | None] = {}
+                normalized_values: set[str] = set()
+                for record in records:
+                    payload = record.metadata_payload
+                    if isinstance(payload, str):
+                        try:
+                            payload = json.loads(payload)
+                        except json.JSONDecodeError:
+                            payload = {}
+                    if not isinstance(payload, dict):
+                        payload = {}
+                    raw_value = payload.get(field)
+                    value = str(raw_value) if raw_value is not None else None
+                    values[record.source_name] = value
+                    normalized_values.add((value or "").strip().lower())
+
+                if len(normalized_values) > 1:
+                    differences[field] = values
+
+            return differences
+
         return [
             SpecQueryResult(
                 spec_number=spec.spec_number,
                 title=spec.title,
                 status=spec.status,
                 working_group=spec.working_group,
+                source_differences=build_source_differences(records_by_spec.get(spec.spec_number, [])),
             )
             for spec in specs
         ]
@@ -675,6 +706,19 @@ class TDocDatabase:
                                 row_dict[key] = datetime.fromisoformat(value)
                         except (ValueError, AttributeError):
                             pass
+                if table == "spec_source_records":
+                    metadata_payload = row_dict.get("metadata_payload")
+                    if isinstance(metadata_payload, str):
+                        try:
+                            row_dict["metadata_payload"] = json.loads(metadata_payload)
+                        except json.JSONDecodeError:
+                            row_dict["metadata_payload"] = {}
+                    versions = row_dict.get("versions")
+                    if isinstance(versions, str):
+                        try:
+                            row_dict["versions"] = json.loads(versions)
+                        except json.JSONDecodeError:
+                            row_dict["versions"] = []
                 result.append(model_class(**row_dict))
             return result
         except Exception:
