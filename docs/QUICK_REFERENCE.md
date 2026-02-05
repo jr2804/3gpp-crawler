@@ -10,9 +10,9 @@ TDoc-Crawler provides two categories of commands: **Crawling Commands** for gath
 
 | Category | Commands | Purpose |
 |----------|----------|---------|
-| **Crawling** | `crawl-tdocs`, `crawl-meetings` | Fetch metadata from 3GPP servers and portal |
-| **Querying** | `query-tdocs`, `query-meetings` | Search and display stored metadata |
-| **Utilities** | `open`, `checkout`, `stats` | File access and database inspection |
+| **Crawling** | `crawl-tdocs`, `crawl-meetings`, `crawl-specs` | Fetch metadata from 3GPP servers and portal |
+| **Querying** | `query-tdocs`, `query-meetings`, `query-specs` | Search and display stored metadata |
+| **Utilities** | `open`, `checkout`, `open-spec`, `checkout-spec`, `stats` | File access and database inspection |
 
 ### Short Aliases
 
@@ -20,8 +20,12 @@ TDoc-Crawler provides two categories of commands: **Crawling Commands** for gath
 |---------|-------|
 | `crawl-tdocs` | `ct` |
 | `crawl-meetings` | `cm` |
+| `crawl-specs` | `cs` |
 | `query-tdocs` | `qt` |
 | `query-meetings` | `qm` |
+| `query-specs` | `qs` |
+| `checkout-spec` | `cos` |
+| `open-spec` | `os` |
 
 Use aliases for faster typing: `tdoc-crawler ct` instead of `tdoc-crawler crawl-tdocs`.
 
@@ -65,6 +69,9 @@ tdoc-crawler query-tdocs R1-2400001 S2-2400567
 
 # Query all TDocs from a working group
 tdoc-crawler query-tdocs --working-group RAN
+
+# Query technical specifications
+tdoc-crawler query-specs 23.501 38.331
 
 # Query meetings
 tdoc-crawler query-meetings
@@ -217,6 +224,43 @@ tdoc-crawler crawl-meetings --eol-username myuser --eol-password mypass
 tdoc-crawler crawl-meetings -w RAN -s R1 -s R2
 ```
 
+### `crawl-specs` (alias: `cs`)
+
+```bash
+tdoc-crawler crawl-specs [OPTIONS]
+```
+
+Crawl normalized technical specification (TS/TR) metadata from both 3GPP and community sources.
+
+**When to Use:**
+
+- Populating the specs catalog for searching/viewing specs
+- Synchronizing latest spec versions and titles
+- Checking for metadata discrepancies between sources
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-c, --cache-dir PATH` | Database location (default: `~/.tdoc-crawler`) |
+| `-w, --working-group WG` | Working groups to crawl (repeatable) |
+| `-s, --source SOURCE` | Metadata sources to use (`3gpp`, `whatthespec`). Default: both |
+| `--full` | Force update of existing records |
+| `-v, --verbose` | Enable verbose logging |
+
+**Examples:**
+
+```bash
+# Crawl all specs from all sources
+tdoc-crawler crawl-specs
+
+# Crawl only RAN specs from whatthespec
+tdoc-crawler crawl-specs -w RAN -s whatthespec
+
+# Crawl with verbose logging
+tdoc-crawler crawl-specs -v
+```
+
 ## Query Commands
 
 ### `query-tdocs` (alias: `qt`)
@@ -293,6 +337,55 @@ tdoc-crawler query-tdocs -w SA --start-date 2024-01-01 --end-date 2024-06-30
 
 # Query without auto-fetch (only search local database)
 tdoc-crawler query-tdocs R1-2400001 --no-fetch
+```
+
+### `query-specs` (alias: `qs`)
+
+```bash
+tdoc-crawler query-specs [SPEC_NUMBERS] [OPTIONS]
+```
+
+Query technical specification metadata from the local catalog. Supports filtering by number, working group, and status.
+
+**When to Use:**
+
+- Search for specs by number (e.g., `23.501`)
+- Verify spec titles or responsible working groups
+- Inspect metadata discrepancies across sources
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `SPEC_NUMBERS` | Optional spec numbers to query (repeatable). Example: `23.501` |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-c, --cache-dir PATH` | Database cache location (default: `~/.tdoc-crawler`) |
+| `-w, --group WG` | Filter by working group (repeatable) |
+| `-s, --status STATUS` | Filter by status (e.g., `Under change control`) |
+| `-o, --output FORMAT` | Output format: `table`, `json`, `yaml` (default: `table`) |
+| `-v, --verbose` | Show per-source discrepancy details |
+
+**Examples:**
+
+```bash
+# Query specific spec
+tdoc-crawler query-specs 23.501
+
+# Query multiple specs
+tdoc-crawler query-specs 23.501 38.331
+
+# Filter by working group
+tdoc-crawler query-specs --group RAN
+
+# Filter by status
+tdoc-crawler query-specs --status "Under change control"
+
+# Export as JSON
+tdoc-crawler query-specs 23.501 -o json
 ```
 
 ### `query-meetings` (alias: `qm`)
@@ -422,6 +515,46 @@ tdoc-crawler checkout R1-2400001 --force
 
 # Checkout to different cache location
 tdoc-crawler checkout R1-2400001 --cache-dir /path/to/cache
+```
+
+### `open-spec` (alias: `os`)
+
+```bash
+tdoc-crawler open-spec <SPEC_NUMBER> [OPTIONS]
+```
+
+Download and open the latest document for a specification.
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-r, --release RELEASE` | Specify 3GPP release (e.g., `18`) |
+| `--doc-only` | Download only Word/PDF (skip zip) |
+
+**Examples:**
+
+```bash
+# Open latest version of 23.501
+tdoc-crawler open-spec 23.501
+
+# Open release 17 version
+tdoc-crawler open-spec 23.501 -r 17
+```
+
+### `checkout-spec` (alias: `cos`)
+
+```bash
+tdoc-crawler checkout-spec <SPEC_NUMBERS...> [OPTIONS]
+```
+
+Batch download specification documents to the checkout folder.
+
+**Examples:**
+
+```bash
+# Checkout multiple specs
+tdoc-crawler checkout-spec 23.501 38.331
 ```
 
 ### `stats`
