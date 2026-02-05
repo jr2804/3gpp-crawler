@@ -7,6 +7,7 @@ from typing import Any
 from rich.table import Table
 
 from tdoc_crawler.models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.specs import SpecCrawlResult
 
 from .console import get_console
 
@@ -75,6 +76,48 @@ def print_meeting_table(results: list[MeetingMetadata]) -> None:
             date_range,
             meeting.location or "-",
             meeting.files_url or "-",
+        )
+
+    console.print(table)
+
+
+def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, Any]:
+    """Convert SpecCrawlResult to dictionary for JSON/YAML output."""
+    return {
+        "spec_number": result.spec_number,
+        "release": result.release,
+        "status": result.status,
+        "latest_version": result.latest_version,
+        "sources": [
+            {
+                "source_name": outcome.source_name,
+                "status": outcome.status,
+                "versions": outcome.versions,
+                "message": outcome.message,
+            }
+            for outcome in result.sources
+        ],
+        "message": result.message,
+    }
+
+
+def print_spec_crawl_table(results: list[SpecCrawlResult]) -> None:
+    """Print spec crawl results as formatted table."""
+    table = Table(title=f"Spec crawl results ({len(results)} rows)")
+    table.add_column("Spec", style="cyan")
+    table.add_column("Status", style="magenta")
+    table.add_column("Release", style="yellow")
+    table.add_column("Latest", style="green")
+    table.add_column("Sources", style="blue")
+
+    for result in results[:100]:
+        sources = ", ".join(f"{outcome.source_name}:{outcome.status}" for outcome in result.sources) or "-"
+        table.add_row(
+            result.spec_number,
+            result.status,
+            result.release,
+            result.latest_version or "-",
+            sources,
         )
 
     console.print(table)

@@ -107,6 +107,43 @@ def parse_subgroups(values: list[str] | None) -> list[str] | None:
     return resolved
 
 
+def collect_spec_numbers(specs: list[str] | None, spec_file: Path | None) -> list[str]:
+    """Collect spec numbers from CLI options and stdin.
+
+    Args:
+        specs: Spec numbers provided on the command line. Use "-" to read stdin.
+        spec_file: Optional file containing spec numbers (one per line).
+
+    Returns:
+        List of spec numbers in input order.
+    """
+    collected: list[str] = []
+
+    if specs:
+        for item in specs:
+            if item == "-":
+                stdin_text = sys.stdin.read()
+                collected.extend(line.strip() for line in stdin_text.splitlines() if line.strip())
+            else:
+                stripped = item.strip()
+                if stripped:
+                    collected.append(stripped)
+
+    if spec_file is not None:
+        try:
+            file_text = spec_file.read_text(encoding="utf-8")
+        except OSError as exc:
+            console.print(f"[red]Failed to read spec file: {exc}")
+            raise typer.Exit(code=2) from exc
+        collected.extend(line.strip() for line in file_text.splitlines() if line.strip())
+
+    if not collected:
+        console.print("[red]No spec numbers provided[/red]")
+        raise typer.Exit(code=2)
+
+    return collected
+
+
 def build_limits(
     limit_tdocs: int | None,
     limit_meetings: int | None,

@@ -19,6 +19,9 @@ from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
+from tdoc_crawler.specs import SpecCatalog
+from tdoc_crawler.specs.sources import fetch_threegpp_metadata, fetch_whatthespec_metadata
+from tdoc_crawler.specs.sources.base import FunctionSpecSource
 
 from .args import (
     CacheDirOption,
@@ -43,6 +46,9 @@ from .args import (
     OutputFormatOption,
     OverallTimeoutOption,
     PromptCredentialsOption,
+    ReleaseOption,
+    SpecFileOption,
+    SpecOption,
     StartDateOption,
     SubgroupOption,
     TDocIdArgument,
@@ -55,8 +61,23 @@ from .args import (
 )
 from .console import get_console
 from .fetching import maybe_fetch_missing_tdocs
-from .helpers import build_limits, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file
-from .printing import meeting_to_dict, print_meeting_table, print_tdoc_table, tdoc_to_dict
+from .helpers import (
+    build_limits,
+    collect_spec_numbers,
+    database_path,
+    launch_file,
+    parse_subgroups,
+    parse_working_groups,
+    prepare_tdoc_file,
+)
+from .printing import (
+    meeting_to_dict,
+    print_meeting_table,
+    print_spec_crawl_table,
+    print_tdoc_table,
+    spec_crawl_to_dict,
+    tdoc_to_dict,
+)
 
 load_dotenv()
 
@@ -501,6 +522,44 @@ def stats(
     table.add_row("Unique document types", str(stats_dict.get("unique_document_types", 0)))
 
     console.print(table)
+
+
+@app.command("crawl-specs", rich_help_panel=HELP_PANEL_CRAWLING)
+def crawl_specs(
+    spec: SpecOption = None,
+    spec_file: SpecFileOption = None,
+    release: ReleaseOption = "latest",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Crawl spec metadata from configured sources."""
+    specs = collect_spec_numbers(spec, spec_file)
+    try:
+        output = OutputFormat(output_format.lower())
+    except ValueError as exc:
+        console.print("[red]Invalid output format; use table, json, or yaml")
+        raise typer.Exit(code=2) from exc
+
+    sources = [
+        FunctionSpecSource("3gpp", fetch_threegpp_metadata),
+        FunctionSpecSource("whatthespec", fetch_whatthespec_metadata),
+    ]
+
+    db_path = database_path(cache_dir)
+    with TDocDatabase(db_path) as database:
+        catalog = SpecCatalog(database)
+        results = catalog.crawl_specs(specs, release, sources)
+
+    if not results:
+        console.print("[yellow]No specs crawled[/yellow]")
+        return
+
+    if output is OutputFormat.JSON:
+        console.print(json.dumps([spec_crawl_to_dict(result) for result in results], indent=2))
+    elif output is OutputFormat.YAML:
+        console.print(yaml.dump([spec_crawl_to_dict(result) for result in results], sort_keys=False))
+    else:
+        print_spec_crawl_table(results)
 
 
 # Register command aliases
