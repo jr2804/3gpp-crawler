@@ -174,7 +174,6 @@ def _fetch_via_whatthespec(
         cache_dir: Cache directory path
         missing_ids: List of TDoc IDs to fetch
     """
-
     http_cache = HttpCacheConfig()
 
     for tdoc_id in missing_ids:
