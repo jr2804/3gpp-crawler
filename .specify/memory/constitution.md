@@ -1,10 +1,9 @@
 <!--
 Sync Impact Report:
-- Version change: unversioned -> 1.0.0
-- Modified principles: Placeholder Principle 1 -> I. Library-First Development; Placeholder Principle 2 ->
-  II. CLI Text + JSON Interface; Placeholder Principle 3 -> III. Test-Driven Development (Non-Negotiable)
-- Added sections: Implementation Gates; Development Workflow
-- Removed sections: Core Principles item 4; Core Principles item 5
+- Version change: 1.0.0 -> 1.1.0
+- Modified principles: None
+- Added sections: Core Principles item IV
+- Removed sections: None
 - Templates requiring updates:
   - UPDATED: .specify/templates/plan-template.md
   - UPDATED: .specify/templates/spec-template.md
@@ -34,6 +33,19 @@ user, and explicitly approved. The approved tests must be executed and verified 
 (red phase) before any implementation begins. Development must follow the
 red-green-refactor cycle for each change.
 
+### IV. Python Standards and Tooling
+
+Python development must use `pyproject.toml` with `uv` for dependency and environment
+management and `uv run` for command execution. Code must be PEP 8 compliant, fully type
+annotated, and keep Ruff and Ty checks clean without suppressions unless explicitly
+approved. Use Google-style docstrings for public modules, classes, and functions.
+Use the `logging` module instead of `print` for diagnostics, use `pathlib` for file
+system paths, and prefer `dataclasses` for data entries with `__rich_console__` for
+console rendering. CLI interfaces must use Typer; only `typer.echo` is used for
+user-facing output.
+Rationale: these standards keep Python code predictable, testable, and maintainable
+across the toolchain.
+
 ## Implementation Gates
 
 - Gate 1: A standalone library interface exists and is planned before any application
@@ -41,11 +53,13 @@ red-green-refactor cycle for each change.
 - Gate 2: The library CLI contract includes text input/output and JSON output support.
 - Gate 3: Unit tests are written, user-approved, and verified failing before
   implementation begins.
+- Gate 4: Python standards (type hints, logging, uv/pyproject, Ruff, Ty, pathlib,
+  dataclasses, Typer CLI) are explicitly planned and enforced.
 
 ## Development Workflow
 
-- Feature specs and plans must document the library boundary, CLI I/O contract, and TDD
-  evidence.
+- Feature specs and plans must document the library boundary, CLI I/O contract, TDD
+  evidence, and Python standards compliance.
 - Code reviews and CI checks must verify the gates above; exceptions require a
   constitution amendment.
 
@@ -58,4 +72,4 @@ red-green-refactor cycle for each change.
 - Compliance is verified in specs, plans, task lists, and code reviews; non-compliant
   changes must be blocked or accompanied by an approved amendment.
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-05
+**Version**: 1.1.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-05
