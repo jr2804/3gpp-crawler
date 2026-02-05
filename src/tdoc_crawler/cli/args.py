@@ -76,6 +76,7 @@ CheckoutTDocIdsArgument = Annotated[list[str], typer.Argument(help="TDoc identif
 ForceOption = Annotated[bool, typer.Option("--force", "-f", help="Re-download even if already checked out")]
 
 SpecOption = Annotated[list[str] | None, typer.Option("--spec", help="Spec number(s) (dotted or undotted)")]
+SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) to query (dotted or undotted)")]
 SpecFileOption = Annotated[Path | None, typer.Option("--spec-file", help="File with spec numbers")]
 ReleaseOption = Annotated[str, typer.Option("--release", help="Spec release selector")]
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download")]
