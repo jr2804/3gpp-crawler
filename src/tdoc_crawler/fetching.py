@@ -13,10 +13,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from tdoc_crawler.models.base import HttpCacheConfig
-from tdoc_crawler.models.tdocs import TDocMetadata
 from tdoc_crawler.crawlers.portal import extract_tdoc_url_from_portal, fetch_tdoc_metadata
 from tdoc_crawler.crawlers.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
+from tdoc_crawler.models.tdocs import TDocMetadata
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +48,6 @@ def fetch_tdoc(
         Exception: If fetching fails for any reason.
     """
     # Import here to avoid circular imports
-
 
     if use_whatthespec:
         # Always use WhatTheSpec method (Method 3)
