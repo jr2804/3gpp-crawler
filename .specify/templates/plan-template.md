@@ -3,7 +3,7 @@
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Note**: This template is filled in by the planning workflow.
 
 ## Summary
 
@@ -31,7 +31,19 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] Library-first boundary documented (standalone library + integration points).
+- [ ] CLI contract defined (text input/output + JSON mode).
+- [ ] TDD evidence planned (tests written/approved + red phase before implementation).
+
+## Library Boundary & CLI Contract
+
+[Describe the standalone library module, its public API, and the CLI entrypoints.
+Include text input/output channels and JSON output mode.]
+
+## TDD Evidence
+
+[Describe the unit tests to be written first and how failing tests (red phase) will be
+validated before implementation begins.]
 
 ## Project Structure
 
