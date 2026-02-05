@@ -80,15 +80,15 @@ description: "Task list for crawl and query specs feature"
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T018 [P] [US2] Add doc-only selection tests in tests/test_specs_downloads.py
-- [ ] T019 [P] [US2] Add checkout/open CLI tests in tests/test_specs_cli.py
+- [x] T018 [P] [US2] Add doc-only selection tests in tests/test_specs_downloads.py
+- [x] T019 [P] [US2] Add checkout/open CLI tests in tests/test_specs_cli.py
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] Implement checkout-spec command in src/tdoc_crawler/cli/app.py
-- [ ] T021 [US2] Implement open-spec command in src/tdoc_crawler/cli/app.py
-- [ ] T022 [US2] Add checkout/open result formatting in src/tdoc_crawler/cli/printing.py
-- [ ] T023 [US2] Wire doc-only and release handling in src/tdoc_crawler/specs/downloads.py
+- [x] T020 [US2] Implement checkout-spec command in src/tdoc_crawler/cli/app.py
+- [x] T021 [US2] Implement open-spec command in src/tdoc_crawler/cli/app.py
+- [x] T022 [US2] Add checkout/open result formatting in src/tdoc_crawler/cli/printing.py
+- [x] T023 [US2] Wire doc-only and release handling in src/tdoc_crawler/specs/downloads.py
 
 **Checkpoint**: User Story 2 should be fully functional and independently testable
 
@@ -102,14 +102,14 @@ description: "Task list for crawl and query specs feature"
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T024 [P] [US3] Add query filter tests in tests/test_specs_database.py
-- [ ] T025 [P] [US3] Add query CLI output tests in tests/test_specs_cli.py
+- [x] T024 [P] [US3] Add query filter tests in tests/test_specs_database.py
+- [x] T025 [P] [US3] Add query CLI output tests in tests/test_specs_cli.py
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Implement query-specs logic in src/tdoc_crawler/specs/query.py
-- [ ] T027 [US3] Wire query-specs CLI in src/tdoc_crawler/cli/app.py
-- [ ] T028 [US3] Add query-specs output formatting in src/tdoc_crawler/cli/printing.py
+- [x] T026 [US3] Implement query-specs logic in src/tdoc_crawler/specs/query.py
+- [x] T027 [US3] Wire query-specs CLI in src/tdoc_crawler/cli/app.py
+- [x] T028 [US3] Add query-specs output formatting in src/tdoc_crawler/cli/printing.py
 
 **Checkpoint**: User Story 3 should be fully functional and independently testable
 

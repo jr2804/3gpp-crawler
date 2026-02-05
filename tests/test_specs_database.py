@@ -40,7 +40,49 @@ def test_query_specs_returns_results(tmp_path: Path) -> None:
     with TDocDatabase(db_path) as database:
         database.upsert_specification(spec)
         results = database.query_specs(SpecQueryFilters(spec_numbers=["23.501"]))
-    assert results
+    assert len(results) == 1
+    assert results[0].spec_number == "23.501"
+
+
+def test_query_specs_filters(tmp_path: Path) -> None:
+    s1 = Specification(
+        spec_number="26.132",
+        spec_number_compact="26132",
+        spec_type="TS",
+        title="Audio Codecs",
+        status="Active",
+        working_group="SA4",
+        series="26_series",
+    )
+    s2 = Specification(
+        spec_number="23.501",
+        spec_number_compact="23501",
+        spec_type="TS",
+        title="System Architecture",
+        status="Frozen",
+        working_group="SA2",
+        series="23_series",
+    )
+    db_path = tmp_path / "tdoc_crawler.db"
+
+    with TDocDatabase(db_path) as database:
+        database.upsert_specification(s1)
+        database.upsert_specification(s2)
+
+        # Title filter
+        res_title = database.query_specs(SpecQueryFilters(title="audio"))
+        assert len(res_title) == 1
+        assert res_title[0].spec_number == "26.132"
+
+        # WG filter
+        res_wg = database.query_specs(SpecQueryFilters(working_group="SA2"))
+        assert len(res_wg) == 1
+        assert res_wg[0].spec_number == "23.501"
+
+        # Status filter
+        res_status = database.query_specs(SpecQueryFilters(status="Frozen"))
+        assert len(res_status) == 1
+        assert res_status[0].spec_number == "23.501"
 
 
 def test_log_spec_download(tmp_path: Path) -> None:

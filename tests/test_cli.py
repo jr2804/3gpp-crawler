@@ -656,7 +656,7 @@ class TestCheckoutCommand:
             validated=False,
         )
 
-        def insert_via_fetch(database, cache_dir, missing_ids) -> None:
+        def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
             for tdoc_id in missing_ids:
                 if tdoc_id == "S4-260001":
                     database.upsert_tdoc(tdoc1)

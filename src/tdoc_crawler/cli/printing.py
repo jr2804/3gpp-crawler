@@ -8,6 +8,7 @@ from rich.table import Table
 
 from tdoc_crawler.models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.specs import SpecCrawlResult
+from tdoc_crawler.specs.query import SpecQueryResult
 
 from .console import get_console
 
@@ -101,6 +102,16 @@ def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, Any]:
     }
 
 
+def spec_query_to_dict(result: SpecQueryResult) -> dict[str, Any]:
+    """Convert SpecQueryResult to dictionary for JSON/YAML output."""
+    return {
+        "spec_number": result.spec_number,
+        "title": result.title,
+        "status": result.status,
+        "working_group": result.working_group,
+    }
+
+
 def print_spec_crawl_table(results: list[SpecCrawlResult]) -> None:
     """Print spec crawl results as formatted table."""
     table = Table(title=f"Spec crawl results ({len(results)} rows)")
@@ -119,5 +130,35 @@ def print_spec_crawl_table(results: list[SpecCrawlResult]) -> None:
             result.latest_version or "-",
             sources,
         )
+
+    console.print(table)
+
+
+def print_spec_table(results: list[SpecQueryResult]) -> None:
+    """Print spec query results as formatted table."""
+    table = Table(title=f"Specs ({len(results)} rows)")
+    table.add_column("Spec", style="cyan")
+    table.add_column("Title", style="yellow")
+    table.add_column("WG", style="magenta")
+    table.add_column("Status", style="green")
+
+    for result in results[:100]:
+        table.add_row(
+            result.spec_number,
+            result.title or "-",
+            result.working_group or "-",
+            result.status or "-",
+        )
+
+    console.print(table)
+
+
+def print_checkout_results(results: list[Any]) -> None:
+    """Print checkout results as formatted table."""
+    table = Table(title=f"Checked out {len(results)} specs")
+    table.add_column("Checkout Path", style="green")
+
+    for path in results:
+        table.add_row(str(path))
 
     console.print(table)

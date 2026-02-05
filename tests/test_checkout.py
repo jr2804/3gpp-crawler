@@ -86,7 +86,7 @@ class TestCheckoutTDoc:
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
 
         # Mock requests.get to return a valid response with zip content
-        def mock_get(url: str, **kwargs):
+        def mock_get(url: str, **kwargs: object) -> Mock:
             response = Mock()
             response.status_code = 200
             response.raise_for_status = Mock()
@@ -133,7 +133,7 @@ class TestCheckoutTDoc:
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
         checkout_path.mkdir(parents=True)
 
-        def mock_get(url: str, **kwargs):
+        def mock_get(url: str, **kwargs: object) -> Mock:
             response = Mock()
             response.status_code = 200
             response.raise_for_status = Mock()

@@ -414,6 +414,24 @@ class TDocDatabase:
         self.connection.add("spec_versions", updated_version, pk="record_id")
         return False, changed
 
+    def get_spec_versions(self, spec_number: str) -> list[SpecificationVersion]:
+        """Get all versions for a spec."""
+        try:
+            cursor = self.connection._db.execute(
+                "SELECT * FROM spec_versions WHERE spec_number = ?",
+                (spec_number,)
+            )
+            columns = [description[0] for description in cursor.description]
+            rows = cursor.fetchall()
+
+            result = []
+            for row in rows:
+                row_dict = dict(zip(columns, row, strict=False))
+                result.append(SpecificationVersion(**row_dict))
+            return result
+        except Exception:
+            return []
+
     def log_spec_download(self, download: SpecificationDownload) -> None:
         """Persist download/extraction outcomes for a spec version."""
         record_id = download.record_id or f"{download.spec_number}:{download.version}"
