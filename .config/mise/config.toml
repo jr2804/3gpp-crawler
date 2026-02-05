@@ -36,3 +36,7 @@ run = ["cls", "uv run specify init --here --ai {{usage.ai_agent}} --script {{usa
 run = ["cls",
     "uvx --from https://github.com/jr2804/mcp-config-converter.git mcp-config-converter convert .vscode/mcp.json --provider{% if args %} {{ args }}{% endif %}"
 ]
+
+[tasks.beads-up]
+description = "Installs beads (bd.exe) to virtual environment's scripts directory"
+run = ["bin install https://github.com/steveyegge/beads {{env.VIRTUAL_ENV}}/scripts/"]
