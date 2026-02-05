@@ -29,6 +29,7 @@ from .args import (
     EolPasswordOption,
     EolUsernameOption,
     ForceOption,
+    FullMetadataOption,
     IncludeWithoutFilesOption,
     IncrementalOption,
     LimitMeetingsOption,
@@ -47,6 +48,7 @@ from .args import (
     TDocIdArgument,
     TDocIdsArgument,
     TimeoutOption,
+    UseWhatTheSpecOption,
     VerboseOption,
     WorkersOption,
     WorkingGroupOption,
@@ -385,6 +387,8 @@ def query_meetings(
 def open_tdoc(
     tdoc_id: TDocIdArgument,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    full_metadata: FullMetadataOption = False,
+    use_whatthespec: UseWhatTheSpecOption = False,
 ) -> None:
     """Download, extract, and open a TDoc file."""
     normalized_id = tdoc_id.strip().upper()
@@ -396,7 +400,7 @@ def open_tdoc(
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         results = database.query_tdocs(config)
-        results = maybe_fetch_missing_tdocs(database, cache_dir, config, results)
+        results = maybe_fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
         if not results:
             console.print(f"[red]TDoc {normalized_id} not found[/red]")
             raise typer.Exit(code=1)
@@ -417,6 +421,8 @@ def checkout(
     tdoc_id: CheckoutTDocIdsArgument,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
     force: ForceOption = False,
+    full_metadata: FullMetadataOption = False,
+    use_whatthespec: UseWhatTheSpecOption = False,
 ) -> None:
     """Download and extract TDoc(s) to checkout folder."""
     normalized_ids = [tid.strip().upper() for tid in tdoc_id]
@@ -428,7 +434,7 @@ def checkout(
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         results = database.query_tdocs(config)
-        results = maybe_fetch_missing_tdocs(database, cache_dir, config, results)
+        results = maybe_fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
 
         # Check which TDocs were found
         found_ids = {r.tdoc_id for r in results}

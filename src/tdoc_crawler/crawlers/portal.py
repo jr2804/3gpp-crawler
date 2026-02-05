@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
-from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_VIEW_URL
+from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
 from tdoc_crawler.models.tdocs import TDocMetadata
 
 

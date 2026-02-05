@@ -8,7 +8,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from tdoc_crawler.checkout import checkout_tdoc, get_checked_out_tdocs, get_checkout_path
-from tdoc_crawler.cli.helpers import download_to_path
 from tdoc_crawler.models import TDocMetadata
 
 

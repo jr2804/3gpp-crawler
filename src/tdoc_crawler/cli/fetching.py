@@ -19,6 +19,74 @@ console = get_console()
 _logger = logging.getLogger(__name__)
 
 
+def fetch_tdoc(
+    tdoc_id: str,
+    cache_dir: Path,
+    http_cache: HttpCacheConfig,
+    full_metadata: bool = False,
+    use_whatthespec: bool = False,
+    credentials: PortalCredentials | None = None,
+    timeout: int = 30,
+) -> TDocMetadata:
+    """Fetch TDoc using the appropriate method based on flags.
+
+    Args:
+        tdoc_id: TDoc identifier (e.g., "S4-260001").
+        cache_dir: Directory for HTTP cache storage.
+        http_cache: HTTP cache configuration.
+        full_metadata: If True, fetch full metadata (requires credentials for portal method).
+        use_whatthespec: If True, always use WhatTheSpec method regardless of full_metadata.
+        credentials: Portal credentials (required for authenticated portal method).
+        timeout: Request timeout in seconds.
+
+    Returns:
+        TDocMetadata with available information.
+
+    Raises:
+        Exception: If fetching fails for any reason.
+    """
+    # Import here to avoid circular imports
+    from tdoc_crawler.crawlers import extract_tdoc_url_from_portal, resolve_via_whatthespec
+
+    if use_whatthespec:
+        # Always use WhatTheSpec method (Method 3)
+        _logger.debug(f"Fetching {tdoc_id} via WhatTheSpec API")
+        return resolve_via_whatthespec(tdoc_id, cache_dir, http_cache, timeout)
+
+    elif full_metadata:
+        # Use authenticated portal method (Method 2)
+        if credentials is None:
+            raise ValueError("Portal credentials required for full metadata fetching")
+        _logger.debug(f"Fetching {tdoc_id} via authenticated 3GPP portal")
+        return fetch_tdoc_metadata(tdoc_id, credentials, cache_dir, http_cache.ttl, http_cache.refresh_ttl_on_access, timeout)
+
+    else:
+        # Use unauthenticated portal method (Method 1) - URL only
+        _logger.debug(f"Fetching {tdoc_id} via unauthenticated 3GPP portal")
+        # Extract URL and create minimal TDocMetadata
+        url = extract_tdoc_url_from_portal(tdoc_id, timeout=min(timeout, 15))
+        return TDocMetadata(
+            tdoc_id=tdoc_id,
+            url=url,
+            title="",
+            meeting_id=0,
+            source="",
+            contact="",
+            agenda_item_nbr=0,
+            date=None,
+            revision_of="",
+            technical_committee="",
+            working_group="",
+            type="",
+            status="",
+            referenced_documents=[],
+            filename="",
+            size=0,
+            validated=False,
+            validation_failed=False,
+        )
+
+
 def fetch_missing_tdocs(
     database: TDocDatabase,
     cache_dir: Path,
@@ -139,15 +207,19 @@ def maybe_fetch_missing_tdocs(
     config: QueryConfig,
     results: list[TDocMetadata],
     credentials: PortalCredentials | None = None,
+    full_metadata: bool = False,
+    use_whatthespec: bool = False,
 ) -> list[TDocMetadata]:
-    """Check for missing TDocs and fetch them if needed.
+    """Fetch missing TDocs if any are requested but not found in database.
 
     Args:
         database: Database connection
-        cache_dir: Cache directory path
-        config: Query configuration
-        results: Current query results
-        credentials: Portal credentials (optional)
+        cache_dir: Cache directory
+        config: Query configuration with requested TDoc IDs
+        results: Already found TDoc metadata
+        credentials: Portal credentials (None if not available)
+        full_metadata: If True, fetch full metadata instead of URL only
+        use_whatthespec: If True, use WhatTheSpec API for fetching
 
     Returns:
         Updated list of TDocMetadata with newly fetched TDocs
@@ -160,6 +232,28 @@ def maybe_fetch_missing_tdocs(
     if not missing:
         return results
 
+    # Handle use_whatthespec flag - always use WhatTheSpec method
+    if use_whatthespec:
+        console.print(f"[cyan]Fetching missing TDocs via WhatTheSpec: {', '.join(missing)}[/cyan]")
+        _fetch_via_whatthespec(database, cache_dir, missing)
+        refreshed = database.query_tdocs(config)
+        return refreshed
+
+    # Handle full_metadata flag - use authenticated portal method
+    if full_metadata:
+        if credentials is None:
+            console.print("[red]Portal credentials required for full metadata fetching[/red]")
+            return results
+        console.print(f"[cyan]Fetching missing TDocs with full metadata: {', '.join(missing)}[/cyan]")
+        fetch_result = fetch_missing_tdocs(database, cache_dir, missing, credentials)
+        if fetch_result.errors:
+            console.print(f"[yellow]{len(fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+            for error in fetch_result.errors[:3]:
+                console.print(f"  - {error}")
+        refreshed = database.query_tdocs(config)
+        return refreshed
+
+    # Default behavior - use unauthenticated portal method with WhatTheSpec fallback
     console.print(f"[cyan]Fetching missing TDocs: {', '.join(missing)}[/cyan]")
     fetch_result = fetch_missing_tdocs(database, cache_dir, missing, credentials)
     if fetch_result.errors:
