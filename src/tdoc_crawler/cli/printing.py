@@ -109,6 +109,7 @@ def spec_query_to_dict(result: SpecQueryResult) -> dict[str, Any]:
         "title": result.title,
         "status": result.status,
         "working_group": result.working_group,
+        "source_differences": result.source_differences,
     }
 
 
@@ -141,13 +142,16 @@ def print_spec_table(results: list[SpecQueryResult]) -> None:
     table.add_column("Title", style="yellow")
     table.add_column("WG", style="magenta")
     table.add_column("Status", style="green")
+    table.add_column("Diffs", style="blue")
 
     for result in results[:100]:
+        differences = ", ".join(sorted(result.source_differences.keys())) if result.source_differences else "-"
         table.add_row(
             result.spec_number,
             result.title or "-",
             result.working_group or "-",
             result.status or "-",
+            differences,
         )
 
     console.print(table)

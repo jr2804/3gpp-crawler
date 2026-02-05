@@ -66,15 +66,7 @@ from .args import (
 )
 from .console import get_console
 from .fetching import maybe_fetch_missing_tdocs
-from .helpers import (
-    build_limits,
-    collect_spec_numbers,
-    database_path,
-    launch_file,
-    parse_subgroups,
-    parse_working_groups,
-    prepare_tdoc_file,
-)
+from .helpers import build_limits, collect_spec_numbers, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file
 from .printing import (
     meeting_to_dict,
     print_checkout_results,
