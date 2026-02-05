@@ -40,6 +40,7 @@ description: "Task list for crawl and query specs feature"
 - [ ] T005 Implement spec number normalization utilities in src/tdoc_crawler/specs/normalization.py
 - [ ] T006 Implement spec Pydantic models and enums in src/tdoc_crawler/models/specs.py
 - [ ] T007 Implement specs database tables and upsert/query helpers in src/tdoc_crawler/database/connection.py
+- [ ] T007a Implement crawl/download outcome logging for specs in src/tdoc_crawler/database/connection.py
 - [ ] T008 Implement spec source fetchers (3GPP + whatthespec) in src/tdoc_crawler/specs/sources/
 - [ ] T009 Implement SpecCatalog facade in src/tdoc_crawler/specs/catalog.py
 - [ ] T010 Implement specs query filters and result shaping in src/tdoc_crawler/specs/query.py

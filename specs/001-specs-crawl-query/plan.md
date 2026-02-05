@@ -3,7 +3,7 @@
 **Branch**: `001-specs-crawl-query` | **Date**: 2026-02-05 | **Spec**: [spec](spec.md)
 **Input**: Feature specification from `/specs/001-specs-crawl-query/spec.md`
 
-**Note**: This plan follows the updated constitution (library-first, CLI JSON output,
+**Note**: This plan follows the updated constitution (library-first, CLI text output,
 TDD gates, and Python standards).
 
 ## Summary
@@ -23,7 +23,7 @@ beautifulsoup4, lxml, pandas, python-calamine, xlsxwriter, zipinspect, hishel
 **Target Platform**: Cross-platform CLI (Windows, macOS, Linux)
 **Project Type**: single
 **Performance Goals**: Query known spec in <2s; crawl success >=95% for known specs
-**Constraints**: JSON output for all spec commands; no `print`; use `pathlib` and
+**Constraints**: Text output only for spec commands; no `print`; use `pathlib` and
 logging; Ruff and Ty clean; doc-only fallback to full zip on mismatch
 **Scale/Scope**: 10k+ specs, four new commands, two metadata sources
 
@@ -32,7 +32,7 @@ logging; Ruff and Ty clean; doc-only fallback to full zip on mismatch
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - [x] Library-first boundary documented (standalone library + integration points).
-- [x] CLI contract defined (text input/output + JSON mode).
+- [x] CLI contract defined (text input/output with JSON optional for spec commands).
 - [x] TDD evidence planned (tests written/approved + red phase before implementation).
 - [x] Python standards planned (type hints, logging, uv/pyproject, Ruff, Ty, pathlib,
   dataclasses where appropriate, Typer CLI).
@@ -52,8 +52,8 @@ It encapsulates parsing/normalization, source fetching, and download orchestrati
 
 **CLI contract**: Add commands in `tdoc_crawler/cli/app.py` with arguments wired via
 `tdoc_crawler/cli/args.py` using Typer `Annotated` patterns. Input supports `--spec`,
-`--spec-file`, or stdin (`--spec -`). Output defaults to Rich tables and supports
-`--output json|yaml` for structured output. Errors are reported on stderr.
+`--spec-file`, or stdin (`--spec -`). Output defaults to Rich tables. Errors are
+reported on stderr.
 
 ## TDD Evidence
 
@@ -66,7 +66,7 @@ Planned tests (initial red phase):
 - `tests/test_specs_normalization.py`: dotted vs undotted normalization rules
 - `tests/test_specs_database.py`: upsert/query behavior for new spec tables
 - `tests/test_specs_downloads.py`: doc-only selection and fallback to full zip
-- `tests/test_specs_cli.py`: CLI parsing, JSON output, and stdin/file input
+- `tests/test_specs_cli.py`: CLI parsing and stdin/file input
 
 ## Project Structure
 
@@ -89,8 +89,6 @@ src/tdoc_crawler/
 ├── cli/
 │   ├── app.py
 │   └── args.py
-├── crawlers/
-│   └── specs.py
 ├── database/
 │   └── connection.py
 ├── models/

@@ -113,9 +113,9 @@ As a maintainer, I want to see when metadata differs between 3GPP.org and whatth
 - **FR-021**: The system MUST support querying a spec with multiple source records and expose any differences.
 - **FR-022**: The system MUST record crawl and download outcomes, including success or failure, for auditing and troubleshooting.
 - **FR-023**: Feature functionality MUST be implemented as a standalone library module before CLI integration.
-- **FR-024**: The CLI MUST support text output and a JSON output mode for structured results; errors go to stderr.
+- **FR-024**: The CLI MUST support text output for results; errors go to stderr.
 - **FR-025**: Unit tests MUST be written, user-approved, and verified failing before implementation begins.
-- **FR-026**: Python implementations MUST use `pyproject.toml` with `uv`, include type hints and Google-style docstrings for public code, use `logging` instead of `print`, rely on `pathlib` for file paths, and keep Ruff and Ty checks clean without suppressions unless explicitly approved.
+- **FR-026**: Python implementations MUST use `pyproject.toml` with `uv`, include type hints and Google-style docstrings for public code, use `logging` instead of `print`, rely on `pathlib` for file paths, keep Ruff and Ty checks clean without suppressions unless explicitly approved, and prefer `dataclasses` for data entries with `__rich_console__` for console rendering. CLI user output MUST use `typer.echo`.
 
 ### Key Entities *(include if feature involves data)*
 

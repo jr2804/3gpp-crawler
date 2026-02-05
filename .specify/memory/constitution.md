@@ -27,6 +27,9 @@ must accept text input via stdin, arguments, or files, and must emit text output
 stdout. Every CLI must support a JSON output mode for structured data exchange; errors
 go to stderr.
 
+Exception: For the `crawl-specs`, `query-specs`, `checkout-spec`, and `open-spec`
+commands, JSON output is optional for the initial release of the specs feature.
+
 ### III. Test-Driven Development (Non-Negotiable)
 Implementation code must not be written until unit tests are written, reviewed by the
 user, and explicitly approved. The approved tests must be executed and verified to fail
@@ -72,4 +75,4 @@ across the toolchain.
 - Compliance is verified in specs, plans, task lists, and code reviews; non-compliant
   changes must be blocked or accompanied by an approved amendment.
 
-**Version**: 1.1.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-05
+**Version**: 1.2.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-05
