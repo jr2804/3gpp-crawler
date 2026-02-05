@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-02-05
 
 ## Active Technologies
+- Python 3.14 + typer, rich, pydantic, pydantic-sqlite, requests, (001-specs-crawl-query)
+- SQLite via pydantic-sqlite (001-specs-crawl-query)
 
 - Python 3.14 + typer, rich, requests, beautifulsoup4, lxml, pydantic, pydantic-sqlite, hishel, zipinspect (001-specs-crawl-query)
 
@@ -22,6 +24,7 @@ cd src; pytest; ruff check .
 Python 3.14: Follow standard conventions
 
 ## Recent Changes
+- 001-specs-crawl-query: Added Python 3.14 + typer, rich, pydantic, pydantic-sqlite, requests,
 
 - 001-specs-crawl-query: Added Python 3.14 + typer, rich, requests, beautifulsoup4, lxml, pydantic, pydantic-sqlite, hishel, zipinspect
 

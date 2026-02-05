@@ -112,6 +112,10 @@ As a maintainer, I want to see when metadata differs between 3GPP.org and whatth
 - **FR-020**: The system MUST provide a `query-specs` command to search by spec number, title keyword, working group, and status.
 - **FR-021**: The system MUST support querying a spec with multiple source records and expose any differences.
 - **FR-022**: The system MUST record crawl and download outcomes, including success or failure, for auditing and troubleshooting.
+- **FR-023**: Feature functionality MUST be implemented as a standalone library module before CLI integration.
+- **FR-024**: The CLI MUST support text output and a JSON output mode for structured results; errors go to stderr.
+- **FR-025**: Unit tests MUST be written, user-approved, and verified failing before implementation begins.
+- **FR-026**: Python implementations MUST use `pyproject.toml` with `uv`, include type hints and Google-style docstrings for public code, use `logging` instead of `print`, rely on `pathlib` for file paths, and keep Ruff and Ty checks clean without suppressions unless explicitly approved.
 
 ### Key Entities *(include if feature involves data)*
 
