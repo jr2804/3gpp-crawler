@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from tdoc_crawler.checkout import checkout_tdoc, get_checked_out_tdocs, get_checkout_path
+from tdoc_crawler.cli.helpers import download_to_path
 from tdoc_crawler.models import TDocMetadata
 
 
@@ -74,7 +75,7 @@ class TestGetCheckoutPath:
 class TestCheckoutTDoc:
     """Tests for checkout_tdoc function."""
 
-    @patch("tdoc_crawler.checkout._download_file")
+    @patch("tdoc_crawler.cli.helpers.download_to_path")
     def test_successful_checkout(
         self,
         mock_download: Mock,
@@ -84,8 +85,8 @@ class TestCheckoutTDoc:
         """Test successful TDoc checkout."""
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
 
-        # Mock download to create the zip file
-        def mock_download_impl(url: str, dest: Path) -> None:
+        # Mock download to create a zip file
+        def mock_download_impl(url: str, dest: Path, **kwargs) -> None:
             dest.parent.mkdir(parents=True, exist_ok=True)
             with zipfile.ZipFile(dest, "w") as zf:
                 zf.writestr("test.txt", "test content")
@@ -99,7 +100,7 @@ class TestCheckoutTDoc:
         assert (result / "test.txt").exists()
         assert not (result / "S4-251234.zip").exists()  # Zip should be cleaned up
 
-    @patch("tdoc_crawler.checkout._download_file")
+    @patch("tdoc_crawler.cli.helpers.download_to_path")
     def test_already_checked_out(
         self,
         mock_download: Mock,
@@ -116,7 +117,7 @@ class TestCheckoutTDoc:
         assert result == checkout_path
         mock_download.assert_not_called()
 
-    @patch("tdoc_crawler.checkout._download_file")
+    @patch("tdoc_crawler.cli.helpers.download_to_path")
     def test_force_recheckout(
         self,
         mock_download: Mock,
@@ -127,7 +128,7 @@ class TestCheckoutTDoc:
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
         checkout_path.mkdir(parents=True)
 
-        def mock_download_impl(url: str, dest: Path) -> None:
+        def mock_download_impl(url: str, dest: Path, **kwargs) -> None:
             with zipfile.ZipFile(dest, "w") as zf:
                 zf.writestr("new.txt", "new content")
 
