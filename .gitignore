@@ -225,3 +225,11 @@ __marimo__/
 nul
 .sisyphus
 /.github
+
+# OS/editor artifacts
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/

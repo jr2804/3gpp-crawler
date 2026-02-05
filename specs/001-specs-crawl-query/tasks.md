@@ -24,10 +24,10 @@ description: "Task list for crawl and query specs feature"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create specs module layout under src/tdoc_crawler/specs/
-- [ ] T002 [P] Add new spec models stub file in src/tdoc_crawler/models/specs.py
-- [ ] T003 [P] Add specs database helpers stub in src/tdoc_crawler/database/connection.py
-- [ ] T004 [P] Add CLI args stubs for specs commands in src/tdoc_crawler/cli/args.py
+- [x] T001 Create specs module layout under src/tdoc_crawler/specs/
+- [x] T002 [P] Add new spec models stub file in src/tdoc_crawler/models/specs.py
+- [x] T003 [P] Add specs database helpers stub in src/tdoc_crawler/database/connection.py
+- [x] T004 [P] Add CLI args stubs for specs commands in src/tdoc_crawler/cli/args.py
 
 ---
 
@@ -37,11 +37,17 @@ description: "Task list for crawl and query specs feature"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement spec number normalization utilities in src/tdoc_crawler/specs/normalization.py
-- [ ] T006 Implement spec Pydantic models and enums in src/tdoc_crawler/models/specs.py
-- [ ] T007 Implement specs database tables and upsert/query helpers in src/tdoc_crawler/database/connection.py
-- [ ] T007a Implement crawl/download outcome logging for specs in src/tdoc_crawler/database/connection.py
-- [ ] T008 Implement spec source fetchers (3GPP + whatthespec) in src/tdoc_crawler/specs/sources/
+### Foundational Tests (REQUIRED) ⚠️
+
+- [x] T012 [P] [US1] Add normalization tests in tests/test_specs_normalization.py
+- [x] T013 [P] [US1] Add source parsing tests in tests/test_specs_sources.py
+- [x] T014 [P] [US1] Add database upsert/query tests in tests/test_specs_database.py
+
+- [x] T005 Implement spec number normalization utilities in src/tdoc_crawler/specs/normalization.py
+- [x] T006 Implement spec Pydantic models and enums in src/tdoc_crawler/models/specs.py
+- [x] T007 Implement specs database tables and upsert/query helpers in src/tdoc_crawler/database/connection.py
+- [x] T007a Implement crawl/download outcome logging for specs in src/tdoc_crawler/database/connection.py
+- [x] T008 Implement spec source fetchers (3GPP + whatthespec) in src/tdoc_crawler/specs/sources/
 - [ ] T009 Implement SpecCatalog facade in src/tdoc_crawler/specs/catalog.py
 - [ ] T010 Implement specs query filters and result shaping in src/tdoc_crawler/specs/query.py
 - [ ] T011 Implement specs download helpers (doc-only, fallback) in src/tdoc_crawler/specs/downloads.py
@@ -55,12 +61,6 @@ description: "Task list for crawl and query specs feature"
 **Goal**: Crawl and store normalized spec metadata from 3GPP.org and whatthespec.net.
 
 **Independent Test**: Run crawl-specs for a known spec and verify stored metadata and source attribution.
-
-### Tests for User Story 1 (REQUIRED) ⚠️
-
-- [ ] T012 [P] [US1] Add normalization tests in tests/test_specs_normalization.py
-- [ ] T013 [P] [US1] Add source parsing tests in tests/test_specs_sources.py
-- [ ] T014 [P] [US1] Add database upsert/query tests in tests/test_specs_database.py
 
 ### Implementation for User Story 1
 
