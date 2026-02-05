@@ -48,9 +48,9 @@ description: "Task list for crawl and query specs feature"
 - [x] T007 Implement specs database tables and upsert/query helpers in src/tdoc_crawler/database/connection.py
 - [x] T007a Implement crawl/download outcome logging for specs in src/tdoc_crawler/database/connection.py
 - [x] T008 Implement spec source fetchers (3GPP + whatthespec) in src/tdoc_crawler/specs/sources/
-- [ ] T009 Implement SpecCatalog facade in src/tdoc_crawler/specs/catalog.py
-- [ ] T010 Implement specs query filters and result shaping in src/tdoc_crawler/specs/query.py
-- [ ] T011 Implement specs download helpers (doc-only, fallback) in src/tdoc_crawler/specs/downloads.py
+- [x] T009 Implement SpecCatalog facade in src/tdoc_crawler/specs/catalog.py
+- [x] T010 Implement specs query filters and result shaping in src/tdoc_crawler/specs/query.py
+- [x] T011 Implement specs download helpers (doc-only, fallback) in src/tdoc_crawler/specs/downloads.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -64,9 +64,9 @@ description: "Task list for crawl and query specs feature"
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement SpecCatalog crawl flow in src/tdoc_crawler/specs/catalog.py
-- [ ] T016 [US1] Wire crawl-specs CLI in src/tdoc_crawler/cli/app.py
-- [ ] T017 [US1] Add crawl-specs output formatting in src/tdoc_crawler/cli/printing.py
+- [x] T015 [US1] Implement SpecCatalog crawl flow in src/tdoc_crawler/specs/catalog.py
+- [x] T016 [US1] Wire crawl-specs CLI in src/tdoc_crawler/cli/app.py
+- [x] T017 [US1] Add crawl-specs output formatting in src/tdoc_crawler/cli/printing.py
 
 **Checkpoint**: User Story 1 should be fully functional and independently testable
 
