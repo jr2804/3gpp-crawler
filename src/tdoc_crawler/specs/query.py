@@ -1,6 +1,6 @@
 """Spec query filters and results."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.text import Text
@@ -28,6 +28,7 @@ class SpecQueryResult:
     title: str | None = None
     status: str | None = None
     working_group: str | None = None
+    source_differences: dict[str, dict[str, str | None]] = field(default_factory=dict)
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         _ = (console, options)

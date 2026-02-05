@@ -9,9 +9,11 @@ from tdoc_crawler.specs.downloads import SpecDownloads
 def mock_db():
     return MagicMock()
 
+
 @pytest.fixture
 def downloader(mock_db):
     return SpecDownloads(mock_db)
+
 
 class TestSpecDownloads:
     # This test verifies that checkout_specs resolves URL and uses doc-only logic.
@@ -40,7 +42,7 @@ class TestSpecDownloads:
         MockHTTPZipReader.return_value = mock_cm
 
         # We rely on _resolve_spec_url
-        with patch.object(downloader, '_resolve_spec_url', return_value=("http://example.com/26132-j00.zip", "26132-j00.zip"), create=True) as mock_resolve:
+        with patch.object(downloader, "_resolve_spec_url", return_value=("http://example.com/26132-j00.zip", "26132-j00.zip"), create=True) as mock_resolve:
             # Execute
             downloader.checkout_specs(specs, doc_only=True, checkout_dir=checkout_dir)
 
@@ -58,4 +60,4 @@ class TestSpecDownloads:
             # Check args
             args, kwargs = mock_reader.extract.call_args
             assert args[0][0].filename == "26132.doc"
-            assert kwargs['out_dir'] == checkout_dir / "Specs" / "archive" / "26_series" / "26.132"
+            assert kwargs["out_dir"] == checkout_dir / "Specs" / "archive" / "26_series" / "26.132"

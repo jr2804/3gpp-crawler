@@ -123,12 +123,12 @@ description: "Task list for crawl and query specs feature"
 
 ### Tests for User Story 4 (REQUIRED) ⚠️
 
-- [ ] T029 [P] [US4] Add discrepancy view tests in tests/test_specs_database.py
+- [x] T029 [P] [US4] Add discrepancy view tests in tests/test_specs_database.py
 
 ### Implementation for User Story 4
 
-- [ ] T030 [US4] Extend query results to expose per-source differences in src/tdoc_crawler/specs/query.py
-- [ ] T031 [US4] Add discrepancy rendering in src/tdoc_crawler/cli/printing.py
+- [x] T030 [US4] Extend query results to expose per-source differences in src/tdoc_crawler/specs/query.py
+- [x] T031 [US4] Add discrepancy rendering in src/tdoc_crawler/cli/printing.py
 
 **Checkpoint**: User Story 4 should be fully functional and independently testable
 

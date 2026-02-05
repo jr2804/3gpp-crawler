@@ -85,6 +85,50 @@ def test_query_specs_filters(tmp_path: Path) -> None:
         assert res_status[0].spec_number == "23.501"
 
 
+def test_query_specs_discrepancies(tmp_path: Path) -> None:
+    spec = Specification(
+        spec_number="23.501",
+        spec_number_compact="23501",
+        spec_type="TS",
+        title="System Architecture",
+        status="Release",
+        working_group="SA",
+        series="23_series",
+        latest_version="17.3.0",
+    )
+    record_a = SpecificationSourceRecord(
+        spec_number="23.501",
+        source_name="3gpp",
+        source_identifier="1111",
+        metadata_payload={"title": "System Architecture", "status": "Release"},
+        versions=["17.3.0"],
+        fetched_at=None,
+    )
+    record_b = SpecificationSourceRecord(
+        spec_number="23.501",
+        source_name="whatthespec",
+        source_identifier="2222",
+        metadata_payload={"title": "System Arch", "status": "Release"},
+        versions=["17.3.0"],
+        fetched_at=None,
+    )
+    db_path = tmp_path / "tdoc_crawler.db"
+
+    with TDocDatabase(db_path) as database:
+        database.upsert_specification(spec)
+        database.upsert_spec_source_record(record_a)
+        database.upsert_spec_source_record(record_b)
+
+        results = database.query_specs(SpecQueryFilters(spec_numbers=["23.501"]))
+
+    assert len(results) == 1
+    differences = results[0].source_differences
+    assert "title" in differences
+    assert differences["title"]["3gpp"] == "System Architecture"
+    assert differences["title"]["whatthespec"] == "System Arch"
+    assert "status" not in differences
+
+
 def test_log_spec_download(tmp_path: Path) -> None:
     checkout_path = tmp_path / "checkout"
     document_path = checkout_path / "23501.docx"
