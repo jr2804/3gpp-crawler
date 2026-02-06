@@ -160,6 +160,22 @@ class SpecCatalog:
                 )
                 continue
 
+            # Check if 3GPP source failed - if so, skip this spec entirely
+            threegpp_outcome = next((o for o in outcomes if o.source_name == "3gpp"), None)
+            if threegpp_outcome is not None and threegpp_outcome.status == "error":
+                _logger.warning("Skipping spec %s due to 3GPP source error", normalized)
+                results.append(
+                    SpecCrawlResult(
+                        spec_number=normalized,
+                        release=release,
+                        status="skipped",
+                        latest_version=None,
+                        sources=outcomes,
+                        message="3gpp-source-error",
+                    )
+                )
+                continue
+
             release_matches = release == "latest" or any(release in outcome.versions for outcome in outcomes if outcome.status == "ok")
             if not release_matches:
                 results.append(
