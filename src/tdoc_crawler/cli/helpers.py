@@ -14,6 +14,7 @@ from contextlib import suppress
 from pathlib import Path
 from urllib.parse import urlparse
 
+import click
 import requests
 import typer
 
@@ -108,40 +109,42 @@ def parse_subgroups(values: list[str] | None) -> list[str] | None:
 
 
 def collect_spec_numbers(specs: list[str] | None, spec_file: Path | None) -> list[str]:
-    """Collect spec numbers from CLI options and stdin.
-
-    Args:
-        specs: Spec numbers provided on the command line. Use "-" to read stdin.
-        spec_file: Optional file containing spec numbers (one per line).
-
-    Returns:
-        List of spec numbers in input order.
-    """
+    """Collect spec numbers from CLI arguments or a file."""
     collected: list[str] = []
 
     if specs:
-        for item in specs:
-            if item == "-":
-                stdin_text = sys.stdin.read()
-                collected.extend(line.strip() for line in stdin_text.splitlines() if line.strip())
+        for spec in specs:
+            if spec == "-":
+                # Read from stdin
+                for line in sys.stdin:
+                    line_stripped = line.strip()
+                    if line_stripped:
+                        collected.append(line_stripped)
             else:
-                stripped = item.strip()
-                if stripped:
-                    collected.append(stripped)
+                collected.append(spec.strip())
 
-    if spec_file is not None:
+    if spec_file and spec_file.exists():
         try:
-            file_text = spec_file.read_text(encoding="utf-8")
+            with spec_file.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line_stripped = line.strip()
+                    if line_stripped:
+                        collected.append(line_stripped)
         except OSError as exc:
-            console.print(f"[red]Failed to read spec file: {exc}")
-            raise typer.Exit(code=2) from exc
-        collected.extend(line.strip() for line in file_text.splitlines() if line.strip())
+            raise click.FileError(str(spec_file), hint=f"Cannot read spec file: {exc}")
 
     if not collected:
-        console.print("[red]No spec numbers provided[/red]")
-        raise typer.Exit(code=2)
+        return []
 
-    return collected
+    # Import here to avoid circular imports
+    from tdoc_crawler.specs.normalization import expand_spec_ranges_batch
+
+    try:
+        expanded = expand_spec_ranges_batch(collected)
+    except ValueError as e:
+        raise click.UsageError(str(e))
+
+    return expanded
 
 
 def build_limits(
