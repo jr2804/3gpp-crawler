@@ -54,7 +54,6 @@ from .args import (
     ReleaseOption,
     SpecArgument,
     SpecFileOption,
-    SpecOption,
     StartDateOption,
     SubgroupOption,
     TDocIdArgument,
@@ -572,13 +571,15 @@ def stats(
 
 @app.command("crawl-specs", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_specs(
-    spec_numbers: SpecArgument = [],
+    spec_numbers: SpecArgument = None,
     spec_file: SpecFileOption = None,
     release: ReleaseOption = "latest",
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
 ) -> None:
     """Crawl spec metadata from configured sources."""
+    if spec_numbers is None:
+        spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
     try:
         output = OutputFormat(output_format.lower())
@@ -610,7 +611,7 @@ def crawl_specs(
 
 @app.command("checkout-spec", rich_help_panel=HELP_PANEL_QUERY)
 def checkout_spec(
-    spec_numbers: SpecArgument = [],
+    spec_numbers: SpecArgument = None,
     spec_file: SpecFileOption = None,
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
@@ -618,6 +619,8 @@ def checkout_spec(
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
 ) -> None:
     """Download and extract spec documents."""
+    if spec_numbers is None:
+        spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
     if not specs:
         console.print("[red]No specs provided[/red]")
