@@ -704,7 +704,7 @@ class TDocDatabase:
                         try:
                             if "T" in value and value.endswith(("Z", "+00:00")):
                                 row_dict[key] = datetime.fromisoformat(value)
-                        except (ValueError, AttributeError):
+                        except ValueError, AttributeError:
                             pass
                 if table == "spec_source_records":
                     metadata_payload = row_dict.get("metadata_payload")
@@ -750,7 +750,14 @@ class TDocDatabase:
 
     def _get_spec_source_record(self, record_id: str) -> SpecificationSourceRecord | None:
         try:
-            return self.connection.model_from_table("spec_source_records", record_id)  # type: ignore[arg-type]
+            record = self.connection.model_from_table("spec_source_records", record_id)  # type: ignore[arg-type]
+            # Handle JSON deserialization for metadata_payload field
+            if record is not None and isinstance(record.metadata_payload, str):
+                try:
+                    record = record.model_copy(update={"metadata_payload": json.loads(record.metadata_payload)})
+                except json.JSONDecodeError:
+                    record = record.model_copy(update={"metadata_payload": {}})
+            return record
         except KeyError:
             return None
 

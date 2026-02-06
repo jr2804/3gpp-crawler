@@ -14,7 +14,7 @@ try:
     from concurrent.futures import InterpreterPoolExecutor  # noqa: PLC0415
 
     HAS_INTERPRETER_POOL_EXECUTOR = True
-except (ImportError, AttributeError):
+except ImportError, AttributeError:
     InterpreterPoolExecutor = None  # type: ignore[assignment, misc]
     HAS_INTERPRETER_POOL_EXECUTOR = False
 
