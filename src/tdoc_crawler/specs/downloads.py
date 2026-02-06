@@ -114,7 +114,7 @@ class SpecDownloads:
             pass  # TODO: Implement strict release filtering
 
         # Construct 3GPP FTP URL
-        series = f"{normalized.split('.')[0]}_series"
+        series = f"{normalized.split('.', maxsplit=1)[0]}_series"
         url = f"https://www.3gpp.org/ftp/Specs/archive/{series}/{normalized}/{target.file_name}"
         return url, target.file_name
 

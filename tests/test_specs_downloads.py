@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -20,8 +20,6 @@ class TestSpecDownloads:
     @patch("tdoc_crawler.specs.downloads.HTTPZipReader")
     def test_checkout_specs_doc_only_remote(self, MockHTTPZipReader, downloader, mock_db, tmp_path) -> None:
         """Test that checkout_specs resolves URL and uses zipinspect for doc-only."""
-        from unittest.mock import AsyncMock  # Import inside to avoid top-level import issue if not needed
-
         specs = ["26.132"]
         checkout_dir = tmp_path / "checkout"
 
