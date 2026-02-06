@@ -314,13 +314,15 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
     Returns:
         Path to the downloaded file, or the extract directory when return_dir is True.
     """
+    # Handle the case where metadata.url is None
+    if metadata.url is None:
+        raise ValueError(f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None")
+
     downloads_dir = cache_dir / "checkout"
     downloads_dir.mkdir(parents=True, exist_ok=True)
     path = urlparse(metadata.url).path
-    filename = posixpath.basename(path)
+    filename = str(posixpath.basename(path))
 
-    # TODO: unnecessary check for suffix here, download_to_path() is called in any case (should be called just once)?
-    # TODO: Only extraction of tdoc is optional/if it is a zip, but not the download itself.
     suffix = Path(filename).suffix.lower()
 
     if suffix == ".zip":
@@ -343,6 +345,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
             raise FileNotFoundError("no-files-in-archive")
         return extract_dir if return_dir else files[0]
 
+    # For non-zip files, download directly
     target_suffix = suffix or ""
     target_name = filename if filename else f"{metadata.tdoc_id}{target_suffix or '.bin'}"
     target_path = downloads_dir / target_name

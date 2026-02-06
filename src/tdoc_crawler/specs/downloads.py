@@ -100,18 +100,22 @@ class SpecDownloads:
 
         versions.sort(key=lambda x: parse_version(x.version), reverse=True)
 
-        # If specific release requested, filter?
-        # Usually 'release' maps to strict major version or Rel-XX.
-        # "17" -> 17.x.x.
-        # For now, I'll ignore complex release filtering unless 'latest' is not used.
-        # If release != "latest", ideally we match Rel-{release}.
-        # Existing logic in plan said: "when a non-default value is provided, it must match metadata versions".
+        # If specific release requested, filter versions by major version
+        if release != "latest":
+            try:
+                release_major = int(release.split(".")[0])
+                # Filter versions that match this major release
+                filtered_versions = [v for v in versions if parse_version(v.version)[0] == release_major]
+                if filtered_versions:
+                    versions = filtered_versions
+                else:
+                    msg = f"No versions found for spec {normalized} with release {release}"
+                    raise ValueError(msg)
+            except (ValueError, IndexError) as e:
+                msg = f"Invalid release format: {release}. Expected format like '17' or '17.1'"
+                raise ValueError(msg) from e
 
         target = versions[0]
-        if release != "latest":
-            # Simple match check
-            # Assuming release matches version prefix or some field
-            pass  # TODO: Implement strict release filtering
 
         # Construct 3GPP FTP URL
         series = f"{normalized.split('.', maxsplit=1)[0]}_series"
