@@ -1,9 +1,10 @@
 """Spec catalog and download support."""
 
+from tdoc_crawler.models import SpecQueryFilters, SpecQueryResult
+
 from .catalog import SpecCatalog, SpecCrawlResult, SpecCrawlSourceOutcome
 from .downloads import SpecDownloads
 from .normalization import normalize_spec_number
-from .query import SpecQueryFilters, SpecQueryResult
 
 __all__ = [
     "SpecCatalog",

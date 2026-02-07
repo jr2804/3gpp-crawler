@@ -2,14 +2,16 @@
 
 import contextlib
 import json
+import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from pydantic_sqlite import DataBase
+
+_logger = logging.getLogger(__name__)
 
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.models import (
@@ -23,11 +25,15 @@ from tdoc_crawler.models import (
     WorkingGroup,
     utc_now,
 )
-from tdoc_crawler.models.specs import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion
+from tdoc_crawler.models.specs import (
+    Specification,
+    SpecificationDownload,
+    SpecificationSourceRecord,
+    SpecificationVersion,
+    SpecQueryFilters,
+    SpecQueryResult,
+)
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
-
-if TYPE_CHECKING:
-    from tdoc_crawler.specs.query import SpecQueryFilters, SpecQueryResult
 
 
 class TDocDatabase:
@@ -447,8 +453,6 @@ class TDocDatabase:
 
     def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
         """Query stored spec metadata."""
-        from tdoc_crawler.specs.query import SpecQueryResult  # noqa: PLC0415
-
         specs = self._spec_table_rows()
         source_records = self._table_rows("spec_source_records")
         records_by_spec: dict[str, list[SpecificationSourceRecord]] = defaultdict(list)

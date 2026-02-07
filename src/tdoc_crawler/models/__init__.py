@@ -36,6 +36,14 @@ from .working_groups import (
     WorkingGroup,  # noqa: F401
     WorkingGroupRecord,
 )
+from .specs import (
+    Specification,  # noqa: F401
+    SpecificationDownload,
+    SpecificationSourceRecord,
+    SpecificationVersion,
+    SpecQueryFilters,
+    SpecQueryResult,
+)
 
 __all__ = [
     "CODE_INDEX",
@@ -55,6 +63,12 @@ __all__ = [
     "PortalCredentials",
     "QueryConfig",
     "SortOrder",
+    "SpecQueryFilters",
+    "SpecQueryResult",
+    "Specification",
+    "SpecificationDownload",
+    "SpecificationSourceRecord",
+    "SpecificationVersion",
     "SubWorkingGroupRecord",
     "TDocCrawlConfig",
     "TDocMetadata",

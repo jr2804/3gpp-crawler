@@ -62,3 +62,22 @@ class SpecificationDownload(BaseModel):
     outcome_status: str
     outcome_message: str | None = None
     extracted_at: datetime | None = None
+
+
+class SpecQueryFilters:
+    """Filter inputs for spec queries."""
+
+    spec_numbers: list[str] | None = None
+    title: str | None = None
+    working_group: str | None = None
+    status: str | None = None
+
+
+class SpecQueryResult:
+    """Query result row for a spec."""
+
+    spec_number: str
+    title: str | None = None
+    status: str | None = None
+    working_group: str | None = None
+    source_differences: dict[str, dict[str, str | None]] | None = None

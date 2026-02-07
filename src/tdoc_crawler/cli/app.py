@@ -66,7 +66,7 @@ from .args import (
 )
 from .console import get_console
 from .fetching import maybe_fetch_missing_tdocs
-from .helpers import build_limits, collect_spec_numbers, database_path, launch_file, parse_subgroups, parse_working_groups, prepare_tdoc_file
+from .helpers import build_limits, collect_spec_numbers, launch_file, parse_subgroups, parse_working_groups
 from .printing import (
     meeting_to_dict,
     print_checkout_results,
@@ -78,6 +78,8 @@ from .printing import (
     spec_query_to_dict,
     tdoc_to_dict,
 )
+from tdoc_crawler.checkout import prepare_tdoc_file
+from tdoc_crawler.database import database_path
 
 load_dotenv()
 

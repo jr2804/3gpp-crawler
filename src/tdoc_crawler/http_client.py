@@ -14,6 +14,45 @@ from urllib3.util.retry import Retry
 logger = logging.getLogger(__name__)
 
 
+def download_to_path(url: str, destination: Path) -> None:
+    """Download a file from URL to destination path.
+
+    Args:
+        url: Source URL
+        destination: Destination path
+
+    Raises:
+        ValueError: If URL scheme is not supported
+        FileNotFoundError: If download fails
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    lowered = url.lower()
+    allowed_schemes = ("ftp://", "http://", "https://")
+    if not lowered.startswith(allowed_schemes):
+        raise ValueError("unsupported-url-scheme")
+
+    # Use requests with browser-like headers to avoid 403 Forbidden
+    session = requests.Session()
+    session.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+    )
+
+    response = session.get(url, timeout=60, stream=True)
+    response.raise_for_status()
+    with destination.open("wb") as target:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                target.write(chunk)
+
+
 def create_cached_session(
     cache_dir: Path,
     ttl: int = 7200,

@@ -20,6 +20,7 @@ import typer
 
 from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.http_client import download_to_path
 from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, SortOrder, TDocMetadata, WorkingGroup
 
 from .console import get_console
@@ -162,12 +163,6 @@ def build_limits(
     )
 
 
-def database_path(cache_dir: Path) -> Path:
-    """Get database path from cache directory."""
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / DEFAULT_DATABASE_FILENAME
-
-
 def infer_working_groups_from_ids(ids: Iterable[str]) -> list[WorkingGroup]:
     """Infer working groups from TDoc IDs based on first character."""
     mapping = {
@@ -184,38 +179,6 @@ def infer_working_groups_from_ids(ids: Iterable[str]) -> list[WorkingGroup]:
         if group and group not in resolved:
             resolved.append(group)
     return resolved or [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
-
-
-def normalize_portal_meeting_name(portal_meeting: str) -> str:
-    """Normalize portal meeting name to database format.
-
-    The portal uses format like "SA4#133-e" while the database uses "S4-133-e".
-    This function converts portal format to database format.
-
-    Args:
-        portal_meeting: Meeting name from portal (e.g., "SA4#133-e")
-
-    Returns:
-        Normalized meeting name (e.g., "S4-133-e")
-    """
-    # Replace "SA4#" with "S4-", "RAN1#" with "R1-", etc.
-    normalized = portal_meeting.replace("#", "-")
-
-    # Handle full working group names (SA, RAN, CT)
-    for full_name, short_prefix in [("SA", "S"), ("RAN", "R"), ("CT", "C")]:
-        # Match patterns like "SA4-" and replace with "S4-"
-        if normalized.startswith(f"{full_name}"):
-            # Extract the subgroup number if present
-            for i, char in enumerate(normalized[len(full_name) :]):
-                if not char.isdigit():
-                    subgroup_num = normalized[len(full_name) : len(full_name) + i] if i > 0 else ""
-                    rest = normalized[len(full_name) + i :]
-                    if subgroup_num:
-                        normalized = f"{short_prefix}{subgroup_num}{rest}"
-                    break
-            break
-
-    return normalized
 
 
 def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
@@ -275,10 +238,6 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
 
     return None
 
-
-def download_to_path(url: str, destination: Path) -> None:
-    """Download a file from URL to destination path."""
-    destination.parent.mkdir(parents=True, exist_ok=True)
     lowered = url.lower()
     if not lowered.startswith(ALLOWED_DOWNLOAD_SCHEMES):
         raise ValueError("unsupported-url-scheme")
@@ -301,57 +260,6 @@ def download_to_path(url: str, destination: Path) -> None:
     response.raise_for_status()
     with destination.open("wb") as target:
         target.write(response.content)
-
-
-def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool = False) -> Path:
-    """Prepare TDoc file for opening (download and extract if needed).
-
-    Args:
-        metadata: TDoc metadata with download URL.
-        cache_dir: Cache directory for downloads and extracted files.
-        return_dir: When True and the TDoc is a zip, return the extract directory.
-
-    Returns:
-        Path to the downloaded file, or the extract directory when return_dir is True.
-    """
-    # Handle the case where metadata.url is None
-    if metadata.url is None:
-        raise ValueError(f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None")
-
-    downloads_dir = cache_dir / "checkout"
-    downloads_dir.mkdir(parents=True, exist_ok=True)
-    path = urlparse(metadata.url).path
-    filename = str(posixpath.basename(path))
-
-    suffix = Path(filename).suffix.lower()
-
-    if suffix == ".zip":
-        extract_dir = downloads_dir / metadata.tdoc_id
-        if extract_dir.exists():
-            files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
-            if files:
-                return extract_dir if return_dir else files[0]
-            shutil.rmtree(extract_dir)
-        zip_path = downloads_dir / f"{metadata.tdoc_id}.zip"
-        download_to_path(metadata.url, zip_path)
-        try:
-            with zipfile.ZipFile(zip_path) as archive:
-                archive.extractall(extract_dir)
-        finally:
-            with suppress(FileNotFoundError):
-                zip_path.unlink()
-        files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
-        if not files:
-            raise FileNotFoundError("no-files-in-archive")
-        return extract_dir if return_dir else files[0]
-
-    # For non-zip files, download directly
-    target_suffix = suffix or ""
-    target_name = filename if filename else f"{metadata.tdoc_id}{target_suffix or '.bin'}"
-    target_path = downloads_dir / target_name
-    if not target_path.exists():
-        download_to_path(metadata.url, target_path)
-    return target_path
 
 
 def launch_file(path: Path) -> None:

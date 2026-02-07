@@ -4,18 +4,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
+from tdoc_crawler.models import SpecQueryFilters, SpecQueryResult
 from tdoc_crawler.models.specs import Specification, SpecificationSourceRecord, SpecificationVersion
 
 from .normalization import normalize_spec_number
-from .query import SpecQueryFilters, SpecQueryResult
-
-if TYPE_CHECKING:
-    from tdoc_crawler.database import TDocDatabase
-
-    from .sources.base import SpecSource
-
+from .sources.base import SpecSource
 
 _logger = logging.getLogger(__name__)
 
@@ -45,7 +39,7 @@ class SpecCrawlResult:
 class SpecCatalog:
     """Facade for spec metadata ingestion and queries."""
 
-    def __init__(self, database: TDocDatabase) -> None:
+    def __init__(self, database: "TDocDatabase") -> None:
         self._database = database
 
     def crawl_specs(self, spec_numbers: list[str], release: str, sources: list[SpecSource]) -> list[SpecCrawlResult]:
