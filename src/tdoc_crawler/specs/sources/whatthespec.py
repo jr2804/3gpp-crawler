@@ -1,7 +1,9 @@
 """WhatTheSpec metadata fetcher."""
 
-import requests
+from pathlib import Path
 
+from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.models.base import DEFAULT_CACHE_DIR
 from tdoc_crawler.specs.normalization import normalize_spec_number
 
 
@@ -10,7 +12,9 @@ def fetch_whatthespec_metadata(spec_number: str) -> dict[str, object]:
     normalized = normalize_spec_number(spec_number)
     compact = normalized.replace(".", "")
     url = f"https://whatthespec.net/3gpp/spec.php?q={compact}&api=1"
-    response = requests.get(url, timeout=30)
+    cache_dir: Path = DEFAULT_CACHE_DIR
+    session = create_cached_session(cache_dir=cache_dir)
+    response = session.get(url, timeout=30)
     response.raise_for_status()
     payload = response.json()
     metadata = {}
