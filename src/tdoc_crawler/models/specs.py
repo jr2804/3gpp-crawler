@@ -73,6 +73,10 @@ class SpecQueryFilters:
     status: str | None = None
 
 
+from dataclasses import dataclass, field
+
+
+@dataclass
 class SpecQueryResult:
     """Query result row for a spec."""
 
@@ -80,4 +84,4 @@ class SpecQueryResult:
     title: str | None = None
     status: str | None = None
     working_group: str | None = None
-    source_differences: dict[str, dict[str, str | None]] | None = None
+    source_differences: dict[str, dict[str, str | None]] = field(default_factory=dict)
