@@ -243,8 +243,72 @@ The project maintains three levels of documentation:
 - `docs/QUICK_REFERENCE.md` **MUST** always be up to date and reflect the current state of ALL commands
 - When adding or modifying commands, **BOTH** the history file AND `docs/QUICK_REFERENCE.md` must be updated
 
-## Reviews of AGENTS.md
+## AGENTS.md File Design Guidelines
 
-After several implementation steps, the present file (`AGENTS.md`) might need an update. When explicitly asked, use/update the file `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md` for that purpose.
+Each AGENTS.md file serves as long-term memory for the project/submodule, providing coding assistants with essential guidelines, conventions, and context. Below are the principles for designing, writing, and updating these documents.
 
-The actual update of `AGENTS.md` will be done only after explicit user confirmation.
+### Purpose and Scope
+
+| AGENTS.md Location | Purpose |
+|--------------------|---------|
+| Root `AGENTS.md` | Project-wide guidelines, quick start, coding standards, tools and skills |
+| `tests/AGENTS.md` | Test organization, fixtures, patterns, and best practices |
+| `src/tdoc_crawler/cli/AGENTS.md` | CLI submodule guidelines, separation of concerns, architecture decisions |
+
+### Design Principles
+
+1. **Living Documentation, Not Plans**
+   - AGENTS.md should capture established patterns and decisions, not active checklists
+   - Completed work belongs in git history, not in AGENTS.md checklists
+   - Use AGENTS.md to document *how* to work, not *what* needs to be done
+
+2. **Information Hierarchy**
+   - **Quick Start** (5-10 lines): What to read first, key files to examine
+   - **Conventions**: Coding standards, patterns, and style guidelines
+   - **Reference Material**: Detailed guidance for specific domains
+   - **Lessons Learned**: Post-mortem insights to avoid repeating mistakes
+
+3. **What to Include**
+   - Project structure and module responsibilities
+   - Coding conventions and style guidelines
+   - Import patterns and dependency rules
+   - Tool preferences and usage patterns
+   - Domain-specific knowledge (e.g., 3GPP terminology)
+   - Lessons learned from refactoring sessions
+
+4. **What NOT to Include**
+   - Checklists of completed items (belongs in git commit messages)
+   - Active TODO lists (use beads issues instead)
+   - Step-by-step implementation plans (use Prometheus/momus for planning)
+   - Temporary debugging notes or workarounds
+
+5. **Updates**
+   - After refactoring sessions, update AGENTS.md with architectural insights
+   - When patterns emerge, document them for future reference
+   - When anti-patterns are discovered, add warnings to prevent recurrence
+   - After explicitly requested, review and update using `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`
+
+### CLI Submodule Example
+
+For `src/tdoc_crawler/cli/AGENTS.md`, the focus should be on:
+
+- **Separation of Concerns**: What belongs in CLI vs. core library
+- **Classification Rules**: How to distinguish CLI code from library code
+- **Module Responsibilities**: What each CLI module should contain
+- **Import Patterns**: Ensuring CLI can import from core, but not vice versa
+- **Lessons Learned**: Architectural insights from refactoring (e.g., circular import resolution)
+
+### Writing Style
+
+- Be concise and factual
+- Use consistent formatting throughout
+- Include code examples where helpful
+- Cross-reference related sections when appropriate
+- Update proactively when new patterns emerge
+
+### Review and Updates
+
+After several implementation steps, AGENTS.md files might need updates. When explicitly asked:
+1. Review the current state using `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`
+2. Propose changes based on accumulated knowledge
+3. Update only after explicit user confirmation
