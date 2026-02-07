@@ -18,14 +18,15 @@ def fetch_whatthespec_metadata(spec_number: str) -> dict[str, object]:
     if payload:
         payload = payload[0] if isinstance(payload, list) else payload
 
-        versions = payload.get("versions")
+        # The API uses 'vers' for versions and 'specnum' for spec number
+        versions = payload.get("vers", [])
         if not isinstance(versions, list):
             versions = []
 
         metadata = {
             "spec_number": normalized,
             "source_name": "whatthespec",
-            "source_identifier": payload.get("id"),
+            "source_identifier": payload.get("specnum", normalized),
             "metadata_payload": payload,
             "versions": versions,
         }

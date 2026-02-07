@@ -628,10 +628,15 @@ def checkout_spec(
 
     effective_checkout_dir = checkout_dir or (cache_dir / "checkout")
 
+    sources = [
+        FunctionSpecSource("3gpp", fetch_threegpp_metadata),
+        FunctionSpecSource("whatthespec", fetch_whatthespec_metadata),
+    ]
+
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         downloader = SpecDownloads(database)
-        results = downloader.checkout_specs(specs, doc_only, effective_checkout_dir, release)
+        results = downloader.checkout_specs(specs, doc_only, effective_checkout_dir, release, sources=sources)
 
     # Output formatting
     print_checkout_results(results)
@@ -648,11 +653,16 @@ def open_spec(
     normalized = spec.strip()
     checkout_dir = cache_dir / "checkout"
 
+    sources = [
+        FunctionSpecSource("3gpp", fetch_threegpp_metadata),
+        FunctionSpecSource("whatthespec", fetch_whatthespec_metadata),
+    ]
+
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         downloader = SpecDownloads(database)
         try:
-            path = downloader.open_spec(normalized, doc_only, checkout_dir, release)
+            path = downloader.open_spec(normalized, doc_only, checkout_dir, release, sources=sources)
             console.print(f"[green]Opening {path}[/green]")
             launch_file(path)
         except Exception as exc:

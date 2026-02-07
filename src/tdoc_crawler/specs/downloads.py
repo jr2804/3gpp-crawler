@@ -4,12 +4,16 @@ import asyncio
 import logging
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import requests
 from zipinspect import HTTPZipReader
 
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.specs.normalization import normalize_spec_number
+
+if TYPE_CHECKING:
+    from tdoc_crawler.specs.sources.base import SpecSource
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +24,14 @@ class SpecDownloads:
     def __init__(self, database: TDocDatabase) -> None:
         self._database = database
 
-    def checkout_specs(self, specs: list[str], doc_only: bool, checkout_dir: Path, release: str = "latest") -> list[Path]:
+    def checkout_specs(
+        self,
+        specs: list[str],
+        doc_only: bool,
+        checkout_dir: Path,
+        release: str = "latest",
+        sources: list[SpecSource] | None = None,
+    ) -> list[Path]:
         """Download and extract spec documents to the checkout directory."""
         checkout_dir.mkdir(parents=True, exist_ok=True)
         results: list[Path] = []
@@ -36,8 +47,22 @@ class SpecDownloads:
                 try:
                     url, filename = self._resolve_spec_url(normalized, release)
                 except ValueError as exc:
-                    _logger.warning(exc)
-                    continue
+                    if sources:
+                        _logger.info("Spec metadata not found for %s, attempting crawl...", normalized)
+                        from tdoc_crawler.specs.catalog import SpecCatalog
+
+                        catalog = SpecCatalog(self._database)
+                        catalog.crawl_specs([normalized], release, sources)
+
+                        # Try again after crawl
+                        try:
+                            url, filename = self._resolve_spec_url(normalized, release)
+                        except ValueError:
+                            _logger.warning("Spec metadata still not found for %s after crawl", normalized)
+                            continue
+                    else:
+                        _logger.warning(exc)
+                        continue
 
                 # doc-only logic
                 success = False
@@ -64,9 +89,16 @@ class SpecDownloads:
 
         return results
 
-    def open_spec(self, spec: str, doc_only: bool, checkout_dir: Path, release: str = "latest") -> Path:
+    def open_spec(
+        self,
+        spec: str,
+        doc_only: bool,
+        checkout_dir: Path,
+        release: str = "latest",
+        sources: list[SpecSource] | None = None,
+    ) -> Path:
         """Download and open a spec document with the system default application."""
-        paths = self.checkout_specs([spec], doc_only, checkout_dir, release)
+        paths = self.checkout_specs([spec], doc_only, checkout_dir, release, sources=sources)
         if not paths:
             raise FileNotFoundError(f"Spec {spec} could not be checked out")
 
@@ -146,7 +178,10 @@ class SpecDownloads:
 
     def _download_full_zip(self, url: str, target_path: Path) -> None:
         """Download full zip file."""
-        response = requests.get(url, stream=True, timeout=60)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        }
+        response = requests.get(url, stream=True, timeout=60, headers=headers)
         response.raise_for_status()
         with open(target_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):

@@ -136,8 +136,15 @@ class SpecCatalog:
                 elif aggregated.latest_version is None and candidate.latest_version is not None:
                     aggregated = aggregated.model_copy(update={"latest_version": candidate.latest_version})
 
-                for version in normalized_versions:
-                    file_name = str(metadata_payload.get("file_name", f"{compact}-unknown.zip"))
+                for i, version in enumerate(normalized_versions):
+                    # Try to get specific file name for this version from payload
+                    file_name = f"{compact}-unknown.zip"
+                    if "specfile" in metadata_payload and isinstance(metadata_payload["specfile"], list):
+                        if i < len(metadata_payload["specfile"]):
+                            file_name = str(metadata_payload["specfile"][i])
+                    elif "file_name" in metadata_payload:
+                        file_name = str(metadata_payload["file_name"])
+
                     spec_versions.append(
                         SpecificationVersion(
                             spec_number=normalized,

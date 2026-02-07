@@ -1,5 +1,6 @@
 """Database access layer backed by pydantic_sqlite."""
 
+import contextlib
 import json
 from collections import defaultdict
 from collections.abc import Callable, Iterable
@@ -750,15 +751,36 @@ class TDocDatabase:
 
     def _get_spec_source_record(self, record_id: str) -> SpecificationSourceRecord | None:
         try:
-            record = self.connection.model_from_table("spec_source_records", record_id)  # type: ignore[arg-type]
-            # Handle JSON deserialization for metadata_payload field
-            if record is not None and isinstance(record.metadata_payload, str):
+            # Use raw query to handle JSON deserialization manually before model instantiation
+            cursor = self.connection._db.execute("SELECT * FROM spec_source_records WHERE record_id = ?", (record_id,))
+            row = cursor.fetchone()
+            if row is None:
+                return None
+
+            columns = [description[0] for description in cursor.description]
+            row_dict = dict(zip(columns, row, strict=False))
+
+            # Handle JSON fields
+            if "metadata_payload" in row_dict and isinstance(row_dict["metadata_payload"], str):
                 try:
-                    record = record.model_copy(update={"metadata_payload": json.loads(record.metadata_payload)})
+                    row_dict["metadata_payload"] = json.loads(row_dict["metadata_payload"])
                 except json.JSONDecodeError:
-                    record = record.model_copy(update={"metadata_payload": {}})
-            return record
-        except KeyError:
+                    row_dict["metadata_payload"] = {}
+
+            if "versions" in row_dict and isinstance(row_dict["versions"], str):
+                try:
+                    row_dict["versions"] = json.loads(row_dict["versions"])
+                except json.JSONDecodeError:
+                    row_dict["versions"] = []
+
+            # Handle datetime deserialization
+            if "fetched_at" in row_dict and isinstance(row_dict["fetched_at"], str):
+                with contextlib.suppress(ValueError, AttributeError):
+                    row_dict["fetched_at"] = datetime.fromisoformat(row_dict["fetched_at"])
+
+            return SpecificationSourceRecord(**row_dict)
+        except Exception as exc:
+            _logger.debug("Error fetching spec source record %s: %s", record_id, exc)
             return None
 
     def _get_spec_version(self, record_id: str) -> SpecificationVersion | None:

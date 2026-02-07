@@ -34,7 +34,7 @@ Use aliases for faster typing: `tdoc-crawler ct` instead of `tdoc-crawler crawl-
 - Cache files and the SQLite database default to `~/.tdoc-crawler`; override with `--cache-dir`.
 - Incremental crawls skip IDs already stored; pass `--full` to force reprocessing.
 - Queries that specify `tdoc_ids` automatically launch a targeted crawl when a requested ID is missing; results refresh before output.
-- Targeted crawls infer working groups from the prefix of each TDoc ID (`R`, `S`, `T`, `C`).
+- Specification commands (`open-spec`, `checkout-spec`) automatically crawl metadata for unknown spec numbers before attempting downloads.
 - Downloaded TDocs live under `<cache-dir>/tdocs/` and are reused when possible.
 
 ## Typical Workflow
@@ -523,7 +523,7 @@ tdoc-crawler checkout R1-2400001 --cache-dir /path/to/cache
 tdoc-crawler open-spec <SPEC_NUMBER> [OPTIONS]
 ```
 
-Download and open the latest document for a specification.
+Download and open the latest document for a specification. If the spec metadata is missing from the local database, it automatically triggers a crawl before downloading.
 
 **Options:**
 
@@ -548,7 +548,7 @@ tdoc-crawler open-spec 23.501 -r 17
 tdoc-crawler checkout-spec <SPEC_NUMBERS...> [OPTIONS]
 ```
 
-Batch download specification documents to the checkout folder.
+Batch download specification documents to the checkout folder. Automatically crawls missing spec metadata before downloading.
 
 **Examples:**
 
