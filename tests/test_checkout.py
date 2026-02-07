@@ -22,7 +22,17 @@ def sample_tdoc_metadata() -> TDocMetadata:
         meeting_id=113,
         source="Test Source",
         contact="test@example.com",
+        tdoc_type="Test Type",
+        for_purpose="Test Purpose",
         agenda_item_nbr=Decimal("1.0"),
+        agenda_item_text="Test Agenda Item",
+        status="Test Status",
+        meeting_name="Test Meeting",
+        is_revision_of=None,
+        file_size=None,
+        date_created=None,
+        validated=False,
+        validation_failed=False,
     )
 
 
@@ -50,7 +60,17 @@ class TestGetCheckoutPath:
             meeting_id=123,
             source="Test",
             contact="test@example.com",
+            tdoc_type="Test Type",
+            for_purpose="Test Purpose",
             agenda_item_nbr=Decimal("1.0"),
+            agenda_item_text="Test Agenda Item",
+            status="Test Status",
+            meeting_name="Test Meeting",
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
         )
         path = get_checkout_path(metadata, checkout_dir)
         expected = checkout_dir / "tsg_ran" / "RAN1" / "R1-2301234"
@@ -65,7 +85,17 @@ class TestGetCheckoutPath:
             meeting_id=113,
             source="Test",
             contact="test@example.com",
+            tdoc_type="Test Type",
+            for_purpose="Test Purpose",
             agenda_item_nbr=Decimal("1.0"),
+            agenda_item_text="Test Agenda Item",
+            status="Test Status",
+            meeting_name="Test Meeting",
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
         )
         path = get_checkout_path(metadata, checkout_dir)
         expected = checkout_dir / "some" / "path" / "S4-251234"
@@ -75,28 +105,25 @@ class TestGetCheckoutPath:
 class TestCheckoutTDoc:
     """Tests for checkout_tdoc function."""
 
-    @patch("tdoc_crawler.checkout.requests.get")
+    @patch("tdoc_crawler.checkout.download_to_path")
     def test_successful_checkout(
         self,
-        mock_requests_get: Mock,
+        mock_download_to_path: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
         """Test successful TDoc checkout."""
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
 
-        # Mock requests.get to return a valid response with zip content
-        def mock_get(url: str, **kwargs: object) -> Mock:
-            response = Mock()
-            response.status_code = 200
-            response.raise_for_status = Mock()
+        # Create a mock zip file
+        def mock_download(url: str, destination: Path) -> None:
+            destination.parent.mkdir(parents=True, exist_ok=True)
             content = io.BytesIO()
             with zipfile.ZipFile(content, "w") as zf:
                 zf.writestr("test.txt", "test content")
-            response.iter_content = lambda chunk_size: [content.getvalue()]
-            return response
+            destination.write_bytes(content.getvalue())
 
-        mock_requests_get.side_effect = mock_get
+        mock_download_to_path.side_effect = mock_download
 
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir)
 
@@ -105,10 +132,8 @@ class TestCheckoutTDoc:
         assert (result / "test.txt").exists()
         assert not (result / "S4-251234.zip").exists()  # Zip should be cleaned up
 
-    @patch("tdoc_crawler.checkout.requests.get")
     def test_already_checked_out(
         self,
-        mock_requests_get: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
@@ -120,12 +145,11 @@ class TestCheckoutTDoc:
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir)
 
         assert result == checkout_path
-        mock_requests_get.assert_not_called()
 
-    @patch("tdoc_crawler.checkout.requests.get")
+    @patch("tdoc_crawler.checkout.download_to_path")
     def test_force_recheckout(
         self,
-        mock_requests_get: Mock,
+        mock_download_to_path: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
@@ -133,22 +157,20 @@ class TestCheckoutTDoc:
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
         checkout_path.mkdir(parents=True)
 
-        def mock_get(url: str, **kwargs: object) -> Mock:
-            response = Mock()
-            response.status_code = 200
-            response.raise_for_status = Mock()
+        # Create a mock zip file
+        def mock_download(url: str, destination: Path) -> None:
+            destination.parent.mkdir(parents=True, exist_ok=True)
             content = io.BytesIO()
             with zipfile.ZipFile(content, "w") as zf:
                 zf.writestr("new.txt", "new content")
-            response.iter_content = lambda chunk_size: [content.getvalue()]
-            return response
+            destination.write_bytes(content.getvalue())
 
-        mock_requests_get.side_effect = mock_get
+        mock_download_to_path.side_effect = mock_download
 
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir, force=True)
 
         assert result == checkout_path
-        mock_requests_get.assert_called_once()
+        mock_download_to_path.assert_called_once()
 
     def test_invalid_url_scheme(self, checkout_dir: Path) -> None:
         """Test that invalid URL scheme raises ValueError."""
@@ -159,7 +181,17 @@ class TestCheckoutTDoc:
             meeting_id=113,
             source="Test",
             contact="test@example.com",
+            tdoc_type="Test Type",
+            for_purpose="Test Purpose",
             agenda_item_nbr=Decimal("1.0"),
+            agenda_item_text="Test Agenda Item",
+            status="Test Status",
+            meeting_name="Test Meeting",
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
         )
 
         with pytest.raises(ValueError, match="unsupported-url-scheme"):
