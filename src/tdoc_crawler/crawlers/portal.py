@@ -11,35 +11,11 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 from pydantic import ValidationError
-from requests.adapters import HTTPAdapter
-from urllib3.util import Retry
 
 from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
+from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.models.tdocs import TDocMetadata
-
-
-# TODO: cache_dir not used at all in PortalSession? should be used for caching HTTP requests to portal pages via hishel package - wrong HTTPAdapter? See tdoc_crawler.models.base.HttpCacheConfig
-def create_cached_session(cache_dir: Path, ttl: int = 7200, refresh_ttl_on_access: bool = True, max_retries: int = 3) -> requests.Session:
-    """Create an HTTP session with caching."""
-    # Create session
-    session = requests.Session()
-
-    # Add retry strategy
-    retry_strategy = Retry(
-        total=max_retries,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-    )
-
-    # Add adapter with retry strategy
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    session.mount("ftp://", adapter)
-
-    return session
-
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +42,7 @@ class PortalSession:
             timeout: Request timeout in seconds
         """
         self.credentials = credentials
+        self.cache_dir = cache_dir
         self.timeout = timeout
         self.session = create_cached_session(
             cache_dir=cache_dir,
@@ -170,7 +147,7 @@ class PortalSession:
         # If no URL provided, try to extract it from unauthenticated endpoint first
         if url is None:
             try:
-                url = extract_tdoc_url_from_portal(tdoc_id, timeout=min(self.timeout, 15))
+                url = extract_tdoc_url_from_portal(tdoc_id, cache_dir=self.cache_dir, timeout=min(self.timeout, 15))
                 logger.debug(f"Using URL extracted from unauthenticated endpoint for {tdoc_id}")
             except Exception as e:
                 logger.debug(f"URL extraction failed for {tdoc_id}, using authenticated method: {e}")
@@ -367,11 +344,12 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         raise PortalParsingError(error_msg) from exc
 
 
-def extract_tdoc_url_from_portal(tdoc_id: str, timeout: int = 15) -> str:
+def extract_tdoc_url_from_portal(tdoc_id: str, cache_dir: Path | None = None, timeout: int = 15) -> str:
     """Extract direct FTP download URL for a TDoc using unauthenticated DownloadTDoc.aspx endpoint.
 
     Args:
         tdoc_id: TDoc identifier (e.g., 'S4-251364')
+        cache_dir: Directory for HTTP cache storage (optional)
         timeout: Request timeout in seconds (default 15 seconds)
 
     Returns:
@@ -387,7 +365,7 @@ def extract_tdoc_url_from_portal(tdoc_id: str, timeout: int = 15) -> str:
     download_url = f"{TDOC_DOWNLOAD_URL}?contributionUid={tdoc_id}"
 
     # Create a session with browser-like headers to avoid 403 Forbidden
-    session = requests.Session()
+    session = create_cached_session(cache_dir) if cache_dir is not None else requests.Session()
     session.headers.update(
         {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -488,7 +466,7 @@ def fetch_tdoc_metadata(
     # Try to extract URL from unauthenticated endpoint first
     if url is None:
         try:
-            url = extract_tdoc_url_from_portal(tdoc_id, timeout=min(timeout, 15))
+            url = extract_tdoc_url_from_portal(tdoc_id, cache_dir=cache_dir, timeout=min(timeout, 15))
         except Exception as e:
             logger.debug(f"URL extraction failed for {tdoc_id}, falling back to authenticated method: {e}")
             # Continue with authenticated method below
