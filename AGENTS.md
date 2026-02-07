@@ -177,6 +177,13 @@ Therefore:
 
 Whenever you execute shell commands (including via `just`, `uv`, `pytest`, or any CLI), you MUST ensure the Python virtual environment is activated for that session. This applies to all shell commands, scripts, and subprocesses. If using `uv`, activate the environment as required by the project setup before running any command. This ensures correct dependencies and isolation.
 
+## HTTP Client Guidelines
+
+- All HTTP requests **MUST** use `create_cached_session()` from the `tdoc_crawler.http_client` module to enable hishel caching
+- This requirement applies to all network calls to avoid unnecessary traffic to 3GPP servers (3gpp.org, whatthespec.net) and prevent rate-limiting/blocking
+- The caching layer significantly reduces network overhead and improves performance for incremental crawls (50-90% faster)
+- Direct HTTP requests without caching are not permitted in this project
+
 ## Usage of uv and project management
 
 - Use `uv` for creating isolated Python environments instead of `virtualenv` or `venv`
