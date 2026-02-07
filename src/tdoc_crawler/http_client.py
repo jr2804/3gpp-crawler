@@ -11,6 +11,8 @@ from hishel.requests import CacheAdapter
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from tdoc_crawler.models.base import DEFAULT_CACHE_DIR
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +34,7 @@ def download_to_path(url: str, destination: Path) -> None:
         raise ValueError("unsupported-url-scheme")
 
     # Use requests with browser-like headers to avoid 403 Forbidden
-    session = requests.Session()
+    session = create_cached_session(cache_dir=DEFAULT_CACHE_DIR)
     session.headers.update(
         {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
