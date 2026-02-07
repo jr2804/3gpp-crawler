@@ -15,10 +15,10 @@ from dotenv import load_dotenv
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from tdoc_crawler.checkout import checkout_tdoc
+from tdoc_crawler.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.credentials import set_credentials
-from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database import TDocDatabase, database_path
 from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
 from tdoc_crawler.specs import SpecCatalog
 from tdoc_crawler.specs.downloads import SpecDownloads
@@ -78,8 +78,6 @@ from .printing import (
     spec_query_to_dict,
     tdoc_to_dict,
 )
-from tdoc_crawler.checkout import prepare_tdoc_file
-from tdoc_crawler.database import database_path
 
 load_dotenv()
 

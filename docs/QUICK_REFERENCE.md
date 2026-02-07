@@ -550,11 +550,49 @@ tdoc-crawler checkout-spec <SPEC_NUMBERS...> [OPTIONS]
 
 Batch download specification documents to the checkout folder. Automatically crawls missing spec metadata before downloading.
 
+**Features:**
+
+- **Progress bar** automatically displayed for multi-spec operations (especially useful with range syntax like `26130-26.140`)
+- **Clean error handling** - failed downloads show single-line warnings instead of full tracebacks
+- **Safe extraction** - each spec version extracted to its own subfolder to prevent file conflicts
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-r, --release RELEASE` | Specify 3GPP release (e.g., `18`) |
+| `--doc-only` | Download only Word/PDF (skip zip) |
+| `--checkout-dir PATH` | Custom checkout directory (default: `<cache-dir>/checkout`) |
+
+**Directory Structure:**
+
+Downloaded specs are organized hierarchically:
+
+```
+checkout/
+└── Specs/
+    └── archive/
+        └── 26_series/
+            └── 26.131/
+                ├── 26131-j00.zip           # Original zip file
+                └── 26131-j00/              # Extracted contents
+                    └── 26131-j00.docx
+```
+
 **Examples:**
 
 ```bash
 # Checkout multiple specs
 tdoc-crawler checkout-spec 23.501 38.331
+
+# Checkout spec range (with progress bar)
+tdoc-crawler checkout-spec 26130-26.140
+
+# Checkout specific release
+tdoc-crawler checkout-spec 23.501 -r 17
+
+# Checkout to custom directory
+tdoc-crawler checkout-spec 23.501 --checkout-dir /path/to/docs
 ```
 
 ### `stats`

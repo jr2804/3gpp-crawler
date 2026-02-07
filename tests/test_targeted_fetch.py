@@ -337,7 +337,7 @@ class TestWhatTheSpecFallback:
                 # Mock the _fetch_via_whatthespec to actually do something useful
                 with patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch:
 
-                    def insert_via_whatthespec(database, cache_dir, missing_ids) -> None:
+                    def insert_via_whatthespec(database: object, cache_dir: object, missing_ids: object) -> None:
                         """Helper to insert TDoc via mocked whatthespec."""
                         metadata = TDocMetadata(
                             tdoc_id="S4-260001",
@@ -404,7 +404,7 @@ class TestWhatTheSpecFallback:
                 patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch,
             ):
 
-                def insert_multiple_via_whatthespec(database, cache_dir, missing_ids) -> None:
+                def insert_multiple_via_whatthespec(database: object, cache_dir: object, missing_ids: object) -> None:
                     """Helper to insert multiple TDocs via mocked whatthespec."""
                     for tdoc_id in missing_ids:
                         if tdoc_id == "S4-260001":
@@ -599,7 +599,7 @@ class TestWhatTheSpecFallback:
                 patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec") as mock_whatthespec_fetch,
             ):
 
-                def insert_metadata(database, cache_dir, missing_ids) -> None:
+                def insert_metadata(database: object, cache_dir: object, missing_ids: object) -> None:
                     database.upsert_tdoc(metadata)
 
                 mock_whatthespec_fetch.side_effect = insert_metadata

@@ -21,7 +21,7 @@ class _FakeResponse:
         return self._payload
 
 
-def test_fetch_threegpp_metadata_uses_redirect(monkeypatch) -> None:
+def test_fetch_threegpp_metadata_uses_redirect(monkeypatch: object) -> None:  # noqa: ANN001
     payload = {"title": "Spec title", "versions": ["19.0.0"]}
     response = _FakeResponse("https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=12345", payload)
 
@@ -36,7 +36,7 @@ def test_fetch_threegpp_metadata_uses_redirect(monkeypatch) -> None:
     assert result["source_identifier"] == "12345"
 
 
-def test_fetch_threegpp_metadata_raises_when_spec_not_found(monkeypatch) -> None:
+def test_fetch_threegpp_metadata_raises_when_spec_not_found(monkeypatch: object) -> None:  # noqa: ANN001
     """Test that SpecNotFoundError is raised when spec doesn't exist (no specificationId in redirect)."""
     payload = {"title": "Unknown Specification"}
     # Simulate redirect to unknown spec page without specificationId parameter
@@ -51,7 +51,7 @@ def test_fetch_threegpp_metadata_raises_when_spec_not_found(monkeypatch) -> None
         fetch_threegpp_metadata("99.999")
 
 
-def test_fetch_threegpp_metadata_raises_when_redirect_to_unknown_page(monkeypatch) -> None:
+def test_fetch_threegpp_metadata_raises_when_redirect_to_unknown_page(monkeypatch: object) -> None:  # noqa: ANN001
     """Test that SpecNotFoundError is raised when redirected to an unknown/invalid page."""
     payload = {}
     # Simulate redirect to a generic page without specificationId
@@ -66,7 +66,7 @@ def test_fetch_threegpp_metadata_raises_when_redirect_to_unknown_page(monkeypatc
         fetch_threegpp_metadata("26.999")
 
 
-def test_fetch_whatthespec_metadata_parses_json(monkeypatch) -> None:
+def test_fetch_whatthespec_metadata_parses_json(monkeypatch: object) -> None:  # noqa: ANN001
     payload = {"title": "Spec title", "versions": ["19.0.0"]}
     response = _FakeResponse("https://whatthespec.net/api/specs/26132", payload)
 

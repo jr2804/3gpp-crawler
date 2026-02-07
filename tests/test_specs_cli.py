@@ -21,7 +21,7 @@ class TestSpecCli:
         assert "open-spec" in result.stdout
 
     @patch("tdoc_crawler.cli.app.SpecDownloads")
-    def test_checkout_spec_execution(self, mock_downloads_cls) -> None:
+    def test_checkout_spec_execution(self, mock_downloads_cls: object) -> None:  # noqa: ANN001
         """Test execution of checkout-spec with args."""
         result = runner.invoke(app, ["checkout-spec", "26.132", "--doc-only"])
         # Should call SpecDownloads.checkout_specs

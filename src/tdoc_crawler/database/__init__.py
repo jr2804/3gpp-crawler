@@ -90,4 +90,4 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
     return None
 
 
-__all__ = ["DatabaseError", "TDocDatabase", "resolve_meeting_id", "database_path", "DEFAULT_DATABASE_FILENAME"]
+__all__ = ["DEFAULT_DATABASE_FILENAME", "DatabaseError", "MeetingMetadata", "TDocDatabase", "database_path", "resolve_meeting_id"]

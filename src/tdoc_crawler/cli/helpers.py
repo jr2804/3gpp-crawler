@@ -4,25 +4,18 @@ from __future__ import annotations
 
 import logging
 import os
-import posixpath
-import shutil
 import subprocess
 import sys
-import zipfile
 from collections.abc import Iterable
-from contextlib import suppress
 from pathlib import Path
-from urllib.parse import urlparse
 
 import click
-import requests
 import typer
 
 from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, SortOrder, WorkingGroup
 from tdoc_crawler.specs.normalization import normalize_portal_meeting_name
-from tdoc_crawler.http_client import download_to_path
-from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, SortOrder, TDocMetadata, WorkingGroup
 
 from .console import get_console
 
@@ -139,7 +132,7 @@ def collect_spec_numbers(specs: list[str] | None, spec_file: Path | None) -> lis
         return []
 
     # Import here to avoid circular imports
-    from tdoc_crawler.specs.normalization import expand_spec_ranges_batch, normalize_portal_meeting_name
+    from tdoc_crawler.specs.normalization import expand_spec_ranges_batch
 
     try:
         expanded = expand_spec_ranges_batch(collected)
@@ -238,29 +231,6 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
                 return meeting.meeting_id
 
     return None
-
-    lowered = url.lower()
-    if not lowered.startswith(ALLOWED_DOWNLOAD_SCHEMES):
-        raise ValueError("unsupported-url-scheme")
-
-    # Use requests with browser-like headers to avoid 403 Forbidden
-    session = requests.Session()
-    session.headers.update(
-        {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-        }
-    )
-
-    response = session.get(url, timeout=DOWNLOAD_TIMEOUT)
-    response.raise_for_status()
-    with destination.open("wb") as target:
-        target.write(response.content)
 
 
 def launch_file(path: Path) -> None:

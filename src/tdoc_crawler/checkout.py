@@ -17,8 +17,8 @@ from urllib.parse import urlparse
 
 import requests
 
-from tdoc_crawler.models import TDocMetadata
 from tdoc_crawler.http_client import download_to_path
+from tdoc_crawler.models import TDocMetadata
 
 logger = logging.getLogger(__name__)
 

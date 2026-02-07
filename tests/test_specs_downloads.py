@@ -5,20 +5,20 @@ import pytest
 from tdoc_crawler.specs.downloads import SpecDownloads
 
 
-@pytest.fixture
-def mock_db():
+@pytest.fixture  # noqa: ANN201
+def mock_db() -> MagicMock:
     return MagicMock()
 
 
-@pytest.fixture
-def downloader(mock_db):
+@pytest.fixture  # noqa: ANN201
+def downloader(mock_db: MagicMock) -> SpecDownloads:
     return SpecDownloads(mock_db)
 
 
 class TestSpecDownloads:
     # This test verifies that checkout_specs resolves URL and uses doc-only logic.
     @patch("tdoc_crawler.specs.downloads.HTTPZipReader")
-    def test_checkout_specs_doc_only_remote(self, MockHTTPZipReader, downloader, mock_db, tmp_path) -> None:
+    def test_checkout_specs_doc_only_remote(self, MockHTTPZipReader: object, downloader: SpecDownloads, mock_db: MagicMock, tmp_path: object) -> None:  # noqa: ANN001
         """Test that checkout_specs resolves URL and uses zipinspect for doc-only."""
         specs = ["26.132"]
         checkout_dir = tmp_path / "checkout"

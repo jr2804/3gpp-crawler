@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 import requests
 
-from tdoc_crawler.database import resolve_meeting_id, TDocDatabase
+from tdoc_crawler.database import TDocDatabase, database_path, resolve_meeting_id
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.models.tdocs import TDocMetadata

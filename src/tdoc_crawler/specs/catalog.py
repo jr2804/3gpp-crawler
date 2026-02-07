@@ -39,7 +39,7 @@ class SpecCrawlResult:
 class SpecCatalog:
     """Facade for spec metadata ingestion and queries."""
 
-    def __init__(self, database: "TDocDatabase") -> None:
+    def __init__(self, database: object) -> None:
         self._database = database
 
     def crawl_specs(self, spec_numbers: list[str], release: str, sources: list[SpecSource]) -> list[SpecCrawlResult]:

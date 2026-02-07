@@ -19,6 +19,14 @@ from .meetings import (
     MeetingMetadata,  # noqa: F401
     MeetingQueryConfig,
 )
+from .specs import (
+    Specification,  # noqa: F401
+    SpecificationDownload,
+    SpecificationSourceRecord,
+    SpecificationVersion,
+    SpecQueryFilters,
+    SpecQueryResult,
+)
 from .subworking_groups import (
     CODE_INDEX,
     SUBTB_INDEX,  # noqa: F401
@@ -35,14 +43,6 @@ from .working_groups import (
     WORKING_GROUP_RECORDS,
     WorkingGroup,  # noqa: F401
     WorkingGroupRecord,
-)
-from .specs import (
-    Specification,  # noqa: F401
-    SpecificationDownload,
-    SpecificationSourceRecord,
-    SpecificationVersion,
-    SpecQueryFilters,
-    SpecQueryResult,
 )
 
 __all__ = [
