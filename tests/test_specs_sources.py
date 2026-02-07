@@ -25,10 +25,14 @@ def test_fetch_threegpp_metadata_uses_redirect(monkeypatch: object) -> None:  # 
     payload = {"title": "Spec title", "versions": ["19.0.0"]}
     response = _FakeResponse("https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=12345", payload)
 
-    def _fake_get(*_args: object, **_kwargs: object) -> _FakeResponse:
-        return response
+    class _FakeSession:
+        def get(self, *_args: object, **_kwargs: object) -> _FakeResponse:
+            return response
 
-    monkeypatch.setattr("requests.get", _fake_get)
+    def _fake_create_cached_session(*_args: object, **_kwargs: object) -> _FakeSession:
+        return _FakeSession()
+
+    monkeypatch.setattr("tdoc_crawler.specs.sources.threegpp.create_cached_session", _fake_create_cached_session)
 
     result = fetch_threegpp_metadata("26.132")
     assert result["spec_number"] == "26.132"
@@ -42,10 +46,14 @@ def test_fetch_threegpp_metadata_raises_when_spec_not_found(monkeypatch: object)
     # Simulate redirect to unknown spec page without specificationId parameter
     response = _FakeResponse("https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx", payload)
 
-    def _fake_get(*_args: object, **_kwargs: object) -> _FakeResponse:
-        return response
+    class _FakeSession:
+        def get(self, *_args: object, **_kwargs: object) -> _FakeResponse:
+            return response
 
-    monkeypatch.setattr("requests.get", _fake_get)
+    def _fake_create_cached_session(*_args: object, **_kwargs: object) -> _FakeSession:
+        return _FakeSession()
+
+    monkeypatch.setattr("tdoc_crawler.specs.sources.threegpp.create_cached_session", _fake_create_cached_session)
 
     with pytest.raises(SpecNotFoundError, match="not found on 3GPP portal"):
         fetch_threegpp_metadata("99.999")
@@ -57,10 +65,14 @@ def test_fetch_threegpp_metadata_raises_when_redirect_to_unknown_page(monkeypatc
     # Simulate redirect to a generic page without specificationId
     response = _FakeResponse("https://www.3gpp.org/specifications/unknown", payload)
 
-    def _fake_get(*_args: object, **_kwargs: object) -> _FakeResponse:
-        return response
+    class _FakeSession:
+        def get(self, *_args: object, **_kwargs: object) -> _FakeResponse:
+            return response
 
-    monkeypatch.setattr("requests.get", _fake_get)
+    def _fake_create_cached_session(*_args: object, **_kwargs: object) -> _FakeSession:
+        return _FakeSession()
+
+    monkeypatch.setattr("tdoc_crawler.specs.sources.threegpp.create_cached_session", _fake_create_cached_session)
 
     with pytest.raises(SpecNotFoundError, match="not found on 3GPP portal"):
         fetch_threegpp_metadata("26.999")
@@ -70,10 +82,14 @@ def test_fetch_whatthespec_metadata_parses_json(monkeypatch: object) -> None:  #
     payload = {"title": "Spec title", "versions": ["19.0.0"]}
     response = _FakeResponse("https://whatthespec.net/api/specs/26132", payload)
 
-    def _fake_get(*_args: object, **_kwargs: object) -> _FakeResponse:
-        return response
+    class _FakeSession:
+        def get(self, *_args: object, **_kwargs: object) -> _FakeResponse:
+            return response
 
-    monkeypatch.setattr("requests.get", _fake_get)
+    def _fake_create_cached_session(*_args: object, **_kwargs: object) -> _FakeSession:
+        return _FakeSession()
+
+    monkeypatch.setattr("tdoc_crawler.specs.sources.whatthespec.create_cached_session", _fake_create_cached_session)
 
     result = fetch_whatthespec_metadata("26.132")
     assert result["spec_number"] == "26.132"
