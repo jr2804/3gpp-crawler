@@ -6,10 +6,11 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import requests
 from zipinspect import HTTPZipReader
 
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.models.base import DEFAULT_CACHE_DIR
 from tdoc_crawler.specs.normalization import normalize_spec_number
 
 if TYPE_CHECKING:
@@ -181,7 +182,8 @@ class SpecDownloads:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         }
-        response = requests.get(url, stream=True, timeout=60, headers=headers)
+        session = create_cached_session(cache_dir=DEFAULT_CACHE_DIR)
+        response = session.get(url, stream=True, timeout=60, headers=headers)
         response.raise_for_status()
         with open(target_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
