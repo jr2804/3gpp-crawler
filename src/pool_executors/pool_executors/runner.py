@@ -8,8 +8,8 @@ from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import Any, TypeVar
 
-from .factory import create_executor
-from .types import ExecutorType
+from pool_executors.pool_executors.factory import create_executor
+from pool_executors.pool_executors.types import ExecutorType
 
 T = TypeVar("T")
 

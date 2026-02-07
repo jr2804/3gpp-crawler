@@ -7,8 +7,8 @@ from pathlib import Path
 
 from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, SortOrder
 
-from .connection import TDocDatabase
-from .errors import DatabaseError
+from tdoc_crawler.database.connection import TDocDatabase
+from tdoc_crawler.database.errors import DatabaseError
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from .working_groups import WorkingGroup
+from tdoc_crawler.models.working_groups import WorkingGroup
 
 
 class SubWorkingGroupRecord(BaseModel):

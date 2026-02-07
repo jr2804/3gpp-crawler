@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from .base import BaseConfigModel
+from tdoc_crawler.models.base import BaseConfigModel
 
 
 class CrawlLimits(BaseConfigModel):

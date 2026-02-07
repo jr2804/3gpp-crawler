@@ -26,7 +26,7 @@ from tdoc_crawler.specs.query import SpecQueryFilters
 from tdoc_crawler.specs.sources import fetch_threegpp_metadata, fetch_whatthespec_metadata
 from tdoc_crawler.specs.sources.base import FunctionSpecSource
 
-from .args import (
+from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutDirOption,
     CheckoutTDocIdsArgument,
@@ -64,10 +64,10 @@ from .args import (
     WorkersOption,
     WorkingGroupOption,
 )
-from .console import get_console
-from .fetching import maybe_fetch_missing_tdocs
-from .helpers import build_limits, collect_spec_numbers, launch_file, parse_subgroups, parse_working_groups
-from .printing import (
+from tdoc_crawler.cli.console import get_console
+from tdoc_crawler.cli.fetching import maybe_fetch_missing_tdocs
+from tdoc_crawler.cli.helpers import build_limits, collect_spec_numbers, launch_file, parse_subgroups, parse_working_groups
+from tdoc_crawler.cli.printing import (
     meeting_to_dict,
     print_checkout_results,
     print_meeting_table,
