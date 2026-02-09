@@ -7,15 +7,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from conftest import insert_sample_meetings
+
 from tdoc_crawler.cli.helpers import infer_working_groups_from_ids
 from tdoc_crawler.crawlers import TDocCrawlResult
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.fetching import (
-    FetchMissingResult,
-    fetch_missing_tdocs,
-    fetch_missing_tdocs_batch,
-    fetch_via_whatthespec_batch,
-)
+from tdoc_crawler.fetching import fetch_missing_tdocs, fetch_missing_tdocs_batch
 from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata, WorkingGroup
 
 
@@ -225,7 +221,7 @@ class TestFetchMissingTdocs:
 
         with TDocDatabase(test_db_path) as database:
             results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
+            fetch_missing_tdocs(
                 database,
                 test_db_path.parent,
                 config,
@@ -291,7 +287,7 @@ class TestFetchMissingTdocs:
 
         with TDocDatabase(test_db_path) as database:
             results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
+            fetch_missing_tdocs(
                 database,
                 test_db_path.parent,
                 config,

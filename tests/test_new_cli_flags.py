@@ -10,7 +10,6 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli.app import app
-from tdoc_crawler.crawlers.tdocs import TDocCrawlResult
 from tdoc_crawler.fetching import FetchMissingResult
 from tdoc_crawler.models.tdocs import TDocMetadata
 

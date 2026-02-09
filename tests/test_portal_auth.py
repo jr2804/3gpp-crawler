@@ -95,9 +95,8 @@ def test_fetch_tdoc_metadata_invalid_tdoc(credentials: PortalCredentials) -> Non
     tdoc_id = "S4-999999999"
 
     # Should raise PortalParsingError for non-existent TDoc
-    with pytest.raises(PortalParsingError):
-        with PortalSession(credentials=credentials, cache_dir=Path("."), timeout=30) as session:
-            session.fetch_tdoc_metadata(tdoc_id)
+    with pytest.raises(PortalParsingError), PortalSession(credentials=credentials, cache_dir=Path("."), timeout=30) as session:
+        session.fetch_tdoc_metadata(tdoc_id)
 
 
 def test_fetch_tdoc_metadata_invalid_credentials() -> None:
@@ -106,6 +105,5 @@ def test_fetch_tdoc_metadata_invalid_credentials() -> None:
     invalid_credentials = PortalCredentials(username="invalid_user", password="invalid_password")  # noqa: S106
     tdoc_id = "S4-251364"
 
-    with pytest.raises(PortalAuthenticationError):
-        with PortalSession(credentials=invalid_credentials, cache_dir=Path("."), timeout=30) as session:
-            session.fetch_tdoc_metadata(tdoc_id)
+    with pytest.raises(PortalAuthenticationError), PortalSession(credentials=invalid_credentials, cache_dir=Path("."), timeout=30) as session:
+        session.fetch_tdoc_metadata(tdoc_id)
