@@ -91,6 +91,19 @@ grepai trace graph "ValidateToken" --depth 3 --json
 This project uses **bd (beads)** for issue tracking.
 Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
 
+**Locate executable:**
+If bash or zsh is used as shell environment: If you need to run `bd` commands but cannot locate the executable, you might need to activate the `mise` environment via:
+
+```bash
+eval "$(mise activate --shims bash)"
+```
+
+or:
+
+```zsh
+eval "$(mise activate --shims zsh)"
+```
+
 **Quick reference:**
 
 - `bd ready` - Find unblocked work
