@@ -3,28 +3,12 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from tdoc_crawler.database.connection import TDocDatabase
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, SortOrder
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_DATABASE_FILENAME = "tdoc_crawler.db"
-
-
-def database_path(cache_dir: Path) -> Path:
-    """Get database path from cache directory.
-
-    Args:
-        cache_dir: Cache directory for database storage.
-
-    Returns:
-        Path to database file (cache_dir/tdoc_crawler.db).
-    """
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / DEFAULT_DATABASE_FILENAME
 
 
 def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
@@ -89,4 +73,4 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
     return None
 
 
-__all__ = ["DEFAULT_DATABASE_FILENAME", "DatabaseError", "MeetingMetadata", "TDocDatabase", "database_path", "resolve_meeting_id"]
+__all__ = ["DatabaseError", "MeetingMetadata", "TDocDatabase", "resolve_meeting_id"]

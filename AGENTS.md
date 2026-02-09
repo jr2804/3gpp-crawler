@@ -8,13 +8,6 @@ Before implementing features, review these critical sections:
 1. **CLI Commands** - Review the command signatures in `src/tdoc_crawler/cli/app.py`
 1. **Database Schema** - Review models in `src/tdoc_crawler/models/` and database operations
 
-**Key Files to Examine First:**
-
-- `src/tdoc_crawler/cli/app.py` - All CLI commands
-- `src/tdoc_crawler/models/*.py` - All data models
-- `src/tdoc_crawler/crawlers/*.py` - Crawler implementations
-- `tests/conftest.py` - Shared test fixtures
-
 ## grepai - Semantic Code Search
 
 **IMPORTANT: You MUST use grepai as your PRIMARY tool for code exploration and search.**
@@ -188,7 +181,7 @@ Therefore:
 
 ## Virtual Environment Activation (MANDATORY)
 
-Whenever you execute shell commands (including via `just`, `uv`, `pytest`, or any CLI), you MUST ensure the Python virtual environment is activated for that session. This applies to all shell commands, scripts, and subprocesses. If using `uv`, activate the environment as required by the project setup before running any command. This ensures correct dependencies and isolation.
+Whenever you execute shell commands (including via `mise`, `uv`, `pytest`, or any CLI), you MUST ensure the Python virtual environment is activated for that session. This applies to all shell commands, scripts, and subprocesses. If using `uv`, activate the environment as required by the project setup before running any command. This ensures correct dependencies and isolation.
 
 ## HTTP Client Guidelines
 
@@ -220,9 +213,17 @@ Whenever you execute shell commands (including via `just`, `uv`, `pytest`, or an
 - Use `pathlib` for file system paths instead of `os.path`
 - Use `logging` module for logging instead of `print()`
 - Use `typer` for CLI, `rich` for terminal formatting, `pydantic` and `pydantic-sqlite` for data and database
-- Use `pytest` for testing, `ruff` for formatting, `isort` for imports, `ty` for type checking
+- Use `pytest` for testing, `ruff` for formatting/as linter, `isort` for imports, `ty` for type checking
 - For CSV/Excel files, use `pandas` with `python-calamine` for reading and `xlsxwriter` for writing - never use `openpyxl`
-- Keep modules under 500 lines, functions under 100 lines, classes under 300 lines
+- Keep modules under 500 lines, functions under 100 lines, classes under 300 lines. Refactor foöes when these limits are exceeded.
+- Use skill `python-linter` for dealing with linter issues found when calling `ruff check src/ tests/`.
+- **Mandatory**: You MUST NEVER suppress any linter issue in `src/` or `tests/` with `# noqa` or similar.
+- **Mandatory**:  You MUST NOT introduce any of the following linter issues, neither in `tests/` nor in `src/`:
+  - PLC0415
+  - ANN001
+  - E402
+  - ANN201
+  - ANN202
 
 ## Database Guidelines
 
@@ -256,13 +257,12 @@ The project maintains a modular documentation structure:
 
 1. **README.md** - Project overview, installation, and Quick Start examples.
 1. **docs/index.md** - Main documentation entry point (Jekyll-ready).
-1. **docs/QUICK_REFERENCE.md** - Comprehensive command reference (MUST be kept current).
 1. **docs/*.md** - Modular task-oriented guides (crawl, query, utils, etc.).
 1. **docs/history/** - Chronological changelog of all significant changes.
 
 **Critical Rules:**
 
-- `docs/QUICK_REFERENCE.md` and related modular files **MUST** always be up to date and reflect the current state of ALL commands.
+- `docs/index.md` and related referenced files **MUST** always be up to date and reflect the current state of ALL commands.
 - When adding or modifying commands, **BOTH** the history file AND the relevant documentation files must be updated.
 
 ## Data Source Guidelines
