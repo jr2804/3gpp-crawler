@@ -25,14 +25,7 @@ from tdoc_crawler.models import (
     WorkingGroup,
     utc_now,
 )
-from tdoc_crawler.models.specs import (
-    Specification,
-    SpecificationDownload,
-    SpecificationSourceRecord,
-    SpecificationVersion,
-    SpecQueryFilters,
-    SpecQueryResult,
-)
+from tdoc_crawler.models.specs import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion, SpecQueryFilters, SpecQueryResult
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 
 
@@ -605,6 +598,23 @@ class TDocDatabase:
         count = cursor.fetchone()[0]
         self.connection._db.execute("DELETE FROM tdocs")
         return count
+
+    def clear_specs(self) -> dict[str, int]:
+        """Clear all spec-related records from database.
+
+        Returns:
+            Mapping of table name to deleted row count.
+        """
+        tables = ["spec_downloads", "spec_versions", "spec_source_records", "specs"]
+        counts: dict[str, int] = {}
+        for table in tables:
+            if not self._table_exists(table):
+                counts[table] = 0
+                continue
+            cursor = self.connection._db.execute(f"SELECT COUNT(*) FROM {table}")  # noqa: S608
+            counts[table] = cursor.fetchone()[0]
+            self.connection._db.execute(f"DELETE FROM {table}")  # noqa: S608
+        return counts
 
     def clear_meetings(self) -> int:
         """Clear all meeting records from database.

@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from tdoc_crawler.models import SpecQueryFilters, SpecQueryResult
 from tdoc_crawler.models.specs import Specification, SpecificationSourceRecord, SpecificationVersion
-
 from tdoc_crawler.specs.normalization import normalize_spec_number
 from tdoc_crawler.specs.sources.base import SpecSource
 

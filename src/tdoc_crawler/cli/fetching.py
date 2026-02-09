@@ -18,6 +18,8 @@ console = get_console()
 _logger = logging.getLogger(__name__)
 
 
+# TODO: these functions do not belong in the CLI layer, they should be refactored into a separate service layer that can be called from both CLI and API contexts. The CLI should only handle user interaction and delegate fetching logic to a service module. This would improve separation of concerns and make the fetching logic reusable across different interfaces.
+# TODO: the fetching logic is currently duplicated between the portal method and the whatthespec method. We should refactor to have a single fetching function that can use different data sources based on configuration, rather than having separate functions with similar logic. This would reduce code duplication and make it easier to maintain.
 def fetch_missing_tdocs(
     database: TDocDatabase,
     cache_dir: Path,

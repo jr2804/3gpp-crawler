@@ -1,5 +1,6 @@
 """Specification data models."""
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,7 @@ class SpecificationDownload(BaseModel):
     extracted_at: datetime | None = None
 
 
+@dataclass
 class SpecQueryFilters:
     """Filter inputs for spec queries."""
 
@@ -71,9 +73,6 @@ class SpecQueryFilters:
     title: str | None = None
     working_group: str | None = None
     status: str | None = None
-
-
-from dataclasses import dataclass, field
 
 
 @dataclass

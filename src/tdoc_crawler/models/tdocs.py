@@ -11,7 +11,16 @@ from pathlib import Path
 import requests
 from pydantic import BaseModel, Field, field_validator
 
-from tdoc_crawler.models.base import DEFAULT_CACHE_DIR, BaseConfigModel, HttpCacheConfig, OutputFormat, PortalCredentials, SortOrder, _normalize_tdoc_ids, utc_now
+from tdoc_crawler.models.base import (
+    DEFAULT_CACHE_DIR,
+    BaseConfigModel,
+    HttpCacheConfig,
+    OutputFormat,
+    PortalCredentials,
+    SortOrder,
+    _normalize_tdoc_ids,
+    utc_now,
+)
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.working_groups import WorkingGroup
 

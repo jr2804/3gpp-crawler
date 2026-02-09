@@ -12,12 +12,11 @@ from pathlib import Path
 import click
 import typer
 
+from tdoc_crawler.cli.console import get_console
 from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, SortOrder, WorkingGroup
 from tdoc_crawler.specs.normalization import normalize_portal_meeting_name
-
-from tdoc_crawler.cli.console import get_console
 
 console = get_console()
 _logger = logging.getLogger(__name__)

@@ -128,6 +128,8 @@ Crawl TDoc metadata from the 3GPP FTP server. TDocs are fetched based on the mee
 | `-s, --sub-group SG` | Sub-working groups to crawl (repeatable). Example: `SA4`, `RAN1` |
 | `--incremental/--full` | Incremental mode skips existing TDocs; `--full` forces reprocessing |
 | `--clear-tdocs` | Clear all TDocs before crawling (start fresh) |
+| `--clear-specs` | Clear all specs before crawling |
+| `--checkout` | Download and extract crawled TDocs to checkout folder |
 | `--limit-tdocs N` | Maximum number of TDocs to process |
 | `--limit-meetings N` | Maximum number of meetings to consider |
 | `--limit-meetings-per-wg N` | Maximum meetings per working group |
@@ -192,6 +194,9 @@ Crawl meeting metadata from the 3GPP portal. This command is required before cra
 | `-s, --sub-group SG` | Sub-working groups to crawl (repeatable) |
 | `--incremental/--full` | Incremental mode skips existing meetings; `--full` forces reprocessing |
 | `--clear-db` | Clear all data (meetings and TDocs) before crawling |
+| `--clear-tdocs` | Clear all TDocs before crawling |
+| `--clear-specs` | Clear all specs before crawling |
+| `--checkout` | Download and extract meeting TDocs to checkout folder |
 | `--limit-meetings N` | Maximum number of meetings overall |
 | `--limit-meetings-per-wg N` | Maximum meetings per working group |
 | `--limit-wgs N` | Maximum number of working groups |
@@ -246,6 +251,9 @@ Crawl normalized technical specification (TS/TR) metadata from both 3GPP and com
 | `-w, --working-group WG` | Working groups to crawl (repeatable) |
 | `-s, --source SOURCE` | Metadata sources to use (`3gpp`, `whatthespec`). Default: both |
 | `--full` | Force update of existing records |
+| `--clear-tdocs` | Clear all TDocs before crawling |
+| `--clear-specs` | Clear all specs before crawling |
+| `--checkout` | Download and extract crawled specs to checkout folder |
 | `-v, --verbose` | Enable verbose logging |
 
 **Examples:**
@@ -290,6 +298,9 @@ Query TDoc metadata from the local database. If specific TDoc IDs are requested 
 |--------|-------------|
 | `-c, --cache-dir PATH` | Database cache location (default: `~/.tdoc-crawler`) |
 | `-w, --working-group WG` | Filter by working group (repeatable) |
+| `--clear-tdocs` | Clear all TDocs before querying |
+| `--clear-specs` | Clear all specs before querying |
+| `--checkout` | Download and extract queried TDocs to checkout folder |
 | `-o, --output FORMAT` | Output format: `table`, `json`, `yaml` (default: `table`) |
 | `-l, --limit N` | Maximum number of results |
 | `--order ORDER` | Sort order: `asc` or `desc` (default: `desc`) |
@@ -366,6 +377,9 @@ Query technical specification metadata from the local catalog. Supports filterin
 | `-c, --cache-dir PATH` | Database cache location (default: `~/.tdoc-crawler`) |
 | `-w, --group WG` | Filter by working group (repeatable) |
 | `-s, --status STATUS` | Filter by status (e.g., `Under change control`) |
+| `--clear-tdocs` | Clear all TDocs before querying |
+| `--clear-specs` | Clear all specs before querying |
+| `--checkout` | Download and extract queried specs to checkout folder |
 | `-o, --output FORMAT` | Output format: `table`, `json`, `yaml` (default: `table`) |
 | `-v, --verbose` | Show per-source discrepancy details |
 
@@ -410,6 +424,9 @@ Query meeting metadata from the local database. Unlike `query-tdocs`, this comma
 | `-c, --cache-dir PATH` | Database cache location (default: `~/.tdoc-crawler`) |
 | `-w, --working-group WG` | Filter by working group (repeatable). Supports aliases: `RP`, `SP`, `CP` |
 | `-s, --sub-group SG` | Filter by sub-working group (repeatable) |
+| `--clear-tdocs` | Clear all TDocs before querying |
+| `--clear-specs` | Clear all specs before querying |
+| `--checkout` | Download and extract meeting TDocs to checkout folder |
 | `-o, --output FORMAT` | Output format: `table`, `json`, `yaml` (default: `table`) |
 | `-l, --limit N` | Maximum number of results |
 | `--order ORDER` | Sort order: `asc` or `desc` (default: `desc`) |

@@ -5,10 +5,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, SortOrder
-
 from tdoc_crawler.database.connection import TDocDatabase
 from tdoc_crawler.database.errors import DatabaseError
+from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, SortOrder
 
 logger = logging.getLogger(__name__)
 

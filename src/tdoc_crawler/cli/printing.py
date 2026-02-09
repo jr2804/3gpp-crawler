@@ -6,11 +6,10 @@ from typing import Any
 
 from rich.table import Table
 
-from tdoc_crawler.models import MeetingMetadata, TDocMetadata
-from tdoc_crawler.specs import SpecCrawlResult
-from tdoc_crawler.specs.query import SpecQueryResult
-
 from tdoc_crawler.cli.console import get_console
+from tdoc_crawler.models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.models.specs import SpecQueryResult
+from tdoc_crawler.specs import SpecCrawlResult
 
 console = get_console()
 

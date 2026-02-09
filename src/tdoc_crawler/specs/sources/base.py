@@ -10,7 +10,10 @@ from typing import Protocol
 class SpecSource(Protocol):
     """Protocol for spec metadata sources."""
 
-    name: str
+    @property
+    def name(self) -> str:
+        """Name of the spec source."""
+        raise NotImplementedError
 
     def fetch(self, spec_number: str) -> dict[str, object]:
         """Fetch metadata for the given spec number."""
