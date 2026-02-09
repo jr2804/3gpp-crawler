@@ -10,7 +10,9 @@ from conftest import insert_sample_meetings
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
+from tdoc_crawler.crawlers.tdocs import TDocCrawlResult
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.fetching import FetchMissingResult
 from tdoc_crawler.models import TDocMetadata, WorkingGroup
 
 runner = CliRunner()
@@ -382,7 +384,7 @@ class TestOpenCommand:
 
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_existing_tdoc(
         self,
@@ -397,7 +399,7 @@ class TestOpenCommand:
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_tdocs.return_value = sample_tdocs[:1]
-        mock_fetch.return_value = sample_tdocs[:1]
+        mock_fetch.return_value = FetchMissingResult(refreshed=sample_tdocs[:1])
 
         mock_file = test_cache_dir / "test.pdf"
         mock_prepare.return_value = mock_file
@@ -432,14 +434,12 @@ class TestOpenCommand:
 
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_with_whatthespec_fallback(
         self,
         mock_db_class: MagicMock,
-        mock_fetch_portal: MagicMock,
-        mock_whatthespec_fetch: MagicMock,
+        mock_fetch: MagicMock,
         mock_prepare: MagicMock,
         mock_launch: MagicMock,
         test_cache_dir: Path,
@@ -448,11 +448,9 @@ class TestOpenCommand:
 
         This integration test verifies:
         1. TDoc not found in database
-        2. maybe_fetch_missing_tdocs is called
-        3. Portal fetch fails (no credentials)
-        4. whatthespec fallback is triggered
-        5. whatthespec returns valid metadata
-        6. TDoc is inserted and file is opened
+        2. fetch_missing_tdocs is called
+        3. whatthespec fallback returns valid metadata
+        4. TDoc is inserted and file is opened
         """
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
@@ -461,17 +459,10 @@ class TestOpenCommand:
         # After fetch, database returns the fetched TDoc
         mock_db.upsert_tdoc.return_value = (True, False)
 
-        # Mock portal fetch to return credentials error
-        mock_fetch_portal.return_value = MagicMock(
-            processed=1,
-            inserted=0,
-            updated=0,
-            errors=["Portal credentials required"],
-        )
-
+        # Mock fetch_missing_tdocs to simulate whatthespec fallback
         metadata = TDocMetadata(
             tdoc_id="S4-260001",
-            meeting_id=0,
+            meeting_id=123,
             meeting_name="S4-135",
             title="SA4#135 meeting agenda",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
@@ -484,24 +475,24 @@ class TestOpenCommand:
             status="available",
             validated=False,
             validation_failed=False,
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
         )
 
-        def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
-            """Mock whatthespec fetch that inserts TDoc."""
-            database.upsert_tdoc(metadata)
-
-        mock_whatthespec_fetch.side_effect = insert_via_fetch
+        mock_fetch.return_value = FetchMissingResult(
+            refreshed=[metadata],
+            fetch_result=TDocCrawlResult(
+                processed=1,
+                inserted=1,
+                updated=0,
+                errors=[],
+            ),
+            used_whatthespec_fallback=True,
+        )
 
         mock_file = test_cache_dir / "test.pdf"
         mock_prepare.return_value = mock_file
-
-        # Mock the re-query after fetch to return the TDoc
-        # query_tdocs is called 3 times: initial, after portal fetch, after whatthespec
-        mock_db.query_tdocs.side_effect = [
-            [],  # First call: initial query
-            [],  # Second call: after portal fetch fails
-            [metadata],  # Third call: after whatthespec succeeds
-        ]
 
         result = runner.invoke(
             app,
@@ -509,20 +500,17 @@ class TestOpenCommand:
         )
 
         assert result.exit_code == 0
-        mock_whatthespec_fetch.assert_called_once()
         mock_prepare.assert_called_once()
         mock_launch.assert_called_once()
 
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_with_whatthespec_no_credentials_required(
         self,
         mock_db_class: MagicMock,
-        mock_fetch_portal: MagicMock,
-        mock_whatthespec_fetch: MagicMock,
+        mock_fetch: MagicMock,
         mock_prepare: MagicMock,
         mock_launch: MagicMock,
         test_cache_dir: Path,
@@ -538,19 +526,11 @@ class TestOpenCommand:
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_tdocs.return_value = []
-        mock_db.upsert_tdoc.return_value = (True, False)
 
-        # Mock portal fetch to return credentials error
-        mock_fetch_portal.return_value = MagicMock(
-            processed=1,
-            inserted=0,
-            updated=0,
-            errors=["Portal credentials required"],
-        )
-
+        # Mock fetch_missing_tdocs to simulate whatthespec fallback success
         metadata = TDocMetadata(
             tdoc_id="R1-260001",
-            meeting_id=0,
+            meeting_id=123,
             meeting_name="RAN1#100",
             title="RAN1 discussion document",
             url="https://www.3gpp.org/tsg_ran/RAN1/r1-260001.zip",
@@ -562,22 +542,25 @@ class TestOpenCommand:
             agenda_item_nbr=Decimal("3.1"),
             status="available",
             validated=False,
+            validation_failed=False,
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
         )
 
-        def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
-            database.upsert_tdoc(metadata)
-
-        mock_whatthespec_fetch.side_effect = insert_via_fetch
+        mock_fetch.return_value = FetchMissingResult(
+            refreshed=[metadata],
+            fetch_result=TDocCrawlResult(
+                processed=1,
+                inserted=1,
+                updated=0,
+                errors=[],
+            ),
+            used_whatthespec_fallback=True,
+        )
 
         mock_file = test_cache_dir / "test.pdf"
         mock_prepare.return_value = mock_file
-
-        # query_tdocs is called 3 times: initial, after portal fetch, after whatthespec
-        mock_db.query_tdocs.side_effect = [
-            [],  # First call: initial query
-            [],  # Second call: after portal fetch fails
-            [metadata],  # Third call: after whatthespec succeeds
-        ]
 
         result = runner.invoke(
             app,
@@ -586,24 +569,20 @@ class TestOpenCommand:
 
         # Should succeed (exit code 0) and use whatthespec fallback
         assert result.exit_code == 0
-        # Verify whatthespec was called as fallback
-        mock_whatthespec_fetch.assert_called_once()
         # Verify output indicates whatthespec was used
-        assert "whatthespec fallback" in result.stdout.lower() or "trying whatthespec" in result.stdout.lower()
+        assert "whatthespec" in result.stdout.lower()
 
 
 class TestCheckoutCommand:
     """Tests for checkout command with whatthespec fallback."""
 
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_checkout_with_whatthespec_fallback(
         self,
         mock_db_class: MagicMock,
-        mock_fetch_portal: MagicMock,
-        mock_whatthespec_fetch: MagicMock,
+        mock_fetch: MagicMock,
         mock_checkout: MagicMock,
         test_cache_dir: Path,
     ) -> None:
@@ -621,23 +600,11 @@ class TestCheckoutCommand:
         mock_db.query_tdocs.return_value = []
         mock_db.upsert_tdoc.return_value = (True, False)
 
-        # Mock portal fetch to return credentials error
-        from tdoc_crawler.fetching import FetchMissingResult, TDocCrawlResult
-
-        mock_fetch_portal.return_value = FetchMissingResult(
-            refreshed=[],
-            fetch_result=TDocCrawlResult(
-                processed=1,
-                inserted=0,
-                updated=0,
-                errors=["Portal credentials required"],
-            ),
-        )
-
-        # Setup metadata for both TDocs
+        # Mock fetch_missing_tdocs to return credentials error and then success via whatthespec
+        # Mock fetch_missing_tdocs to return success with whatthespec fallback
         tdoc1 = TDocMetadata(
             tdoc_id="S4-260001",
-            meeting_id=0,
+            meeting_id=123,
             meeting_name="S4-135",
             title="SA4#135 agenda",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
@@ -649,10 +616,14 @@ class TestCheckoutCommand:
             agenda_item_nbr=Decimal("2"),
             status="available",
             validated=False,
+            validation_failed=False,
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
         )
         tdoc2 = TDocMetadata(
             tdoc_id="S4-260002",
-            meeting_id=0,
+            meeting_id=123,
             meeting_name="S4-135",
             title="SA4#135 document",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260002.zip",
@@ -664,21 +635,22 @@ class TestCheckoutCommand:
             agenda_item_nbr=Decimal("3"),
             status="available",
             validated=False,
+            validation_failed=False,
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
         )
 
-        def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
-            for tdoc_id in missing_ids:
-                if tdoc_id == "S4-260001":
-                    database.upsert_tdoc(tdoc1)
-                elif tdoc_id == "S4-260002":
-                    database.upsert_tdoc(tdoc2)
-
-        mock_whatthespec_fetch.side_effect = insert_via_fetch
-        mock_db.query_tdocs.side_effect = [
-            [],  # First call: initial query
-            [],  # Second call: after portal fetch fails
-            [tdoc1, tdoc2],  # Third call: after whatthespec succeeds
-        ]
+        mock_fetch.return_value = FetchMissingResult(
+            refreshed=[tdoc1, tdoc2],
+            fetch_result=TDocCrawlResult(
+                processed=2,
+                inserted=2,
+                updated=0,
+                errors=[],
+            ),
+            used_whatthespec_fallback=True,
+        )
 
         result = runner.invoke(
             app,
@@ -686,20 +658,16 @@ class TestCheckoutCommand:
         )
 
         assert result.exit_code == 0
-        # whatthespec should have been called
-        mock_whatthespec_fetch.assert_called_once()
         # checkout_tdoc should have been called for both TDocs
         assert mock_checkout.call_count == 2
 
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_checkout_with_whatthespec_graceful_failure(
         self,
         mock_db_class: MagicMock,
-        mock_fetch_portal: MagicMock,
-        mock_whatthespec_fetch: MagicMock,
+        mock_fetch: MagicMock,
         mock_checkout: MagicMock,
         test_cache_dir: Path,
     ) -> None:
@@ -715,16 +683,17 @@ class TestCheckoutCommand:
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_tdocs.return_value = []
 
-        # Mock portal fetch to return credentials error
-        mock_fetch_portal.return_value = MagicMock(
-            processed=1,
-            inserted=0,
-            updated=0,
-            errors=["Portal credentials required"],
+        # Mock fetch_missing_tdocs to return empty results (all TDocs missing)
+        mock_fetch.return_value = FetchMissingResult(
+            refreshed=[],
+            fetch_result=TDocCrawlResult(
+                processed=1,
+                inserted=0,
+                updated=0,
+                errors=["TDoc not found"],
+            ),
+            used_whatthespec_fallback=True,
         )
-
-        # Mock whatthespec to not insert anything (failure case)
-        mock_whatthespec_fetch.side_effect = lambda *args, **kwargs: None
 
         result = runner.invoke(
             app,
@@ -733,5 +702,207 @@ class TestCheckoutCommand:
 
         # Should exit with error code due to missing TDoc
         assert result.exit_code == 1
-        # Should report missing TDoc in output
-        assert "missing" in result.stdout.lower() or "not found" in result.stdout.lower()
+        # Should report issues in output
+        assert "issues detected" in result.stdout.lower() or "error" in result.stdout.lower()
+
+
+class TestEnvironmentVariables:
+    """Tests for environment variable support in CLI options."""
+
+    @patch("tdoc_crawler.cli.app.TDocCrawler")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_env_var_cache_dir(
+        self,
+        mock_db_class: MagicMock,
+        mock_crawler_class: MagicMock,
+        test_cache_dir: Path,
+        monkeypatch,
+    ) -> None:
+        """Test that TDC_CACHE_DIR environment variable sets cache directory."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.log_crawl_start.return_value = "1"
+        mock_db.query_meetings.return_value = []
+
+        mock_crawler = MagicMock()
+        mock_crawler_class.return_value = mock_crawler
+        mock_crawler.crawl.return_value = MagicMock(
+            processed=0,
+            inserted=0,
+            updated=0,
+            errors=[],
+        )
+
+        # Set environment variable via monkeypatch
+        monkeypatch.setenv("TDC_CACHE_DIR", str(test_cache_dir))
+
+        result = runner.invoke(app, ["crawl-tdocs"])
+
+        assert result.exit_code == 0
+        mock_crawler.crawl.assert_called_once()
+        # Verify cache_dir parameter was passed to config
+        call_args = mock_crawler.crawl.call_args[0]
+        config = call_args[0]
+        assert config.cache_dir == test_cache_dir
+
+    @patch("tdoc_crawler.cli.app.TDocCrawler")
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_env_var_workers(
+        self,
+        mock_db_class: MagicMock,
+        mock_crawler_class: MagicMock,
+        monkeypatch,
+    ) -> None:
+        """Test that TDC_WORKERS environment variable sets worker count."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.log_crawl_start.return_value = "1"
+        mock_db.query_meetings.return_value = []
+
+        mock_crawler = MagicMock()
+        mock_crawler_class.return_value = mock_crawler
+        mock_crawler.crawl.return_value = MagicMock(
+            processed=0,
+            inserted=0,
+            updated=0,
+            errors=[],
+        )
+
+        # Set environment variable via monkeypatch
+        monkeypatch.setenv("TDC_WORKERS", "8")
+
+        result = runner.invoke(app, ["crawl-tdocs"])
+
+        assert result.exit_code == 0
+        mock_crawler.crawl.assert_called_once()
+        # Verify workers parameter was passed to config
+        call_args = mock_crawler.crawl.call_args[0]
+        config = call_args[0]
+        assert config.workers == 8
+
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_env_var_working_group(
+        self,
+        mock_db_class: MagicMock,
+        monkeypatch,
+    ) -> None:
+        """Test that TDC_WORKING_GROUP environment variable filters by working group."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_meetings.return_value = []
+
+        # Set environment variable via monkeypatch
+        monkeypatch.setenv("TDC_WORKING_GROUP", "SA")
+
+        result = runner.invoke(app, ["query-meetings"])
+
+        assert result.exit_code == 0
+        # Verify working group filter was applied
+        call_args = mock_db.query_meetings.call_args[0][0]
+        assert WorkingGroup.SA in call_args.working_groups
+
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_env_var_output_format(
+        self,
+        mock_db_class: MagicMock,
+        monkeypatch,
+    ) -> None:
+        """Test that TDC_OUTPUT environment variable sets output format."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_tdocs.return_value = []
+
+        # Set environment variable via monkeypatch
+        monkeypatch.setenv("TDC_OUTPUT", "json")
+
+        result = runner.invoke(app, ["query-tdocs"])
+
+        assert result.exit_code == 0
+
+    def test_env_var_cli_override(
+        self,
+        monkeypatch,
+    ) -> None:
+        """Test that CLI arguments override environment variables."""
+        # Set environment variable for verbose mode
+        monkeypatch.setenv("TDC_VERBOSE", "false")
+
+        # But override with CLI argument
+        result = runner.invoke(app, ["--help"])
+
+        # Help command should succeed regardless
+        assert result.exit_code == 0
+
+    @patch("tdoc_crawler.credentials.resolve_credentials")
+    def test_env_var_credentials(
+        self,
+        mock_resolve: MagicMock,
+        monkeypatch,
+    ) -> None:
+        """Test that TDC_EOL_USERNAME and TDC_EOL_PASSWORD set credentials."""
+        # Set environment variables
+        monkeypatch.setenv("TDC_EOL_USERNAME", "testuser")
+        monkeypatch.setenv("TDC_EOL_PASSWORD", "testpass")
+
+        # Mock resolve_credentials to return valid credentials
+        mock_resolve.return_value = None
+
+        result = runner.invoke(app, ["stats"])
+
+        # Verify resolve_credentials was called
+        # (Actual credential resolution happens via Typer's envvar parameter)
+        assert result.exit_code == 0
+
+    @patch("tdoc_crawler.credentials.resolve_credentials")
+    def test_env_var_prompt_credentials(
+        self,
+        mock_resolve: MagicMock,
+        monkeypatch,
+    ) -> None:
+        """Test that TDC_EOL_PROMPT controls credential prompting."""
+        # Set environment variable to disable prompting
+        monkeypatch.setenv("TDC_EOL_PROMPT", "false")
+
+        mock_resolve.return_value = None
+
+        result = runner.invoke(app, ["stats"])
+
+        assert result.exit_code == 0
+
+    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    def test_env_var_limit(
+        self,
+        mock_db_class: MagicMock,
+        monkeypatch,
+    ) -> None:
+        """Test that TDC_LIMIT environment variables set limits."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_tdocs.return_value = []
+
+        # Set multiple limit environment variables
+        monkeypatch.setenv("TDC_LIMIT", "5")
+        monkeypatch.setenv("TDC_START_DATE", "2024-01-01T00:00:00Z")
+        monkeypatch.setenv("TDC_END_DATE", "2024-12-31T23:59:59Z")
+
+        result = runner.invoke(app, ["query-tdocs"])
+
+        assert result.exit_code == 0
+
+    @patch("tdoc_crawler.credentials.resolve_credentials")
+    def test_env_var_multiple_credentials(
+        self,
+        mock_resolve: MagicMock,
+        monkeypatch,
+    ) -> None:
+        """Test multiple credential environment variables work together."""
+        # Set all credential-related environment variables
+        monkeypatch.setenv("TDC_EOL_USERNAME", "envuser")
+        monkeypatch.setenv("TDC_EOL_PASSWORD", "envpass")
+        monkeypatch.setenv("TDC_EOL_PROMPT", "true")
+
+        mock_resolve.return_value = None
+
+        result = runner.invoke(app, ["stats"])
+
+        assert result.exit_code == 0

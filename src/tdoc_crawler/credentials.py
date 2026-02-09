@@ -19,11 +19,11 @@ def set_credentials(username: str | None, password: str | None, prompt: bool | N
         prompt: Whether to prompt for credentials when missing (optional)
     """
     if username is not None:
-        os.environ["EOL_USERNAME"] = username
+        os.environ["TDC_EOL_USERNAME"] = username
     if password is not None:
-        os.environ["EOL_PASSWORD"] = password
+        os.environ["TDC_EOL_PASSWORD"] = password
     if prompt is not None:
-        os.environ["EOL_PROMPT"] = "true" if prompt else "false"
+        os.environ["TDC_EOL_PROMPT"] = "true" if prompt else "false"
 
 
 def resolve_credentials(
@@ -35,8 +35,8 @@ def resolve_credentials(
 
     Resolution order:
     1. CLI parameters (username, password)
-    2. Environment variables (EOL_USERNAME, EOL_PASSWORD)
-    3. Interactive prompt (if EOL_PROMPT=true or prompt=True, and stdin is a TTY)
+    2. Environment variables (TDC_EOL_USERNAME, TDC_EOL_PASSWORD)
+    3. Interactive prompt (if TDC_EOL_PROMPT=true or prompt=True, and stdin is a TTY)
 
     Args:
         username: CLI-provided username
@@ -46,13 +46,13 @@ def resolve_credentials(
     Returns:
         PortalCredentials instance if resolved, None otherwise
     """
-    resolved_username = username or os.getenv("EOL_USERNAME")
-    resolved_password = password or os.getenv("EOL_PASSWORD")
+    resolved_username = username or os.getenv("TDC_EOL_USERNAME")
+    resolved_password = password or os.getenv("TDC_EOL_PASSWORD")
 
     if resolved_username and resolved_password:
         return PortalCredentials(username=resolved_username, password=resolved_password)
 
-    should_prompt = prompt if prompt is not None else os.getenv("EOL_PROMPT", "").lower() in ("true", "1", "yes")
+    should_prompt = prompt if prompt is not None else os.getenv("TDC_EOL_PROMPT", "").lower() in ("true", "1", "yes")
     if should_prompt and not sys.stdin.isatty():
         should_prompt = False
 

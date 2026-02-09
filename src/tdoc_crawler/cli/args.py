@@ -7,42 +7,42 @@ from typing import Annotated
 
 import typer
 
-CacheDirOption = Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory")]
-WorkingGroupOption = Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Filter by working group")]
-SubgroupOption = Annotated[list[str] | None, typer.Option("--sub-group", "-s", help="Filter by sub-working group")]
+CacheDirOption = Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR")]
+WorkingGroupOption = Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Filter by working group", envvar="TDC_WORKING_GROUP")]
+SubgroupOption = Annotated[list[str] | None, typer.Option("--sub-group", "-s", help="Filter by sub-working group", envvar="TDC_SUB_GROUP")]
 IncrementalOption = Annotated[bool, typer.Option("--incremental/--full", help="Toggle incremental mode")]
 ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
 ClearSpecsOption = Annotated[bool, typer.Option("--clear-specs", help="Clear all specs before crawling")]
 ClearDbOption = Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")]
 CheckoutOption = Annotated[bool, typer.Option("--checkout", help="Download and extract metadata results to checkout folder")]
-LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs")]
-LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall")]
+LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar="TDC_LIMIT_TDOCS")]
+LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar="TDC_LIMIT_MEETINGS")]
 LimitMeetingsPerWgOption = Annotated[int | None, typer.Option("--limit-meetings-per-wg", help="Limit meetings per working group")]
 LimitWgsOption = Annotated[int | None, typer.Option("--limit-wgs", help="Limit number of working groups")]
-WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers")]
+WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers", envvar="TDC_WORKERS")]
 OverallTimeoutOption = Annotated[
     int | None,
-    typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)"),
+    typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)", envvar="TDC_OVERALL_TIMEOUT"),
 ]
-MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts")]
-TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds")]
-VerboseOption = Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging")]
+MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts", envvar="TDC_MAX_RETRIES")]
+TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds", envvar="TDC_TIMEOUT")]
+VerboseOption = Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging", envvar="TDC_VERBOSE")]
 
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
-OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format")]
+OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format", envvar="TDC_OUTPUT")]
 
 FullMetadataOption = Annotated[bool, typer.Option("--full-metadata", help="Fetch full metadata instead of URL only")]
 UseWhatTheSpecOption = Annotated[bool, typer.Option("--use-whatthespec", help="Use WhatTheSpec API for fetching")]
 LimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")]
 OrderOption = Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")]
-StartDateOption = Annotated[str | None, typer.Option("--start-date", help="Filter from ISO timestamp")]
-EndDateOption = Annotated[str | None, typer.Option("--end-date", help="Filter until ISO timestamp")]
+StartDateOption = Annotated[str | None, typer.Option("--start-date", help="Filter from ISO timestamp", envvar="TDC_START_DATE")]
+EndDateOption = Annotated[str | None, typer.Option("--end-date", help="Filter until ISO timestamp", envvar="TDC_END_DATE")]
 NoFetchOption = Annotated[
     bool,
     typer.Option("--no-fetch", help="Disable automatic fetching of missing TDocs from portal"),
 ]
-EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username")]
-EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password")]
+EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username", envvar="TDC_EOL_USERNAME")]
+EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password", envvar="TDC_EOL_PASSWORD")]
 PromptCredentialsOption = Annotated[
     bool | None,
     typer.Option("--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing"),
@@ -61,4 +61,4 @@ SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) t
 SpecFileOption = Annotated[Path | None, typer.Option("--spec-file", help="File with spec numbers")]
 ReleaseOption = Annotated[str, typer.Option("--release", help="Spec release selector")]
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download")]
-CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Spec checkout base directory")]
+CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Spec checkout base directory", envvar="TDC_CHECKOUT_DIR")]

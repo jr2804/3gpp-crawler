@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli.app import app
+from tdoc_crawler.crawlers.tdocs import TDocCrawlResult
 from tdoc_crawler.fetching import FetchMissingResult
 from tdoc_crawler.models.tdocs import TDocMetadata
 
@@ -49,7 +50,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_full_metadata_flag(
@@ -70,6 +71,7 @@ class TestNewCLIFlags:
         mock_database_path.return_value = tmp_path / "test.db"
         mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
 
         # Execute
         result = runner.invoke(app, ["open", "S4-260001", "--full-metadata"])
@@ -83,7 +85,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_whatthespec_flag(
@@ -104,6 +106,7 @@ class TestNewCLIFlags:
         mock_database_path.return_value = tmp_path / "test.db"
         mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
 
         # Execute
         result = runner.invoke(app, ["open", "S4-260001", "--use-whatthespec"])
@@ -116,7 +119,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_both_flags(
@@ -137,6 +140,7 @@ class TestNewCLIFlags:
         mock_database_path.return_value = tmp_path / "test.db"
         mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
 
         # Execute
         result = runner.invoke(app, ["open", "S4-260001", "--full-metadata", "--use-whatthespec"])
@@ -150,7 +154,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
     def test_checkout_with_full_metadata_flag(
         self,
@@ -168,6 +172,7 @@ class TestNewCLIFlags:
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
         mock_database_path.return_value = tmp_path / "test.db"
         mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
+        mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
 
         # Execute
         result = runner.invoke(app, ["checkout", "S4-260001", "--full-metadata"])
@@ -180,7 +185,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
     def test_checkout_with_whatthespec_flag(
         self,
@@ -198,6 +203,7 @@ class TestNewCLIFlags:
         mock_database_class.return_value.__enter__.return_value = mock_db_instance
         mock_database_path.return_value = tmp_path / "test.db"
         mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
+        mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
 
         # Execute
         result = runner.invoke(app, ["checkout", "S4-260001", "--use-whatthespec"])
@@ -210,7 +216,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_default_behavior_unchanged(
@@ -231,6 +237,7 @@ class TestNewCLIFlags:
         mock_database_path.return_value = tmp_path / "test.db"
         mock_db_instance.get_tdoc.return_value = sample_tdoc_metadata
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
 
         # Execute
         result = runner.invoke(app, ["open", "S4-260001"])

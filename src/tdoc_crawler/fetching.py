@@ -115,7 +115,7 @@ def fetch_missing_tdocs_batch(
 
     if not credentials:
         logger.info("Portal credentials not available, skipping portal authentication fetch")
-        errors.append("Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD.")
+        errors.append("Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD.")
         return TDocCrawlResult(processed=len(missing_ids), inserted=0, updated=0, errors=errors)
 
     inserted_count = 0
