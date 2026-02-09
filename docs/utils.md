@@ -22,7 +22,7 @@ Download and extract TDoc(s) to the checkout folder (`~/.tdoc-crawler/checkout/`
 tdoc-crawler checkout R1-2400001 S2-2400567
 ```
 
----
+______________________________________________________________________
 
 ## Technical Specifications
 
@@ -53,7 +53,7 @@ Batch download specification documents to the checkout folder.
 tdoc-crawler checkout-spec 26130-26140
 ```
 
----
+______________________________________________________________________
 
 ## Diagnostics
 

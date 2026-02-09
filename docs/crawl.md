@@ -41,7 +41,7 @@ tdoc-crawler crawl-meetings -w SA
 tdoc-crawler crawl-meetings --limit-meetings-per-wg 10
 ```
 
----
+______________________________________________________________________
 
 ### `crawl-tdocs` (alias: `ct`)
 
@@ -76,7 +76,7 @@ tdoc-crawler crawl-tdocs -w RAN -s R1 -s R2
 tdoc-crawler crawl-tdocs -w RAN --workers 8
 ```
 
----
+______________________________________________________________________
 
 ### `crawl-specs` (alias: `cs`)
 

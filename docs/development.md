@@ -13,13 +13,13 @@ This guide describes how to set up your environment for contributing to `tdoc-cr
    cd tdoc-crawler
    ```
 
-2. Sync dependencies:
+1. Sync dependencies:
 
    ```bash
    uv sync --all-extras
    ```
 
-3. Install pre-commit hooks:
+1. Install pre-commit hooks:
 
    ```bash
    uv run pre-commit install

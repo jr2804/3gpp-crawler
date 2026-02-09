@@ -5,15 +5,15 @@ WhatTheSpec ([whatthespec.net](https://whatthespec.net)) is the **primary data s
 ## Why it's useful
 
 1. **Primary Source**: It provides fast, unauthenticated access to TDoc information without requiring ETSI credentials.
-2. **Efficiency**: Simple metadata queries are optimized for performance compared to scraping official portals.
-3. **Open Access**: Accessible to anyone without an EOL account.
+1. **Efficiency**: Simple metadata queries are optimized for performance compared to scraping official portals.
+1. **Open Access**: Accessible to anyone without an EOL account.
 
 ## Use in TDoc Crawler
 
 `tdoc-crawler` leverages WhatTheSpec as its first line of data retrieval:
 
 1. **Default Discovery**: In `open` and `checkout` commands, the tool first attempts to resolve TDoc metadata via WhatTheSpec.
-2. **Metadata Source**: In `crawl-specs`, WhatTheSpec is the primary source for technical specification metadata.
+1. **Metadata Source**: In `crawl-specs`, WhatTheSpec is the primary source for technical specification metadata.
 
 ## ⚠️ The Fallback Strategy
 

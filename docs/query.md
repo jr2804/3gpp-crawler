@@ -34,7 +34,7 @@ tdoc-crawler query-tdocs --working-group RAN --limit 20
 tdoc-crawler query-tdocs R1-2400001 --output json
 ```
 
----
+______________________________________________________________________
 
 ### `query-meetings` (alias: `qm`)
 
@@ -62,7 +62,7 @@ tdoc-crawler query-meetings -w RP -s "RAN Plenary"
 tdoc-crawler query-meetings --output yaml
 ```
 
----
+______________________________________________________________________
 
 ### `query-specs` (alias: `qs`)
 

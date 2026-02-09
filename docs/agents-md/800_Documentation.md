@@ -29,7 +29,7 @@
 This repository maintains separate documentation for humans and for coding agents:
 
 1. **docs/index.md** - Main documentation entry point (Jekyll-ready)
-1. **docs/*.md** - Modular task-oriented user guides (crawl, query, utils, etc.)
+1. **docs/\*.md** - Modular task-oriented user guides (crawl, query, utils, etc.)
 1. **README.md** - Project overview and contributor entry points
 1. **docs/agents-md/** - Agent-facing modular implementation and workflow guidance
 1. **AGENTS.md** - Core guidelines and rules for coding agents (standalone context)
