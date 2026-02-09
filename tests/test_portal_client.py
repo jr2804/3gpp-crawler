@@ -173,12 +173,14 @@ class TestPortalClientAuthenticate:
         """Authentication succeeds with valid credentials."""
         creds = PortalCredentials(username="test", password="test")
         client = PortalClient(credentials=creds)
-        with patch.object(client, "_get_session") as mock_get_session:
+        with patch.object(client, "_get_auth_session") as mock_get_auth_session:
             mock_session = MagicMock()
             mock_response = MagicMock()
             mock_response.raise_for_status = MagicMock()
+            mock_response.text = "Success"  # Non-failed response
             mock_session.get.return_value = mock_response
-            mock_get_session.return_value = mock_session
+            mock_session.post.return_value = mock_response
+            mock_get_auth_session.return_value = mock_session
 
             client.authenticate()
             assert client._authenticated is True
@@ -197,13 +199,14 @@ class TestPortalClientAuthenticate:
         """Authentication fails with invalid credentials."""
         creds = PortalCredentials(username="test", password="wrong")
         client = PortalClient(credentials=creds)
-        with patch.object(client, "_get_session") as mock_get_session:
+        with patch.object(client, "_get_auth_session") as mock_get_auth_session:
             mock_session = MagicMock()
             mock_response = MagicMock()
             mock_response.raise_for_status = MagicMock()
             mock_response.text = "Failed"
+            mock_session.get.return_value = mock_response
             mock_session.post.return_value = mock_response
-            mock_get_session.return_value = mock_session
+            mock_get_auth_session.return_value = mock_session
 
             with pytest.raises(PortalAuthenticationError):
                 client.authenticate()

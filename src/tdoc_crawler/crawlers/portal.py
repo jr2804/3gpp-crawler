@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -316,6 +317,25 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         logger.warning(error_msg)
         raise PortalParsingError(error_msg)
 
+    # Create and return TDocMetadata instance
+    # Note: meeting_id is not available from portal parsing, caller must resolve it
+    return TDocMetadata(
+        tdoc_id=tdoc_id,
+        meeting_id=0,  # Placeholder - caller must resolve via meeting_name
+        title=metadata.get("title", ""),
+        url=url,
+        source=metadata.get("source", ""),
+        contact=metadata.get("contact", ""),
+        tdoc_type=metadata.get("tdoc_type", "unknown"),
+        for_purpose=metadata.get("for", "unknown"),
+        agenda_item_nbr=Decimal(metadata.get("agenda_item_nbr", "0")),
+        agenda_item_text=metadata.get("agenda_item_text", "Unknown"),
+        status=metadata.get("status"),
+        meeting_name=metadata.get("meeting"),
+        is_revision_of=metadata.get("is_revision_of"),
+        validated=True,
+    )
+
 
 def extract_tdoc_url_from_portal(tdoc_id: str, cache_dir: Path | None = None, timeout: int = 15) -> str:
     """Extract direct FTP download URL for a TDoc using unauthenticated DownloadTDoc.aspx endpoint.
@@ -473,7 +493,9 @@ class PortalClient:
 
         logger.info("Authenticating with 3GPP portal...")
 
-        session = self._get_session()
+        # Use a non-cached session for authentication to avoid
+        # hishel cache interfering with session cookies
+        session = self._get_auth_session()
 
         # Step 1: Visit the login page to establish session and get cookies
         logger.debug("Visiting login page to establish session...")
@@ -508,6 +530,8 @@ class PortalClient:
         if response_text.lower() == "failed":
             raise PortalAuthenticationError("Authentication failed - check credentials")
 
+        # Step 3: Store the authenticated session and copy cookies to cached session
+        self._session = session
         self._authenticated = True
         logger.info("Successfully authenticated with 3GPP portal")
 
@@ -632,6 +656,16 @@ class PortalClient:
             PortalParsingError: If TDoc not found, metadata table not found, or mandatory fields missing.
         """
         return parse_tdoc_portal_page(html, tdoc_id, url)
+
+    def _get_auth_session(self) -> requests.Session:
+        """Get a non-cached session for authentication.
+
+        Returns:
+            Non-cached session with browser-like headers.
+        """
+        session = requests.Session()
+        session.headers.update(_BROWSER_HEADERS)
+        return session
 
     def _get_session(self) -> requests.Session:
         """Get or create a cached session with browser headers.

@@ -79,7 +79,7 @@ from tdoc_crawler.cli.printing import (
     tdoc_to_dict,
 )
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
-from tdoc_crawler.credentials import set_credentials
+from tdoc_crawler.credentials import resolve_credentials, set_credentials
 from tdoc_crawler.database import TDocDatabase, database_path
 from tdoc_crawler.fetching import fetch_missing_tdocs
 from tdoc_crawler.logging import set_verbosity
@@ -609,10 +609,13 @@ def open_tdoc(
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
+    eol_username: EolUsernameOption = None,
+    eol_password: EolPasswordOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download, extract, and open a TDoc file."""
     set_verbosity(verbosity)
+    set_credentials(eol_username, eol_password, prompt=None)
     normalized_id = tdoc_id.strip().upper()
     config = QueryConfig(
         cache_dir=cache_dir,
@@ -622,7 +625,11 @@ def open_tdoc(
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         results = database.query_tdocs(config)
-        result = fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
+
+        credentials = resolve_credentials(eol_username, eol_password, prompt=None)
+        result = fetch_missing_tdocs(
+            database, cache_dir, config, results, credentials=credentials, full_metadata=full_metadata, use_whatthespec=use_whatthespec
+        )
         if result.fetch_result and result.fetch_result.errors:
             console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
         results = result.refreshed
@@ -648,10 +655,13 @@ def checkout(
     force: ForceOption = False,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
+    eol_username: EolUsernameOption = None,
+    eol_password: EolPasswordOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract TDoc(s) to checkout folder."""
     set_verbosity(verbosity)
+    set_credentials(eol_username, eol_password, prompt=None)
     normalized_ids = [tid.strip().upper() for tid in tdoc_id]
     config = QueryConfig(
         cache_dir=cache_dir,
@@ -661,7 +671,12 @@ def checkout(
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         results = database.query_tdocs(config)
-        result = fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
+        from tdoc_crawler.credentials import resolve_credentials
+
+        credentials = resolve_credentials(eol_username, eol_password, prompt=None)
+        result = fetch_missing_tdocs(
+            database, cache_dir, config, results, credentials=credentials, full_metadata=full_metadata, use_whatthespec=use_whatthespec
+        )
         if result.fetch_result and result.fetch_result.errors:
             console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
         results = result.refreshed
