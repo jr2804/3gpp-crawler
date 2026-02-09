@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli.app import app
+from tdoc_crawler.fetching import FetchMissingResult
 from tdoc_crawler.models.tdocs import TDocMetadata
 
 
@@ -48,7 +49,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_full_metadata_flag(
@@ -82,7 +83,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_whatthespec_flag(
@@ -115,7 +116,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_open_with_both_flags(
@@ -149,7 +150,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
     def test_checkout_with_full_metadata_flag(
         self,
@@ -179,7 +180,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
     def test_checkout_with_whatthespec_flag(
         self,
@@ -209,7 +210,7 @@ class TestNewCLIFlags:
 
     @patch("tdoc_crawler.cli.app.database_path")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
     def test_default_behavior_unchanged(

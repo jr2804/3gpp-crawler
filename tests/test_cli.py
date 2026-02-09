@@ -382,7 +382,7 @@ class TestOpenCommand:
 
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.maybe_fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_existing_tdoc(
         self,
@@ -432,8 +432,8 @@ class TestOpenCommand:
 
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
-    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_with_whatthespec_fallback(
         self,
@@ -480,8 +480,10 @@ class TestOpenCommand:
             tdoc_type="agenda",
             for_purpose="Approval",
             agenda_item_nbr=Decimal("2"),
+            agenda_item_text="Agenda item text",
             status="available",
             validated=False,
+            validation_failed=False,
         )
 
         def insert_via_fetch(database: object, cache_dir: Path, missing_ids: list[str]) -> None:
@@ -513,8 +515,8 @@ class TestOpenCommand:
 
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
-    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_open_with_whatthespec_no_credentials_required(
         self,
@@ -555,6 +557,7 @@ class TestOpenCommand:
             source="RAN1 Chair",
             contact="Test Contact",
             tdoc_type="discussion",
+            agenda_item_text="Test agenda item text",
             for_purpose="Discussion",
             agenda_item_nbr=Decimal("3.1"),
             status="available",
@@ -593,8 +596,8 @@ class TestCheckoutCommand:
     """Tests for checkout command with whatthespec fallback."""
 
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
-    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_checkout_with_whatthespec_fallback(
         self,
@@ -619,11 +622,16 @@ class TestCheckoutCommand:
         mock_db.upsert_tdoc.return_value = (True, False)
 
         # Mock portal fetch to return credentials error
-        mock_fetch_portal.return_value = MagicMock(
-            processed=2,
-            inserted=0,
-            updated=0,
-            errors=["Portal credentials required"],
+        from tdoc_crawler.fetching import FetchMissingResult, TDocCrawlResult
+
+        mock_fetch_portal.return_value = FetchMissingResult(
+            refreshed=[],
+            fetch_result=TDocCrawlResult(
+                processed=1,
+                inserted=0,
+                updated=0,
+                errors=["Portal credentials required"],
+            ),
         )
 
         # Setup metadata for both TDocs
@@ -636,6 +644,7 @@ class TestCheckoutCommand:
             source="SA WG4 Chair",
             contact="Test Contact",
             tdoc_type="agenda",
+            agenda_item_text="Test agenda item text",
             for_purpose="Approval",
             agenda_item_nbr=Decimal("2"),
             status="available",
@@ -650,6 +659,7 @@ class TestCheckoutCommand:
             source="SA WG4 Chair",
             contact="Test Contact",
             tdoc_type="discussion",
+            agenda_item_text="Test agenda item text",
             for_purpose="Discussion",
             agenda_item_nbr=Decimal("3"),
             status="available",
@@ -682,8 +692,8 @@ class TestCheckoutCommand:
         assert mock_checkout.call_count == 2
 
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.fetching._fetch_via_whatthespec")
-    @patch("tdoc_crawler.cli.fetching.fetch_missing_tdocs")
+    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.fetching.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
     def test_checkout_with_whatthespec_graceful_failure(
         self,

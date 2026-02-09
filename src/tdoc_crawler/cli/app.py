@@ -58,7 +58,6 @@ from tdoc_crawler.cli.args import (
     WorkingGroupOption,
 )
 from tdoc_crawler.cli.console import get_console
-from tdoc_crawler.cli.fetching import maybe_fetch_missing_tdocs
 from tdoc_crawler.cli.helpers import build_limits, collect_spec_numbers, launch_file, parse_subgroups, parse_working_groups
 from tdoc_crawler.cli.printing import (
     meeting_to_dict,
@@ -75,6 +74,7 @@ from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.crawlers.meeting_doclist import DocumentListError, fetch_meeting_document_list
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import TDocDatabase, database_path
+from tdoc_crawler.fetching import fetch_missing_tdocs
 from tdoc_crawler.models import MeetingCrawlConfig, MeetingMetadata, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig, TDocMetadata
 from tdoc_crawler.models.specs import SpecQueryFilters
 from tdoc_crawler.specs import SpecCatalog
@@ -523,7 +523,12 @@ def query_tdocs(
 
         results = database.query_tdocs(config)
         if not no_fetch:
-            results = maybe_fetch_missing_tdocs(database, config.cache_dir, config, results, None)
+            result = fetch_missing_tdocs(database, config.cache_dir, config, results, None)
+            if result.fetch_result and result.fetch_result.errors:
+                console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+                for error in result.fetch_result.errors[:3]:
+                    console.print(f"  - {error}")
+            results = result.refreshed
 
     if not results:
         console.print("[yellow]No TDocs found[/yellow]")
@@ -695,7 +700,10 @@ def open_tdoc(
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         results = database.query_tdocs(config)
-        results = maybe_fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
+        result = fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
+        if result.fetch_result and result.fetch_result.errors:
+            console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+        results = result.refreshed
         if not results:
             console.print(f"[red]TDoc {normalized_id} not found[/red]")
             raise typer.Exit(code=1)
@@ -729,16 +737,12 @@ def checkout(
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
         results = database.query_tdocs(config)
-        results = maybe_fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
-
-        # Check which TDocs were found
-        found_ids = {r.tdoc_id for r in results}
-        missing_ids = set(normalized_ids) - found_ids
-
-        if missing_ids:
-            console.print(f"[red]TDoc(s) not found: {', '.join(sorted(missing_ids))}[/red]")
-            if not results:
-                raise typer.Exit(code=1)
+        result = fetch_missing_tdocs(database, cache_dir, config, results, full_metadata=full_metadata, use_whatthespec=use_whatthespec)
+        if result.fetch_result and result.fetch_result.errors:
+            console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+        results = result.refreshed
+        if not results:
+            raise typer.Exit(code=1)
 
     checkout_dir = cache_dir / "checkout"
     success_count = 0

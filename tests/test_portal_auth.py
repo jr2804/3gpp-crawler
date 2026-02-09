@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from tdoc_crawler.crawlers.portal import PortalAuthenticationError, PortalParsingError, fetch_tdoc_metadata
+from tdoc_crawler.crawlers.portal import PortalAuthenticationError, PortalParsingError, PortalSession
 from tdoc_crawler.models.base import PortalCredentials
 
 
@@ -67,7 +67,8 @@ def test_fetch_tdoc_metadata_success(credentials: PortalCredentials) -> None:
     """Test successful fetching of TDoc metadata from portal."""
     tdoc_id = "S4-251364"
 
-    metadata = fetch_tdoc_metadata(tdoc_id, credentials, timeout=30)
+    with PortalSession(credentials=credentials, cache_dir=Path("."), timeout=30) as session:
+        metadata = session.fetch_tdoc_metadata(tdoc_id)
 
     # Should return TDocMetadata instance
     assert metadata is not None, f"Expected metadata for {tdoc_id}"
@@ -96,7 +97,8 @@ def test_fetch_tdoc_metadata_invalid_tdoc(credentials: PortalCredentials) -> Non
 
     # Should raise PortalParsingError for non-existent TDoc
     with pytest.raises(PortalParsingError):
-        fetch_tdoc_metadata(tdoc_id, credentials, timeout=30)
+        with PortalSession(credentials=credentials, cache_dir=Path("."), timeout=30) as session:
+            session.fetch_tdoc_metadata(tdoc_id)
 
 
 def test_fetch_tdoc_metadata_invalid_credentials() -> None:
@@ -106,4 +108,5 @@ def test_fetch_tdoc_metadata_invalid_credentials() -> None:
     tdoc_id = "S4-251364"
 
     with pytest.raises(PortalAuthenticationError):
-        fetch_tdoc_metadata(tdoc_id, invalid_credentials, Path("."), timeout=30)
+        with PortalSession(credentials=invalid_credentials, cache_dir=Path("."), timeout=30) as session:
+            session.fetch_tdoc_metadata(tdoc_id)
