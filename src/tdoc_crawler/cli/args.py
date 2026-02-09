@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from tdoc_crawler.logging import DEFAULT_LEVEL as LOGGING_DEFAULT_LEVEL
+
+DEFAULT_VERBOSITY = logging.getLevelName(LOGGING_DEFAULT_LEVEL)
 
 CacheDirOption = Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR")]
 WorkingGroupOption = Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Filter by working group", envvar="TDC_WORKING_GROUP")]
@@ -26,7 +31,7 @@ OverallTimeoutOption = Annotated[
 ]
 MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts", envvar="TDC_MAX_RETRIES")]
 TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds", envvar="TDC_TIMEOUT")]
-VerboseOption = Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging", envvar="TDC_VERBOSE")]
+VerbosityOption = Annotated[str, typer.Option("--verbosity", "-v", help="Logging verbosity level", envvar="TDC_VERBOSITY")]
 
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
 OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format", envvar="TDC_OUTPUT")]

@@ -7,20 +7,30 @@ directory structure as the server.
 
 from __future__ import annotations
 
-import logging
 import posixpath
 import shutil
 import zipfile
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 from urllib.parse import urlparse
 
 import requests
 
+from tdoc_crawler.crawlers.meeting_doclist import DocumentListError, fetch_meeting_document_list
 from tdoc_crawler.http_client import download_to_path
-from tdoc_crawler.models import TDocMetadata
+from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.specs.downloads import SpecDownloads
+from tdoc_crawler.specs.sources.base import FunctionSpecSource, SpecSource
+from tdoc_crawler.specs.sources.threegpp import fetch_threegpp_metadata
+from tdoc_crawler.specs.sources.whatthespec import fetch_whatthespec_metadata
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from tdoc_crawler.database import TDocDatabase
+
+logger = get_logger(__name__)
 
 
 def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
@@ -173,8 +183,170 @@ def get_checked_out_tdocs(checkout_dir: Path) -> list[str]:
     return tdoc_ids
 
 
+def clear_checkout_tdocs(checkout_dir: Path) -> int:
+    """Clear TDoc checkout entries from the checkout directory.
+
+    Args:
+        checkout_dir: Base checkout directory
+
+    Returns:
+        Number of entries removed
+    """
+    if not checkout_dir.exists():
+        return 0
+    removed = 0
+    for entry in checkout_dir.iterdir():
+        if entry.name == "Specs":
+            continue
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
+        removed += 1
+    return removed
+
+
+def clear_checkout_specs(checkout_dir: Path) -> int:
+    """Clear spec checkout entries from the checkout directory.
+
+    Args:
+        checkout_dir: Base checkout directory
+
+    Returns:
+        Number of entries removed (always 1 if Specs directory existed)
+    """
+    specs_dir = checkout_dir / "Specs"
+    if not specs_dir.exists():
+        return 0
+    shutil.rmtree(specs_dir)
+    return 1
+
+
+def checkout_specs(
+    spec_numbers: list[str],
+    checkout_dir: Path,
+    database: TDocDatabase,
+    release: str = "latest",
+    doc_only: bool = False,
+) -> list[Path]:
+    """Checkout spec documents to the checkout directory.
+
+    Args:
+            spec_numbers: List of spec numbers to checkout
+            checkout_dir: Base checkout directory
+            database: TDocDatabase instance for metadata lookup
+            release: Release version to checkout
+            doc_only: If True, download only document files instead of full zip
+
+    Returns:
+            List of paths to checked out specs
+    """
+    sources = build_default_spec_sources()
+    downloader = SpecDownloads(database)
+    return downloader.checkout_specs(spec_numbers, doc_only, checkout_dir, release, sources=sources)
+
+
+def build_default_spec_sources() -> list[SpecSource]:
+    """Build the default list of spec sources.
+
+    Returns:
+        List of SpecSource instances for fetching spec metadata
+    """
+    return [
+        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata)),
+        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata)),
+    ]
+
+
+@dataclass
+class CheckoutResult:
+    """Result of a checkout operation."""
+
+    success_count: int
+    error_count: int
+    errors: list[str]
+
+
+def checkout_tdocs(
+    results: list[TDocMetadata],
+    checkout_dir: Path,
+    force: bool = False,
+) -> CheckoutResult:
+    """Checkout multiple TDoc files to the checkout directory.
+
+    Args:
+        results: List of TDocMetadata to checkout
+        checkout_dir: Base checkout directory
+        force: If True, re-download even if already exists
+
+    Returns:
+        CheckoutResult with success/error counts
+    """
+    if not results:
+        return CheckoutResult(success_count=0, error_count=0, errors=[])
+
+    checkout_dir.mkdir(parents=True, exist_ok=True)
+    success_count = 0
+    error_count = 0
+    errors: list[str] = []
+
+    for metadata in results:
+        try:
+            if not metadata.url:
+                raise ValueError("missing URL")
+            checkout_tdoc(metadata, checkout_dir, force=force)
+            success_count += 1
+        except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+            errors.append(f"{metadata.tdoc_id}: {exc}")
+            error_count += 1
+
+    return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors)
+
+
+def checkout_meeting_tdocs(
+    meetings: list[MeetingMetadata],
+    cache_dir: Path,
+) -> CheckoutResult:
+    """Checkout TDoc files from a list of meetings.
+
+    Args:
+            meetings: List of MeetingMetadata to checkout TDocs from
+            cache_dir: Cache directory for document list caching
+
+    Returns:
+            CheckoutResult with success/error counts
+    """
+    if not meetings:
+        return CheckoutResult(success_count=0, error_count=0, errors=[])
+
+    checkout_dir = cache_dir / "checkout"
+    unique: dict[str, TDocMetadata] = {}
+    errors: list[str] = []
+
+    for meeting in meetings:
+        if not meeting.files_url:
+            errors.append(f"{meeting.short_name}: no files URL")
+            continue
+        try:
+            tdocs = fetch_meeting_document_list(meeting.meeting_id, cache_dir)
+        except DocumentListError as exc:
+            errors.append(f"{meeting.short_name}: {exc}")
+            continue
+        for metadata in tdocs:
+            if metadata.tdoc_id not in unique:
+                unique[metadata.tdoc_id] = metadata
+
+    return checkout_tdocs(list(unique.values()), checkout_dir, force=False)
+
+
 __all__ = [
+    "CheckoutResult",
+    "checkout_meeting_tdocs",
+    "checkout_specs",
     "checkout_tdoc",
+    "checkout_tdocs",
+    "clear_checkout_specs",
+    "clear_checkout_tdocs",
     "get_checked_out_tdocs",
     "get_checkout_path",
     "prepare_tdoc_file",

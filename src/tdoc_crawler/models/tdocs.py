@@ -161,7 +161,6 @@ class TDocCrawlConfig(BaseConfigModel):
     )
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="Request timeout seconds")
-    verbose: bool = Field(False, description="Verbose logging")
 
     # New options for document list vs parallel crawling
     use_document_list: bool = Field(True, description="Use meeting document list (Excel) for metadata (no credentials required)")

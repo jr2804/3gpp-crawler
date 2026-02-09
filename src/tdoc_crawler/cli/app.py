@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
-import shutil
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -16,8 +14,18 @@ from dotenv import load_dotenv
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from tdoc_crawler.checkout import checkout_tdoc, prepare_tdoc_file
+from tdoc_crawler.checkout import (
+    build_default_spec_sources,
+    checkout_meeting_tdocs,
+    checkout_specs,
+    checkout_tdoc,
+    checkout_tdocs,
+    clear_checkout_specs,
+    clear_checkout_tdocs,
+    prepare_tdoc_file,
+)
 from tdoc_crawler.cli.args import (
+    DEFAULT_VERBOSITY,
     CacheDirOption,
     CheckoutDirOption,
     CheckoutOption,
@@ -53,7 +61,7 @@ from tdoc_crawler.cli.args import (
     TDocIdsArgument,
     TimeoutOption,
     UseWhatTheSpecOption,
-    VerboseOption,
+    VerbosityOption,
     WorkersOption,
     WorkingGroupOption,
 )
@@ -71,16 +79,14 @@ from tdoc_crawler.cli.printing import (
     tdoc_to_dict,
 )
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
-from tdoc_crawler.crawlers.meeting_doclist import DocumentListError, fetch_meeting_document_list
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import TDocDatabase, database_path
 from tdoc_crawler.fetching import fetch_missing_tdocs
-from tdoc_crawler.models import MeetingCrawlConfig, MeetingMetadata, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig, TDocMetadata
+from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
 from tdoc_crawler.models.specs import SpecQueryFilters
 from tdoc_crawler.specs import SpecCatalog
 from tdoc_crawler.specs.downloads import SpecDownloads
-from tdoc_crawler.specs.sources import fetch_threegpp_metadata, fetch_whatthespec_metadata
-from tdoc_crawler.specs.sources.base import FunctionSpecSource, SpecSource
 
 load_dotenv()
 
@@ -89,108 +95,9 @@ console = get_console()
 
 DEFAULT_CACHE_DIR = Path.home() / ".tdoc-crawler"
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-
+HELP_PANEL_MAIN = "Main Commands"
 HELP_PANEL_CRAWLING = "Crawling Commands"
 HELP_PANEL_QUERY = "Query Commands"
-
-
-def _clear_checkout_tdocs(checkout_dir: Path) -> int:
-    if not checkout_dir.exists():
-        return 0
-    removed = 0
-    for entry in checkout_dir.iterdir():
-        if entry.name == "Specs":
-            continue
-        if entry.is_dir():
-            shutil.rmtree(entry)
-        else:
-            entry.unlink()
-        removed += 1
-    return removed
-
-
-def _clear_checkout_specs(checkout_dir: Path) -> int:
-    specs_dir = checkout_dir / "Specs"
-    if not specs_dir.exists():
-        return 0
-    shutil.rmtree(specs_dir)
-    return 1
-
-
-def _checkout_tdocs(results: list[TDocMetadata], checkout_dir: Path, force: bool) -> None:
-    if not results:
-        console.print("[yellow]No TDocs to checkout[/yellow]")
-        return
-    success_count = 0
-    error_count = 0
-    checkout_dir.mkdir(parents=True, exist_ok=True)
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Checking out TDocs...", total=len(results))
-        for metadata in results:
-            try:
-                if not metadata.url:
-                    raise ValueError("missing URL")
-                checkout_path = checkout_tdoc(metadata, checkout_dir, force=force)
-                progress.console.print(f"[green]✓ {metadata.tdoc_id} → {checkout_path}")
-                success_count += 1
-            except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
-                progress.console.print(f"[red]✗ {metadata.tdoc_id}: {exc}")
-                error_count += 1
-            progress.advance(task)
-    console.print(f"\n[cyan]Checked out {success_count} TDoc(s)[/cyan]")
-    if error_count:
-        console.print(f"[red]Failed: {error_count} TDoc(s)[/red]")
-
-
-def _checkout_specs(
-    spec_numbers: list[str],
-    checkout_dir: Path,
-    database: TDocDatabase,
-    release: str = "latest",
-    doc_only: bool = False,
-) -> None:
-    if not spec_numbers:
-        console.print("[yellow]No specs to checkout[/yellow]")
-        return
-    sources = _build_spec_sources()
-    downloader = SpecDownloads(database)
-    results = downloader.checkout_specs(spec_numbers, doc_only, checkout_dir, release, sources=sources)
-    print_checkout_results(results)
-
-
-def _build_spec_sources() -> list[SpecSource]:
-    return [
-        cast(SpecSource, FunctionSpecSource("3gpp", fetch_threegpp_metadata)),
-        cast(SpecSource, FunctionSpecSource("whatthespec", fetch_whatthespec_metadata)),
-    ]
-
-
-def _checkout_meeting_tdocs(meetings: list[MeetingMetadata], cache_dir: Path) -> None:
-    if not meetings:
-        console.print("[yellow]No meetings to checkout[/yellow]")
-        return
-    checkout_dir = cache_dir / "checkout"
-    unique: dict[str, TDocMetadata] = {}
-    for meeting in meetings:
-        if not meeting.files_url:
-            console.print(f"[yellow]Skipping {meeting.short_name}: no files URL[/yellow]")
-            continue
-        try:
-            tdocs = fetch_meeting_document_list(meeting.meeting_id, cache_dir)
-        except DocumentListError as exc:
-            console.print(f"[red]✗ {meeting.short_name}: {exc}[/red]")
-            continue
-        for metadata in tdocs:
-            if metadata.tdoc_id not in unique:
-                unique[metadata.tdoc_id] = metadata
-    _checkout_tdocs(list(unique.values()), checkout_dir, force=False)
 
 
 @app.command("crawl-tdocs", rich_help_panel=HELP_PANEL_CRAWLING)
@@ -210,9 +117,12 @@ def crawl_tdocs(
     overall_timeout: OverallTimeoutOption = None,
     max_retries: MaxRetriesOption = 3,
     timeout: TimeoutOption = 30,
-    verbose: VerboseOption = False,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl TDocs from 3GPP FTP directories."""
+    # Set logging verbosity early to ensure all log messages respect the configured level
+    set_verbosity(verbosity)
+
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
@@ -229,7 +139,6 @@ def crawl_tdocs(
         overall_timeout=overall_timeout,
         max_retries=max_retries,
         timeout=timeout,
-        verbose=verbose,
         limits=limits,
         target_ids=None,
         credentials=None,
@@ -248,16 +157,13 @@ def crawl_tdocs(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
-    if config.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-
     with TDocDatabase(db_path) as database:
         checkout_dir = cache_dir / "checkout"
         # Clear TDocs if requested
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
-            removed = _clear_checkout_tdocs(checkout_dir)
+            removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
 
@@ -265,7 +171,7 @@ def crawl_tdocs(
             spec_counts = database.clear_specs()
             total_specs = sum(spec_counts.values())
             console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
-            removed_specs = _clear_checkout_specs(checkout_dir)
+            removed_specs = clear_checkout_specs(checkout_dir)
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
@@ -317,8 +223,17 @@ def crawl_tdocs(
                 order=SortOrder.DESC,
             )
             results = database.query_tdocs(query_config)
-            _checkout_tdocs(results, checkout_dir, force=False)
+            checkout_result = checkout_tdocs(results, checkout_dir, force=False)
+            console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
+            if checkout_result.error_count:
+                console.print(f"[red]Failed: {checkout_result.error_count} TDoc(s)[/red]")
+            if checkout_result.errors:
+                for error in checkout_result.errors[:5]:
+                    console.print(f"  - {error}")
+        else:
+            checkout_result = None
 
+    # Output for TDoc crawl results (outside the 'with' block to access 'result')
     console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
     if result.errors:
@@ -342,12 +257,15 @@ def crawl_meetings(
     limit_wgs: LimitWgsOption = None,
     max_retries: MaxRetriesOption = 3,
     timeout: TimeoutOption = 30,
-    verbose: VerboseOption = False,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
 ) -> None:
     """Crawl meeting metadata from 3GPP portal."""
+    # Set logging verbosity early to ensure all log messages respect the configured level
+    set_verbosity(verbosity)
+
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
     limits = build_limits(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
@@ -359,7 +277,6 @@ def crawl_meetings(
         incremental=incremental,
         max_retries=max_retries,
         timeout=timeout,
-        verbose=verbose,
         limits=limits,
         credentials=None,
     )
@@ -373,23 +290,20 @@ def crawl_meetings(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    if config.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-
     with TDocDatabase(db_path) as database:
         checkout_dir = cache_dir / "checkout"
         # Clear all data if requested
         if clear_db:
             tdocs_count, meetings_count = database.clear_all_data()
             console.print(f"[yellow]Cleared {tdocs_count} TDocs and {meetings_count} meetings from database[/yellow]")
-            removed = _clear_checkout_tdocs(checkout_dir)
+            removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
 
         if clear_tdocs and not clear_db:
             deleted_count = database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
-            removed = _clear_checkout_tdocs(checkout_dir)
+            removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
 
@@ -397,7 +311,7 @@ def crawl_meetings(
             spec_counts = database.clear_specs()
             total_specs = sum(spec_counts.values())
             console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
-            removed_specs = _clear_checkout_specs(checkout_dir)
+            removed_specs = clear_checkout_specs(checkout_dir)
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
@@ -450,7 +364,7 @@ def crawl_meetings(
         )
         with TDocDatabase(db_path) as database:
             meetings = database.query_meetings(query_config)
-        _checkout_meeting_tdocs(meetings, cache_dir)
+        checkout_meeting_tdocs(meetings, cache_dir)
 
 
 @app.command("query-tdocs", rich_help_panel=HELP_PANEL_QUERY)
@@ -469,8 +383,10 @@ def query_tdocs(
     no_fetch: NoFetchOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query TDoc metadata from database."""
+    set_verbosity(verbosity)
     working_groups = parse_working_groups(working_group)
     try:
         start = datetime.fromisoformat(start_date) if start_date else None
@@ -510,14 +426,14 @@ def query_tdocs(
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
-            removed = _clear_checkout_tdocs(checkout_dir)
+            removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
         if clear_specs:
             spec_counts = database.clear_specs()
             total_specs = sum(spec_counts.values())
             console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
-            removed_specs = _clear_checkout_specs(checkout_dir)
+            removed_specs = clear_checkout_specs(checkout_dir)
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
@@ -535,7 +451,7 @@ def query_tdocs(
         return
 
     if checkout:
-        _checkout_tdocs(results, cache_dir / "checkout", force=False)
+        checkout_tdocs(results, cache_dir / "checkout", force=False)
 
     if config.output_format is OutputFormat.JSON:
         console.print(json.dumps([tdoc_to_dict(result) for result in results], indent=2))
@@ -557,8 +473,10 @@ def query_meetings(
     limit: LimitOption = None,
     order: OrderOption = SortOrder.DESC.value,
     include_without_files: IncludeWithoutFilesOption = False,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query meeting metadata from database."""
+    set_verbosity(verbosity)
     working_groups = parse_working_groups(working_group)
     subgroups = parse_subgroups(subgroup)
     try:
@@ -582,14 +500,14 @@ def query_meetings(
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
-            removed = _clear_checkout_tdocs(checkout_dir)
+            removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
         if clear_specs:
             spec_counts = database.clear_specs()
             total_specs = sum(spec_counts.values())
             console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
-            removed_specs = _clear_checkout_specs(checkout_dir)
+            removed_specs = clear_checkout_specs(checkout_dir)
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
@@ -600,7 +518,7 @@ def query_meetings(
         return
 
     if checkout:
-        _checkout_meeting_tdocs(meetings, cache_dir)
+        checkout_meeting_tdocs(meetings, cache_dir)
 
     try:
         output = OutputFormat(output_format.lower())
@@ -627,8 +545,10 @@ def query_specs(
     checkout: CheckoutOption = False,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query spec metadata from database."""
+    set_verbosity(verbosity)
     specs = collect_spec_numbers(spec_numbers, spec_file)
     working_groups = parse_working_groups(working_group)
     wg_filter = working_groups[0].value if working_groups else None
@@ -652,14 +572,14 @@ def query_specs(
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
-            removed = _clear_checkout_tdocs(checkout_dir)
+            removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
         if clear_specs:
             spec_counts = database.clear_specs()
             total_specs = sum(spec_counts.values())
             console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
-            removed_specs = _clear_checkout_specs(checkout_dir)
+            removed_specs = clear_checkout_specs(checkout_dir)
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
@@ -673,7 +593,7 @@ def query_specs(
     if checkout:
         spec_list = [result.spec_number for result in results]
         with TDocDatabase(db_path) as database:
-            _checkout_specs(spec_list, cache_dir / "checkout", database, release="latest")
+            checkout_specs(spec_list, cache_dir / "checkout", database, release="latest")
 
     if output is OutputFormat.JSON:
         console.print(json.dumps([spec_query_to_dict(result) for result in results], indent=2))
@@ -683,14 +603,16 @@ def query_specs(
         print_spec_table(results)
 
 
-@app.command("open")
+@app.command("open", rich_help_panel=HELP_PANEL_MAIN)
 def open_tdoc(
     tdoc_id: TDocIdArgument,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download, extract, and open a TDoc file."""
+    set_verbosity(verbosity)
     normalized_id = tdoc_id.strip().upper()
     config = QueryConfig(
         cache_dir=cache_dir,
@@ -719,15 +641,17 @@ def open_tdoc(
     launch_file(target_file)
 
 
-@app.command()
+@app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)
 def checkout(
     tdoc_id: CheckoutTDocIdsArgument,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
     force: ForceOption = False,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract TDoc(s) to checkout folder."""
+    set_verbosity(verbosity)
     normalized_ids = [tid.strip().upper() for tid in tdoc_id]
     config = QueryConfig(
         cache_dir=cache_dir,
@@ -772,11 +696,13 @@ def checkout(
         console.print(f"[red]Failed: {error_count} TDoc(s)[/red]")
 
 
-@app.command()
+@app.command("stats", rich_help_panel=HELP_PANEL_MAIN)
 def stats(
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Display database statistics."""
+    set_verbosity(verbosity)
     db_path = database_path(cache_dir)
     if not db_path.exists():
         console.print(f"[red]Database not found: {db_path}[/red]")
@@ -813,8 +739,10 @@ def crawl_specs(
     checkout: CheckoutOption = False,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl spec metadata from configured sources."""
+    set_verbosity(verbosity)
     if spec_numbers is None:
         spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
@@ -824,7 +752,7 @@ def crawl_specs(
         console.print("[red]Invalid output format; use table, json, or yaml")
         raise typer.Exit(code=2) from exc
 
-    sources = cast(list[SpecSource], _build_spec_sources())
+    sources = build_default_spec_sources()
 
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
@@ -832,14 +760,14 @@ def crawl_specs(
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
-            removed = _clear_checkout_tdocs(checkout_dir)
+            removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
         if clear_specs:
             spec_counts = database.clear_specs()
             total_specs = sum(spec_counts.values())
             console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
-            removed_specs = _clear_checkout_specs(checkout_dir)
+            removed_specs = clear_checkout_specs(checkout_dir)
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
@@ -852,7 +780,7 @@ def crawl_specs(
 
     if checkout:
         with TDocDatabase(db_path) as database:
-            _checkout_specs([result.spec_number for result in results], cache_dir / "checkout", database, release=release)
+            checkout_specs([result.spec_number for result in results], cache_dir / "checkout", database, release=release)
 
     if output is OutputFormat.JSON:
         console.print(json.dumps([spec_crawl_to_dict(result) for result in results], indent=2))
@@ -862,7 +790,7 @@ def crawl_specs(
         print_spec_crawl_table(results)
 
 
-@app.command("checkout-spec", rich_help_panel=HELP_PANEL_QUERY)
+@app.command("checkout-spec", rich_help_panel=HELP_PANEL_MAIN)
 def checkout_spec(
     spec_numbers: SpecArgument = None,
     spec_file: SpecFileOption = None,
@@ -870,8 +798,10 @@ def checkout_spec(
     doc_only: DocOnlyOption = False,
     checkout_dir: CheckoutDirOption = None,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract spec documents."""
+    set_verbosity(verbosity)
     if spec_numbers is None:
         spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
@@ -881,7 +811,7 @@ def checkout_spec(
 
     effective_checkout_dir = checkout_dir or (cache_dir / "checkout")
 
-    sources = cast(list[SpecSource], _build_spec_sources())
+    sources = build_default_spec_sources()
 
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:
@@ -892,18 +822,20 @@ def checkout_spec(
     print_checkout_results(results)
 
 
-@app.command("open-spec")
+@app.command("open-spec", rich_help_panel=HELP_PANEL_MAIN)
 def open_spec(
     spec: Annotated[str, typer.Argument(help="Spec number")],
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and open a spec document."""
+    set_verbosity(verbosity)
     normalized = spec.strip()
     checkout_dir = cache_dir / "checkout"
 
-    sources = cast(list[SpecSource], _build_spec_sources())
+    sources = build_default_spec_sources()
 
     db_path = database_path(cache_dir)
     with TDocDatabase(db_path) as database:

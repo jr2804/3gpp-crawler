@@ -102,7 +102,6 @@ class MeetingCrawlConfig(BaseConfigModel):
     incremental: bool = Field(True, description="Only fetch updated meetings")
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="HTTP timeout in seconds")
-    verbose: bool = Field(False, description="Verbose logging")
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
     credentials: PortalCredentials | None = Field(None, description="Optional portal credentials")
 

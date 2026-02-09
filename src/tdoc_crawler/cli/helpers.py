@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import subprocess
 import sys
@@ -15,11 +14,12 @@ import typer
 from tdoc_crawler.cli.console import get_console
 from tdoc_crawler.crawlers import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import CrawlLimits, HttpCacheConfig, MeetingQueryConfig, SortOrder, WorkingGroup
-from tdoc_crawler.specs.normalization import normalize_portal_meeting_name
+from tdoc_crawler.specs.normalization import expand_spec_ranges_batch, normalize_portal_meeting_name
 
 console = get_console()
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 DEFAULT_DATABASE_FILENAME = "tdoc_crawler.db"
 DOWNLOAD_TIMEOUT = 60
@@ -130,9 +130,6 @@ def collect_spec_numbers(specs: list[str] | None, spec_file: Path | None) -> lis
     if not collected:
         return []
 
-    # Import here to avoid circular imports
-    from tdoc_crawler.specs.normalization import expand_spec_ranges_batch
-
     try:
         expanded = expand_spec_ranges_batch(collected)
     except ValueError as e:
@@ -239,7 +236,7 @@ def launch_file(path: Path) -> None:
         raise typer.Exit(code=1)
     try:
         if sys.platform.startswith("win"):
-            os.startfile(path)  # type: ignore[attr-defined]  # noqa: S606
+            os.startfile(path)  # noqa: S606
         elif sys.platform == "darwin":
             open_cmd = Path("/usr/bin/open")
             if open_cmd.exists():
