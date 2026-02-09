@@ -28,16 +28,17 @@
 
 This repository maintains separate documentation for humans and for coding agents:
 
-1. **docs/QUICK_REFERENCE.md** - Human-facing CLI usage and behavior (examples, flags)
+1. **docs/index.md** - Main documentation entry point (Jekyll-ready)
+1. **docs/*.md** - Modular task-oriented user guides (crawl, query, utils, etc.)
 1. **README.md** - Project overview and contributor entry points
 1. **docs/agents-md/** - Agent-facing modular implementation and workflow guidance
-1. **AGENTS.md** - Table of contents for all agent-facing modular documentation
+1. **AGENTS.md** - Core guidelines and rules for coding agents (standalone context)
 
 ### Critical Rules
 
-- **AGENTS.md** serves as the central table of contents for all development documentation
-- Modular files in `docs/agents-md/` contain specific aspects of development guidelines
-- When adding or modifying features, update relevant sections in the appropriate modular files
+- The modular user documentation in `docs/` **MUST** always be up to date and reflect current CLI behavior
+- **AGENTS.md** serves as the primary rule set and context for AI assistants
+- When adding or modifying features, update relevant sections in both user docs (`docs/*.md`) and agent docs (`docs/agents-md/`)
 - Keep documentation consistent with actual implementation
 
 ### Documentation Workflow

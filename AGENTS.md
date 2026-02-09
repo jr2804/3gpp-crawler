@@ -239,16 +239,25 @@ Whenever you execute shell commands (including via `just`, `uv`, `pytest`, or an
 
 ### User Documentation
 
-The project maintains three levels of documentation:
+The project maintains a modular documentation structure:
 
-1. **README.md** - Project overview, installation, basic usage
-1. **docs/QUICK_REFERENCE.md** - Comprehensive command reference (MUST be kept current)
-1. **docs/history/** - Chronological changelog of all significant changes
+1. **README.md** - Project overview, installation, and Quick Start examples.
+1. **docs/index.md** - Main documentation entry point (Jekyll-ready).
+1. **docs/QUICK_REFERENCE.md** - Comprehensive command reference (MUST be kept current).
+1. **docs/*.md** - Modular task-oriented guides (crawl, query, utils, etc.).
+1. **docs/history/** - Chronological changelog of all significant changes.
 
 **Critical Rules:**
 
-- `docs/QUICK_REFERENCE.md` **MUST** always be up to date and reflect the current state of ALL commands
-- When adding or modifying commands, **BOTH** the history file AND `docs/QUICK_REFERENCE.md` must be updated
+- `docs/QUICK_REFERENCE.md` and related modular files **MUST** always be up to date and reflect the current state of ALL commands.
+- When adding or modifying commands, **BOTH** the history file AND the relevant documentation files must be updated.
+
+## Data Source Guidelines
+
+- **WhatTheSpec (whatthespec.net)** is the primary unauthenticated community source for metadata.
+- **3GPP Portal (EOL)** is the official authenticated fallback source.
+- Credentials (EOL) are only needed for authoritative 3GPP-official data or when WhatTheSpec is unavailable.
+- For most users, **WhatTheSpec** is sufficient and preferred as it requires no login.
 
 ## AGENTS.md File Design Guidelines
 

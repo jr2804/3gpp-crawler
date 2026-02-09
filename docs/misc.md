@@ -38,11 +38,11 @@ While `tdoc-crawler` primarily uses **WhatTheSpec** for its speed and lack of re
 
 ### Resolution Order
 
-The tool prefers unauthenticated community access first, falling back to the 3GPP portal if credentials are provided:
+The tool prefers unauthenticated community access first, falling back to 3GPP portal if credentials are provided:
 
 1. CLI parameters (`--eol-username`, `--eol-password`).
-2. Environment variables (`EOL_USERNAME`, `EOL_PASSWORD`).
-3. Interactive prompt (if `EOL_PROMPT=true`).
+2. Environment variables (`TDC_EOL_USERNAME`, `TDC_EOL_PASSWORD`).
+3. Interactive prompt (if `TDC_EOL_PROMPT=true`).
 
 ## Directory Structure
 
