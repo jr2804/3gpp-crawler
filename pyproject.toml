@@ -33,8 +33,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://Jan-Reimes_HEAD.github.io/tdoc-crawler/"
-Repository = "https://github.com/Jan-Reimes_HEAD/tdoc-crawler"
-Documentation = "https://Jan-Reimes_HEAD.github.io/tdoc-crawler/"
+Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
+
 
 [dependency-groups]
 dev = [

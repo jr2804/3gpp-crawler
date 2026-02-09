@@ -48,10 +48,10 @@ gh repo create tdoc-crawler --private --source=. --remote=origin \
 
 **Repository Details:**
 
-- **URL:** https://github.com/Jan-Reimes_HEAD/tdoc-crawler
+- **URL:** <https://forge.3gpp.org/rep/reimes/tdoc-crawler>
 - **Visibility:** Private (Enterprise Managed User account requirement)
 - **Remote:** origin
-- **Remote URL:** https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git
+- **Remote URL:** <https://forge.3gpp.org/rep/reimes/tdoc-crawler.git>
 
 ## Repository Status
 
@@ -63,8 +63,8 @@ gh repo create tdoc-crawler --private --source=. --remote=origin \
 ### Remote Configuration
 
 ```
-origin  https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git (fetch)
-origin  https://github.com/Jan-Reimes_HEAD/tdoc-crawler.git (push)
+origin  https://forge.3gpp.org/rep/reimes/tdoc-crawler.git (fetch)
+origin  https://forge.3gpp.org/rep/reimes/tdoc-crawler.git (push)
 ```
 
 ### Next Steps
@@ -79,7 +79,7 @@ This will:
 
 - Push the main branch to the remote repository
 - Set up upstream tracking for the main branch
-- Make the code available on GitHub at https://github.com/Jan-Reimes_HEAD/tdoc-crawler
+- Make the code available on GitHub at <https://forge.3gpp.org/rep/reimes/tdoc-crawler>
 
 ## Git Workflow Going Forward
 

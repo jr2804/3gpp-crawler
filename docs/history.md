@@ -1,0 +1,33 @@
+# Product History
+
+This document provides a chronological log of all significant changes and improvements to the `tdoc-crawler` project.
+
+## Recent Changes
+
+- **2026-02-09**: [Align CLI options across commands](history/2026-02-09_SUMMARY_01_ALIGN_CLI_OPTIONS_ACROSS_COMMANDS.md)
+- **2026-02-07**: [Spec download auto-crawl and bug fixes](history/2026-02-07_SUMMARY_01_SPEC_DOWNLOAD_AUTO_CRAWL_AND_BUG_FIXES.md)
+- **2026-02-03**: [Lazy credential resolution](history/2026-02-03_SUMMARY_03_LAZY_CREDENTIAL_RESOLUTION.md)
+- **2026-02-03**: [TDoc URL extraction improvements](history/2026-02-03_SUMMARY_02_TDOC_URL_EXTRACTION.md)
+- **2026-02-02**: [CLI command documentation updates](history/2026-02-02_SUMMARY_01_CLI_COMMAND_DOCUMENTATION.md)
+- **2025-11-11**: [Crawl TDoc list feature](history/2025-11-11_SUMMARY_01_CRAWL_TDOC_LIST.md)
+- **2025-11-01**: [CLI refactoring plan and beads dependencies](history/2025-11-01_SUMMARY_02_CLI_REFACTORING_PLAN.md)
+- **2025-10-30**: [HTTP caching feature implementation](history/2025-10-30_SUMMARY_01_HTTP_CACHING_FEATURE.md)
+- **2025-10-24**: [TDoc count database optimization](history/2025-10-24_SUMMARY_02_TDOC_COUNT_DATABASE_OPTIMIZATION.md)
+- **2025-10-24**: [Constants extraction and parallel worker refactoring](history/2025-10-24_SUMMARY_01_CONSTANTS_EXTRACTION_AND_PARALLEL_WORKER_REFACTORING.md)
+- **2025-10-23**: [Fix subgroup inference](history/2025-10-23_SUMMARY_02_FIX_SUBGROUP_INFERENCE.md)
+- **2025-10-23**: [Progress bar and clear flags](history/2025-10-23_SUMMARY_01_PROGRESS_BAR_AND_CLEAR_FLAGS.md)
+- **2025-10-23**: [AGENTS.md review and improvements](history/2025-10-23_SUMMARY_01_AGENTS_MD_REVIEW_AND_IMPROVEMENTS.md)
+- **2025-10-22**: [Status field update](history/2025-10-22_SUMMARY_06_STATUS_FIELD_UPDATE.md)
+- **2025-10-22**: [Portal metadata parsing](history/2025-10-22_SUMMARY_05_PORTAL_METADATA_PARSING.md)
+- **2025-10-22**: [Test fixtures and critical pattern fix](history/2025-10-22_SUMMARY_03_TEST_FIXTURES_AND_CRITICAL_PATTERN_FIX.md)
+- **2025-10-22**: [Database refactoring](history/2025-10-22_SUMMARY_02_DATABASE_REFACTORING.md)
+- **2025-10-22**: [CLI refactoring and command renaming](history/2025-10-22_SUMMARY_01_CLI_REFACTORING_AND_COMMAND_RENAMING.md)
+- **2025-10-21**: [Crawler HTTP migration and refactoring](history/2025-10-21_SUMMARY_05_crawler_http_migration_and_refactoring.md)
+- **2025-10-21**: [Add subgroup filtering to crawl](history/2025-10-21_SUMMARY_04_ADD_SUBGROUP_FILTERING_TO_CRAWL.md)
+- **2025-10-21**: [Remove redundant files](history/2025-10-21_SUMMARY_03_REMOVE_REDUNDANT_FILES.md)
+- **2025-10-21**: [Database schema updates](history/2025-10-21_SUMMARY_02_DATABASE_SCHEMA_UPDATES.md)
+- **2025-10-21**: [TDoc crawler refactoring](history/2025-10-21_SUMMARY_01_TDOC_CRAWLER_REFACTORING.md)
+- **2025-10-20**: [Subgroup filtering implementation](history/2025-10-20_SUMMARY_04_SUBGROUP_FILTERING.md)
+- **2025-10-20**: [Env example setup](history/2025-10-20_SUMMARY_03_env_example_setup.md)
+- **2025-10-20**: [Git repository setup](history/2025-10-20_SUMMARY_02_git_repository_setup.md)
+- **2025-10-20**: [Targeted fetch documentation](history/2025-10-20_SUMMARY_01_targeted_fetch_documentation.md)

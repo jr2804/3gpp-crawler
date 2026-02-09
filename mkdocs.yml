@@ -1,5 +1,5 @@
 site_name: tdoc-crawler
-repo_url: https://github.com/Jan-Reimes_HEAD/tdoc-crawler
+repo_url: https://forge.3gpp.org/rep/reimes/tdoc-crawler
 site_url: https://Jan-Reimes_HEAD.github.io/tdoc-crawler
 site_description: Crawl 3GPP FTP server, cache all(!) TDocs data, return structured JSON/YAML for each TDoc - all via CLI.
 site_author: Jan Reimes
@@ -41,7 +41,7 @@ theme:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/Jan-Reimes_HEAD/tdoc-crawler
+      link: https://forge.3gpp.org/rep/reimes/tdoc-crawler
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/tdoc-crawler
 
