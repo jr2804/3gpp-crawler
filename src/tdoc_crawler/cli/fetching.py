@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from tdoc_crawler.cli.console import get_console
 from tdoc_crawler.cli.helpers import resolve_meeting_id
-from tdoc_crawler.crawlers import TDocCrawlResult, WhatTheSpecResolutionError, fetch_tdoc_metadata, resolve_via_whatthespec
+from tdoc_crawler.crawlers import TDocCrawlResult, WhatTheSpecResolutionError, create_portal_client, resolve_via_whatthespec
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import HttpCacheConfig, PortalCredentials, QueryConfig, TDocMetadata
@@ -53,10 +53,12 @@ def fetch_missing_tdocs(
     inserted_count = 0
     updated_count = 0
 
+    client = create_portal_client(credentials=credentials, cache_dir=cache_dir)
+
     for tdoc_id in missing_ids:
         try:
-            # Fetch metadata from portal (now returns TDocMetadata directly)
-            metadata = fetch_tdoc_metadata(tdoc_id, credentials)
+            # Fetch metadata from portal using PortalClient
+            metadata = client.fetch_tdoc_metadata(tdoc_id)
 
             # Resolve meeting_id from meeting name if available
             if metadata.meeting_name:

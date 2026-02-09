@@ -64,16 +64,17 @@ class TestInferWorkingGroups:
 class TestFetchMissingTdocs:
     """Tests for fetch_missing_tdocs function."""
 
-    @patch("tdoc_crawler.cli.fetching.fetch_tdoc_metadata")
+    @patch("tdoc_crawler.cli.fetching.create_portal_client")
     def test_fetch_missing_creates_config(
         self,
-        mock_fetch_portal: MagicMock,
+        mock_create_client: MagicMock,
         test_db_path: Path,
         sample_meetings: list[dict],
     ) -> None:
         """Ensure targeted fetch creates proper config."""
-        # Mock portal response (now returns TDocMetadata)
-        mock_fetch_portal.return_value = TDocMetadata(
+        # Mock portal client and its fetch_tdoc_metadata method
+        mock_client = MagicMock()
+        mock_client.fetch_tdoc_metadata.return_value = TDocMetadata(
             tdoc_id="R1-2301234",
             meeting_id=0,
             meeting_name="RAN1#98",
@@ -88,6 +89,7 @@ class TestFetchMissingTdocs:
             status="Approved",
             validated=True,
         )
+        mock_create_client.return_value = mock_client
 
         credentials = PortalCredentials(username="test", password="test")
 
@@ -103,18 +105,19 @@ class TestFetchMissingTdocs:
         assert result.processed == 1
         assert result.inserted == 1
         assert not result.errors
-        mock_fetch_portal.assert_called_once()
+        mock_client.fetch_tdoc_metadata.assert_called_once_with("R1-2301234")
 
-    @patch("tdoc_crawler.cli.fetching.fetch_tdoc_metadata")
+    @patch("tdoc_crawler.cli.fetching.create_portal_client")
     def test_fetch_missing_infers_working_groups(
         self,
-        mock_fetch_portal: MagicMock,
+        mock_create_client: MagicMock,
         test_db_path: Path,
         sample_meetings: list[dict],
     ) -> None:
         """Verify working groups are inferred from target IDs."""
         # Mock portal responses (now return TDocMetadata instances)
-        mock_fetch_portal.side_effect = [
+        mock_client = MagicMock()
+        mock_client.fetch_tdoc_metadata.side_effect = [
             TDocMetadata(
                 tdoc_id="R1-2301234",
                 meeting_id=0,
@@ -146,6 +149,7 @@ class TestFetchMissingTdocs:
                 validated=True,
             ),
         ]
+        mock_create_client.return_value = mock_client
 
         credentials = PortalCredentials(username="test", password="test")  # noqa: S106
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from tdoc_crawler.crawlers.portal import extract_tdoc_url_from_portal, fetch_tdoc_metadata
+from tdoc_crawler.crawlers.portal import create_portal_client
 from tdoc_crawler.crawlers.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
 from tdoc_crawler.models.tdocs import TDocMetadata
@@ -47,42 +47,44 @@ def fetch_tdoc(
     Raises:
         Exception: If fetching fails for any reason.
     """
-    # Import here to avoid circular imports
-
     if use_whatthespec:
         # Always use WhatTheSpec method (Method 3)
         logger.debug(f"Fetching {tdoc_id} via WhatTheSpec API")
-        return resolve_via_whatthespec(tdoc_id, cache_dir, http_cache, timeout)
+        metadata = resolve_via_whatthespec(tdoc_id, cache_dir, http_cache, timeout)
+        if metadata is None:
+            raise ValueError(f"TDoc {tdoc_id} not found via WhatTheSpec")
+        return metadata
 
     elif full_metadata:
         # Use authenticated portal method (Method 2)
         if credentials is None:
             raise ValueError("Portal credentials required for full metadata fetching")
         logger.debug(f"Fetching {tdoc_id} via authenticated 3GPP portal")
-        return fetch_tdoc_metadata(tdoc_id, credentials, cache_dir, http_cache.ttl, http_cache.refresh_ttl_on_access, timeout)
+        client = create_portal_client(
+            credentials=credentials,
+            cache_dir=cache_dir,
+            cache_ttl=http_cache.ttl,
+            cache_refresh_on_access=http_cache.refresh_ttl_on_access,
+            timeout=timeout,
+        )
+        return client.fetch_tdoc_metadata(tdoc_id)
 
     else:
         # Use unauthenticated portal method (Method 1) - URL only
         logger.debug(f"Fetching {tdoc_id} via unauthenticated 3GPP portal")
-        # Extract URL and create minimal TDocMetadata
-        url = extract_tdoc_url_from_portal(tdoc_id, timeout=min(timeout, 15))
+        client = create_portal_client(cache_dir=cache_dir, timeout=min(timeout, 15))
+        url = client.extract_tdoc_url(tdoc_id)
         return TDocMetadata(
-            tdoc_id=tdoc_id,
-            url=url,
-            title="",
+            tdoc_id=tdoc_id.upper(),
             meeting_id=0,
+            title="",
+            url=url,
             source="",
             contact="",
+            tdoc_type="unknown",
+            for_purpose="unknown",
             agenda_item_nbr=0,
-            date=None,
-            revision_of="",
-            technical_committee="",
-            working_group="",
-            type="",
-            status="",
-            referenced_documents=[],
-            filename="",
-            size=0,
+            agenda_item_text="Unknown",
             validated=False,
             validation_failed=False,
         )

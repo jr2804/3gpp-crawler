@@ -1,16 +1,26 @@
-"""3GPP Portal authentication and TDoc metadata parsing."""
+"""3GPP Portal authentication and TDoc metadata parsing.
+
+This module provides the PortalClient class as the primary interface for
+interacting with the 3GPP portal. It consolidates:
+
+- Session management and authentication
+- TDoc URL extraction (unauthenticated)
+- TDoc metadata fetching (authenticated)
+- HTML parsing utilities
+
+For backward compatibility, standalone functions are also provided that delegate
+to PortalClient under the hood.
+"""
 
 from __future__ import annotations
 
 import logging
 import re
-import tempfile
-from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
-from pydantic import ValidationError
 
 from tdoc_crawler.crawlers.constants import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
 from tdoc_crawler.http_client import create_cached_session
@@ -18,6 +28,17 @@ from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
+
+# Common browser headers to avoid 403 Forbidden responses
+_BROWSER_HEADERS: dict[str, str] = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
 
 
 class PortalAuthenticationError(Exception):
@@ -29,7 +50,11 @@ class PortalParsingError(Exception):
 
 
 class PortalSession:
-    """Manages authenticated session with 3GPP portal."""
+    """Manages authenticated session with 3GPP portal.
+
+    Note: This class is kept for backward compatibility. New code should use
+    PortalClient which provides a unified interface.
+    """
 
     def __init__(self, credentials: PortalCredentials, cache_dir: Path, cache_ttl: int = 7200, cache_refresh_on_access: bool = True, timeout: int = 30) -> None:
         """Initialize portal session.
@@ -291,58 +316,6 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         logger.warning(error_msg)
         raise PortalParsingError(error_msg)
 
-    # URL is extracted from the status field download link during parsing
-    # If no download link was found, url will be None
-
-    # Parse agenda_item_nbr as Decimal
-    try:
-        agenda_nbr_decimal = Decimal(str(metadata["agenda_item_nbr"]))
-    except Exception as exc:
-        error_msg = f"Invalid agenda item number '{metadata['agenda_item_nbr']}' for TDoc {tdoc_id}: {exc}"
-        logger.warning(error_msg)
-        raise PortalParsingError(error_msg) from exc
-
-    # Create TDocMetadata instance
-    # At this point we've validated all mandatory fields exist and are not None
-    try:
-        tdoc_metadata = TDocMetadata(
-            tdoc_id=tdoc_id.upper(),
-            meeting_id=0,  # Will be resolved later from meeting_name
-            meeting_name=metadata.get("meeting"),  # Store original meeting name for resolution
-            title=str(metadata["title"]),
-            url=url,
-            source=str(metadata["source"]),
-            contact=str(metadata["contact"]),
-            tdoc_type=str(metadata.get("tdoc_type", "unknown")),
-            for_purpose=str(metadata.get("for", "unknown")),
-            agenda_item_nbr=agenda_nbr_decimal,
-            agenda_item_text=str(metadata.get("agenda_item_text", "Unknown")),
-            status=metadata.get("status"),
-            is_revision_of=metadata.get("is_revision_of"),
-            file_size=None,
-            date_created=None,
-            validated=True,
-            validation_failed=False,
-        )
-        logger.debug(f"Successfully parsed metadata for TDoc {tdoc_id}")
-        return tdoc_metadata
-
-    except ValidationError as exc:
-        # Extract and display only the actual validation errors, not the full stack trace
-        validation_errors = []
-        for error in exc.errors():
-            field = error["loc"][0] if error["loc"] else "unknown"
-            message = error["msg"]
-            validation_errors.append(f"{field}: {message}")
-
-        error_msg = f"Failed to create TDocMetadata for TDoc {tdoc_id}: {'; '.join(validation_errors)}"
-        logger.warning(error_msg)
-        raise PortalParsingError(error_msg) from exc
-    except Exception as exc:
-        error_msg = f"Failed to create TDocMetadata for TDoc {tdoc_id}: {exc}"
-        logger.warning(error_msg)
-        raise PortalParsingError(error_msg) from exc
-
 
 def extract_tdoc_url_from_portal(tdoc_id: str, cache_dir: Path | None = None, timeout: int = 15) -> str:
     """Extract direct FTP download URL for a TDoc using unauthenticated DownloadTDoc.aspx endpoint.
@@ -430,46 +403,278 @@ def extract_tdoc_url_from_portal(tdoc_id: str, cache_dir: Path | None = None, ti
         session.close()
 
 
-# TODO: ambigious name with PortalSession.fetch_tdoc_metadata!
-def fetch_tdoc_metadata(
-    tdoc_id: str,
-    credentials: PortalCredentials,
+class PortalClient:
+    """Unified 3GPP portal client with authentication and TDoc fetching.
+
+    This class consolidates all portal-related functionality into a single interface:
+    - Session management with browser headers
+    - Authentication with EOL credentials
+    - Unauthenticated TDoc URL extraction
+    - Authenticated TDoc metadata fetching
+    - HTML parsing utilities
+
+    Example:
+        >>> client = PortalClient(credentials=creds)
+        >>> url = client.extract_tdoc_url("S4-251364")
+        >>> metadata = client.fetch_tdoc_metadata("S4-251364", url)
+    """
+
+    def __init__(
+        self,
+        credentials: PortalCredentials | None = None,
+        cache_dir: Path | None = None,
+        cache_ttl: int = 7200,
+        cache_refresh_on_access: bool = True,
+        timeout: int = 30,
+    ) -> None:
+        """Initialize portal client.
+
+        Args:
+            credentials: Optional credentials (required for full metadata fetching).
+            cache_dir: Directory for HTTP cache storage.
+            cache_ttl: Cache TTL in seconds.
+            cache_refresh_on_access: Whether to refresh TTL on access.
+            timeout: Request timeout in seconds.
+        """
+        self.credentials = credentials
+        self.cache_dir = cache_dir or Path.home() / ".tdoc-crawler"
+        self.timeout = timeout
+        self._cache_ttl = cache_ttl
+        self._cache_refresh_on_access = cache_refresh_on_access
+        self._authenticated = False
+        self._session: requests.Session | None = None
+
+    def close(self) -> None:
+        """Close the underlying session if it exists."""
+        if self._session is not None:
+            self._session.close()
+            self._session = None
+
+    def __enter__(self) -> PortalClient:
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        """Exit context manager and close session."""
+        self.close()
+
+    def authenticate(self) -> None:
+        """Authenticate with the 3GPP portal using EOL credentials.
+
+        Raises:
+            PortalAuthenticationError: If authentication fails.
+            ValueError: If no credentials were provided.
+        """
+        if self._authenticated:
+            return
+
+        if self.credentials is None:
+            raise ValueError("Credentials required for authentication")
+
+        logger.info("Authenticating with 3GPP portal...")
+
+        session = self._get_session()
+
+        # Step 1: Visit the login page to establish session and get cookies
+        logger.debug("Visiting login page to establish session...")
+        initial_response = session.get(LOGIN_URL, timeout=self.timeout)
+        initial_response.raise_for_status()
+
+        # Step 2: Call the AJAX login endpoint
+        login_api_url = f"{PORTAL_BASE_URL}/ETSIPages/LoginEOL.ashx"
+        login_payload = {
+            "username": self.credentials.username,
+            "password": self.credentials.password,
+        }
+
+        logger.debug(f"Calling login API at {login_api_url}")
+
+        login_response = session.post(
+            login_api_url,
+            json=login_payload,
+            headers={
+                "Content-Type": "application/json; charset=UTF-8",
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": LOGIN_URL,
+            },
+            timeout=self.timeout,
+        )
+        login_response.raise_for_status()
+
+        response_text = login_response.text.strip()
+        logger.debug(f"Login API response: {response_text}")
+
+        if response_text.lower() == "failed":
+            raise PortalAuthenticationError("Authentication failed - check credentials")
+
+        self._authenticated = True
+        logger.info("Successfully authenticated with 3GPP portal")
+
+    def extract_tdoc_url(self, tdoc_id: str) -> str:
+        """Extract direct FTP download URL for a TDoc (unauthenticated).
+
+        Args:
+            tdoc_id: TDoc identifier (e.g., 'S4-251364').
+
+        Returns:
+            Direct FTP/HTTPS URL for the TDoc download.
+
+        Raises:
+            PortalParsingError: If TDoc ID is invalid or URL extraction fails.
+            requests.RequestException: For network errors.
+        """
+        logger.debug(f"Extracting TDoc URL from DownloadTDoc endpoint for {tdoc_id}")
+
+        download_url = f"{TDOC_DOWNLOAD_URL}?contributionUid={tdoc_id}"
+        session = self._get_session()
+
+        try:
+            response = session.get(download_url, timeout=self.timeout)
+            response.raise_for_status()
+
+            if "cannot be found" in response.text.lower() or "not found" in response.text.lower():
+                raise PortalParsingError(f"TDoc {tdoc_id} not found on portal")
+
+            # Extract URL from JavaScript redirect pattern
+            pattern = r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]"
+            match = re.search(pattern, response.text)
+
+            if not match:
+                # Try CDATA section pattern
+                cdata_pattern = r"<!\[CDATA\[(.*?)\]\]>"
+                cdata_matches = re.findall(cdata_pattern, response.text)
+                for cdata_match in cdata_matches:
+                    inner_match = re.search(r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]", cdata_match)
+                    if inner_match:
+                        match = inner_match
+                        break
+
+            if not match:
+                raise PortalParsingError(f"Failed to extract URL for TDoc {tdoc_id}: JavaScript redirect not found")
+
+            extracted_url = match.group(1).strip()
+
+            if not extracted_url.startswith(("http://", "https://", "ftp://")):
+                raise PortalParsingError(f"Invalid URL format for TDoc {tdoc_id}: {extracted_url}")
+
+            logger.debug(f"Successfully extracted TDoc URL for {tdoc_id}: {extracted_url}")
+            return extracted_url
+
+        except requests.RequestException:
+            raise
+        except PortalParsingError:
+            raise
+        except Exception as exc:
+            error_msg = f"Failed to extract URL for TDoc {tdoc_id}: {exc}"
+            logger.error(error_msg)
+            raise PortalParsingError(error_msg) from exc
+
+    def fetch_tdoc_metadata(self, tdoc_id: str, url: str | None = None) -> TDocMetadata:
+        """Fetch full TDoc metadata from portal (requires authentication).
+
+        Args:
+            tdoc_id: TDoc identifier (e.g., 'S4-251364').
+            url: Optional TDoc URL (if known, skips URL extraction).
+
+        Returns:
+            TDocMetadata instance with full portal metadata.
+
+        Raises:
+            PortalAuthenticationError: If authentication fails.
+            PortalParsingError: If page parsing fails or TDoc not found.
+            ValueError: If no credentials were provided.
+        """
+        # Extract URL if not provided
+        if url is None:
+            try:
+                url = self.extract_tdoc_url(tdoc_id)
+                logger.debug(f"Using extracted URL for {tdoc_id}")
+            except Exception as e:
+                logger.debug(f"URL extraction failed for {tdoc_id}: {e}")
+                # Continue - authenticated method can still work without pre-extracted URL
+
+        # Ensure authenticated
+        self.authenticate()
+
+        # Fetch TDoc page
+        view_url = f"{TDOC_VIEW_URL}?mode=view&contributionUid={tdoc_id}"
+        logger.debug(f"Fetching TDoc metadata from {view_url}")
+
+        session = self._get_session()
+        response = session.get(view_url, timeout=self.timeout)
+        response.raise_for_status()
+
+        # Check if redirected to login (session expired)
+        if "login.aspx" in response.url.lower():
+            self._authenticated = False
+            raise PortalAuthenticationError("Session expired - re-authentication required")
+
+        # Parse the page
+        return self.parse_tdoc_page(response.text, tdoc_id, url)
+
+    @staticmethod
+    def parse_tdoc_page(html: str, tdoc_id: str, url: str | None = None) -> TDocMetadata:
+        """Parse TDoc metadata from portal HTML page.
+
+        This is a static method for cases where you have raw HTML content
+        and want to parse it without making HTTP requests.
+
+        Args:
+            html: HTML content of the TDoc portal page.
+            tdoc_id: TDoc identifier for logging.
+            url: Optional TDoc URL (if known).
+
+        Returns:
+            TDocMetadata instance with portal metadata.
+
+        Raises:
+            PortalParsingError: If TDoc not found, metadata table not found, or mandatory fields missing.
+        """
+        return parse_tdoc_portal_page(html, tdoc_id, url)
+
+    def _get_session(self) -> requests.Session:
+        """Get or create a cached session with browser headers.
+
+        Returns:
+            Session configured with browser-like headers for portal access.
+        """
+        if self._session is None:
+            self._session = create_cached_session(
+                cache_dir=self.cache_dir,
+                ttl=self._cache_ttl,
+                refresh_ttl_on_access=self._cache_refresh_on_access,
+                max_retries=3,
+            )
+            self._session.headers.update(_BROWSER_HEADERS)
+        return self._session
+
+
+def create_portal_client(
+    credentials: PortalCredentials | None = None,
     cache_dir: Path | None = None,
     cache_ttl: int = 7200,
     cache_refresh_on_access: bool = True,
     timeout: int = 30,
-    url: str | None = None,
-) -> TDocMetadata:
-    """Fetch TDoc metadata from 3GPP portal (convenience function).
+) -> PortalClient:
+    """Factory function to create a PortalClient instance.
+
+    This is the recommended way to create a PortalClient for new code.
 
     Args:
-        tdoc_id: TDoc identifier (e.g., 'S4-251364')
-        credentials: ETSI Online Account credentials
-        cache_dir: Directory for HTTP cache storage (defaults to temp directory)
-        cache_ttl: HTTP cache TTL in seconds
-        cache_refresh_on_access: Whether to refresh cache TTL on access
-        timeout: Request timeout in seconds
-        url: Optional TDoc URL (if known)
+        credentials: Optional credentials (required for full metadata).
+        cache_dir: Directory for HTTP cache storage.
+        cache_ttl: Cache TTL in seconds.
+        cache_refresh_on_access: Whether to refresh TTL on access.
+        timeout: Request timeout in seconds.
 
     Returns:
-        TDocMetadata instance with portal metadata
-
-    Raises:
-        PortalAuthenticationError: If authentication fails
-        PortalParsingError: If page parsing fails or TDoc not found
+        Configured PortalClient instance.
     """
-    # Use temporary directory if no cache_dir provided for backward compatibility
-    if cache_dir is None:
-        cache_dir = Path(tempfile.gettempdir()) / "tdoc_crawler_test"
-        cache_dir.mkdir(exist_ok=True)
-
-    # Try to extract URL from unauthenticated endpoint first
-    if url is None:
-        try:
-            url = extract_tdoc_url_from_portal(tdoc_id, cache_dir=cache_dir, timeout=min(timeout, 15))
-        except Exception as e:
-            logger.debug(f"URL extraction failed for {tdoc_id}, falling back to authenticated method: {e}")
-            # Continue with authenticated method below
-
-    with PortalSession(credentials, cache_dir, cache_ttl, cache_refresh_on_access, timeout) as session:
-        return session.fetch_tdoc_metadata(tdoc_id, url)
+    return PortalClient(
+        credentials=credentials,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
+        cache_refresh_on_access=cache_refresh_on_access,
+        timeout=timeout,
+    )

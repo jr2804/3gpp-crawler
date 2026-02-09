@@ -18,10 +18,11 @@ from tdoc_crawler.crawlers.meetings import MeetingCrawler, MeetingCrawlResult, n
 from tdoc_crawler.crawlers.parallel import fetch_meeting_tdocs
 from tdoc_crawler.crawlers.portal import (
     PortalAuthenticationError,
+    PortalClient,
     PortalParsingError,
     PortalSession,
+    create_portal_client,
     extract_tdoc_url_from_portal,
-    fetch_tdoc_metadata,
     parse_tdoc_portal_page,
 )
 from tdoc_crawler.crawlers.tdocs import TDocCrawler, TDocCrawlResult
@@ -42,16 +43,17 @@ __all__ = [
     "MeetingCrawlResult",
     "MeetingCrawler",
     "PortalAuthenticationError",
+    "PortalClient",
     "PortalParsingError",
     "PortalSession",
     "TDocCrawlResult",
     "TDocCrawler",
     "WhatTheSpecResolutionError",
     "convert_excel_row_to_tdoc_metadata",
+    "create_portal_client",
     "extract_tdoc_url_from_portal",
     "fetch_meeting_document_list",
     "fetch_meeting_tdocs",
-    "fetch_tdoc_metadata",
     "normalize_subgroup_alias",
     "normalize_working_group_alias",
     "parse_excel_document_list",
