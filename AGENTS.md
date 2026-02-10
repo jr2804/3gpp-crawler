@@ -216,6 +216,23 @@ Whenever you execute shell commands (including via `mise`, `uv`, `pytest`, or an
 - Use `pytest` for testing, `ruff` for formatting/as linter, `isort` for imports, `ty` for type checking
 - For CSV/Excel files, use `pandas` with `python-calamine` for reading and `xlsxwriter` for writing - never use `openpyxl`
 - Keep modules under 500 lines, functions under 100 lines, classes under 300 lines. Refactor foöes when these limits are exceeded.
+
+## Python annotations and type checking
+
+**Mandatory**: You MUST NOT use the following idiom:
+
+```shell
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from tdoc_crawler.specs.sources.base import SpecSource
+
+```
+
+Avoid `TYPE_CHECKING` usage at all costs. Instead, use direct imports. Python 3.7+ handles circular imports more gracefully when type hints are used. In addition, possible or real circular imports always indicate a bad separation of concerns and should be resolved by refactoring the code to better separate responsibilities. If you encounter a circular import, refactor the code to eliminate it rather than using `TYPE_CHECKING` as a band-aid.
+
+## Python lintering
+
 - Use skill `python-linter` for dealing with linter issues found when calling `ruff check src/ tests/`.
 - **Mandatory**: You MUST NEVER suppress any linter issue in `src/` or `tests/` with `# noqa` or similar.
 - **Mandatory**:  You MUST NOT introduce any of the following linter issues, neither in `tests/` nor in `src/`:
