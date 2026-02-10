@@ -26,6 +26,7 @@ from tdoc_crawler.checkout import (
 from tdoc_crawler.cli.args import (
     DEFAULT_VERBOSITY,
     CacheDirOption,
+    CheckoutDirOption,
     CheckoutOption,
     CheckoutTDocIdsArgument,
     ClearDbOption,
@@ -64,7 +65,6 @@ from tdoc_crawler.cli.args import (
     WorkingGroupOption,
 )
 from tdoc_crawler.cli.console import get_console
-from tdoc_crawler.cli.helpers import build_limits, collect_spec_numbers, launch_file, parse_subgroups, parse_working_groups
 from tdoc_crawler.cli.printing import (
     meeting_to_dict,
     print_checkout_results,
@@ -76,17 +76,17 @@ from tdoc_crawler.cli.printing import (
     spec_query_to_dict,
     tdoc_to_dict,
 )
+from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.credentials import resolve_credentials, set_credentials
-from tdoc_crawler.database import SpecDatabase, TDocDatabase
+from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.fetching import fetch_missing_tdocs
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.models import MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, TDocCrawlConfig
-from tdoc_crawler.models.specs import SpecQueryFilters
-from tdoc_crawler.specs import SpecCatalog
-from tdoc_crawler.specs.downloads import SpecDownloads
+from tdoc_crawler.models import CrawlLimits, MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, SpecQueryFilters, TDocCrawlConfig
+from tdoc_crawler.specs import SpecDatabase, SpecDownloads
+from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
 
 load_dotenv()
 
@@ -126,7 +126,8 @@ def crawl_tdocs(
 
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
-    limits = build_limits(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
+
+    limits = CrawlLimits.build(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
     config = TDocCrawlConfig(
         cache_dir=manager.root,
         working_groups=working_groups,
@@ -158,7 +159,7 @@ def crawl_tdocs(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
-    with SpecDatabase(db_file) as database:
+    with TDocDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         # Clear TDocs if requested
         if clear_tdocs:
@@ -275,7 +276,7 @@ def crawl_meetings(
 
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
-    limits = build_limits(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
+    limits = CrawlLimits.build(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
     set_credentials(eol_username, eol_password, prompt_credentials)
     config = MeetingCrawlConfig(
         cache_dir=manager.root,
@@ -297,7 +298,7 @@ def crawl_meetings(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         # Clear all data if requested
         if clear_db:
@@ -369,7 +370,7 @@ def crawl_meetings(
             order=SortOrder.DESC,
             include_without_files=False,
         )
-        with TDocDatabase(db_file) as database:
+        with SpecDatabase(db_file) as database:
             meetings = database.query_meetings(query_config)
 
         with create_cached_session(manager.http_cache_dir) as session:
@@ -515,7 +516,7 @@ def query_meetings(
     )
 
     db_file = manager.db_file
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -589,7 +590,7 @@ def query_specs(
         raise typer.Exit(code=2) from exc
 
     db_file = manager.db_file
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -605,8 +606,7 @@ def query_specs(
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
-        catalog = SpecCatalog(database)
-        results = catalog.query_specs(filters, release="latest")
+        results = database.query_specs(filters)
 
     if not results:
         console.print("[yellow]No specs found[/yellow]")
@@ -614,7 +614,7 @@ def query_specs(
 
     if checkout:
         spec_list = [result.spec_number for result in results]
-        with TDocDatabase(db_file) as database:
+        with SpecDatabase(db_file) as database:
             checkout_specs(spec_list, manager.checkout_dir, database, release="latest")
 
     if output is OutputFormat.JSON:
@@ -670,13 +670,13 @@ def open_tdoc(
             metadata = results[0]
 
         try:
-            target_file = prepare_tdoc_file(metadata, manager.root, session=session)
+            tdoc_file = prepare_tdoc_file(metadata, manager.root, session=session)
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             console.print(f"[red]Failed to prepare TDoc {normalized_id}: {exc}")
             raise typer.Exit(code=1) from exc
 
-        console.print(f"[green]Opening {target_file}")
-        launch_file(target_file)
+        console.print(f"[green]Opening {tdoc_file}")
+        launch_file(tdoc_file)
 
 
 @app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)
@@ -763,7 +763,7 @@ def stats(
         console.print(f"[red]Database not found: {db_file}[/red]")
         raise typer.Exit(code=1)
 
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         stats_dict = cast(dict[str, Any], database.get_statistics())
 
     table = Table(title="TDoc database statistics")
@@ -811,7 +811,7 @@ def crawl_specs(
     sources = build_default_spec_sources()
 
     db_file = manager.db_file
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -827,15 +827,14 @@ def crawl_specs(
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
-        catalog = SpecCatalog(database)
-        results = catalog.crawl_specs(specs, release, sources)
+        results = database.crawl_specs(specs, release, sources)
 
     if not results:
         console.print("[yellow]No specs crawled[/yellow]")
         return
 
     if checkout:
-        with TDocDatabase(db_file) as database:
+        with SpecDatabase(db_file) as database:
             checkout_specs(
                 [result.spec_number for result in results],
                 manager.checkout_dir,
@@ -857,7 +856,7 @@ def checkout_spec(
     spec_file: SpecFileOption = None,
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
-    # checkout_dir: CheckoutDirOption = None,
+    checkout_dir: CheckoutDirOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
@@ -876,7 +875,7 @@ def checkout_spec(
     sources = build_default_spec_sources()
 
     db_file = manager.db_file
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         downloader = SpecDownloads(database)
         results = downloader.checkout_specs(specs, doc_only, effective_checkout_dir, release, sources=sources)
 
@@ -901,12 +900,12 @@ def open_spec(
     sources = build_default_spec_sources()
 
     db_file = manager.db_file
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         downloader = SpecDownloads(database)
         try:
-            path = downloader.open_spec(normalized, doc_only, checkout_dir, release, sources=sources)
-            console.print(f"[green]Opening {path}[/green]")
-            launch_file(path)
+            spec_file = downloader.open_spec(normalized, doc_only, checkout_dir, release, sources=sources)
+            console.print(f"[green]Opening {spec_file}[/green]")
+            launch_file(spec_file)
         except Exception as exc:
             console.print(f"[red]Failed to open spec: {exc}[/red]")
             raise typer.Exit(code=1)

@@ -37,43 +37,9 @@ Assume `cli/` could be separated as an optional package. If a function would be 
 | `app.py` | Typer command definitions and CLI entry points |
 | `args.py` | Typer Annotated types for arguments and options |
 | `console.py` | Rich Console singleton for CLI output |
-| `helpers.py` | Helper functions - check classification rules above |
-| `fetching.py` | TDoc fetching - check classification rules below |
+| `utils.py` | Helper functions - check classification rules above |
 | `printing.py` | Table and output formatting for CLI |
 
-## Function Classification
-
-### `helpers.py`
-
-**CLI Functions (stay in cli/):**
-
-- `parse_working_groups()` - CLI argument parsing
-- `parse_subgroups()` - CLI argument parsing
-- `collect_spec_numbers()` - CLI stdin/file input handling
-- `build_limits()` - CLI config builder wrapper
-- `launch_file()` - System calls for opening files
-- `resolve_http_cache_config()` - CLI/env var configuration parsing
-- `infer_working_groups_from_ids()` - CLI string inference
-
-**Library Functions (moved to core):**
-
-- `normalize_portal_meeting_name()` → `tdoc_crawler.specs.normalization`
-- `resolve_meeting_id()` → `tdoc_crawler.database`
-- `download_to_path()` → `tdoc_crawler.http_client`
-- `prepare_tdoc_file()` → `tdoc_crawler.checkout`
-- `database_path()` → `tdoc_crawler.database`
-
-### `fetching.py`
-
-**CLI Functions (stay in cli/):**
-
-- `fetch_missing_tdocs()` - Uses CLI console output
-- `_fetch_via_whatthespec()` - Uses CLI console output
-- `maybe_fetch_missing_tdocs()` - CLI console and flag handling
-
-**Library Functions:**
-
-- `fetch_tdoc()` - Import from `tdoc_crawler.fetching` (not duplicated in CLI)
 
 ## Lessons Learned
 
