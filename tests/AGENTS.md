@@ -2,26 +2,6 @@
 
 This document provides guidance for organizing and extending tests in the TDoc-Crawler project.
 
-## Test Directory Structure
-
-```
-tests/
-├── AGENTS.md                    # This file
-├── conftest.py                  # Shared pytest fixtures
-├── pool_executor/               # Pool executor tests
-│   ├── __init__.py
-│   ├── test_executor_adapter.py # Runner adapter tests
-│   └── test_serial_executor.py  # SerialPoolExecutor tests
-├── test_cli.py
-├── test_crawler.py
-├── test_database.py
-├── test_http_client.py
-├── test_meeting_document_list.py
-├── test_models.py
-├── test_portal_auth.py
-└── test_targeted_fetch.py
-```
-
 ## Pool Executor Tests (`tests/pool_executor/`)
 
 The `pool_executor/` directory contains all tests related to the `pool_executors` package, which provides executor pool extensions including serial execution support.
@@ -92,14 +72,6 @@ Use package-level imports:
 from pool_executors.pool_executors import SerialPoolExecutor, create_executor
 ```
 
-### Other Tests
-
-Use project imports:
-
-```python
-from tdoc_crawler.crawlers.executor_adapter import Runner
-from tdoc_crawler.models.tdocs import TDocMetadata
-```
 
 ## Best Practices
 

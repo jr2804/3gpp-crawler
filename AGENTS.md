@@ -355,6 +355,8 @@ For `src/tdoc_crawler/cli/AGENTS.md`, the focus should be on:
 ### Review and Updates
 
 After several implementation steps, AGENTS.md files might need updates. When explicitly asked:
+
 1. Review the current state using `docs/REVIEW_AND_IMPROVEMENTS_AGENTS_MD.md`
 2. Propose changes based on accumulated knowledge
 3. Update only after explicit user confirmation
+4. For any AGENTS.md files in the project structure, you MUST NEVER add a tree view of files or directories. This changes too often, and coding agents can easily retrieve the project's file structure using `ls` or `tree` commands when needed. AGENTS.md should focus on guidelines and patterns, not on file listings.
