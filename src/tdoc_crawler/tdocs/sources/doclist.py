@@ -1,4 +1,8 @@
-"""Meeting-based TDoc document list fetcher for credential-free metadata retrieval."""
+"""Meeting Document List TDoc metadata source.
+
+This module provides a TDocSource implementation that fetches metadata
+from 3GPP meeting document list Excel files (unauthenticated).
+"""
 
 from __future__ import annotations
 
@@ -8,11 +12,15 @@ import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
+
+if TYPE_CHECKING:
+    from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +51,8 @@ def fetch_meeting_document_list(
     Raises:
         DocumentListError: If document list cannot be fetched or parsed
     """
+    from tdoc_crawler.models.tdocs import TDocMetadata  # noqa: F401
+
     # Construct document list URL
     doclist_url = f"https://portal.3gpp.org/ngppapp/GenerateDocumentList.aspx?meetingId={meeting_id}"
     logger.debug(f"Fetching document list for meeting {meeting_id} from {doclist_url}")
@@ -148,6 +158,8 @@ def convert_excel_row_to_tdoc_metadata(
     Returns:
         TDocMetadata instance or None if conversion fails
     """
+    from tdoc_crawler.models.tdocs import TDocMetadata
+
     # Map Excel columns to TDocMetadata fields
     # Try multiple possible column names to handle different Excel formats
     tdoc_id = _extract_tdoc_id(row)
@@ -328,8 +340,95 @@ def _parse_date(date_value: str | None) -> datetime | None:
         return None
 
 
+class DocumentListSource:
+    """TDoc metadata source using meeting document lists.
+
+    This source provides unauthenticated bulk access to all TDocs in a meeting
+    by downloading and parsing the Excel document list. It's ideal for fetching
+    all metadata for a specific meeting efficiently without credentials.
+    """
+
+    def __init__(
+        self,
+        config: TDocSourceConfig,
+    ) -> None:
+        """Initialize document list source.
+
+        Args:
+            config: Source configuration
+        """
+        self.config = config
+
+    def fetch_by_id(
+        self,
+        tdoc_id: str,
+        *,
+        db_file: Path | None = None,
+        timeout: int = 30,
+    ) -> TDocMetadata | None:
+        """Fetch TDoc metadata by TDoc ID.
+
+        Document list source does not support individual TDoc lookups.
+        Use fetch_by_meeting() instead.
+
+        Args:
+            tdoc_id: TDoc identifier (e.g., "S4-251364")
+            db_file: Optional path to database for meeting resolution (unused)
+            timeout: Request timeout in seconds
+
+        Returns:
+            None (not supported by this source)
+        """
+        logger.debug(f"Document list source does not support individual TDoc lookups for {tdoc_id}")
+        return None
+
+    def fetch_by_meeting(
+        self,
+        meeting_id: int,
+        *,
+        timeout: int = 30,
+    ) -> list[TDocMetadata]:
+        """Fetch all TDoc metadata for a meeting via document list.
+
+        Args:
+            meeting_id: 3GPP meeting identifier
+            timeout: Request timeout in seconds
+
+        Returns:
+            List of TDocMetadata for the meeting
+        """
+        try:
+            tdocs = fetch_meeting_document_list(
+                meeting_id=meeting_id,
+                cache_dir=self.config.cache_dir,
+                cache_ttl=self.config.http_cache.ttl,
+                cache_refresh_on_access=self.config.http_cache.refresh_ttl_on_access,
+                timeout=timeout,
+            )
+            logger.info(f"Fetched {len(tdocs)} TDocs from document list for meeting {meeting_id}")
+            return tdocs
+
+        except DocumentListError as exc:
+            logger.warning(f"Document list fetch failed for meeting {meeting_id}: {exc}")
+            return []
+        except Exception as exc:
+            logger.error(f"Unexpected error fetching document list for meeting {meeting_id}: {exc}")
+            return []
+
+    @property
+    def source_name(self) -> str:
+        """Return the name of this source for logging."""
+        return "DocumentList"
+
+    @property
+    def requires_authentication(self) -> bool:
+        """Return whether this source requires authentication."""
+        return False
+
+
 __all__ = [
     "DocumentListError",
+    "DocumentListSource",
     "convert_excel_row_to_tdoc_metadata",
     "fetch_meeting_document_list",
     "parse_excel_document_list",

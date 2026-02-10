@@ -1,19 +1,24 @@
-"""Resolve TDoc metadata via whatthespec.net API."""
+"""WhatTheSpec TDoc metadata source.
+
+This module provides a TDocSource implementation that fetches metadata
+from the whatthespec.net community API.
+"""
 
 from __future__ import annotations
 
 import logging
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 
+if TYPE_CHECKING:
+    from tdoc_crawler.models.tdocs import TDocMetadata
 from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
-from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +45,8 @@ def _resolve_meeting_id(db_file: Path, meeting_name: str | None) -> int:
     if not meeting_name:
         return 0
     try:
+        from tdoc_crawler.database import TDocDatabase
+
         with TDocDatabase(db_file) as database:
             resolved = database.resolve_meeting_id(meeting_name)
     except Exception as exc:
@@ -69,6 +76,8 @@ def resolve_via_whatthespec(
     Returns:
         TDocMetadata if found, otherwise None.
     """
+    from tdoc_crawler.models.tdocs import TDocMetadata
+
     manager = resolve_cache_manager(cache_manager_name)
     temp_session: requests.Session | None = None
     if session is None:
@@ -122,4 +131,97 @@ def resolve_via_whatthespec(
     return metadata
 
 
-__all__ = ["WHATSPEC_BASE_URL", "WhatTheSpecResolutionError", "resolve_via_whatthespec"]
+class WhatTheSpecSource:
+    """TDoc metadata source using whatthespec.net API.
+
+    This source provides unauthenticated access to TDoc metadata through
+    the WhatTheSpec community API. It's the preferred source for most users
+    as it requires no credentials.
+    """
+
+    def __init__(
+        self,
+        config: TDocSourceConfig,
+        session: requests.Session | None = None,
+    ) -> None:
+        """Initialize WhatTheSpec source.
+
+        Args:
+            config: Source configuration
+            session: Optional requests.Session to reuse
+        """
+        self.config = config
+        self.session = session
+
+    def fetch_by_id(
+        self,
+        tdoc_id: str,
+        *,
+        db_file: Path | None = None,
+        timeout: int = 30,
+    ) -> TDocMetadata | None:
+        """Fetch TDoc metadata by TDoc ID from WhatTheSpec API.
+
+        Args:
+            tdoc_id: TDoc identifier (e.g., "S4-251364")
+            db_file: Optional path to database for meeting resolution
+            timeout: Request timeout in seconds
+
+        Returns:
+            TDocMetadata if found, None otherwise
+        """
+        # Use the database path from config if not provided
+        db_path = db_file or (self.config.cache_dir / "tdoc_crawler.db")
+
+        try:
+            metadata = resolve_via_whatthespec(
+                tdoc_id=tdoc_id,
+                db_file=db_path,
+                http_cache=self.config.http_cache,
+                timeout=timeout,
+                session=self.session,
+                cache_manager_name=self.config.cache_manager_name,
+            )
+            return metadata
+        except Exception as exc:
+            logger.debug(f"WhatTheSpec lookup failed for {tdoc_id}: {exc}")
+            return None
+
+    def fetch_by_meeting(
+        self,
+        meeting_id: int,
+        *,
+        timeout: int = 30,
+    ) -> list[TDocMetadata]:
+        """Fetch all TDoc metadata for a meeting.
+
+        WhatTheSpec does not support bulk meeting queries, so this returns
+        an empty list.
+
+        Args:
+            meeting_id: 3GPP meeting identifier
+            timeout: Request timeout in seconds
+
+        Returns:
+            Empty list (not supported by this source)
+        """
+        logger.debug(f"WhatTheSpec does not support bulk meeting queries for meeting {meeting_id}")
+        return []
+
+    @property
+    def source_name(self) -> str:
+        """Return the name of this source for logging."""
+        return "WhatTheSpec"
+
+    @property
+    def requires_authentication(self) -> bool:
+        """Return whether this source requires authentication."""
+        return False
+
+
+__all__ = [
+    "WHATSPEC_BASE_URL",
+    "WhatTheSpecResolutionError",
+    "WhatTheSpecSource",
+    "resolve_via_whatthespec",
+]
