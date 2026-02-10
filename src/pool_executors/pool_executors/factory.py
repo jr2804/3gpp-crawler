@@ -11,7 +11,7 @@ from pool_executors.pool_executors.types import ExecutorType
 
 # Import InterpreterPoolExecutor for Python 3.14+, handle gracefully for older versions
 try:
-    from concurrent.futures import InterpreterPoolExecutor  # noqa: PLC0415
+    from concurrent.futures import InterpreterPoolExecutor
 
     HAS_INTERPRETER_POOL_EXECUTOR = True
 except ImportError, AttributeError:
