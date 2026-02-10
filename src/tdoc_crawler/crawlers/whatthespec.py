@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any
 
 import requests
 
-from tdoc_crawler.database import TDocDatabase, resolve_meeting_id
+from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.models.tdocs import TDocMetadata
@@ -22,7 +24,7 @@ class WhatTheSpecResolutionError(Exception):
     """Raised when WhatTheSpec resolution fails."""
 
 
-def _parse_agenda_item_nbr(value: object) -> Decimal:
+def _parse_agenda_item_nbr(value: Any) -> Decimal:
     """Parse agenda item number as Decimal with fallback to zero."""
     if value is None:
         return Decimal(0)
@@ -34,12 +36,12 @@ def _parse_agenda_item_nbr(value: object) -> Decimal:
 
 
 def _resolve_meeting_id(db_file: Path, meeting_name: str | None) -> int:
-    """Resolve meeting name to meeting_id using local database."""
+    """Helper to resolve meeting name to meeting_id using local database."""
     if not meeting_name:
         return 0
     try:
         with TDocDatabase(db_file) as database:
-            resolved = resolve_meeting_id(database, meeting_name)
+            resolved = database.resolve_meeting_id(meeting_name)
     except Exception as exc:
         logger.warning(f"Failed to resolve meeting '{meeting_name}': {exc}")
         return 0
@@ -48,29 +50,30 @@ def _resolve_meeting_id(db_file: Path, meeting_name: str | None) -> int:
 
 def resolve_via_whatthespec(
     tdoc_id: str,
-    cache_dir: Path,
     db_file: Path,
     http_cache: HttpCacheConfig,
     timeout: int = 30,
     session: requests.Session | None = None,
+    cache_manager_name: str | None = None,
 ) -> TDocMetadata | None:
     """Resolve TDoc metadata from whatthespec.net API.
 
     Args:
         tdoc_id: TDoc identifier (e.g., "S4-260001").
-        cache_dir: Path to HTTP cache SQLite database.
         db_file: Path to local TDoc database.
         http_cache: HTTP cache configuration for hishel.
         timeout: Request timeout in seconds.
         session: Optional requests.Session to reuse.
+        cache_manager_name: Optional name of the cache manager to use for HTTP caching.
 
     Returns:
         TDocMetadata if found, otherwise None.
     """
+    manager = resolve_cache_manager(cache_manager_name)
     temp_session: requests.Session | None = None
     if session is None:
         temp_session = create_cached_session(
-            cache_path=cache_path,
+            cache_dir=manager.http_cache_dir,
             ttl=http_cache.ttl,
             refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
             max_retries=3,

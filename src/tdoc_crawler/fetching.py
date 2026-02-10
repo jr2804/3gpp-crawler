@@ -158,8 +158,8 @@ def fetch_missing_tdocs_batch(
             metadata = client.fetch_tdoc_metadata(tdoc_id)
 
             if metadata.meeting_name:
-                meeting_id = resolve_meeting_id(database, metadata.meeting_name)
-                if meeting_id:
+                meeting_id = database.resolve_meeting_id(metadata.meeting_name)
+                if meeting_id is not None:
                     metadata.meeting_id = meeting_id
                 else:
                     logger.warning(f"Could not resolve meeting '{metadata.meeting_name}' to meeting_id for {tdoc_id}")
