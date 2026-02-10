@@ -26,7 +26,6 @@ from tdoc_crawler.checkout import (
 from tdoc_crawler.cli.args import (
     DEFAULT_VERBOSITY,
     CacheDirOption,
-    CheckoutDirOption,
     CheckoutOption,
     CheckoutTDocIdsArgument,
     ClearDbOption,
@@ -80,7 +79,7 @@ from tdoc_crawler.cli.printing import (
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.credentials import resolve_credentials, set_credentials
-from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database import SpecDatabase, TDocDatabase
 from tdoc_crawler.fetching import fetch_missing_tdocs
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import set_verbosity
@@ -159,7 +158,7 @@ def crawl_tdocs(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
-    with TDocDatabase(db_file) as database:
+    with SpecDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         # Clear TDocs if requested
         if clear_tdocs:
@@ -858,7 +857,7 @@ def checkout_spec(
     spec_file: SpecFileOption = None,
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
-    checkout_dir: CheckoutDirOption = None,
+    # checkout_dir: CheckoutDirOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:

@@ -9,16 +9,12 @@ from zipinspect import HTTPZipReader
 
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.http_client import download_to_path
 from tdoc_crawler.specs.catalog import SpecCatalog
 from tdoc_crawler.specs.normalization import normalize_spec_number
 from tdoc_crawler.specs.sources.base import SpecSource
 
 _logger = logging.getLogger(__name__)
-
-# TODO: Simply this class; "open" is actually the same as "checkout" with a single file and a trigger to the system's open action.
-# TODO: This way we avoid code duplication between "checkout" and "open", as they both need to resolve URLs, download, and extract.
-# TODO: Thus, both methods should share as much code/logic as possible
 
 
 class SpecDownloads:
@@ -32,19 +28,16 @@ class SpecDownloads:
         self,
         specs: list[str],
         doc_only: bool,
-        checkout_dir: Path,  # Todo: checkout_dir must be derived from cache_dir and relative subdir from URL
         release: str = "latest",
         sources: list[SpecSource] | None = None,
     ) -> list[Path]:
         """Download and extract spec documents to the checkout directory."""
-        checkout_dir.mkdir(parents=True, exist_ok=True)
         results: list[Path] = []
 
         for spec in specs:
             try:
                 normalized = normalize_spec_number(spec)
                 series = f"{normalized.split('.')[0]}_series"
-                # Todo: do not hard-code "Specs/archive" path segment, derive from URL
                 target_dir = checkout_dir / "Specs" / "archive" / series / normalized
                 target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -75,14 +68,6 @@ class SpecDownloads:
 
                 if not success:
                     self._download_full_zip(url, target_dir / filename)
-                    # Extract zip? Or just keep it?
-                    # "Checkout" usually implies extraction or having files ready.
-                    # 3GPP archive structure has zips.
-                    # But if doc-only, we extract the doc.
-                    # If full text, usually we keep the zip or extract it?
-                    # Task says "Download, extract, and open".
-                    # Existing implementations usually unzip TDocs.
-                    # I will extract the zip if full download.
                     self._extract_zip(target_dir / filename, target_dir)
 
                 results.append(target_dir)
@@ -97,7 +82,7 @@ class SpecDownloads:
         self,
         spec: str,
         doc_only: bool,
-        checkout_dir: Path,  # Todo: checkout_dir must be derived from cache_dir and relative subdir from URL
+        checkout_dir: Path,
         release: str = "latest",
         sources: list[SpecSource] | None = None,
     ) -> Path:
@@ -148,7 +133,7 @@ class SpecDownloads:
                     msg = f"No versions found for spec {normalized} with release {release}"
                     raise ValueError(msg)
             except (ValueError, IndexError) as e:
-                msg = f"Invalid release format: {release}. Expected format like '17' or '17.1'"
+                msg = f"Invalid release format: {release}. Expected format like '17', '17.1', or '17.1.0'"
                 raise ValueError(msg) from e
 
         target = versions[0]
@@ -162,44 +147,47 @@ class SpecDownloads:
         """Attempt to download only the document file from remote zip."""
         try:
             async with HTTPZipReader(url) as reader:
-                await reader.load_entries()
-                # Find doc entry
-                # HTTPZipReader entries likely have .filename or .name
-                # I'll check first entry type
-                entries: list[str] = [e.filename for e in reader.entries]
-                doc_file = _select_doc_entry(entries, normalized)
+                # entries is populated by __aenter__ via load_entries()
+                # Find doc entry using .path (not .filename)
+                entries = reader.entries
+                if entries is None:
+                    _logger.info("Doc-only: No entries found in %s", url)
+                    return False
+
+                doc_file = _select_doc_entry([e.path for e in entries], normalized)
 
                 if not doc_file:
                     _logger.info("Doc-only: No document found in %s", url)
                     return False
 
-                # Extract
-                await reader.extract([e for e in reader.entries if e.filename == doc_file], out_dir=target_dir)
-                return True
+                # Extract matching entries to target_dir
+                for entry in entries:
+                    if entry.path == doc_file:
+                        target_path = target_dir / doc_file.split("/")[-1]
+                        with target_path.open("wb") as f:
+                            async for _ in reader.extract(entry, f):
+                                pass
+                        return True
+                return False
         except Exception as exc:
             _logger.warning("Doc-only download failed for %s: %s", url, exc)
             return False
 
     def _download_full_zip(self, url: str, target_path: Path) -> None:
         """Download full zip file."""
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        }
-        session = create_cached_session(cache_dir=self.cache)
-        response = session.get(url, stream=True, timeout=60, headers=headers)
-        response.raise_for_status()
-        with open(target_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+        download_to_path(url, target_path, cache_manager_name=self._cache_manager.name)
 
-    # TODO: should be either staticmethod or moved to utility module, as it is not specific to this class
-    def _extract_zip(self, zip_path: Path, extract_dir: Path) -> None:
+    @staticmethod
+    def _extract_zip(zip_file: Path, extract_dir: Path, keep_zip: bool = True) -> None:
         """Extract zip file."""
         try:
-            with zipfile.ZipFile(zip_path) as z:
+            with zipfile.ZipFile(zip_file) as z:
                 z.extractall(extract_dir)
+
+            if not keep_zip:
+                zip_file.unlink()
         except Exception as exc:
-            _logger.error("Failed to extract %s: %s", zip_path, exc)
+            _logger.error("Failed to extract %s: %s", zip_file, exc)
 
 
 def _select_doc_entry(entries: list[str], normalized: str) -> str | None:

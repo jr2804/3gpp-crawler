@@ -32,7 +32,6 @@ class TDocMetadata(BaseModel):
 
     # Mandatory metadata fields from portal
     tdoc_id: str = Field(..., description="Unique TDoc identifier (case-normalized)")
-    # TODO: consider using the meeting short name as meeting_id (str), as it is available via portal access?
     meeting_id: int = Field(..., description="Foreign key reference to the meetings table")
     title: str = Field(..., description="Document title as published on the portal")
     url: str | None = Field(None, description="Full URL to the TDoc resource, None if not available")
