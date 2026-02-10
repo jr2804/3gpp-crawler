@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 
-from tdoc_crawler.database import TDocDatabase, database_path, resolve_meeting_id
+from tdoc_crawler.database import TDocDatabase, resolve_meeting_id
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.models.tdocs import TDocMetadata
@@ -33,12 +33,11 @@ def _parse_agenda_item_nbr(value: object) -> Decimal:
         return Decimal(0)
 
 
-def _resolve_meeting_id(cache_dir: Path, meeting_name: str | None) -> int:
+def _resolve_meeting_id(db_path: Path, meeting_name: str | None) -> int:
     """Resolve meeting name to meeting_id using local database."""
     if not meeting_name:
         return 0
     try:
-        db_path = database_path(cache_dir)
         with TDocDatabase(db_path) as database:
             resolved = resolve_meeting_id(database, meeting_name)
     except Exception as exc:
@@ -49,38 +48,40 @@ def _resolve_meeting_id(cache_dir: Path, meeting_name: str | None) -> int:
 
 def resolve_via_whatthespec(
     tdoc_id: str,
-    cache_dir: Path,
+    cache_path: Path,
+    db_path: Path,
     http_cache: HttpCacheConfig,
     timeout: int = 30,
+    session: requests.Session | None = None,
 ) -> TDocMetadata | None:
     """Resolve TDoc metadata from whatthespec.net API.
 
     Args:
         tdoc_id: TDoc identifier (e.g., "S4-260001").
-        cache_dir: Directory for HTTP cache storage.
+        cache_path: Path to HTTP cache SQLite database.
+        db_path: Path to local TDoc database.
         http_cache: HTTP cache configuration for hishel.
         timeout: Request timeout in seconds.
+        session: Optional requests.Session to reuse.
 
     Returns:
         TDocMetadata if found, otherwise None.
-
-    Raises:
-        WhatTheSpecResolutionError: On network or timeout errors.
-
-    Example:
-        >>> from pathlib import Path
-        >>> from tdoc_crawler.models.base import HttpCacheConfig
-        >>> resolve_via_whatthespec("S4-260001", Path(".cache"), HttpCacheConfig())
     """
-    session = create_cached_session(
-        cache_dir=cache_dir,
-        ttl=http_cache.ttl,
-        refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
-        max_retries=3,
-    )
+    temp_session: requests.Session | None = None
+    if session is None:
+        temp_session = create_cached_session(
+            cache_path=cache_path,
+            ttl=http_cache.ttl,
+            refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
+            max_retries=3,
+        )
+        active_session = temp_session
+    else:
+        active_session = session
+
     url = WHATSPEC_BASE_URL.format(tdoc=tdoc_id)
     try:
-        response = session.get(url, timeout=timeout)
+        response = active_session.get(url, timeout=timeout)
         response.raise_for_status()
         payload = response.json()
     except requests.RequestException as exc:
@@ -88,7 +89,8 @@ def resolve_via_whatthespec(
         logger.error(error_msg)
         raise WhatTheSpecResolutionError(error_msg) from exc
     finally:
-        session.close()
+        if temp_session:
+            temp_session.close()
 
     if not isinstance(payload, list) or not payload:
         return None
@@ -100,7 +102,7 @@ def resolve_via_whatthespec(
 
     metadata = TDocMetadata(
         tdoc_id=resolved_id,
-        meeting_id=_resolve_meeting_id(cache_dir, meeting_name),
+        meeting_id=_resolve_meeting_id(db_path, meeting_name),
         meeting_name=meeting_name,
         title=str(record.get("title") or ""),
         url=str(record.get("link") or ""),

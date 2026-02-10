@@ -8,20 +8,20 @@ from pathlib import Path
 import requests
 from hishel import SyncSqliteStorage
 from hishel.requests import CacheAdapter
-from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from tdoc_crawler.models.base import DEFAULT_CACHE_DIR
+from tdoc_crawler.config import CacheManager
 
 logger = logging.getLogger(__name__)
 
 
-def download_to_path(url: str, destination: Path) -> None:
+def download_to_path(url: str, destination: Path, session: requests.Session | None = None) -> None:
     """Download a file from URL to destination path.
 
     Args:
         url: Source URL
         destination: Destination path
+        session: Optional requests.Session to reuse. If None, a temporary cached session is created.
 
     Raises:
         ValueError: If URL scheme is not supported
@@ -33,30 +33,42 @@ def download_to_path(url: str, destination: Path) -> None:
     if not lowered.startswith(allowed_schemes):
         raise ValueError("unsupported-url-scheme")
 
-    # Use requests with browser-like headers to avoid 403 Forbidden
-    session = create_cached_session(cache_dir=DEFAULT_CACHE_DIR)
-    session.headers.update(
-        {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-        }
-    )
+    # Use provided session or create a temporary one
+    temp_session: requests.Session | None = None
+    if session is None:
+        manager = CacheManager()
+        temp_session = create_cached_session(cache_path=manager.http_cache_path)
+        active_session = temp_session
+    else:
+        active_session = session
 
-    response = session.get(url, timeout=60, stream=True)
-    response.raise_for_status()
-    with destination.open("wb") as target:
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                target.write(chunk)
+    try:
+        # Use requests with browser-like headers to avoid 403 Forbidden
+        active_session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "DNT": "1",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+            }
+        )
+
+        response = active_session.get(url, timeout=60, stream=True)
+        response.raise_for_status()
+        with destination.open("wb") as target:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    target.write(chunk)
+    finally:
+        if temp_session:
+            temp_session.close()
 
 
 def create_cached_session(
-    cache_dir: Path,
+    cache_path: Path,
     ttl: int = 7200,
     refresh_ttl_on_access: bool = True,
     max_retries: int = 3,
@@ -64,7 +76,7 @@ def create_cached_session(
     """Create a requests.Session with hishel caching enabled.
 
     Args:
-        cache_dir: Directory to store the cache database
+        cache_path: Path to the SQLite cache database file.
         ttl: Time-to-live for cached responses in seconds (default: 7200)
         refresh_ttl_on_access: Whether to refresh TTL on cache access (default: True)
         max_retries: Number of retry attempts for failed requests (default: 3)
@@ -73,38 +85,32 @@ def create_cached_session(
         Configured requests.Session with caching enabled
     """
     # Ensure cache directory exists
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Create cache database path
-    cache_db_path = cache_dir / "http-cache.sqlite3"
-
-    logger.debug(f"Creating cached HTTP session: cache_db={cache_db_path}, ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, max_retries={max_retries}")
+    logger.debug(f"Creating cached HTTP session: cache_db={cache_path}, ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, max_retries={max_retries}")
 
     # Create SQLite storage backend
     storage = SyncSqliteStorage(
-        database_path=str(cache_db_path),
+        database_path=str(cache_path),
         default_ttl=ttl,
         refresh_ttl_on_access=refresh_ttl_on_access,
     )
 
     # Configure retry strategy for the session
-    retry_strategy = Retry(
+    Retry(
         total=max_retries,
         backoff_factor=1,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["HEAD", "GET", "OPTIONS"],
     )
 
-    # Create HTTP adapter with retry support
-    HTTPAdapter(max_retries=retry_strategy)
-
-    # Create cache adapter without specifying an adapter (hishel will handle it internally)
+    # Create cache adapter
     cache_adapter = CacheAdapter(storage=storage)
 
     # Create session
     session = requests.Session()
 
-    # Mount the cache adapter which handles both caching and delegates to the HTTP adapter for network requests
+    # Mount the cache adapter
     session.mount("http://", cache_adapter)
     session.mount("https://", cache_adapter)
 

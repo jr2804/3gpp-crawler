@@ -6,11 +6,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from pathlib import Path
 
 from pydantic import BaseModel
-
-DEFAULT_CACHE_DIR = Path.home() / ".tdoc-crawler"
 
 
 def utc_now() -> datetime:

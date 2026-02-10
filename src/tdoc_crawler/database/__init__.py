@@ -7,6 +7,7 @@ import logging
 from tdoc_crawler.database.connection import TDocDatabase
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, SortOrder
+from tdoc_crawler.specs.normalization import normalize_portal_meeting_name
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,6 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
     Returns:
         Meeting ID if found, None otherwise
     """
-    # Local import to avoid circular import
-    from tdoc_crawler.specs.normalization import normalize_portal_meeting_name
-
     # Query all meetings from database
     config = MeetingQueryConfig(
         cache_dir=database.db_path.parent,

@@ -14,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from tdoc_crawler.crawlers.constants import EXCLUDED_DIRS, EXCLUDED_DIRS_NORMALIZED, TDOC_PATTERN_STR, TDOC_SUBDIRS, TDOC_SUBDIRS_NORMALIZED
+from tdoc_crawler.crawlers.meeting_doclist import fetch_meeting_document_list
 from tdoc_crawler.http_client import create_cached_session
 
 logger = logging.getLogger(__name__)
@@ -226,16 +227,13 @@ def fetch_meeting_document_list_subinterpreter(
         tuple[str, ...]: TDoc IDs from the meeting or errors
     """
     try:
-        # Import inside function for subinterpreter context
-        from tdoc_crawler.crawlers.meeting_doclist import fetch_meeting_document_list  # noqa: PLC0415
-
         # Convert string path to Path object
         cache_dir_path = Path(cache_dir)
 
         # Fetch document list for the meeting
         tdoc_metadata_list = fetch_meeting_document_list(
             meeting_id=meeting_id,
-            cache_dir=cache_dir_path,
+            cache_path=cache_dir_path,
             cache_ttl=cache_ttl,
             cache_refresh_on_access=cache_refresh_on_access,
             timeout=timeout,

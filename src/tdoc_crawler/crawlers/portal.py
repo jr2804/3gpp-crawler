@@ -446,6 +446,7 @@ class PortalClient:
         cache_ttl: int = 7200,
         cache_refresh_on_access: bool = True,
         timeout: int = 30,
+        session: requests.Session | None = None,
     ) -> None:
         """Initialize portal client.
 
@@ -455,6 +456,7 @@ class PortalClient:
             cache_ttl: Cache TTL in seconds.
             cache_refresh_on_access: Whether to refresh TTL on access.
             timeout: Request timeout in seconds.
+            session: Optional requests.Session to reuse.
         """
         self.credentials = credentials
         self.cache_dir = cache_dir or Path.home() / ".tdoc-crawler"
@@ -462,7 +464,7 @@ class PortalClient:
         self._cache_ttl = cache_ttl
         self._cache_refresh_on_access = cache_refresh_on_access
         self._authenticated = False
-        self._session: requests.Session | None = None
+        self._session = session
 
     def close(self) -> None:
         """Close the underlying session if it exists."""
@@ -690,6 +692,7 @@ def create_portal_client(
     cache_ttl: int = 7200,
     cache_refresh_on_access: bool = True,
     timeout: int = 30,
+    session: requests.Session | None = None,
 ) -> PortalClient:
     """Factory function to create a PortalClient instance.
 
@@ -701,6 +704,7 @@ def create_portal_client(
         cache_ttl: Cache TTL in seconds.
         cache_refresh_on_access: Whether to refresh TTL on access.
         timeout: Request timeout in seconds.
+        session: Optional requests.Session to reuse.
 
     Returns:
         Configured PortalClient instance.
@@ -711,4 +715,5 @@ def create_portal_client(
         cache_ttl=cache_ttl,
         cache_refresh_on_access=cache_refresh_on_access,
         timeout=timeout,
+        session=session,
     )

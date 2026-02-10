@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tdoc_crawler.crawlers import PortalClient as ReExportedPortalClient
+from tdoc_crawler.crawlers import PortalSession, extract_tdoc_url_from_portal, parse_tdoc_portal_page
+from tdoc_crawler.crawlers import create_portal_client as ReExportedCreatePortalClient
 from tdoc_crawler.crawlers.constants import TDOC_DOWNLOAD_URL
 from tdoc_crawler.crawlers.portal import PortalAuthenticationError, PortalClient, PortalCredentials, PortalParsingError, create_portal_client
 from tdoc_crawler.models.tdocs import TDocMetadata
@@ -283,7 +287,6 @@ class TestPortalClientParseTdocPage:
         """parse_tdoc_page delegates to the standalone parse_tdoc_portal_page function."""
         # This verifies the static method properly calls the underlying function
         # by checking it's callable and has the same signature
-        import inspect
 
         sig = inspect.signature(PortalClient.parse_tdoc_page)
         params = list(sig.parameters.keys())
@@ -298,26 +301,18 @@ class TestBackwardCompatibility:
 
     def test_portal_session_still_available(self) -> None:
         """PortalSession class is still available for backward compatibility."""
-        from tdoc_crawler.crawlers.portal import PortalSession
-
         assert PortalSession is not None
 
     def test_extract_tdoc_url_from_portal_still_available(self) -> None:
         """extract_tdoc_url_from_portal function is still available for backward compatibility."""
-        from tdoc_crawler.crawlers.portal import extract_tdoc_url_from_portal
-
         assert extract_tdoc_url_from_portal is not None
 
     def test_parse_tdoc_portal_page_still_available(self) -> None:
         """parse_tdoc_portal_page function is still available for backward compatibility."""
-        from tdoc_crawler.crawlers.portal import parse_tdoc_portal_page
-
         assert parse_tdoc_portal_page is not None
 
     def test_exceptions_still_available(self) -> None:
         """Exception classes are still available."""
-        from tdoc_crawler.crawlers.portal import PortalAuthenticationError, PortalParsingError
-
         assert issubclass(PortalAuthenticationError, Exception)
         assert issubclass(PortalParsingError, Exception)
 
@@ -327,12 +322,8 @@ class TestPortalClientReExports:
 
     def test_portal_client_re_exported(self) -> None:
         """PortalClient is re-exported from crawlers package."""
-        from tdoc_crawler.crawlers import PortalClient
-
-        assert PortalClient is not None
+        assert ReExportedPortalClient is not None
 
     def test_create_portal_client_re_exported(self) -> None:
         """create_portal_client is re-exported from crawlers package."""
-        from tdoc_crawler.crawlers import create_portal_client
-
-        assert create_portal_client is not None
+        assert ReExportedCreatePortalClient is not None

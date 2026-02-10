@@ -19,10 +19,14 @@ IncrementalOption = Annotated[bool, typer.Option("--incremental/--full", help="T
 ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
 ClearSpecsOption = Annotated[bool, typer.Option("--clear-specs", help="Clear all specs before crawling")]
 ClearDbOption = Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")]
-CheckoutOption = Annotated[bool, typer.Option("--checkout", help="Download and extract metadata results to checkout folder")]
+CheckoutOption = Annotated[
+    bool, typer.Option("--checkout/--no-checkout", help="Download and extract metadata results to checkout folder", envvar="TDC_CHECKOUT")
+]
 LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar="TDC_LIMIT_TDOCS")]
 LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar="TDC_LIMIT_MEETINGS")]
-LimitMeetingsPerWgOption = Annotated[int | None, typer.Option("--limit-meetings-per-wg", help="Limit meetings per working group")]
+LimitMeetingsPerWgOption = Annotated[
+    int | None, typer.Option("--limit-meetings-per-wg", help="Limit meetings per working group", envvar="TDC_LIMIT_MEETINGS_PER_WG")
+]
 LimitWgsOption = Annotated[int | None, typer.Option("--limit-wgs", help="Limit number of working groups")]
 WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers", envvar="TDC_WORKERS")]
 OverallTimeoutOption = Annotated[
@@ -37,7 +41,9 @@ TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifi
 OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format", envvar="TDC_OUTPUT")]
 
 FullMetadataOption = Annotated[bool, typer.Option("--full-metadata", help="Fetch full metadata instead of URL only")]
-UseWhatTheSpecOption = Annotated[bool, typer.Option("--use-whatthespec", help="Use WhatTheSpec API for fetching")]
+UseWhatTheSpecOption = Annotated[
+    bool, typer.Option("--use-whatthespec/--no-use-whatthespec", help="Use WhatTheSpec API for fetching", envvar="TDC_USE_WHATTHESPEC")
+]
 LimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")]
 OrderOption = Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")]
 StartDateOption = Annotated[str | None, typer.Option("--start-date", help="Filter from ISO timestamp", envvar="TDC_START_DATE")]
@@ -64,6 +70,16 @@ ForceOption = Annotated[bool, typer.Option("--force", "-f", help="Re-download ev
 SpecOption = Annotated[list[str] | None, typer.Option("--spec", help="Spec number(s) (dotted or undotted)")]
 SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) to query (dotted or undotted)")]
 SpecFileOption = Annotated[Path | None, typer.Option("--spec-file", help="File with spec numbers")]
-ReleaseOption = Annotated[str, typer.Option("--release", help="Spec release selector")]
+ReleaseOption = Annotated[
+    str,
+    typer.Option(
+        "--release",
+        help=(
+            "Spec release selector. Values: 'latest' (default), 'all', or explicit version. "
+            "Version formats: 18.0.0, 18.1 (=18.1.x), 18 (=18.x.y). "
+            "Prefixes supported: v18, v18.1, v18.1.2, Rel-18, rel18 (case-insensitive)."
+        ),
+    ),
+]
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download")]
-CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Spec checkout base directory", envvar="TDC_CHECKOUT_DIR")]
+CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Spec checkout base directory")]

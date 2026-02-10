@@ -11,6 +11,7 @@ from zipinspect import HTTPZipReader
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import DEFAULT_CACHE_DIR
+from tdoc_crawler.specs.catalog import SpecCatalog
 from tdoc_crawler.specs.normalization import normalize_spec_number
 
 if TYPE_CHECKING:
@@ -50,7 +51,6 @@ class SpecDownloads:
                 except ValueError as exc:
                     if sources:
                         _logger.info("Spec metadata not found for %s, attempting crawl...", normalized)
-                        from tdoc_crawler.specs.catalog import SpecCatalog
 
                         catalog = SpecCatalog(self._database)
                         catalog.crawl_specs([normalized], release, sources)

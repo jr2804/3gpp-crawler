@@ -67,6 +67,7 @@ def checkout_tdoc(
     checkout_dir: Path,
     *,
     force: bool = False,
+    session: requests.Session | None = None,
 ) -> Path:
     """Download and extract a TDoc to the checkout folder.
 
@@ -74,6 +75,7 @@ def checkout_tdoc(
         metadata: TDoc metadata containing URL and ID
         checkout_dir: Base checkout directory
         force: If True, re-download even if already exists
+        session: Optional requests.Session to reuse for downloads
 
     Returns:
         Path to the extracted TDoc directory
@@ -94,7 +96,7 @@ def checkout_tdoc(
         raise ValueError(f"TDoc {metadata.tdoc_id} has no URL")
 
     try:
-        download_to_path(metadata.url, temp_zip_path)
+        download_to_path(metadata.url, temp_zip_path, session=session)
         with zipfile.ZipFile(temp_zip_path) as archive:
             archive.extractall(checkout_path)
         logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
@@ -105,13 +107,14 @@ def checkout_tdoc(
     return checkout_path
 
 
-def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool = False) -> Path:
+def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool = False, session: requests.Session | None = None) -> Path:
     """Prepare TDoc file for opening (download and extract if needed).
 
     Args:
         metadata: TDoc metadata with download URL.
         cache_dir: Cache directory for downloads and extracted files.
         return_dir: When True and TDoc is a zip, return the extract directory.
+        session: Optional requests.Session to reuse for downloads.
 
     Returns:
         Path to the downloaded file, or the extract directory when return_dir is True.
@@ -134,7 +137,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
                 return extract_dir if return_dir else files[0]
             shutil.rmtree(extract_dir)
         zip_path = downloads_dir / f"{metadata.tdoc_id}.zip"
-        download_to_path(metadata.url, zip_path)
+        download_to_path(metadata.url, zip_path, session=session)
         try:
             with zipfile.ZipFile(zip_path) as archive:
                 archive.extractall(extract_dir)
@@ -152,7 +155,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
     target_path = downloads_dir / target_name
     if not target_path.exists():
         try:
-            download_to_path(metadata.url, target_path)
+            download_to_path(metadata.url, target_path, session=session)
         except requests.exceptions.HTTPError as exc:
             status_code = exc.response.status_code if exc.response is not None else "unknown"
             raise FileNotFoundError(f"failed-to-download ({status_code}): {metadata.url}") from exc
@@ -271,6 +274,7 @@ def checkout_tdocs(
     results: list[TDocMetadata],
     checkout_dir: Path,
     force: bool = False,
+    session: requests.Session | None = None,
 ) -> CheckoutResult:
     """Checkout multiple TDoc files to the checkout directory.
 
@@ -278,6 +282,7 @@ def checkout_tdocs(
         results: List of TDocMetadata to checkout
         checkout_dir: Base checkout directory
         force: If True, re-download even if already exists
+        session: Optional requests.Session to reuse for downloads
 
     Returns:
         CheckoutResult with success/error counts
@@ -294,7 +299,7 @@ def checkout_tdocs(
         try:
             if not metadata.url:
                 raise ValueError("missing URL")
-            checkout_tdoc(metadata, checkout_dir, force=force)
+            checkout_tdoc(metadata, checkout_dir, force=force, session=session)
             success_count += 1
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             errors.append(f"{metadata.tdoc_id}: {exc}")
@@ -305,21 +310,24 @@ def checkout_tdocs(
 
 def checkout_meeting_tdocs(
     meetings: list[MeetingMetadata],
-    cache_dir: Path,
+    checkout_dir: Path,
+    http_cache_path: Path,
+    session: requests.Session | None = None,
 ) -> CheckoutResult:
     """Checkout TDoc files from a list of meetings.
 
     Args:
-            meetings: List of MeetingMetadata to checkout TDocs from
-            cache_dir: Cache directory for document list caching
+        meetings: List of MeetingMetadata to checkout TDocs from
+        checkout_dir: Base checkout directory
+        http_cache_path: Path to HTTP cache database
+        session: Optional requests.Session to reuse for downloads
 
     Returns:
-            CheckoutResult with success/error counts
+        CheckoutResult with success/error counts
     """
     if not meetings:
         return CheckoutResult(success_count=0, error_count=0, errors=[])
 
-    checkout_dir = cache_dir / "checkout"
     unique: dict[str, TDocMetadata] = {}
     errors: list[str] = []
 
@@ -328,7 +336,7 @@ def checkout_meeting_tdocs(
             errors.append(f"{meeting.short_name}: no files URL")
             continue
         try:
-            tdocs = fetch_meeting_document_list(meeting.meeting_id, cache_dir)
+            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_path)
         except DocumentListError as exc:
             errors.append(f"{meeting.short_name}: {exc}")
             continue
@@ -336,7 +344,7 @@ def checkout_meeting_tdocs(
             if metadata.tdoc_id not in unique:
                 unique[metadata.tdoc_id] = metadata
 
-    return checkout_tdocs(list(unique.values()), checkout_dir, force=False)
+    return checkout_tdocs(list(unique.values()), checkout_dir, force=False, session=session)
 
 
 __all__ = [
