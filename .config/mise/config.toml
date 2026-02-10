@@ -1,27 +1,46 @@
+[tools]
+"aqua:steveyegge/beads" = "latest"
+
 [tasks.default]
 run = "mise tasks"
 
+[tasks.upgrade-tools]
+description = "Upgrade all development tools to their latest versions"
+run = "mise up"
+
 [tasks.format]
+description = "Format source code and tests"
 run = [
     "undersort src/ tests/ --exclude .config/",
-    "isort src/ tests/",
     "ruff format src/ tests/ --exclude .config",
-    "mdformat src/ docs/ tests/ --exclude .config/",
 ]
 
+[tasks.format-md]
+description = "Format Markdown files"
+run = "mdformat src/ docs/ tests/ --exclude .config/"
+
 [tasks.lint]
+description = "Lint source code and tests"
 run = "ruff check src tests"
 
 [tasks.lint-fix]
+description = "Lint source code and tests and fix simple issues"
 run = "ruff check --fix src tests"
 
+[tasks.lint-fix-unsafe]
+description = "Lint source code and tests and fix simple issues"
+run = "ruff check --fix --unsafe-fixes src tests"
+
 [tasks.type-check]
-run = "ty src/ tests/"
+description = "Type check source code and tests"
+run = "ty check src/ tests/"
 
 [tasks.test]
-run = "uv run pytest tests/ -v"
+description = "Run all tests with verbose output and short tracebacks"
+run = "uv run pytest tests/ -v --tb=short"
 
 [tasks.test-coverage]
+description = "Run all tests with coverage report"
 run = "uv run pytest tests/ -v --cov=src/tdoc_crawler --cov-report=html"
 
 [tasks.spec-init]
