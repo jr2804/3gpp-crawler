@@ -17,11 +17,25 @@ DEFAULT_MANAGER = "default"
 _cache_managers: dict[str, CacheManager] = {}
 
 
-def register_cache_manager(manager: CacheManager) -> None:
-    """Register a cache manager instance under a given name."""
-    if (name := manager.name) in _cache_managers:
+def register_cache_manager(manager: CacheManager, force: bool = False) -> None:
+    """Register a cache manager instance under a given name.
+
+    Args:
+        manager: CacheManager instance to register
+        force: If True, overwrite existing manager with same name
+    """
+    name = manager.name
+    if name in _cache_managers and not force:
         raise ValueError(f"Cache manager with name '{name}' is already registered.")
     _cache_managers[name] = manager
+
+
+def reset_cache_managers() -> None:
+    """Clear all registered cache managers.
+
+    Primarily useful for testing to ensure clean state between tests.
+    """
+    _cache_managers.clear()
 
 
 def resolve_cache_manager(name: str | None = None) -> CacheManager:

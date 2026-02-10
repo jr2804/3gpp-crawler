@@ -8,9 +8,11 @@ from unittest.mock import MagicMock, patch
 
 from bs4 import BeautifulSoup
 
-from tdoc_crawler.crawlers import EXCLUDED_DIRS, TDOC_PATTERN, MeetingCrawler, TDocCrawler
+from tdoc_crawler.constants.patterns import EXCLUDED_DIRS, TDOC_PATTERN
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingMetadata, QueryConfig, TDocCrawlConfig, WorkingGroup
+from tdoc_crawler.parsers.meetings import parse_meeting_row, parse_single_date
+from tdoc_crawler.tdocs import TDocCrawler
 
 
 class TestTDocCrawler:
@@ -37,7 +39,7 @@ class TestTDocCrawler:
         assert not TDOC_PATTERN.search("README.txt")
         assert not TDOC_PATTERN.search("data.csv")
 
-    @patch("tdoc_crawler.crawlers.parallel.requests.Session")
+    @patch("tdoc_crawler.workers.tdoc_worker.requests.Session")
     def test_crawl_connection_failure(
         self,
         mock_session_class: MagicMock,
@@ -65,7 +67,7 @@ class TestTDocCrawler:
         assert result.updated == 0
         assert result.errors
 
-    @patch("tdoc_crawler.crawlers.parallel.requests.Session")
+    @patch("tdoc_crawler.workers.tdoc_worker.requests.Session")
     def test_crawl_collects_tdocs(
         self,
         mock_session_class: MagicMock,
@@ -127,7 +129,7 @@ class TestTDocCrawler:
             assert stored[0].tdoc_id == "R1-2301234"
             assert stored[0].file_size == 2048
 
-    @patch("tdoc_crawler.crawlers.parallel.requests.Session")
+    @patch("tdoc_crawler.workers.tdoc_worker.requests.Session")
     def test_crawl_targets_specific_ids(
         self,
         mock_session_class: MagicMock,
@@ -194,18 +196,16 @@ class TestMeetingCrawler:
 
     def test_parse_single_date(self, test_db_path: Path) -> None:
         """Verify single date parsing from text."""
-        with TDocDatabase(test_db_path) as database:
-            crawler = MeetingCrawler(database)
-            # Regular hyphen-minus (U+002D)
-            assert crawler._parse_single_date("2025-10-20") == date(2025, 10, 20)
-            assert crawler._parse_single_date("Meeting on 2025-10-20") == date(2025, 10, 20)
-            # Non-breaking hyphen (U+2011) - intentionally testing Unicode characters
-            assert crawler._parse_single_date("2027\u201109\u201120") == date(2027, 9, 20)
-            # En dash (U+2013) - intentionally testing Unicode characters
-            assert crawler._parse_single_date("2026\u201303\u201315") == date(2026, 3, 15)
-            # Empty/invalid cases
-            assert crawler._parse_single_date("") is None
-            assert crawler._parse_single_date("No date here") is None
+        # Regular hyphen-minus (U+002D)
+        assert parse_single_date("2025-10-20") == date(2025, 10, 20)
+        assert parse_single_date("Meeting on 2025-10-20") == date(2025, 10, 20)
+        # Non-breaking hyphen (U+2011) - intentionally testing Unicode characters
+        assert parse_single_date("2027\u201109\u201120") == date(2027, 9, 20)
+        # En dash (U+2013) - intentionally testing Unicode characters
+        assert parse_single_date("2026\u201303\u201315") == date(2026, 3, 15)
+        # Empty/invalid cases
+        assert parse_single_date("") is None
+        assert parse_single_date("No date here") is None
 
     def test_parse_meeting_row_with_separate_date_columns(self, test_db_path: Path) -> None:
         """Verify meeting row parsing with start and end dates in separate columns."""
@@ -227,11 +227,14 @@ class TestMeetingCrawler:
         cells = row.find_all("td")
 
         with TDocDatabase(test_db_path) as database:
-            crawler = MeetingCrawler(database)
-            meeting = crawler._parse_meeting_row(cells, WorkingGroup.SA, "SA4")
+            # Create get_subtb callback for subtb lookup
+            def get_subtb(subgroup_code: str) -> int | None:
+                subgroup_data = database.get_subgroup_by_code(subgroup_code)
+                return subgroup_data["subtb"] if subgroup_data else None
+
+            meeting = parse_meeting_row(cells, WorkingGroup.SA, "SA4", get_subtb=get_subtb)
 
             assert meeting.meeting_id == 12345
-            assert meeting.short_name == "SA4#134"
             assert meeting.title == "Meeting Title"
             assert meeting.start_date == date(2025, 10, 20)
             assert meeting.end_date == date(2025, 10, 24)

@@ -10,10 +10,10 @@ from conftest import insert_sample_meetings
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
-from tdoc_crawler.crawlers.tdocs import TDocCrawlResult
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.fetching import FetchMissingResult
 from tdoc_crawler.models import TDocMetadata, WorkingGroup
+from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
+from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
 runner = CliRunner()
 

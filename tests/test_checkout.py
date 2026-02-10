@@ -8,8 +8,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from tdoc_crawler.checkout import checkout_tdoc, get_checked_out_tdocs, get_checkout_path
 from tdoc_crawler.models import TDocMetadata
+from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checked_out_tdocs, get_checkout_path
 
 
 @pytest.fixture
@@ -105,7 +105,7 @@ class TestGetCheckoutPath:
 class TestCheckoutTDoc:
     """Tests for checkout_tdoc function."""
 
-    @patch("tdoc_crawler.checkout.download_to_path")
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_path")
     def test_successful_checkout(
         self,
         mock_download_to_path: Mock,
@@ -116,7 +116,7 @@ class TestCheckoutTDoc:
         checkout_path = get_checkout_path(sample_tdoc_metadata, checkout_dir)
 
         # Create a mock zip file
-        def mock_download(url: str, destination: Path) -> None:
+        def mock_download(url: str, destination: Path, session: object = None) -> None:
             destination.parent.mkdir(parents=True, exist_ok=True)
             content = io.BytesIO()
             with zipfile.ZipFile(content, "w") as zf:
@@ -146,7 +146,7 @@ class TestCheckoutTDoc:
 
         assert result == checkout_path
 
-    @patch("tdoc_crawler.checkout.download_to_path")
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_path")
     def test_force_recheckout(
         self,
         mock_download_to_path: Mock,
@@ -158,7 +158,7 @@ class TestCheckoutTDoc:
         checkout_path.mkdir(parents=True)
 
         # Create a mock zip file
-        def mock_download(url: str, destination: Path) -> None:
+        def mock_download(url: str, destination: Path, session: object = None) -> None:
             destination.parent.mkdir(parents=True, exist_ok=True)
             content = io.BytesIO()
             with zipfile.ZipFile(content, "w") as zf:

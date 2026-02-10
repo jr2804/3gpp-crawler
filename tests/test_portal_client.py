@@ -8,12 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tdoc_crawler.crawlers import PortalClient as ReExportedPortalClient
-from tdoc_crawler.crawlers import PortalSession, extract_tdoc_url_from_portal, parse_tdoc_portal_page
-from tdoc_crawler.crawlers import create_portal_client as ReExportedCreatePortalClient
-from tdoc_crawler.crawlers.constants import TDOC_DOWNLOAD_URL
-from tdoc_crawler.crawlers.portal import PortalAuthenticationError, PortalClient, PortalCredentials, PortalParsingError, create_portal_client
+from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient, PortalSession, create_portal_client, extract_tdoc_url_from_portal
+from tdoc_crawler.clients.portal import PortalClient as ReExportedPortalClient
+from tdoc_crawler.clients.portal import create_portal_client as ReExportedCreatePortalClient
+from tdoc_crawler.constants.urls import TDOC_DOWNLOAD_URL
+from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_page
 
 
 class TestPortalClientInit:

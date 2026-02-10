@@ -9,10 +9,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from hishel.requests import CacheAdapter
-from tdoc_crawler.cli.helpers import resolve_http_cache_config
 
 from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.models import HttpCacheConfig
+from tdoc_crawler.models.base import HttpCacheConfig
 
 
 class TestCreateCachedSession:
@@ -211,7 +210,7 @@ class TestResolveHttpCacheConfig:
     def test_cli_params_override_everything(self) -> None:
         """Test that CLI parameters override environment variables."""
         with patch.dict(os.environ, {"HTTP_CACHE_TTL": "3600", "HTTP_CACHE_REFRESH_ON_ACCESS": "false"}):
-            config = resolve_http_cache_config(cache_ttl=1800, cache_refresh_on_access=True)
+            config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=1800, cache_refresh_on_access=True)
 
             assert config.ttl == 1800
             assert config.refresh_ttl_on_access is True
@@ -219,7 +218,7 @@ class TestResolveHttpCacheConfig:
     def test_env_vars_used_when_no_cli_params(self) -> None:
         """Test that environment variables are used when CLI params are None."""
         with patch.dict(os.environ, {"HTTP_CACHE_TTL": "5400", "HTTP_CACHE_REFRESH_ON_ACCESS": "false"}):
-            config = resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
+            config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
 
             assert config.ttl == 5400
             assert config.refresh_ttl_on_access is False
@@ -227,7 +226,7 @@ class TestResolveHttpCacheConfig:
     def test_defaults_when_nothing_set(self) -> None:
         """Test that defaults are used when no CLI params or env vars are set."""
         with patch.dict(os.environ, {}, clear=True):
-            config = resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
+            config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
 
             assert config.ttl == 7200
             assert config.refresh_ttl_on_access is True
@@ -238,7 +237,7 @@ class TestResolveHttpCacheConfig:
 
         for value in true_values:
             with patch.dict(os.environ, {"HTTP_CACHE_REFRESH_ON_ACCESS": value}):
-                config = resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
+                config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
                 assert config.refresh_ttl_on_access is True, f"Failed for value: {value}"
 
     def test_env_var_refresh_false_values(self) -> None:
@@ -247,13 +246,13 @@ class TestResolveHttpCacheConfig:
 
         for value in false_values:
             with patch.dict(os.environ, {"HTTP_CACHE_REFRESH_ON_ACCESS": value}):
-                config = resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
+                config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
                 assert config.refresh_ttl_on_access is False, f"Failed for value: {value}"
 
     def test_env_var_ttl_integer_parsing(self) -> None:
         """Test that TTL environment variable is parsed as integer."""
         with patch.dict(os.environ, {"HTTP_CACHE_TTL": "9999"}):
-            config = resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
+            config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=None)
 
             assert config.ttl == 9999
             assert isinstance(config.ttl, int)
@@ -261,7 +260,7 @@ class TestResolveHttpCacheConfig:
     def test_partial_override_ttl_only(self) -> None:
         """Test that only TTL can be overridden via CLI."""
         with patch.dict(os.environ, {"HTTP_CACHE_TTL": "3600", "HTTP_CACHE_REFRESH_ON_ACCESS": "false"}):
-            config = resolve_http_cache_config(cache_ttl=1200, cache_refresh_on_access=None)
+            config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=1200, cache_refresh_on_access=None)
 
             assert config.ttl == 1200
             assert config.refresh_ttl_on_access is False
@@ -269,14 +268,14 @@ class TestResolveHttpCacheConfig:
     def test_partial_override_refresh_only(self) -> None:
         """Test that only refresh can be overridden via CLI."""
         with patch.dict(os.environ, {"HTTP_CACHE_TTL": "3600", "HTTP_CACHE_REFRESH_ON_ACCESS": "false"}):
-            config = resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=True)
+            config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=None, cache_refresh_on_access=True)
 
             assert config.ttl == 3600
             assert config.refresh_ttl_on_access is True
 
     def test_returns_http_cache_config_instance(self) -> None:
         """Test that the function returns an HttpCacheConfig instance."""
-        config = resolve_http_cache_config(cache_ttl=3600, cache_refresh_on_access=True)
+        config = HttpCacheConfig.resolve_http_cache_config(cache_ttl=3600, cache_refresh_on_access=True)
 
         assert isinstance(config, HttpCacheConfig)
         assert hasattr(config, "ttl")

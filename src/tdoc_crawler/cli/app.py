@@ -13,16 +13,6 @@ from dotenv import load_dotenv
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from tdoc_crawler.checkout import (
-    build_default_spec_sources,
-    checkout_meeting_tdocs,
-    checkout_specs,
-    checkout_tdoc,
-    checkout_tdocs,
-    clear_checkout_specs,
-    clear_checkout_tdocs,
-    prepare_tdoc_file,
-)
 from tdoc_crawler.cli.args import (
     DEFAULT_VERBOSITY,
     CacheDirOption,
@@ -78,14 +68,27 @@ from tdoc_crawler.cli.printing import (
 )
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
-from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.credentials import resolve_credentials, set_credentials
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.fetching import fetch_missing_tdocs
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.meetings import MeetingCrawler
 from tdoc_crawler.models import CrawlLimits, MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, SpecQueryFilters, TDocCrawlConfig
 from tdoc_crawler.specs import SpecDatabase, SpecDownloads
+from tdoc_crawler.specs.operations.checkout import (
+    build_default_spec_sources,
+    checkout_specs,
+    clear_checkout_specs,
+)
+from tdoc_crawler.tdocs import TDocCrawler
+from tdoc_crawler.tdocs.operations.checkout import (
+    checkout_meeting_tdocs,
+    checkout_tdoc,
+    checkout_tdocs,
+    clear_checkout_tdocs,
+    prepare_tdoc_file,
+)
+from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
 
 load_dotenv()

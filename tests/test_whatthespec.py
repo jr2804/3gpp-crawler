@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from tdoc_crawler.crawlers.whatthespec import WHATSPEC_BASE_URL, WhatTheSpecResolutionError, resolve_via_whatthespec
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.tdocs.sources.whatthespec import WHATSPEC_BASE_URL, WhatTheSpecResolutionError, resolve_via_whatthespec
 
 
 class TestWhatTheSpecResolution:

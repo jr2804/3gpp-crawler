@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from tdoc_crawler.config import CacheManager, register_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingMetadata, TDocMetadata, WorkingGroup
 
@@ -24,6 +25,11 @@ def test_cache_dir(tmp_path: Path) -> Path:
     """
     cache_dir = tmp_path / "test-cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Register cache manager for tests (use force=True to allow re-registration)
+    cache_manager = CacheManager(cache_dir, name="default", ensure_paths=True)
+    register_cache_manager(cache_manager, force=True)
+
     return cache_dir
 
 

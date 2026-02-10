@@ -11,10 +11,11 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from tdoc_crawler.crawlers import DocumentListError, HybridCrawlResult, HybridTDocCrawler, fetch_meeting_document_list, parse_excel_document_list
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import MeetingMetadata, TDocCrawlConfig, WorkingGroup
 from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.tdocs import HybridCrawlResult, HybridTDocCrawler
+from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list, parse_excel_document_list
 
 
 class TestMeetingDocumentList:
@@ -109,7 +110,7 @@ class TestMeetingDocumentList:
 
     def test_fetch_meeting_document_list_network_error(self, tmp_path: Path) -> None:
         """Test handling of network errors."""
-        with patch("tdoc_crawler.crawlers.meeting_doclist.create_cached_session") as mock_session:
+        with patch("tdoc_crawler.tdocs.sources.doclist.create_cached_session") as mock_session:
             mock_response = MagicMock()
             mock_response.raise_for_status.side_effect = Exception("Network error")
             mock_session.return_value.get.return_value = mock_response
@@ -230,7 +231,7 @@ class TestMeetingDocumentList:
             mock_get_meetings.return_value = [mock_meeting]
 
             # Mock document list to fail, parallel to succeed
-            with patch("tdoc_crawler.crawlers.meeting_doclist.fetch_meeting_document_list") as mock_fetch:
+            with patch("tdoc_crawler.tdocs.sources.doclist.fetch_meeting_document_list") as mock_fetch:
                 mock_fetch.side_effect = DocumentListError("Document list not available")
 
             with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:

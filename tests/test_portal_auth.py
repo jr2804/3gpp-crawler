@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 import requests
 
-from tdoc_crawler.crawlers.portal import PortalAuthenticationError, PortalParsingError, PortalSession
+from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalSession
 from tdoc_crawler.models.base import PortalCredentials
+from tdoc_crawler.parsers.portal import PortalParsingError
 
 
 def _load_env_file() -> None:

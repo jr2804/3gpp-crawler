@@ -7,12 +7,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from conftest import insert_sample_meetings
-from tdoc_crawler.cli.helpers import infer_working_groups_from_ids
 
-from tdoc_crawler.crawlers import TDocCrawlResult
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.fetching import fetch_missing_tdocs, fetch_missing_tdocs_batch
 from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
+from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
+from tdoc_crawler.utils.parse import infer_working_groups_from_ids
 
 
 class TestInferWorkingGroups:
@@ -65,7 +65,7 @@ class TestInferWorkingGroups:
 class TestFetchMissingTdocsBatch:
     """Tests for fetch_missing_tdocs_batch function."""
 
-    @patch("tdoc_crawler.fetching.create_portal_client")
+    @patch("tdoc_crawler.tdocs.operations.fetch.create_portal_client")
     def test_fetch_missing_creates_config(
         self,
         mock_create_client: MagicMock,
@@ -107,7 +107,7 @@ class TestFetchMissingTdocsBatch:
         assert not result.errors
         mock_client.fetch_tdoc_metadata.assert_called_once_with("R1-2301234")
 
-    @patch("tdoc_crawler.fetching.create_portal_client")
+    @patch("tdoc_crawler.tdocs.operations.fetch.create_portal_client")
     def test_fetch_missing_infers_working_groups(
         self,
         mock_create_client: MagicMock,
@@ -169,7 +169,7 @@ class TestFetchMissingTdocsBatch:
 class TestFetchMissingTdocs:
     """Tests for fetch_missing_tdocs orchestration function."""
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     def test_no_fetch_when_all_present(
         self,
         mock_fetch_batch: MagicMock,
@@ -200,7 +200,7 @@ class TestFetchMissingTdocs:
         assert len(result.refreshed) == 1
         mock_fetch_batch.assert_not_called()
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     def test_fetch_triggered_when_missing(
         self,
         mock_fetch_batch: MagicMock,
@@ -236,7 +236,7 @@ class TestFetchMissingTdocs:
             credentials=None,
         )
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     def test_no_fetch_without_tdoc_ids(
         self,
         mock_fetch_batch: MagicMock,
@@ -260,7 +260,7 @@ class TestFetchMissingTdocs:
         assert result.refreshed == results
         mock_fetch_batch.assert_not_called()
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     def test_partial_fetch_only_missing(
         self,
         mock_fetch_batch: MagicMock,
@@ -308,8 +308,8 @@ class TestFetchMissingTdocs:
 class TestWhatTheSpecFallback:
     """Integration tests for whatthespec fallback in fetch_missing_tdocs."""
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
     def test_maybe_fetch_uses_whatthespec_when_no_credentials(
         self,
         mock_whatthespec_batch: MagicMock,
@@ -378,8 +378,8 @@ class TestWhatTheSpecFallback:
         assert len(result.refreshed) == 1
         assert result.refreshed[0].tdoc_id == "S4-260001"
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
     def test_whatthespec_fallback_multiple_tdocs(
         self,
         mock_whatthespec_batch: MagicMock,
@@ -469,8 +469,8 @@ class TestWhatTheSpecFallback:
         assert "S4-260001" in fetched_ids
         assert "S4-260002" in fetched_ids
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
     def test_whatthespec_fallback_graceful_failure(
         self,
         mock_whatthespec_batch: MagicMock,
@@ -516,8 +516,8 @@ class TestWhatTheSpecFallback:
         # TDoc should still be missing (fallback failed)
         assert len(result.refreshed) == 0
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
     def test_no_whatthespec_when_credentials_available(
         self,
         mock_whatthespec_batch: MagicMock,
@@ -554,8 +554,8 @@ class TestWhatTheSpecFallback:
         # Verify whatthespec was NOT called (credentials took precedence)
         mock_whatthespec_batch.assert_not_called()
 
-    @patch("tdoc_crawler.fetching.fetch_missing_tdocs_batch")
-    @patch("tdoc_crawler.fetching.fetch_via_whatthespec_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
+    @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
     def test_whatthespec_inserts_to_database(
         self,
         mock_whatthespec_batch: MagicMock,

@@ -5,8 +5,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from tdoc_crawler.cli.helpers import collect_spec_numbers
-from tdoc_crawler.specs.normalization import expand_spec_ranges, expand_spec_ranges_batch, normalize_spec_number
+
+from tdoc_crawler.utils.normalization import expand_spec_ranges, expand_spec_ranges_batch, normalize_spec_number
+from tdoc_crawler.utils.parse import collect_spec_numbers
 
 
 def test_normalize_dotted_spec_number() -> None:
