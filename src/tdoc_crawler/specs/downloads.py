@@ -8,7 +8,7 @@ from pathlib import Path
 from zipinspect import HTTPZipReader
 
 from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.crawlers.constants import SPEC_URL_TEMPLATE
+from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
 from tdoc_crawler.http_client import download_to_path
 from tdoc_crawler.specs.database import SpecDatabase
 from tdoc_crawler.specs.sources.base import SpecSource
