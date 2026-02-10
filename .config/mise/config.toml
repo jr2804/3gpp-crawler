@@ -1,5 +1,7 @@
 [tools]
 "aqua:steveyegge/beads" = "latest"
+ruff = "latest"
+ty = "latest"
 
 [tasks.default]
 run = "mise tasks"
@@ -11,7 +13,8 @@ run = "mise up"
 [tasks.format]
 description = "Format source code and tests"
 run = [
-    "undersort src/ tests/ --exclude .config/",
+    "uv run undersort src/ tests/ --exclude .config/",
+    "ruff check --select I --fix", # isort-equivalent sorting of imports
     "ruff format src/ tests/ --exclude .config",
 ]
 

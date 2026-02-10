@@ -32,7 +32,6 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://Jan-Reimes_HEAD.github.io/tdoc-crawler/"
 Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
 
 
@@ -42,17 +41,13 @@ dev = [
     "pre-commit>=2.20.0",
     "tox-uv>=1.11.3",
     "deptry>=0.23.0",
-    "ty>=0.0.1a16",
     "pytest-cov>=4.0.0",
-    "ruff>=0.11.5",
     "mkdocs>=1.4.2",
     "mkdocs-material>=8.5.10",
     "mkdocstrings[python]>=0.26.1",
     "pytest-asyncio>=1.2.0",
     "mdformat>=1.0.0",
-    "isort>=7.0.0",
     "undersort>=0.1.5",
-    "beads-mcp>=0.44.0",
     "specify-cli",
 ]
 
