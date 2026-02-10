@@ -1,12 +1,17 @@
 """Normalization helpers for spec identifiers."""
 
 import re
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 
 _DOTTED_BODY_PATTERN = re.compile(r"^(?P<series>\d{2})\s*\.\s*(?P<increment>\d{1,3})$")
 _UNDOTTED_BODY_PATTERN = re.compile(r"^(?P<series>\d{2})(?P<increment>\d{1,3})$")
 _OFFSET_PATTERN = re.compile(r"^(?P<left>.+?)\s*\+\s*(?P<offset>-?\d+)\s*$")
 _RANGE_SPLIT_PATTERN = re.compile(r"\s*([-:])\s*")
+
+
+def normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
+    """Uppercase and strip whitespace from TDoc identifiers."""
+    return [str(value).strip().upper() for value in ids]
 
 
 def normalize_portal_meeting_name(portal_meeting: str) -> str:

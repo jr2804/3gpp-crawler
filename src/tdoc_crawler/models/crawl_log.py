@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
-from tdoc_crawler.models.base import utc_now
+from tdoc_crawler.utils.misc import utc_now
 
 
 class CrawlLogEntry(BaseModel):

@@ -21,7 +21,7 @@ from tdoc_crawler.crawlers.portal import create_portal_client
 from tdoc_crawler.crawlers.tdocs import TDocCrawlResult
 from tdoc_crawler.crawlers.whatthespec import WhatTheSpecResolutionError, resolve_via_whatthespec
 from tdoc_crawler.credentials import resolve_credentials
-from tdoc_crawler.database import TDocDatabase, resolve_meeting_id
+from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
 from tdoc_crawler.models.tdocs import QueryConfig, TDocMetadata
 

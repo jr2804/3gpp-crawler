@@ -13,7 +13,7 @@ import zipfile
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 from urllib.parse import urlparse
 
 import requests
@@ -22,13 +22,11 @@ from tdoc_crawler.crawlers.meeting_doclist import DocumentListError, fetch_meeti
 from tdoc_crawler.http_client import download_to_path
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.specs.database import SpecDatabase
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.specs.sources.base import FunctionSpecSource, SpecSource
 from tdoc_crawler.specs.sources.threegpp import fetch_threegpp_metadata
 from tdoc_crawler.specs.sources.whatthespec import fetch_whatthespec_metadata
-
-if TYPE_CHECKING:
-    from tdoc_crawler.database import TDocDatabase
 
 logger = get_logger(__name__)
 
@@ -227,7 +225,8 @@ def clear_checkout_specs(checkout_dir: Path) -> int:
 
 def checkout_specs(
     spec_numbers: list[str],
-    database: TDocDatabase,
+    checkout_dir: Path,
+    database: SpecDatabase,
     release: str = "latest",
     doc_only: bool = False,
     cache_manager_name: str | None = None,
@@ -236,7 +235,8 @@ def checkout_specs(
 
     Args:
             spec_numbers: List of spec numbers to checkout
-            database: TDocDatabase instance for metadata lookup
+            checkout_dir: Base checkout directory
+            database: SpecDatabase instance for metadata lookup
             release: Release version to checkout
             doc_only: If True, download only document files instead of full zip
             cache_manager_name: Optional cache manager name for HTTP caching
@@ -271,6 +271,7 @@ class CheckoutResult:
 
 def checkout_tdocs(
     results: list[TDocMetadata],
+    checkout_dir: Path,
     force: bool = False,
     session: requests.Session | None = None,
     cache_manager_name: str | None = None,
@@ -279,6 +280,7 @@ def checkout_tdocs(
 
     Args:
         results: List of TDocMetadata to checkout
+        checkout_dir: Base checkout directory
         force: If True, re-download even if already exists
         session: Optional requests.Session to reuse for downloads
         cache_manager_name: Optional cache manager name for HTTP caching
@@ -307,6 +309,7 @@ def checkout_tdocs(
 
 def checkout_meeting_tdocs(
     meetings: list[MeetingMetadata],
+    checkout_dir: Path,
     http_cache_dir: Path,
     session: requests.Session | None = None,
     cache_manager_name: str | None = None,
@@ -341,7 +344,7 @@ def checkout_meeting_tdocs(
             if metadata.tdoc_id not in unique:
                 unique[metadata.tdoc_id] = metadata
 
-    return checkout_tdocs(list(unique.values()), force=False, session=session, cache_manager_name=cache_manager_name)
+    return checkout_tdocs(list(unique.values()), checkout_dir, force=False, session=session, cache_manager_name=cache_manager_name)
 
 
 __all__ = [

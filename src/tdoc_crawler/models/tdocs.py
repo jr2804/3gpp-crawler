@@ -18,11 +18,11 @@ from tdoc_crawler.models.base import (
     OutputFormat,
     PortalCredentials,
     SortOrder,
-    _normalize_tdoc_ids,
-    utc_now,
 )
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.working_groups import WorkingGroup
+from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.normalization import normalize_tdoc_ids
 
 _logger = logging.getLogger(__name__)
 
@@ -195,7 +195,7 @@ class TDocCrawlConfig(BaseConfigModel):
         """Ensure target identifiers are normalized."""
         if value is None:
             return None
-        return _normalize_tdoc_ids(value)
+        return normalize_tdoc_ids(value)
 
 
 class QueryConfig(BaseConfigModel):
@@ -215,9 +215,9 @@ class QueryConfig(BaseConfigModel):
         tdoc_ids = data.get("tdoc_ids")
         if tdoc_ids:
             if isinstance(tdoc_ids, str):
-                data["tdoc_ids"] = _normalize_tdoc_ids([tdoc_ids])
+                data["tdoc_ids"] = normalize_tdoc_ids([tdoc_ids])
             elif isinstance(tdoc_ids, Iterable):
-                data["tdoc_ids"] = _normalize_tdoc_ids(tdoc_ids)
+                data["tdoc_ids"] = normalize_tdoc_ids(tdoc_ids)
 
         output_format = data.get("output_format")
         if isinstance(output_format, str):

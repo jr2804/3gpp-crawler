@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Self
+
 from pydantic import Field
 
 from tdoc_crawler.models.base import BaseConfigModel
@@ -23,6 +25,22 @@ class CrawlLimits(BaseConfigModel):
         description="Per working group meeting limit",
     )
     limit_wgs: int | None = Field(None, description="Maximum number of working groups to process")
+
+    @classmethod
+    def build(
+        cls,
+        limit_tdocs: int | None,
+        limit_meetings: int | None,
+        limit_meetings_per_wg: int | None,
+        limit_wgs: int | None,
+    ) -> Self:
+        """Build CrawlLimits configuration from individual parameters."""
+        return cls(
+            limit_tdocs=limit_tdocs,
+            limit_meetings=limit_meetings,
+            limit_meetings_per_wg=limit_meetings_per_wg,
+            limit_wgs=limit_wgs,
+        )
 
 
 def _new_crawl_limits() -> CrawlLimits:

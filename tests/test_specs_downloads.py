@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -55,7 +55,7 @@ class TestSpecDownloads:
         async def mock_aenter(self):
             return mock_reader
 
-        async def mock_aexit(self, *args):
+        async def mock_aexit(self, *args) -> None:
             return None
 
         MockHTTPZipReader.return_value.__aenter__ = mock_aenter

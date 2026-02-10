@@ -9,7 +9,6 @@ from .base import (
     OutputFormat,
     PortalCredentials,
     SortOrder,
-    utc_now,
 )
 from .crawl_limits import CrawlLimits  # noqa: F401
 from .crawl_log import CrawlLogEntry  # noqa: F401
@@ -72,5 +71,4 @@ __all__ = [
     "TDocMetadata",
     "WorkingGroup",
     "WorkingGroupRecord",
-    "utc_now",
 ]

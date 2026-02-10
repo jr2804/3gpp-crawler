@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from hishel.requests import CacheAdapter
-
 from tdoc_crawler.cli.helpers import resolve_http_cache_config
+
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models import HttpCacheConfig
 

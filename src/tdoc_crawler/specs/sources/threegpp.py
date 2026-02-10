@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlparse
 
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.specs.normalization import normalize_spec_number
+from tdoc_crawler.utils.normalization import normalize_spec_number
 
 _logger = logging.getLogger(__name__)
 

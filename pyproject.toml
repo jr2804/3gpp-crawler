@@ -49,6 +49,7 @@ dev = [
     "mdformat>=1.0.0",
     "undersort>=0.1.5",
     "specify-cli",
+    "pydeps>=3.0.2",
 ]
 
 [build-system]

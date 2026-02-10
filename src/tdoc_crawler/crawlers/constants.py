@@ -20,6 +20,8 @@ TDOC_VIEW_URL: Final[str] = f"{PORTAL_BASE_URL}/ngppapp/CreateTdoc.Aspx"
 TDOC_DOWNLOAD_URL: Final[str] = f"{PORTAL_BASE_URL}/ngppapp/DownloadTDoc.aspx"
 LOGIN_URL: Final[str] = f"{PORTAL_BASE_URL}/login.aspx"
 
+SPEC_URL_TEMPLATE: Final[str] = "https://www.3gpp.org/ftp/Specs/archive/{series}/{normalized}/{file_name}"
+
 DATE_PATTERN: Final[re.Pattern[str]] = re.compile(r"(\d{4}[\-\u2010-\u2015]\d{2}[\-\u2010-\u2015]\d{2})")
 
 MEETING_CODE_REGISTRY: Final[dict[str, list[tuple[str, str | None]]]] = {

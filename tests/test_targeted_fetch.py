@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from conftest import insert_sample_meetings
-
 from tdoc_crawler.cli.helpers import infer_working_groups_from_ids
+
 from tdoc_crawler.crawlers import TDocCrawlResult
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.fetching import fetch_missing_tdocs, fetch_missing_tdocs_batch

@@ -9,10 +9,11 @@ from pathlib import Path
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.models.base import BaseConfigModel, PortalCredentials, SortOrder, utc_now
+from tdoc_crawler.models.base import BaseConfigModel, PortalCredentials, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
+from tdoc_crawler.utils.misc import utc_now
 
 
 class MeetingMetadata(BaseModel):

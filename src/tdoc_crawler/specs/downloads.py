@@ -8,11 +8,11 @@ from pathlib import Path
 from zipinspect import HTTPZipReader
 
 from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.crawlers.constants import SPEC_URL_TEMPLATE
 from tdoc_crawler.http_client import download_to_path
-from tdoc_crawler.specs.catalog import SpecCatalog
-from tdoc_crawler.specs.normalization import normalize_spec_number
+from tdoc_crawler.specs.database import SpecDatabase
 from tdoc_crawler.specs.sources.base import SpecSource
+from tdoc_crawler.utils.normalization import normalize_spec_number
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ _logger = logging.getLogger(__name__)
 class SpecDownloads:
     """Download and extraction utilities for specs."""
 
-    def __init__(self, database: TDocDatabase, cache_manager_name: str | None = None) -> None:
+    def __init__(self, database: SpecDatabase, cache_manager_name: str | None = None) -> None:
         self._database = database
         self._cache_manager = resolve_cache_manager(cache_manager_name)
 
@@ -28,6 +28,7 @@ class SpecDownloads:
         self,
         specs: list[str],
         doc_only: bool,
+        checkout_dir: Path,
         release: str = "latest",
         sources: list[SpecSource] | None = None,
     ) -> list[Path]:
@@ -35,21 +36,23 @@ class SpecDownloads:
         results: list[Path] = []
 
         for spec in specs:
+            url: str | None = None
+            filename: str | None = None
             try:
+                # check if it exists in the database; if not, attempt crawl if sources provided
                 normalized = normalize_spec_number(spec)
-                series = f"{normalized.split('.')[0]}_series"
+                series = f"{normalized.split('.', maxsplit=1)[0]}_series"
                 target_dir = checkout_dir / "Specs" / "archive" / series / normalized
                 target_dir.mkdir(parents=True, exist_ok=True)
 
                 # Resolve URL
                 try:
-                    url, filename = self._resolve_spec_url(normalized, release)
-                except ValueError as exc:
+                    url, filename = self._resolve_spec_url(spec, release)
+                except ValueError:
                     if sources:
                         _logger.info("Spec metadata not found for %s, attempting crawl...", normalized)
 
-                        catalog = SpecCatalog(self._database)
-                        catalog.crawl_specs([normalized], release, sources)
+                        self._database.crawl_specs([normalized], release, sources)
 
                         # Try again after crawl
                         try:
@@ -58,8 +61,14 @@ class SpecDownloads:
                             _logger.warning("Spec metadata still not found for %s after crawl", normalized)
                             continue
                     else:
-                        _logger.warning(exc)
+                        _logger.warning("Spec metadata not found for %s and no sources provided", normalized)
                         continue
+
+                if url is None or filename is None:
+                    continue
+
+                if sources:
+                    _logger.info("Found URL: %s", url)
 
                 # doc-only logic
                 success = False
@@ -103,8 +112,11 @@ class SpecDownloads:
             return zips[0]
         return target_dir
 
-    def _resolve_spec_url(self, normalized: str, release: str) -> tuple[str, str]:
+    def _resolve_spec_url(self, spec: str, release: str | None) -> tuple[str, str]:
         """Resolve spec number to download URL and filename."""
+        release = release or "latest"
+        normalized = normalize_spec_number(spec)
+        series = f"{normalized.split('.', maxsplit=1)[0]}_series"
         versions = self._database.get_spec_versions(normalized)
         if not versions:
             raise ValueError(f"No versions found for spec {normalized}")
@@ -139,8 +151,7 @@ class SpecDownloads:
         target = versions[0]
 
         # Construct 3GPP FTP URL
-        series = f"{normalized.split('.', maxsplit=1)[0]}_series"
-        url = f"https://www.3gpp.org/ftp/Specs/archive/{series}/{normalized}/{target.file_name}"
+        url = SPEC_URL_TEMPLATE.format(series=series, normalized=normalized, file_name=target.file_name)
         return url, target.file_name
 
     async def _attempt_doc_only_async(self, url: str, normalized: str, target_dir: Path) -> bool:

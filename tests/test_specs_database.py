@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.specs import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion
+from tdoc_crawler.specs.database import SpecDatabase
 from tdoc_crawler.specs.query import SpecQueryFilters
 
 
@@ -19,7 +19,7 @@ def test_upsert_specification_roundtrip(tmp_path: Path) -> None:
         latest_version="19.0.0",
     )
     db_path = tmp_path / "tdoc_crawler.db"
-    with TDocDatabase(db_path) as database:
+    with SpecDatabase(db_path) as database:
         created, changed = database.upsert_specification(spec)
         assert created is True
         assert changed is False
@@ -37,7 +37,7 @@ def test_query_specs_returns_results(tmp_path: Path) -> None:
         latest_version="17.3.0",
     )
     db_path = tmp_path / "tdoc_crawler.db"
-    with TDocDatabase(db_path) as database:
+    with SpecDatabase(db_path) as database:
         database.upsert_specification(spec)
         results = database.query_specs(SpecQueryFilters(spec_numbers=["23.501"]))
     assert len(results) == 1
@@ -65,7 +65,7 @@ def test_query_specs_filters(tmp_path: Path) -> None:
     )
     db_path = tmp_path / "tdoc_crawler.db"
 
-    with TDocDatabase(db_path) as database:
+    with SpecDatabase(db_path) as database:
         database.upsert_specification(s1)
         database.upsert_specification(s2)
 
@@ -114,7 +114,7 @@ def test_query_specs_discrepancies(tmp_path: Path) -> None:
     )
     db_path = tmp_path / "tdoc_crawler.db"
 
-    with TDocDatabase(db_path) as database:
+    with SpecDatabase(db_path) as database:
         database.upsert_specification(spec)
         database.upsert_spec_source_record(record_a)
         database.upsert_spec_source_record(record_b)
@@ -145,7 +145,7 @@ def test_log_spec_download(tmp_path: Path) -> None:
         extracted_at=None,
     )
     db_path = tmp_path / "tdoc_crawler.db"
-    with TDocDatabase(db_path) as database:
+    with SpecDatabase(db_path) as database:
         database.log_spec_download(download)
 
 
@@ -165,6 +165,6 @@ def test_upsert_spec_source_and_version(tmp_path: Path) -> None:
         source_name="3gpp",
     )
     db_path = tmp_path / "tdoc_crawler.db"
-    with TDocDatabase(db_path) as database:
+    with SpecDatabase(db_path) as database:
         database.upsert_spec_source_record(source_record)
         database.upsert_spec_version(version)
