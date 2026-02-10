@@ -72,6 +72,44 @@ Use package-level imports:
 from pool_executors.pool_executors import SerialPoolExecutor, create_executor
 ```
 
+### Domain-Specific Imports
+
+**Since the refactoring (Steps 1-14), use domain-specific imports:**
+
+```python
+# TDoc functionality
+from tdoc_crawler.tdocs import TDocCrawler, HybridTDocCrawler
+from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
+
+# Meeting functionality
+from tdoc_crawler.meetings import MeetingCrawler
+
+# Spec functionality
+from tdoc_crawler.specs import SpecDatabase
+
+# Constants (patterns, URLs)
+from tdoc_crawler.constants.patterns import EXCLUDED_DIRS, TDOC_PATTERN
+from tdoc_crawler.constants.urls import TDOC_DOWNLOAD_URL
+
+# Portal client
+from tdoc_crawler.clients.portal import PortalClient, create_portal_client
+
+# Parsers
+from tdoc_crawler.parsers.portal import parse_tdoc_portal_page
+```
+
+**NEVER use:** `from tdoc_crawler.crawlers import ...` (this package was removed)
+
+## Anti-Duplication in Tests
+
+### Use Fixtures
+
+Avoid duplicating setup code or data loading in tests. Use `conftest.py` and pytest fixtures.
+
+### No Library Logic in Tests
+
+Do not re-implement or copy logic from `src/` into `tests/` for the sake of mocking or testing. Tests should verify the actual implementation by importing it. If the code is hard to test, refactor the code to be more testable rather than duplicating logic.
 
 ## Best Practices
 

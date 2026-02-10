@@ -4,9 +4,108 @@
 
 Before implementing features, review these critical sections:
 
-1. **Project Structure** - Understand the models/ and crawlers/ submodule organization
+1. **Project Structure** - Understand the domain-oriented architecture (tdocs/, meetings/, specs/)
 1. **CLI Commands** - Review the command signatures in `src/tdoc_crawler/cli/app.py`
 1. **Database Schema** - Review models in `src/tdoc_crawler/models/` and database operations
+
+## Domain-Oriented Architecture
+
+**IMPORTANT: The project uses a clean domain-driven structure. The legacy `crawlers/` folder has been completely removed.**
+
+### Domain Package Structure
+
+```
+src/tdoc_crawler/
+├── tdocs/              # TDoc domain (operations, sources, models)
+│   ├── operations/     # TDoc operations (crawl, fetch, checkout)
+│   ├── sources/        # TDoc data sources (portal, doclist, whatthespec)
+│   └── models.py       # TDoc-specific models
+├── meetings/           # Meeting domain (operations, crawl logic)
+├── specs/              # Specification domain (operations, sources, database)
+│   ├── operations/     # Spec operations (crawl, checkout, normalize)
+│   └── sources/        # Spec data sources (3gpp, whatthespec)
+├── clients/            # External API clients (Portal)
+├── parsers/            # HTML/data parsers (portal, meetings, directory)
+├── workers/            # Parallel processing workers
+├── database/           # Database layer (base, connection)
+├── models/             # Shared data models
+├── constants/          # Patterns, URLs, registries
+├── utils/              # Shared utilities
+└── cli/                # Command-line interface (optional)
+```
+
+### Import Patterns
+
+**Correct imports:**
+
+```python
+# TDoc operations
+from tdoc_crawler.tdocs import TDocCrawler, HybridTDocCrawler
+from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
+from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
+from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
+
+# Meeting operations
+from tdoc_crawler.meetings import MeetingCrawler, normalize_working_group_alias
+
+# Spec operations
+from tdoc_crawler.specs import SpecDatabase, SpecDownloads
+from tdoc_crawler.specs.operations.checkout import checkout_spec
+```
+
+**NEVER use:** `from tdoc_crawler.crawlers import ...` (this package no longer exists)
+
+### Circular Import Prevention
+
+**Rule:** If you encounter a circular import, refactor the code to eliminate it. Never use `TYPE_CHECKING` guards or lazy imports as a permanent solution.
+
+**Strategy:**
+
+1. Identify the circular dependency
+2. Extract shared types to `models/` layer
+3. Both modules import from the neutral models layer
+4. Use lazy imports (inside functions) only for temporary fixes during refactoring
+
+**Example:**
+
+```python
+# WRONG: Using TYPE_CHECKING as permanent solution
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from tdoc_crawler.database import TDocDatabase
+
+# RIGHT: Use lazy import inside function (temporary only)
+def _resolve_meeting_id(db_file: Path) -> int:
+    from tdoc_crawler.database import TDocDatabase  # Lazy import
+    with TDocDatabase(db_file) as db:
+        return db.resolve_meeting_id(name)
+```
+
+## Anti-Duplication and DRY (Don't Repeat Yourself)
+
+**CRITICAL: Code duplication was the primary driver for the major domain-oriented refactoring. Future assistants MUST NOT introduce duplicated logic.**
+
+### Search Before Implement
+
+Before implementing any new functionality:
+
+1. Use `grepai search` to check if a similar implementation exists.
+2. Check the relevant domain package (`tdocs/`, `meetings/`, `specs/`).
+3. If logic exists but needs modification, REFACTOR the existing code rather than creating a second version.
+
+### Logic Placement Rules
+
+- **Domain Logic:** Must live in `src/tdoc_crawler/<domain>/`. NEVER re-implement this in `cli/`, `parsers/`, or `utils/`.
+- **Parsing Logic:** Must live in `src/tdoc_crawler/parsers/`.
+- **API Clients:** Must live in `src/tdoc_crawler/clients/`.
+- **Shared Utilities:** Must live in `src/tdoc_crawler/utils/` only if they are truly generic.
+
+### Prohibited Patterns
+
+- **CLI Duplication:** Do not copy domain logic into `src/tdoc_crawler/cli/`. The CLI should only handle input/output and call core functions.
+- **Test Duplication:** Do not copy library code into tests to mock behavior. Use proper mocking or test the actual imported code.
+- **Helper Bloat:** Do not create `utils.py` files in subdirectories that duplicate functions already present in `src/tdoc_crawler/utils/`.
 
 ## grepai - Semantic Code Search
 

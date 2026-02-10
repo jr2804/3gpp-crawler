@@ -6,6 +6,8 @@ This document provides guidelines for development in the `tdoc_crawler.cli` subm
 
 The `cli/` submodule should contain **only CLI-related functionality**. The core `tdoc_crawler` package should be usable as a standalone library without depending on the CLI. Think of `cli/` as an optional extras package (installable as `tdoc_crawler[cli]`).
 
+**STRICT RULE: NEVER duplicate logic from the core library in the CLI.** If you need functionality that is partially implemented in the CLI but belongs in the core, move it to the core and have the CLI import it.
+
 ## Classification Rules
 
 When deciding whether code belongs in `cli/` or the core library, ask:
@@ -54,6 +56,29 @@ database/__init__.py → database/connection.py → specs/query.py → specs/__i
 **Solution:** Created a neutral `models/specs.py` layer for shared types (`SpecQueryFilters`, `SpecQueryResult`). Both `database/` and `specs/` import from `models/` without circularity.
 
 **Key Insight:** Circular imports always indicate a structural problem. Never use TYPE_CHECKING or local imports to work around them - refactor the module organization instead.
+
+### Domain-Oriented Refactoring (Steps 1-14)
+
+The project underwent a complete restructuring to eliminate the legacy `crawlers/` package:
+
+**Before:** Mixed orchestration and domain logic in `crawlers/`
+
+```python
+from tdoc_crawler.crawlers import TDocCrawler, MeetingCrawler
+from tdoc_crawler.crawlers.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.crawlers.meeting_doclist import fetch_meeting_document_list
+```
+
+**After:** Clean domain packages with clear responsibilities
+
+```python
+from tdoc_crawler.tdocs import TDocCrawler
+from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
+from tdoc_crawler.meetings import MeetingCrawler
+```
+
+**Result:** The `crawlers/` folder no longer exists. All functionality lives in domain packages.
 
 ### Import Pattern
 
