@@ -29,7 +29,7 @@ def resolve_meeting_id(database: TDocDatabase, meeting_name: str) -> int | None:
     """
     # Query all meetings from database
     config = MeetingQueryConfig(
-        cache_dir=database.db_path.parent,
+        cache_dir=database.db_file.parent,
         working_groups=None,
         subgroups=None,
         limit=None,

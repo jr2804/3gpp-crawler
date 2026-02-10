@@ -11,8 +11,8 @@ from pathlib import Path
 import requests
 from pydantic import BaseModel, Field, field_validator
 
+from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.models.base import (
-    DEFAULT_CACHE_DIR,
     BaseConfigModel,
     HttpCacheConfig,
     OutputFormat,
@@ -32,6 +32,7 @@ class TDocMetadata(BaseModel):
 
     # Mandatory metadata fields from portal
     tdoc_id: str = Field(..., description="Unique TDoc identifier (case-normalized)")
+    # TODO: consider using the meeting short name as meeting_id (str), as it is available via portal access?
     meeting_id: int = Field(..., description="Foreign key reference to the meetings table")
     title: str = Field(..., description="Document title as published on the portal")
     url: str | None = Field(None, description="Full URL to the TDoc resource, None if not available")
@@ -133,7 +134,7 @@ class TDocMetadata(BaseModel):
 class TDocCrawlConfig(BaseConfigModel):
     """Configuration for TDoc crawling runs."""
 
-    cache_dir: Path = Field(default_factory=lambda: DEFAULT_CACHE_DIR, description="Cache directory path")
+    cache_dir: Path = Field(default_factory=resolve_cache_manager, description="Cache directory path")
     working_groups: list[WorkingGroup] = Field(
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
         description="Working groups to crawl",
@@ -201,7 +202,7 @@ class TDocCrawlConfig(BaseConfigModel):
 class QueryConfig(BaseConfigModel):
     """Configuration for querying TDoc metadata."""
 
-    cache_dir: Path = Field(default_factory=lambda: DEFAULT_CACHE_DIR, description="Cache directory path")
+    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     output_format: OutputFormat = Field(OutputFormat.TABLE, description="Output format")
     tdoc_ids: list[str] | None = Field(None, description="TDoc IDs to query")
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")

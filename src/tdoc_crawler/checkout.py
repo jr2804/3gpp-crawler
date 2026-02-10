@@ -227,37 +227,36 @@ def clear_checkout_specs(checkout_dir: Path) -> int:
 
 def checkout_specs(
     spec_numbers: list[str],
-    checkout_dir: Path,
     database: TDocDatabase,
     release: str = "latest",
     doc_only: bool = False,
+    cache_manager_name: str | None = None,
 ) -> list[Path]:
     """Checkout spec documents to the checkout directory.
 
     Args:
             spec_numbers: List of spec numbers to checkout
-            checkout_dir: Base checkout directory
             database: TDocDatabase instance for metadata lookup
             release: Release version to checkout
             doc_only: If True, download only document files instead of full zip
-
+            cache_manager_name: Optional cache manager name for HTTP caching
     Returns:
             List of paths to checked out specs
     """
-    sources = build_default_spec_sources()
-    downloader = SpecDownloads(database)
+    sources = build_default_spec_sources(cache_manager_name=cache_manager_name)
+    downloader = SpecDownloads(database, cache_manager_name=cache_manager_name)
     return downloader.checkout_specs(spec_numbers, doc_only, checkout_dir, release, sources=sources)
 
 
-def build_default_spec_sources() -> list[SpecSource]:
+def build_default_spec_sources(cache_manager_name: str | None = None) -> list[SpecSource]:
     """Build the default list of spec sources.
 
     Returns:
         List of SpecSource instances for fetching spec metadata
     """
     return [
-        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata)),
-        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata)),
+        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={"cache_manager_name": cache_manager_name})),
+        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={"cache_manager_name": cache_manager_name})),
     ]
 
 
@@ -272,25 +271,23 @@ class CheckoutResult:
 
 def checkout_tdocs(
     results: list[TDocMetadata],
-    checkout_dir: Path,
     force: bool = False,
     session: requests.Session | None = None,
+    cache_manager_name: str | None = None,
 ) -> CheckoutResult:
     """Checkout multiple TDoc files to the checkout directory.
 
     Args:
         results: List of TDocMetadata to checkout
-        checkout_dir: Base checkout directory
         force: If True, re-download even if already exists
         session: Optional requests.Session to reuse for downloads
-
+        cache_manager_name: Optional cache manager name for HTTP caching
     Returns:
         CheckoutResult with success/error counts
     """
     if not results:
         return CheckoutResult(success_count=0, error_count=0, errors=[])
 
-    checkout_dir.mkdir(parents=True, exist_ok=True)
     success_count = 0
     error_count = 0
     errors: list[str] = []
@@ -310,16 +307,16 @@ def checkout_tdocs(
 
 def checkout_meeting_tdocs(
     meetings: list[MeetingMetadata],
-    checkout_dir: Path,
-    http_cache_path: Path,
+    http_cache_dir: Path,
     session: requests.Session | None = None,
+    cache_manager_name: str | None = None,
 ) -> CheckoutResult:
     """Checkout TDoc files from a list of meetings.
 
     Args:
         meetings: List of MeetingMetadata to checkout TDocs from
         checkout_dir: Base checkout directory
-        http_cache_path: Path to HTTP cache database
+        http_cache_dir: Path to HTTP cache database
         session: Optional requests.Session to reuse for downloads
 
     Returns:
@@ -336,7 +333,7 @@ def checkout_meeting_tdocs(
             errors.append(f"{meeting.short_name}: no files URL")
             continue
         try:
-            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_path)
+            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_dir)
         except DocumentListError as exc:
             errors.append(f"{meeting.short_name}: {exc}")
             continue
@@ -344,7 +341,7 @@ def checkout_meeting_tdocs(
             if metadata.tdoc_id not in unique:
                 unique[metadata.tdoc_id] = metadata
 
-    return checkout_tdocs(list(unique.values()), checkout_dir, force=False, session=session)
+    return checkout_tdocs(list(unique.values()), force=False, session=session, cache_manager_name=cache_manager_name)
 
 
 __all__ = [

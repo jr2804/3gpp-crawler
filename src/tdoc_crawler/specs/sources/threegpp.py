@@ -1,9 +1,9 @@
 """3GPP portal metadata fetcher for specs."""
 
 import logging
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.specs.normalization import normalize_spec_number
 
@@ -16,11 +16,12 @@ class SpecNotFoundError(Exception):
     pass
 
 
-def fetch_threegpp_metadata(spec_number: str) -> dict[str, object]:
+def fetch_threegpp_metadata(spec_number: str, cache_manager_name: str | None = None) -> dict[str, object]:
     """Fetch spec metadata via 3GPP.org redirect flow.
 
     Args:
         spec_number: Spec number to fetch (e.g., "26.131").
+        cache_manager_name: Optional name of cache manager to use for HTTP caching.
 
     Returns:
         Dictionary containing spec metadata from 3GPP portal.
@@ -37,8 +38,8 @@ def fetch_threegpp_metadata(spec_number: str) -> dict[str, object]:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     }
-    cache_dir = Path.home() / ".cache" / "tdoc-crawler"
-    session = create_cached_session(cache_dir)
+
+    session = create_cached_session(resolve_cache_manager(cache_manager_name).root)
     response = session.get(url, timeout=30, allow_redirects=True, headers=headers)
     response.raise_for_status()
 

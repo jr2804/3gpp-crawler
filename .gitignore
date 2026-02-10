@@ -233,3 +233,4 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+/scripts/cache

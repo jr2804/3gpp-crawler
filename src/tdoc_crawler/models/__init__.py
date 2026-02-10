@@ -4,7 +4,6 @@ from __future__ import annotations
 
 # Re-export all public symbols
 from .base import (
-    DEFAULT_CACHE_DIR,
     BaseConfigModel,  # noqa: F401
     HttpCacheConfig,
     OutputFormat,
@@ -47,7 +46,6 @@ from .working_groups import (
 
 __all__ = [
     "CODE_INDEX",
-    "DEFAULT_CACHE_DIR",
     "SUBTB_INDEX",
     "SUBWORKING_GROUP_RECORDS",
     "WORKING_GROUP_RECORDS",

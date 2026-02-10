@@ -23,7 +23,7 @@ class DocumentListError(Exception):
 
 def fetch_meeting_document_list(
     meeting_id: int,
-    cache_path: Path,
+    cache_dir: Path,
     cache_ttl: int = 7200,
     cache_refresh_on_access: bool = True,
     timeout: int = 30,
@@ -32,7 +32,7 @@ def fetch_meeting_document_list(
 
     Args:
         meeting_id: 3GPP meeting identifier
-        cache_path: Path to HTTP cache SQLite database
+        cache_dir: Path to HTTP cache SQLite database
         cache_ttl: HTTP cache TTL in seconds
         cache_refresh_on_access: Whether to refresh cache TTL on access
         timeout: Request timeout in seconds
@@ -49,7 +49,7 @@ def fetch_meeting_document_list(
 
     # Create cached session (no credentials required)
     session = create_cached_session(
-        cache_path=cache_path,
+        cache_dir=cache_dir,
         ttl=cache_ttl,
         refresh_ttl_on_access=cache_refresh_on_access,
         max_retries=3,

@@ -537,6 +537,7 @@ class PortalClient:
         self._authenticated = True
         logger.info("Successfully authenticated with 3GPP portal")
 
+    # TODO: Code duplication, see standalone function extract_tdoc_url_from_portal - refactor to use a shared internal method
     def extract_tdoc_url(self, tdoc_id: str) -> str:
         """Extract direct FTP download URL for a TDoc (unauthenticated).
 

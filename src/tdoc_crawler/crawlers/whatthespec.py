@@ -33,12 +33,12 @@ def _parse_agenda_item_nbr(value: object) -> Decimal:
         return Decimal(0)
 
 
-def _resolve_meeting_id(db_path: Path, meeting_name: str | None) -> int:
+def _resolve_meeting_id(db_file: Path, meeting_name: str | None) -> int:
     """Resolve meeting name to meeting_id using local database."""
     if not meeting_name:
         return 0
     try:
-        with TDocDatabase(db_path) as database:
+        with TDocDatabase(db_file) as database:
             resolved = resolve_meeting_id(database, meeting_name)
     except Exception as exc:
         logger.warning(f"Failed to resolve meeting '{meeting_name}': {exc}")
@@ -48,8 +48,8 @@ def _resolve_meeting_id(db_path: Path, meeting_name: str | None) -> int:
 
 def resolve_via_whatthespec(
     tdoc_id: str,
-    cache_path: Path,
-    db_path: Path,
+    cache_dir: Path,
+    db_file: Path,
     http_cache: HttpCacheConfig,
     timeout: int = 30,
     session: requests.Session | None = None,
@@ -58,8 +58,8 @@ def resolve_via_whatthespec(
 
     Args:
         tdoc_id: TDoc identifier (e.g., "S4-260001").
-        cache_path: Path to HTTP cache SQLite database.
-        db_path: Path to local TDoc database.
+        cache_dir: Path to HTTP cache SQLite database.
+        db_file: Path to local TDoc database.
         http_cache: HTTP cache configuration for hishel.
         timeout: Request timeout in seconds.
         session: Optional requests.Session to reuse.
@@ -102,7 +102,7 @@ def resolve_via_whatthespec(
 
     metadata = TDocMetadata(
         tdoc_id=resolved_id,
-        meeting_id=_resolve_meeting_id(db_path, meeting_name),
+        meeting_id=_resolve_meeting_id(db_file, meeting_name),
         meeting_name=meeting_name,
         title=str(record.get("title") or ""),
         url=str(record.get("link") or ""),

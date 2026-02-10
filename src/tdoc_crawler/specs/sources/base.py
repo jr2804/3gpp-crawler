@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 
@@ -25,7 +25,9 @@ class FunctionSpecSource:
     """Adapter that exposes a callable as a SpecSource."""
 
     name: str
-    fetcher: Callable[[str], dict[str, object]]
+    fetcher: Callable[[str, ...], dict[str, object]]
+    fetcher_args: tuple = ()
+    fetcher_kwargs: dict = field(default_factory=dict)
 
     def fetch(self, spec_number: str) -> dict[str, object]:
         """Fetch metadata using the wrapped callable.
@@ -36,4 +38,4 @@ class FunctionSpecSource:
         Returns:
             Raw metadata payload for the spec.
         """
-        return self.fetcher(spec_number)
+        return self.fetcher(spec_number, *self.fetcher_args, **self.fetcher_kwargs)

@@ -8,7 +8,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from tdoc_crawler.models.base import DEFAULT_CACHE_DIR, BaseConfigModel, PortalCredentials, SortOrder, utc_now
+from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.models.base import BaseConfigModel, PortalCredentials, SortOrder, utc_now
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
@@ -93,7 +94,7 @@ class MeetingMetadata(BaseModel):
 class MeetingCrawlConfig(BaseConfigModel):
     """Configuration for meeting crawling operations."""
 
-    cache_dir: Path = Field(default_factory=lambda: DEFAULT_CACHE_DIR, description="Cache directory path")
+    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     working_groups: list[WorkingGroup] = Field(
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
         description="Working groups to crawl",
@@ -126,7 +127,7 @@ class MeetingCrawlConfig(BaseConfigModel):
 class MeetingQueryConfig(BaseConfigModel):
     """Configuration for querying meeting metadata."""
 
-    cache_dir: Path = Field(default_factory=lambda: DEFAULT_CACHE_DIR, description="Cache directory path")
+    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
     subgroups: list[str] | None = Field(None, description="Filter by sub-working group")
     limit: int | None = Field(None, ge=1, description="Maximum results")

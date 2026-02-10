@@ -4,33 +4,35 @@ import asyncio
 import logging
 import zipfile
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from zipinspect import HTTPZipReader
 
+from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.models.base import DEFAULT_CACHE_DIR
 from tdoc_crawler.specs.catalog import SpecCatalog
 from tdoc_crawler.specs.normalization import normalize_spec_number
-
-if TYPE_CHECKING:
-    from tdoc_crawler.specs.sources.base import SpecSource
+from tdoc_crawler.specs.sources.base import SpecSource
 
 _logger = logging.getLogger(__name__)
+
+# TODO: Simply this class; "open" is actually the same as "checkout" with a single file and a trigger to the system's open action.
+# TODO: This way we avoid code duplication between "checkout" and "open", as they both need to resolve URLs, download, and extract.
+# TODO: Thus, both methods should share as much code/logic as possible
 
 
 class SpecDownloads:
     """Download and extraction utilities for specs."""
 
-    def __init__(self, database: TDocDatabase) -> None:
+    def __init__(self, database: TDocDatabase, cache_manager_name: str | None = None) -> None:
         self._database = database
+        self._cache_manager = resolve_cache_manager(cache_manager_name)
 
     def checkout_specs(
         self,
         specs: list[str],
         doc_only: bool,
-        checkout_dir: Path,
+        checkout_dir: Path,  # Todo: checkout_dir must be derived from cache_dir and relative subdir from URL
         release: str = "latest",
         sources: list[SpecSource] | None = None,
     ) -> list[Path]:
@@ -42,6 +44,7 @@ class SpecDownloads:
             try:
                 normalized = normalize_spec_number(spec)
                 series = f"{normalized.split('.')[0]}_series"
+                # Todo: do not hard-code "Specs/archive" path segment, derive from URL
                 target_dir = checkout_dir / "Specs" / "archive" / series / normalized
                 target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -94,7 +97,7 @@ class SpecDownloads:
         self,
         spec: str,
         doc_only: bool,
-        checkout_dir: Path,
+        checkout_dir: Path,  # Todo: checkout_dir must be derived from cache_dir and relative subdir from URL
         release: str = "latest",
         sources: list[SpecSource] | None = None,
     ) -> Path:
@@ -136,7 +139,7 @@ class SpecDownloads:
         # If specific release requested, filter versions by major version
         if release != "latest":
             try:
-                release_major = int(release.split(".")[0])
+                release_major = int(release.split(".", maxsplit=1)[0])
                 # Filter versions that match this major release
                 filtered_versions = [v for v in versions if parse_version(v.version)[0] == release_major]
                 if filtered_versions:
@@ -182,13 +185,14 @@ class SpecDownloads:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         }
-        session = create_cached_session(cache_dir=DEFAULT_CACHE_DIR)
+        session = create_cached_session(cache_dir=self.cache)
         response = session.get(url, stream=True, timeout=60, headers=headers)
         response.raise_for_status()
         with open(target_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
+    # TODO: should be either staticmethod or moved to utility module, as it is not specific to this class
     def _extract_zip(self, zip_path: Path, extract_dir: Path) -> None:
         """Extract zip file."""
         try:

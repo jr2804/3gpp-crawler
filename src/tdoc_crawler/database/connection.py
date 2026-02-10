@@ -32,8 +32,9 @@ from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 class TDocDatabase:
     """High-level facade for all database operations."""
 
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
+    def __init__(self, db_file: Path) -> None:
+        self.db_file = db_file
+        self.cache_dir = db_file.parent
         self._database: DataBase | None = None
 
     # ------------------------------------------------------------------
@@ -41,8 +42,8 @@ class TDocDatabase:
     # ------------------------------------------------------------------
     def __enter__(self) -> TDocDatabase:
         try:
-            self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._database = DataBase(self.db_path)
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            self._database = DataBase(self.db_file)
             self._ensure_reference_data()
         except Exception as exc:
             raise DatabaseError("database-initialization-failed", detail=str(exc)) from exc
@@ -120,7 +121,11 @@ class TDocDatabase:
         return inserted, updated
 
     def query_tdocs(self, config: QueryConfig) -> list[TDocMetadata]:
+        # TODO: replace with more efficient query-based filtering once we have a better understanding of common query patterns and pydantic_sqlite capabilities/limitations around filtering, sorting, and pagination
         records = self._table_rows("tdocs")
+        if not records:
+            return []
+
         meeting_map = self._meeting_map()
 
         if config.tdoc_ids:

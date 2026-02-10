@@ -10,18 +10,19 @@ from hishel import SyncSqliteStorage
 from hishel.requests import CacheAdapter
 from urllib3.util.retry import Retry
 
-from tdoc_crawler.config import CacheManager
+from tdoc_crawler.config import resolve_cache_manager
 
 logger = logging.getLogger(__name__)
 
 
-def download_to_path(url: str, destination: Path, session: requests.Session | None = None) -> None:
+def download_to_path(url: str, destination: Path, session: requests.Session | None = None, cache_manager_name: str | None = None) -> None:
     """Download a file from URL to destination path.
 
     Args:
         url: Source URL
         destination: Destination path
         session: Optional requests.Session to reuse. If None, a temporary cached session is created.
+        cache_manager_name: Optional cache manager name to determine cache directory when creating a temporary session.
 
     Raises:
         ValueError: If URL scheme is not supported
@@ -36,8 +37,8 @@ def download_to_path(url: str, destination: Path, session: requests.Session | No
     # Use provided session or create a temporary one
     temp_session: requests.Session | None = None
     if session is None:
-        manager = CacheManager()
-        temp_session = create_cached_session(cache_path=manager.http_cache_path)
+        manager = resolve_cache_manager(cache_manager_name)
+        temp_session = create_cached_session(cache_dir=manager.http_cache_dir)
         active_session = temp_session
     else:
         active_session = session
@@ -68,7 +69,7 @@ def download_to_path(url: str, destination: Path, session: requests.Session | No
 
 
 def create_cached_session(
-    cache_path: Path,
+    cache_dir: Path,
     ttl: int = 7200,
     refresh_ttl_on_access: bool = True,
     max_retries: int = 3,
@@ -76,7 +77,7 @@ def create_cached_session(
     """Create a requests.Session with hishel caching enabled.
 
     Args:
-        cache_path: Path to the SQLite cache database file.
+        cache_dir: Path to the SQLite cache database file.
         ttl: Time-to-live for cached responses in seconds (default: 7200)
         refresh_ttl_on_access: Whether to refresh TTL on cache access (default: True)
         max_retries: Number of retry attempts for failed requests (default: 3)
@@ -85,13 +86,13 @@ def create_cached_session(
         Configured requests.Session with caching enabled
     """
     # Ensure cache directory exists
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_dir.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.debug(f"Creating cached HTTP session: cache_db={cache_path}, ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, max_retries={max_retries}")
+    logger.debug(f"Creating cached HTTP session: cache_db={cache_dir}, ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, max_retries={max_retries}")
 
     # Create SQLite storage backend
     storage = SyncSqliteStorage(
-        database_path=str(cache_path),
+        database_path=str(cache_dir),
         default_ttl=ttl,
         refresh_ttl_on_access=refresh_ttl_on_access,
     )

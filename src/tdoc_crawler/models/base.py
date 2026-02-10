@@ -58,7 +58,6 @@ class HttpCacheConfig:
 
 
 __all__ = [
-    "DEFAULT_CACHE_DIR",
     "BaseConfigModel",
     "HttpCacheConfig",
     "OutputFormat",

@@ -1,154 +1,159 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-
-			{
-				"name": "Debug: crawl-meetings (max. 5)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"crawl-meetings",
-					"--cache-dir",
-					"./tests/test-cache",
-					"--limit-meetings",
-					"5"
-				]
-			},
-			{
-				"name": "Debug: crawl-meetings (full)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"crawl-meetings",
-					"--cache-dir",
-					"./tests/test-cache"
-				]
-			},
-			{
-				"name": "Debug: crawl-meetings (single WG)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"crawl-meetings",
-					"--cache-dir",
-					"./tests/test-cache",
-					"--limit-wgs",
-					"1",
-					"--limit-meetings",
-					"10"
-				]
-			},
-			{
-				"name": "Debug: query-meetings",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"query-meetings",
-					"--cache-dir",
-					"./tests/test-cache"
-				]
-			},
-			{
-				"name": "Debug: query-meetings (specific WG - SA)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"query-meetings",
-					"--cache-dir",
-					"./tests/test-cache",
-					"-w",
-					"SA"
-				]
-			},
-			{
-				"name": "Debug: query-meetings (SP - SA Plenary)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"query-meetings",
-					"--cache-dir",
-					"./tests/test-cache",
-					"-w",
-					"SP"
-				]
-			},
-			{
-				"name": "Debug: query-meetings (JSON output)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"query-meetings",
-					"--cache-dir",
-					"./tests/test-cache",
-					"--format",
-					"json"
-				]
-			},
-			{
-				"name": "Debug: crawl (all)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"crawl-tdocs",
-					"--cache-dir",
-					"./tests/test-cache",
-					"--limit-tdocs",
-					"10"
-				]
-			},
-			{
-				"name": "Debug: query (S4-251364)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"query-tdocs",
-					"S4-251364",
-					"--cache-dir",
-					"./tests/test-cache"
-				]
-			},
-			{
-				"name": "Debug: open (S4-260001)",
-				"type": "debugpy",
-				"request": "launch",
-				"module": "tdoc_crawler",
-				"console": "integratedTerminal",
-				"justMyCode": false,
-				"args": [
-					"open",
-					"S4-260001",
-
-				]
-			}
-		]
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "demo.py",
+			"type": "debugpy",
+			"request": "launch",
+			"program": "${workspaceFolder}/scripts/demo.py",
+			"console": "integratedTerminal",
+		},
+		{
+			"name": "Debug: crawl-meetings (max. 5)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"crawl-meetings",
+				"--cache-dir",
+				"./tests/test-cache",
+				"--limit-meetings",
+				"5"
+			]
+		},
+		{
+			"name": "Debug: crawl-meetings (full)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"crawl-meetings",
+				"--cache-dir",
+				"./tests/test-cache"
+			]
+		},
+		{
+			"name": "Debug: crawl-meetings (single WG)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"crawl-meetings",
+				"--cache-dir",
+				"./tests/test-cache",
+				"--limit-wgs",
+				"1",
+				"--limit-meetings",
+				"10"
+			]
+		},
+		{
+			"name": "Debug: query-meetings",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"query-meetings",
+				"--cache-dir",
+				"./tests/test-cache"
+			]
+		},
+		{
+			"name": "Debug: query-meetings (specific WG - SA)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"query-meetings",
+				"--cache-dir",
+				"./tests/test-cache",
+				"-w",
+				"SA"
+			]
+		},
+		{
+			"name": "Debug: query-meetings (SP - SA Plenary)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"query-meetings",
+				"--cache-dir",
+				"./tests/test-cache",
+				"-w",
+				"SP"
+			]
+		},
+		{
+			"name": "Debug: query-meetings (JSON output)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"query-meetings",
+				"--cache-dir",
+				"./tests/test-cache",
+				"--format",
+				"json"
+			]
+		},
+		{
+			"name": "Debug: crawl (all)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"crawl-tdocs",
+				"--cache-dir",
+				"./tests/test-cache",
+				"--limit-tdocs",
+				"10"
+			]
+		},
+		{
+			"name": "Debug: query (S4-251364)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"query-tdocs",
+				"S4-251364",
+				"--cache-dir",
+				"./tests/test-cache"
+			]
+		},
+		{
+			"name": "Debug: open (S4-260001)",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"open",
+				"S4-260001",
+			]
+		}
+	]
 }
