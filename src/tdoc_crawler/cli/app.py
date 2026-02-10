@@ -77,7 +77,7 @@ from tdoc_crawler.cli.printing import (
     spec_query_to_dict,
     tdoc_to_dict,
 )
-from tdoc_crawler.config import DEFAULT_CACHE_DIR, CacheManager
+from tdoc_crawler.config import CacheManager
 from tdoc_crawler.crawlers import MeetingCrawler, TDocCrawler
 from tdoc_crawler.credentials import resolve_credentials, set_credentials
 from tdoc_crawler.database import TDocDatabase
@@ -102,7 +102,6 @@ HELP_PANEL_QUERY = "Query Commands"
 
 @app.command("crawl-tdocs", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_tdocs(
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     incremental: IncrementalOption = True,
@@ -117,14 +116,14 @@ def crawl_tdocs(
     overall_timeout: OverallTimeoutOption = None,
     max_retries: MaxRetriesOption = 3,
     timeout: TimeoutOption = 30,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl TDocs from 3GPP FTP directories."""
     # Set logging verbosity early to ensure all log messages respect the configured level
     set_verbosity(verbosity)
 
-    manager = CacheManager(cache_dir)
-    manager.ensure_paths()
+    manager = CacheManager(cache_dir).register()
 
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
@@ -150,7 +149,7 @@ def crawl_tdocs(
         use_parallel_crawling=False,
     )
 
-    db_path = manager.db_path
+    db_file = manager.db_file
 
     # Build descriptive message
     scope_parts = []
@@ -160,7 +159,7 @@ def crawl_tdocs(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
-    with TDocDatabase(db_path) as database:
+    with TDocDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         # Clear TDocs if requested
         if clear_tdocs:
@@ -228,7 +227,7 @@ def crawl_tdocs(
             results = database.query_tdocs(query_config)
 
             # Use a shared session for checkout downloads
-            with create_cached_session(manager.http_cache_path) as session:
+            with create_cached_session(manager.http_cache_dir) as session:
                 checkout_result = checkout_tdocs(results, checkout_dir, force=False, session=session)
 
             console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
@@ -251,7 +250,7 @@ def crawl_tdocs(
 
 @app.command("crawl-meetings", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_meetings(
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     incremental: IncrementalOption = True,
@@ -273,8 +272,7 @@ def crawl_meetings(
     # Set logging verbosity early to ensure all log messages respect the configured level
     set_verbosity(verbosity)
 
-    manager = CacheManager(cache_dir)
-    manager.ensure_paths()
+    manager = CacheManager(cache_dir).register()
 
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
@@ -291,7 +289,7 @@ def crawl_meetings(
         credentials=None,
     )
 
-    db_path = manager.db_path
+    db_file = manager.db_file
     # Build descriptive message
     scope_parts = []
     if subgroups:
@@ -300,7 +298,7 @@ def crawl_meetings(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    with TDocDatabase(db_path) as database:
+    with TDocDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         # Clear all data if requested
         if clear_db:
@@ -372,17 +370,17 @@ def crawl_meetings(
             order=SortOrder.DESC,
             include_without_files=False,
         )
-        with TDocDatabase(db_path) as database:
+        with TDocDatabase(db_file) as database:
             meetings = database.query_meetings(query_config)
 
-        with create_cached_session(manager.http_cache_path) as session:
-            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_path, session=session)
+        with create_cached_session(manager.http_cache_dir) as session:
+            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_dir, session=session)
 
 
 @app.command("query-tdocs", rich_help_panel=HELP_PANEL_QUERY)
 def query_tdocs(
     tdoc_ids: TDocIdsArgument = None,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     working_group: WorkingGroupOption = None,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
@@ -399,7 +397,7 @@ def query_tdocs(
 ) -> None:
     """Query TDoc metadata from database."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     working_groups = parse_working_groups(working_group)
     try:
         start = datetime.fromisoformat(start_date) if start_date else None
@@ -433,8 +431,8 @@ def query_tdocs(
     if not no_fetch:
         set_credentials(eol_username, eol_password, prompt=None)
 
-    db_path = manager.db_path
-    with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with TDocDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -453,8 +451,14 @@ def query_tdocs(
         results = database.query_tdocs(config)
         if not no_fetch:
             # Use cached session for missing TDoc fetching
-            with create_cached_session(manager.http_cache_path) as session:
-                result = fetch_missing_tdocs(database, manager.root, config, results, session=session)
+            with create_cached_session(manager.http_cache_dir) as session:
+                result = fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                    session=session,
+                    cache_manager_name=manager.name,
+                )
                 if result.fetch_result and result.fetch_result.errors:
                     console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
                     for error in result.fetch_result.errors[:3]:
@@ -466,7 +470,7 @@ def query_tdocs(
         return
 
     if checkout:
-        with create_cached_session(manager.http_cache_path) as session:
+        with create_cached_session(manager.http_cache_dir) as session:
             checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
 
     if config.output_format is OutputFormat.JSON:
@@ -479,7 +483,7 @@ def query_tdocs(
 
 @app.command("query-meetings", rich_help_panel=HELP_PANEL_QUERY)
 def query_meetings(
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     clear_tdocs: ClearTDocsOption = False,
@@ -493,7 +497,7 @@ def query_meetings(
 ) -> None:
     """Query meeting metadata from database."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     working_groups = parse_working_groups(working_group)
     subgroups = parse_subgroups(subgroup)
     try:
@@ -511,8 +515,8 @@ def query_meetings(
         include_without_files=include_without_files,
     )
 
-    db_path = manager.db_path
-    with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with TDocDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -535,8 +539,8 @@ def query_meetings(
         return
 
     if checkout:
-        with create_cached_session(manager.http_cache_path) as session:
-            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_path, session=session)
+        with create_cached_session(manager.http_cache_dir) as session:
+            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_dir, session=session)
 
     try:
         output = OutputFormat(output_format.lower())
@@ -562,12 +566,12 @@ def query_specs(
     clear_specs: ClearSpecsOption = False,
     checkout: CheckoutOption = False,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query spec metadata from database."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     specs = collect_spec_numbers(spec_numbers, spec_file)
     working_groups = parse_working_groups(working_group)
     wg_filter = working_groups[0].value if working_groups else None
@@ -585,8 +589,8 @@ def query_specs(
         console.print("[red]Invalid output format; use table, json, or yaml")
         raise typer.Exit(code=2) from exc
 
-    db_path = manager.db_path
-    with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with TDocDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -611,7 +615,7 @@ def query_specs(
 
     if checkout:
         spec_list = [result.spec_number for result in results]
-        with TDocDatabase(db_path) as database:
+        with TDocDatabase(db_file) as database:
             checkout_specs(spec_list, manager.checkout_dir, database, release="latest")
 
     if output is OutputFormat.JSON:
@@ -625,7 +629,7 @@ def query_specs(
 @app.command("open", rich_help_panel=HELP_PANEL_MAIN)
 def open_tdoc(
     tdoc_id: TDocIdArgument,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
     eol_username: EolUsernameOption = None,
@@ -635,28 +639,28 @@ def open_tdoc(
     """Download, extract, and open a TDoc file."""
     set_verbosity(verbosity)
     set_credentials(eol_username, eol_password, prompt=None)
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     normalized_id = tdoc_id.strip().upper()
     config = QueryConfig(
         cache_dir=manager.root,
         tdoc_ids=[normalized_id],
     )
 
-    db_path = manager.db_path
-    with create_cached_session(manager.http_cache_path) as session:
-        with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with create_cached_session(manager.http_cache_dir) as session:
+        with TDocDatabase(db_file) as database:
             results = database.query_tdocs(config)
 
             credentials = resolve_credentials(eol_username, eol_password, prompt=None)
             result = fetch_missing_tdocs(
                 database,
-                manager.root,
                 config,
                 results,
                 credentials=credentials,
                 full_metadata=full_metadata,
                 use_whatthespec=use_whatthespec,
                 session=session,
+                cache_manager_name=manager.name,
             )
             if result.fetch_result and result.fetch_result.errors:
                 console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
@@ -679,7 +683,7 @@ def open_tdoc(
 @app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)
 def checkout(
     tdoc_id: CheckoutTDocIdsArgument,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     force: ForceOption = False,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
@@ -690,28 +694,28 @@ def checkout(
     """Download and extract TDoc(s) to checkout folder."""
     set_verbosity(verbosity)
     set_credentials(eol_username, eol_password, prompt=None)
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     normalized_ids = [tid.strip().upper() for tid in tdoc_id]
     config = QueryConfig(
         cache_dir=manager.root,
         tdoc_ids=normalized_ids,
     )
 
-    db_path = manager.db_path
-    with create_cached_session(manager.http_cache_path) as session:
-        with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with create_cached_session(manager.http_cache_dir) as session:
+        with TDocDatabase(db_file) as database:
             results = database.query_tdocs(config)
 
             credentials = resolve_credentials(eol_username, eol_password, prompt=None)
             result = fetch_missing_tdocs(
                 database,
-                manager.root,
                 config,
                 results,
                 credentials=credentials,
                 full_metadata=full_metadata,
                 use_whatthespec=use_whatthespec,
                 session=session,
+                cache_manager_name=manager.name,
             )
             if result.fetch_result and result.fetch_result.errors:
                 console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
@@ -749,18 +753,18 @@ def checkout(
 
 @app.command("stats", rich_help_panel=HELP_PANEL_MAIN)
 def stats(
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Display database statistics."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir)
-    db_path = manager.db_path
-    if not db_path.exists():
-        console.print(f"[red]Database not found: {db_path}[/red]")
+    manager = CacheManager(cache_dir).register()
+    db_file = manager.db_file
+    if not db_file.exists():
+        console.print(f"[red]Database not found: {db_file}[/red]")
         raise typer.Exit(code=1)
 
-    with TDocDatabase(db_path) as database:
+    with TDocDatabase(db_file) as database:
         stats_dict = cast(dict[str, Any], database.get_statistics())
 
     table = Table(title="TDoc database statistics")
@@ -790,12 +794,12 @@ def crawl_specs(
     clear_specs: ClearSpecsOption = False,
     checkout: CheckoutOption = False,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl spec metadata from configured sources."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     if spec_numbers is None:
         spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
@@ -807,8 +811,8 @@ def crawl_specs(
 
     sources = build_default_spec_sources()
 
-    db_path = manager.db_path
-    with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with TDocDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -832,7 +836,7 @@ def crawl_specs(
         return
 
     if checkout:
-        with TDocDatabase(db_path) as database:
+        with TDocDatabase(db_file) as database:
             checkout_specs(
                 [result.spec_number for result in results],
                 manager.checkout_dir,
@@ -855,12 +859,12 @@ def checkout_spec(
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
     checkout_dir: CheckoutDirOption = None,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract spec documents."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     if spec_numbers is None:
         spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
@@ -872,8 +876,8 @@ def checkout_spec(
 
     sources = build_default_spec_sources()
 
-    db_path = manager.db_path
-    with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with TDocDatabase(db_file) as database:
         downloader = SpecDownloads(database)
         results = downloader.checkout_specs(specs, doc_only, effective_checkout_dir, release, sources=sources)
 
@@ -886,19 +890,19 @@ def open_spec(
     spec: Annotated[str, typer.Argument(help="Spec number")],
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and open a spec document."""
     set_verbosity(verbosity)
     normalized = spec.strip()
-    manager = CacheManager(cache_dir)
+    manager = CacheManager(cache_dir).register()
     checkout_dir = manager.checkout_dir
 
     sources = build_default_spec_sources()
 
-    db_path = manager.db_path
-    with TDocDatabase(db_path) as database:
+    db_file = manager.db_file
+    with TDocDatabase(db_file) as database:
         downloader = SpecDownloads(database)
         try:
             path = downloader.open_spec(normalized, doc_only, checkout_dir, release, sources=sources)

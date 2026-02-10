@@ -12,7 +12,7 @@ from tdoc_crawler.logging import DEFAULT_LEVEL as LOGGING_DEFAULT_LEVEL
 
 DEFAULT_VERBOSITY = logging.getLevelName(LOGGING_DEFAULT_LEVEL)
 
-CacheDirOption = Annotated[Path, typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR")]
+CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR")]
 WorkingGroupOption = Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Filter by working group", envvar="TDC_WORKING_GROUP")]
 SubgroupOption = Annotated[list[str] | None, typer.Option("--sub-group", "-s", help="Filter by sub-working group", envvar="TDC_SUB_GROUP")]
 IncrementalOption = Annotated[bool, typer.Option("--incremental/--full", help="Toggle incremental mode")]
