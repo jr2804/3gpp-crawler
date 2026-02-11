@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from tdoc_crawler.config import CacheManager, register_cache_manager
-from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database import TDocDatabase, MeetingDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -176,7 +176,7 @@ def populated_db(test_db_path: Path, sample_meetings: list[dict], sample_tdocs: 
     return TDocDatabase(test_db_path)
 
 
-def insert_sample_meetings(database: TDocDatabase, meetings: list[dict]) -> None:
+def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict]) -> None:
     """Insert sample meetings into database using the proper database API.
 
     This function uses db.upsert_meeting() instead of raw SQL to ensure
@@ -251,6 +251,7 @@ def insert_sample_meetings(database: TDocDatabase, meetings: list[dict]) -> None
             location=meeting_dict.get("location"),
             files_url=meeting_dict.get("files_url"),
             portal_url=None,
+            tdoc_count=0,
         )
 
         # Use the proper database API instead of raw SQL
