@@ -10,7 +10,7 @@ def fetch_whatthespec_metadata(spec_number: str, cache_manager_name: str | None 
     normalized = normalize_spec_number(spec_number)
     compact = normalized.replace(".", "")
     url = f"https://whatthespec.net/3gpp/spec.php?q={compact}&api=1"
-    session = create_cached_session(cache_dir=resolve_cache_manager(cache_manager_name).root)
+    session = create_cached_session(resolve_cache_manager(cache_manager_name).http_cache_file)
     response = session.get(url, timeout=30)
     response.raise_for_status()
     payload = response.json()

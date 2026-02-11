@@ -73,14 +73,18 @@ class CacheManager:
         if ensure_paths:
             self.ensure_paths()
 
-    def register(self) -> Self:
-        """Register this instance as a cache manager under the given name."""
-        register_cache_manager(self)
+    def register(self, force: bool = True) -> Self:
+        """Register this instance as a cache manager under the given name.
+
+        Args:
+            force: If True (default), overwrite existing manager with same name
+        """
+        register_cache_manager(self, force=force)
         return self
 
     @property
-    def http_cache_dir(self) -> Path:
-        """Path to the HTTP client cache database."""
+    def http_cache_file(self) -> Path:
+        """Path to the HTTP client cache database file."""
         return self.root / DEFAULT_HTTP_CACHE_FILENAME
 
     @property

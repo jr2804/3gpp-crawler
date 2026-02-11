@@ -39,7 +39,7 @@ def fetch_threegpp_metadata(spec_number: str, cache_manager_name: str | None = N
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     }
 
-    session = create_cached_session(resolve_cache_manager(cache_manager_name).root)
+    session = create_cached_session(resolve_cache_manager(cache_manager_name).http_cache_file)
     response = session.get(url, timeout=30, allow_redirects=True, headers=headers)
     response.raise_for_status()
 

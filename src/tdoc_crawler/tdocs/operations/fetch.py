@@ -87,7 +87,7 @@ def create_source_config(
         http_cache = HttpCacheConfig()
 
     return TDocSourceConfig(
-        cache_dir=manager.http_cache_dir,
+        cache_dir=manager.http_cache_file,
         http_cache=http_cache,
         credentials=credentials,
         timeout=timeout,
@@ -199,7 +199,7 @@ def fetch_tdoc(
 
     # Create source configuration
     config = TDocSourceConfig(
-        cache_dir=manager.http_cache_dir,
+        cache_dir=manager.http_cache_file,
         http_cache=http_cache,
         credentials=credentials,
         timeout=timeout,

@@ -38,7 +38,7 @@ def download_to_path(url: str, destination: Path, session: requests.Session | No
     temp_session: requests.Session | None = None
     if session is None:
         manager = resolve_cache_manager(cache_manager_name)
-        temp_session = create_cached_session(cache_dir=manager.http_cache_dir)
+        temp_session = create_cached_session(manager.http_cache_file)
         active_session = temp_session
     else:
         active_session = session
@@ -78,19 +78,16 @@ def create_cached_session(
 
     Args:
         cache_dir: Path to the SQLite cache database file.
-        ttl: Time-to-live for cached responses in seconds (default: 7200)
-        refresh_ttl_on_access: Whether to refresh TTL on cache access (default: True)
-        max_retries: Number of retry attempts for failed requests (default: 3)
 
     Returns:
         Configured requests.Session with caching enabled
     """
-    # Ensure cache directory exists
+    # Ensure parent directory exists (SQLite will create the file)
     cache_dir.parent.mkdir(parents=True, exist_ok=True)
 
     logger.debug(f"Creating cached HTTP session: cache_db={cache_dir}, ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, max_retries={max_retries}")
 
-    # Create SQLite storage backend
+    # Create SQLite storage backend (cache_dir is the database file path)
     storage = SyncSqliteStorage(
         database_path=str(cache_dir),
         default_ttl=ttl,

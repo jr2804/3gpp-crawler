@@ -1,4 +1,9 @@
-"""Specification data models."""
+"""Specification data models.
+
+This module contains Pydantic models for specification metadata,
+including the canonical spec identity, source records, versions,
+and download outcomes.
+"""
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -84,3 +89,13 @@ class SpecQueryResult:
     status: str | None = None
     working_group: str | None = None
     source_differences: dict[str, dict[str, str | None]] = field(default_factory=dict)
+
+
+__all__ = [
+    "Specification",
+    "SpecificationSourceRecord",
+    "SpecificationVersion",
+    "SpecificationDownload",
+    "SpecQueryFilters",
+    "SpecQueryResult",
+]
