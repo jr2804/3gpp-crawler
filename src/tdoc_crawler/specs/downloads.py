@@ -10,7 +10,6 @@ from zipinspect import HTTPZipReader
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
 from tdoc_crawler.http_client import download_to_path
-from tdoc_crawler.specs.database import SpecDatabase
 from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
@@ -20,7 +19,7 @@ _logger = logging.getLogger(__name__)
 class SpecDownloads:
     """Download and extraction utilities for specs."""
 
-    def __init__(self, database: SpecDatabase, cache_manager_name: str | None = None) -> None:
+    def __init__(self, database, cache_manager_name: str | None = None) -> None:
         self._database = database
         self._cache_manager = resolve_cache_manager(cache_manager_name)
 

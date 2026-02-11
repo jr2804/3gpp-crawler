@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 from typing import cast
 
-from tdoc_crawler.specs.database import SpecDatabase
+from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.specs.sources.base import FunctionSpecSource, SpecSource
 from tdoc_crawler.specs.sources.threegpp import fetch_threegpp_metadata

@@ -1,64 +1,44 @@
-"""Core data models and configuration primitives used across the CLI."""
+"""Core data models and configuration primitives used across the CLI.
+
+NOTE: Domain models (TDocMetadata, MeetingMetadata, etc.) should be imported
+directly from their source modules:
+- tdoc_crawler.tdocs.models (TDocMetadata, TDocCrawlConfig, QueryConfig)
+- tdoc_crawler.meetings.models (MeetingMetadata, MeetingCrawlConfig, MeetingQueryConfig)
+"""
 
 from __future__ import annotations
 
-# Re-export all public symbols
 from .base import (
-    BaseConfigModel,  # noqa: F401
+    BaseConfigModel,
     HttpCacheConfig,
     OutputFormat,
     PortalCredentials,
     SortOrder,
 )
-from .crawl_limits import CrawlLimits  # noqa: F401
-from .crawl_log import CrawlLogEntry  # noqa: F401
-from .meetings import (
-    MeetingCrawlConfig,
-    MeetingMetadata,  # noqa: F401
-    MeetingQueryConfig,
-)
-from .specs import (
-    Specification,  # noqa: F401
-    SpecificationDownload,
-    SpecificationSourceRecord,
-    SpecificationVersion,
-    SpecQueryFilters,
-    SpecQueryResult,
-)
+from .crawl_limits import CrawlLimits
+from .crawl_log import CrawlLogEntry
+
+# Note: Specification models have been moved to tdoc_crawler.specs.models
+# Import from there directly to avoid circular dependencies
 from .subworking_groups import (
     CODE_INDEX,
-    SUBTB_INDEX,  # noqa: F401
+    SUBTB_INDEX,
     SUBWORKING_GROUP_RECORDS,
     SubWorkingGroupRecord,
 )
-from .tdocs import (
-    CrawlConfig,
-    QueryConfig,
-    TDocCrawlConfig,  # noqa: F401
-    TDocMetadata,
-)
 from .working_groups import (
     WORKING_GROUP_RECORDS,
-    WorkingGroup,  # noqa: F401
+    WorkingGroup,
     WorkingGroupRecord,
 )
 
 __all__ = [
     "CODE_INDEX",
-    "SUBTB_INDEX",
-    "SUBWORKING_GROUP_RECORDS",
-    "WORKING_GROUP_RECORDS",
-    "BaseConfigModel",
-    "CrawlConfig",
     "CrawlLimits",
     "CrawlLogEntry",
     "HttpCacheConfig",
-    "MeetingCrawlConfig",
-    "MeetingMetadata",
-    "MeetingQueryConfig",
     "OutputFormat",
     "PortalCredentials",
-    "QueryConfig",
     "SortOrder",
     "SpecQueryFilters",
     "SpecQueryResult",
@@ -67,8 +47,9 @@ __all__ = [
     "SpecificationSourceRecord",
     "SpecificationVersion",
     "SubWorkingGroupRecord",
-    "TDocCrawlConfig",
-    "TDocMetadata",
+    "SUBTB_INDEX",
+    "SUBWORKING_GROUP_RECORDS",
     "WorkingGroup",
     "WorkingGroupRecord",
+    "WORKING_GROUP_RECORDS",
 ]
