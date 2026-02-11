@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from tdoc_crawler.constants.registry import MEETING_CODE_REGISTRY
 from tdoc_crawler.constants.urls import MEETINGS_BASE_URL
 from tdoc_crawler.credentials import resolve_credentials
+from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
 from tdoc_crawler.models.crawl_limits import CrawlLimits
@@ -32,12 +33,10 @@ class MeetingCrawlResult:
 class MeetingCrawler:
     """Crawler fetching meeting metadata from the 3GPP portal."""
 
-    def __init__(self, database: TDocDatabase) -> None:
-        # Local import to avoid circular dependency
-        from tdoc_crawler.database import TDocDatabase as _TDocDatabase
+    def __init__(self, database: MeetingDatabase) -> None:
 
-        if not isinstance(database, _TDocDatabase):
-            raise TypeError(f"Expected TDocDatabase, got {type(database)}")
+        if not isinstance(database, MeetingDatabase):
+            raise TypeError(f"Expected MeetingDatabase, got {type(database)}")
         self.database = database
 
     def crawl(
