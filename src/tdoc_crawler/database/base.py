@@ -103,7 +103,7 @@ class DocDatabase:
         """
         return self._clear_tables(["spec_downloads", "spec_versions", "spec_source_records", "specs"])
 
-    def log_crawl_start(self, crawl_type: str, filters: list[str] | None, incremental: bool) -> int:
+    def log_crawl_start(self, crawl_type: str, filters: list[str] | None, incremental: bool) -> str:
         """Log the start of a crawl operation.
 
         Args:
@@ -114,24 +114,23 @@ class DocDatabase:
         Returns:
             The ID of the created crawl log entry
         """
-        from tdoc_crawler.models import CrawlLogEntry
-
         entry = CrawlLogEntry(
             crawl_type=crawl_type,
-            filters=json.dumps(filters or []),
+            working_groups=filters or [],
             incremental=incremental,
             start_time=datetime.now(),
             end_time=None,
             items_added=0,
             items_updated=0,
             errors_count=0,
+            status="RUNNING",
         )
-        self.connection.add("crawl_log", entry, pk=True)
-        return entry.id
+        self.connection.add("crawl_log", entry, pk="log_id")
+        return entry.log_id
 
     def log_crawl_end(
         self,
-        crawl_id: int,
+        crawl_id: str,
         items_added: int,
         items_updated: int,
         errors_count: int,
@@ -144,11 +143,13 @@ class DocDatabase:
             items_updated: Number of existing items updated
             errors_count: Number of errors encountered
         """
-        self.connection._db.execute(
-            "UPDATE crawl_log SET end_time = ?, items_added = ?, items_updated = ?, errors_count = ? WHERE id = ?",
-            (datetime.now(), items_added, items_updated, errors_count, crawl_id),
+        # DataBase._db is a sqlite3.Connection
+        db = self.connection._db
+        db.execute(
+            "UPDATE crawl_log SET end_time = ?, items_added = ?, items_updated = ?, errors_count = ?, status = ? WHERE log_id = ?",
+            (datetime.now().isoformat(), items_added, items_updated, errors_count, "COMPLETED", crawl_id),
         )
-        self.connection._db.commit()
+        db.commit()
 
     def _ensure_reference_data(self) -> None:
         """Populate reference tables for working and subworking groups."""

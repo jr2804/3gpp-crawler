@@ -459,3 +459,11 @@ After several implementation steps, AGENTS.md files might need updates. When exp
 2. Propose changes based on accumulated knowledge
 3. Update only after explicit user confirmation
 4. For any AGENTS.md files in the project structure, you MUST NEVER add a tree view of files or directories. This changes too often, and coding agents can easily retrieve the project's file structure using `ls` or `tree` commands when needed. AGENTS.md should focus on guidelines and patterns, not on file listings.
+
+## Eager imports in __init__.py
+
+Most eager imports in all __init__.py files are unnecessary, as these are just there for convenient/short imports in other modules. Inside a package, it should be no problem at all to always import the absolute/full module.
+
+Eager imports may only make sense for:
+- *very* relevant types that are also used by consumers of this API.
+- for constants and very simple types (like enums or types without additional dependencies)

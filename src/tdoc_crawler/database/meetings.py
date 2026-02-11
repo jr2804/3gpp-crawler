@@ -8,7 +8,6 @@ from datetime import datetime
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
-from tdoc_crawler.models.crawl_log import CrawlLogEntry
 from tdoc_crawler.models.subworking_groups import CODE_INDEX
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS, WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
@@ -248,65 +247,6 @@ class MeetingDatabase(DocDatabase):
     # ------------------------------------------------------------------
     # Crawl logging and statistics
     # ------------------------------------------------------------------
-    def log_crawl_start(
-        self,
-        crawl_type: str,
-        working_groups: Iterable[WorkingGroup] | None,
-        incremental: bool,
-    ) -> str:
-        """Log the start of a crawl operation.
-
-        Args:
-            crawl_type: Type of crawl (e.g., "meeting", "tdoc")
-            working_groups: List of working groups being crawled
-            incremental: Whether this is an incremental crawl
-
-        Returns:
-            Crawl log ID
-        """
-        entry = CrawlLogEntry(
-            crawl_type=crawl_type,
-            end_time=None,
-            working_groups=[wg.value for wg in working_groups or []],
-            incremental=incremental,
-            items_added=0,
-            items_updated=0,
-            errors_count=0,
-            status="RUNNING",
-        )
-        self.connection.add("crawl_log", entry, pk="log_id")
-        return entry.log_id
-
-    def log_crawl_end(
-        self,
-        crawl_id: str,
-        *,
-        items_added: int,
-        items_updated: int,
-        errors_count: int,
-        status: str = "COMPLETED",
-    ) -> None:
-        """Log the completion of a crawl operation.
-
-        Args:
-            crawl_id: Crawl log ID returned by log_crawl_start
-            items_added: Number of new items added
-            items_updated: Number of existing items updated
-            errors_count: Number of errors encountered
-            status: Final status (default: "COMPLETED")
-        """
-        existing = self.connection.model_from_table("crawl_log", crawl_id)
-        updated = existing.model_copy(
-            update={
-                "end_time": utc_now(),
-                "items_added": items_added,
-                "items_updated": items_updated,
-                "errors_count": errors_count,
-                "status": status,
-            }
-        )
-        self.connection.add("crawl_log", updated, pk="log_id")
-
     def get_statistics(self) -> dict[str, object]:
         """Get database statistics.
 

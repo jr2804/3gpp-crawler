@@ -57,7 +57,10 @@ FullMetadataOption = Annotated[bool, typer.Option("--full-metadata", help="Fetch
 
 # Options - Specs
 ClearSpecsOption = Annotated[bool, typer.Option("--clear-specs", help="Clear all specs before crawling")]
+TitleOption = Annotated[str | None, typer.Option("--title", help="Filter by title contains")]
+StatusOption = Annotated[str | None, typer.Option("--status", help="Filter by status")]
 SpecOption = Annotated[list[str] | None, typer.Option("--spec", help="Spec number(s) (dotted or undotted)")]
+
 SpecFileOption = Annotated[Path | None, typer.Option("--spec-file", help="File with spec numbers")]
 ReleaseOption = Annotated[
     str,

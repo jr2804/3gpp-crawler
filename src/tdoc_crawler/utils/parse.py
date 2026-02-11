@@ -80,10 +80,10 @@ def parse_working_groups(values: list[str] | None, subgroups: list[str] | None =
         try:
             resolved.append(WorkingGroup(normalized.upper()))
         except ValueError as exc:
-            console.print(f"[red]Unknown working group: {item}")
+            _logger.warning(f"Unknown working group: {item}")
             raise typer.Exit(code=2) from exc
     if not resolved:
-        console.print("[red]No valid working groups specified")
+        _logger.warning("No valid working groups specified")
         raise typer.Exit(code=2)
     return resolved
 
@@ -97,7 +97,7 @@ def parse_subgroups(values: list[str] | None) -> list[str] | None:
     for item in values:
         normalized = normalize_subgroup_alias(item)
         if not normalized:
-            console.print(f"[red]Unknown subgroup: {item}")
+            _logger.warning(f"Unknown subgroup: {item}")
             raise typer.Exit(code=2)
         resolved.extend(normalized)
 

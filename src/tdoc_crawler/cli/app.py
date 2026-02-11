@@ -76,7 +76,7 @@ from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
-from tdoc_crawler.meetings.operations import MeetingCrawler
+from tdoc_crawler.meetings.operations.crawl import MeetingCrawler
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.specs.downloads import SpecDownloads
@@ -333,9 +333,12 @@ def crawl_meetings(
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
-    with TDocDatabase(db_file) as database:
-        # TDocDatabase inherits from DocDatabase which handles crawl logging
+    with MeetingDatabase(db_file) as database:
+        # MeetingDatabase inherits from DocDatabase which handles crawl logging
         crawl_id = database.log_crawl_start("meeting", [wg.value for wg in config.working_groups], config.incremental)
+
+        # Create crawler instance
+        crawler = MeetingCrawler(database)
 
         # Create progress bar for meeting crawling
         with Progress(
