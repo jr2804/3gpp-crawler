@@ -7,13 +7,11 @@ from pathlib import Path
 import click
 import typer
 
-from tdoc_crawler.cli.console import get_console
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.utils.normalization import expand_spec_ranges_batch
 
-console = get_console()
 _logger = get_logger(__name__)
 
 
