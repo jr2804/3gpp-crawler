@@ -12,15 +12,12 @@ import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
-
-if TYPE_CHECKING:
-    from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +48,6 @@ def fetch_meeting_document_list(
     Raises:
         DocumentListError: If document list cannot be fetched or parsed
     """
-    from tdoc_crawler.models.tdocs import TDocMetadata  # noqa: F401
-
     # Construct document list URL
     doclist_url = f"https://portal.3gpp.org/ngppapp/GenerateDocumentList.aspx?meetingId={meeting_id}"
     logger.debug(f"Fetching document list for meeting {meeting_id} from {doclist_url}")
@@ -158,7 +153,7 @@ def convert_excel_row_to_tdoc_metadata(
     Returns:
         TDocMetadata instance or None if conversion fails
     """
-    from tdoc_crawler.models.tdocs import TDocMetadata
+    from tdoc_crawler.tdocs.models import TDocMetadata
 
     # Map Excel columns to TDocMetadata fields
     # Try multiple possible column names to handle different Excel formats

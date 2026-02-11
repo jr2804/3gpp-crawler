@@ -252,7 +252,7 @@ def checkout_tdocs(
 def checkout_meeting_tdocs(
     meetings: list[MeetingMetadata],
     checkout_dir: Path,
-    http_cache_dir: Path,
+    http_cache_file: Path,
     session: requests.Session | None = None,
     cache_manager_name: str | None = None,
 ) -> CheckoutResult:
@@ -261,7 +261,7 @@ def checkout_meeting_tdocs(
     Args:
         meetings: List of MeetingMetadata to checkout TDocs from
         checkout_dir: Base checkout directory
-        http_cache_dir: Path to HTTP cache database
+        http_cache_file: Path to HTTP cache database
         session: Optional requests.Session to reuse for downloads
         cache_manager_name: Optional cache manager name for HTTP caching
 
@@ -282,7 +282,7 @@ def checkout_meeting_tdocs(
             errors.append(f"{meeting.short_name}: no files URL")
             continue
         try:
-            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_dir)
+            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_file)
         except DocumentListError as exc:
             errors.append(f"{meeting.short_name}: {exc}")
             continue

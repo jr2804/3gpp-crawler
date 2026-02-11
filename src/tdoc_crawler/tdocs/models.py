@@ -133,7 +133,7 @@ class TDocMetadata(BaseModel):
 class TDocCrawlConfig(BaseConfigModel):
     """Configuration for TDoc crawling runs."""
 
-    cache_dir: Path = Field(default_factory=resolve_cache_manager, description="Cache directory path")
+    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     working_groups: list[WorkingGroup] = Field(
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
         description="Working groups to crawl",
@@ -198,6 +198,7 @@ class TDocCrawlConfig(BaseConfigModel):
         return normalize_tdoc_ids(value)
 
 
+# TODO: Should be named TDocQueryConfig for consistency?
 class QueryConfig(BaseConfigModel):
     """Configuration for querying TDoc metadata."""
 
@@ -236,7 +237,7 @@ class QueryConfig(BaseConfigModel):
         return normalized
 
 
-# Legacy alias
+# TODO: Legacy alias; Kept for backward compatibility with CLI commands that reference CrawlConfig. should be renamed soon in the whole project for consistency
 CrawlConfig = TDocCrawlConfig
 
 __all__ = [

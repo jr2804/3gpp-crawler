@@ -7,18 +7,20 @@ from the whatthespec.net community API.
 from __future__ import annotations
 
 import logging
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import requests
 
-if TYPE_CHECKING:
-    from tdoc_crawler.models.tdocs import TDocMetadata
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
+from tdoc_crawler.utils.parse import parse_agenda_item_nbr
+
+if TYPE_CHECKING:
+    from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -27,32 +29,6 @@ WHATSPEC_BASE_URL = "https://whatthespec.net/3gpp/tdoc.php?name={tdoc}&api=1"
 
 class WhatTheSpecResolutionError(Exception):
     """Raised when WhatTheSpec resolution fails."""
-
-
-def _parse_agenda_item_nbr(value: Any) -> Decimal:
-    """Parse agenda item number as Decimal with fallback to zero."""
-    if value is None:
-        return Decimal(0)
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError) as exc:
-        logger.warning(f"Invalid agenda item number '{value}': {exc}")
-        return Decimal(0)
-
-
-def _resolve_meeting_id(db_file: Path, meeting_name: str | None) -> int:
-    """Helper to resolve meeting name to meeting_id using local database."""
-    if not meeting_name:
-        return 0
-    try:
-        from tdoc_crawler.database import TDocDatabase
-
-        with TDocDatabase(db_file) as database:
-            resolved = database.resolve_meeting_id(meeting_name)
-    except Exception as exc:
-        logger.warning(f"Failed to resolve meeting '{meeting_name}': {exc}")
-        return 0
-    return resolved or 0
 
 
 def resolve_via_whatthespec(
@@ -82,7 +58,7 @@ def resolve_via_whatthespec(
     temp_session: requests.Session | None = None
     if session is None:
         temp_session = create_cached_session(
-            cache_dir=manager.http_cache_dir,
+            cache_dir=manager.http_cache_file,
             ttl=http_cache.ttl,
             refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
             max_retries=3,
@@ -109,12 +85,15 @@ def resolve_via_whatthespec(
 
     record = payload[0] or {}
     resolved_id = str(record.get("name") or tdoc_id).strip().upper()
-    meeting_name = record.get("meeting")
-    agenda_item_nbr = _parse_agenda_item_nbr(record.get("ainumber"))
+    meeting_name = str(record.get("meeting") or "")
+    agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
+
+    with MeetingDatabase(db_file) as db:
+        meeting_id = db.resolve_meeting_id(meeting_name) or 0
 
     metadata = TDocMetadata(
         tdoc_id=resolved_id,
-        meeting_id=_resolve_meeting_id(db_file, meeting_name),
+        meeting_id=meeting_id,
         meeting_name=meeting_name,
         title=str(record.get("title") or ""),
         url=str(record.get("link") or ""),
