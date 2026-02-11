@@ -10,14 +10,14 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from tdoc_crawler.database.base import DocDatabase
-from tdoc_crawler.models import SpecQueryFilters, SpecQueryResult
-from tdoc_crawler.models.specs import (
+from tdoc_crawler.specs.models import (
     Specification,
     SpecificationDownload,
     SpecificationSourceRecord,
     SpecificationVersion,
+    SpecQueryFilters,
+    SpecQueryResult,
 )
-from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
 _logger = logging.getLogger(__name__)

@@ -10,19 +10,17 @@ from typing import Self
 from pydantic_sqlite import DataBase
 
 from tdoc_crawler.database.errors import DatabaseError
-from tdoc_crawler.models import (
-    WORKING_GROUP_RECORDS,
-    CrawlLogEntry,
-    MeetingMetadata,
-    TDocMetadata,
-)
-from tdoc_crawler.models.specs import (
+from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.models.crawl_log import CrawlLogEntry
+from tdoc_crawler.specs.models import (
     Specification,
     SpecificationDownload,
     SpecificationSourceRecord,
     SpecificationVersion,
 )
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
+from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS
+from tdoc_crawler.tdocs.models import TDocMetadata
 
 _logger = logging.getLogger(__name__)
 
@@ -104,6 +102,53 @@ class DocDatabase:
             Mapping of table name to deleted row count.
         """
         return self._clear_tables(["spec_downloads", "spec_versions", "spec_source_records", "specs"])
+
+    def log_crawl_start(self, crawl_type: str, filters: list[str] | None, incremental: bool) -> int:
+        """Log the start of a crawl operation.
+
+        Args:
+            crawl_type: Type of crawl (e.g., 'tdoc', 'meeting', 'spec')
+            filters: List of filter strings applied to the crawl
+            incremental: Whether this is an incremental crawl
+
+        Returns:
+            The ID of the created crawl log entry
+        """
+        from tdoc_crawler.models import CrawlLogEntry
+
+        entry = CrawlLogEntry(
+            crawl_type=crawl_type,
+            filters=json.dumps(filters or []),
+            incremental=incremental,
+            start_time=datetime.now(),
+            end_time=None,
+            items_added=0,
+            items_updated=0,
+            errors_count=0,
+        )
+        self.connection.add("crawl_log", entry, pk=True)
+        return entry.id
+
+    def log_crawl_end(
+        self,
+        crawl_id: int,
+        items_added: int,
+        items_updated: int,
+        errors_count: int,
+    ) -> None:
+        """Log the end of a crawl operation.
+
+        Args:
+            crawl_id: ID of the crawl log entry to update
+            items_added: Number of new items added
+            items_updated: Number of existing items updated
+            errors_count: Number of errors encountered
+        """
+        self.connection._db.execute(
+            "UPDATE crawl_log SET end_time = ?, items_added = ?, items_updated = ?, errors_count = ? WHERE id = ?",
+            (datetime.now(), items_added, items_updated, errors_count, crawl_id),
+        )
+        self.connection._db.commit()
 
     def _ensure_reference_data(self) -> None:
         """Populate reference tables for working and subworking groups."""

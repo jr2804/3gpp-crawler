@@ -5,18 +5,19 @@ from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from tdoc_crawler.database.meetings import MeetingDatabase
-from tdoc_crawler.models import QueryConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.database.base import DocDatabase
+from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.tdocs.models import QueryConfig, TDocMetadata
 from tdoc_crawler.utils.misc import utc_now
 
 _logger = logging.getLogger(__name__)
 
 
-class TDocDatabase(MeetingDatabase):
+class TDocDatabase(DocDatabase):
     """Unified database operations for TDocs and Meetings.
 
     This class provides a unified interface for both TDoc and Meeting operations
-    by inheriting from MeetingDatabase. This maintains backward compatibility
+    by inheriting from DocDatabase. This maintains backward compatibility
     with code that expects a single database interface.
     """
 
