@@ -34,6 +34,10 @@ from .working_groups import (
 
 __all__ = [
     "CODE_INDEX",
+    "SUBTB_INDEX",
+    "SUBWORKING_GROUP_RECORDS",
+    "WORKING_GROUP_RECORDS",
+    "BaseConfigModel",
     "CrawlLimits",
     "CrawlLogEntry",
     "HttpCacheConfig",
@@ -47,9 +51,6 @@ __all__ = [
     "SpecificationSourceRecord",
     "SpecificationVersion",
     "SubWorkingGroupRecord",
-    "SUBTB_INDEX",
-    "SUBWORKING_GROUP_RECORDS",
     "WorkingGroup",
     "WorkingGroupRecord",
-    "WORKING_GROUP_RECORDS",
 ]

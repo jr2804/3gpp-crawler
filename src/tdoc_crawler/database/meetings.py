@@ -7,10 +7,10 @@ from datetime import datetime
 
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
+from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.crawl_log import CrawlLogEntry
 from tdoc_crawler.models.subworking_groups import CODE_INDEX
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS, WorkingGroup
-from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
 

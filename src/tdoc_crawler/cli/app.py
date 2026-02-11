@@ -77,8 +77,8 @@ from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
 from tdoc_crawler.meetings.operations import MeetingCrawler
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
-from tdoc_crawler.specs.models import SpecQueryFilters
 from tdoc_crawler.specs.downloads import SpecDownloads
+from tdoc_crawler.specs.models import SpecQueryFilters
 from tdoc_crawler.specs.operations.checkout import (
     build_default_spec_sources,
     checkout_specs,

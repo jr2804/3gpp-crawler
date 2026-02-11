@@ -12,14 +12,14 @@ from pydantic_sqlite import DataBase
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models.crawl_log import CrawlLogEntry
+from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
+from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS
 from tdoc_crawler.specs.models import (
     Specification,
     SpecificationDownload,
     SpecificationSourceRecord,
     SpecificationVersion,
 )
-from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
-from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 _logger = logging.getLogger(__name__)
