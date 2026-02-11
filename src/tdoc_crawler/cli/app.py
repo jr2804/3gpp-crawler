@@ -69,18 +69,23 @@ from tdoc_crawler.cli.printing import (
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import resolve_credentials, set_credentials
-from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.meetings import MeetingCrawler
-from tdoc_crawler.models import CrawlLimits, MeetingCrawlConfig, MeetingQueryConfig, OutputFormat, QueryConfig, SortOrder, SpecQueryFilters, TDocCrawlConfig
-from tdoc_crawler.specs import SpecDatabase, SpecDownloads
+from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
+from tdoc_crawler.meetings.operations import MeetingCrawler
+from tdoc_crawler.models.base import OutputFormat, SortOrder
+from tdoc_crawler.models.crawl_limits import CrawlLimits
+from tdoc_crawler.specs.models import SpecQueryFilters
+from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.specs.operations.checkout import (
     build_default_spec_sources,
     checkout_specs,
     clear_checkout_specs,
 )
-from tdoc_crawler.tdocs import TDocCrawler
+from tdoc_crawler.tdocs.models import QueryConfig, TDocCrawlConfig
+from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.operations.checkout import (
     checkout_meeting_tdocs,
     checkout_tdoc,
@@ -230,7 +235,7 @@ def crawl_tdocs(
             results = database.query_tdocs(query_config)
 
             # Use a shared session for checkout downloads
-            with create_cached_session(manager.http_cache_dir) as session:
+            with create_cached_session(manager.http_cache_file) as session:
                 checkout_result = checkout_tdocs(results, checkout_dir, force=False, session=session)
 
             console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
@@ -301,7 +306,7 @@ def crawl_meetings(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    with SpecDatabase(db_file) as database:
+    with MeetingDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         # Clear all data if requested
         if clear_db:
@@ -373,11 +378,11 @@ def crawl_meetings(
             order=SortOrder.DESC,
             include_without_files=False,
         )
-        with SpecDatabase(db_file) as database:
+        with MeetingDatabase(db_file) as database:
             meetings = database.query_meetings(query_config)
 
-        with create_cached_session(manager.http_cache_dir) as session:
-            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_dir, session=session)
+        with create_cached_session(manager.http_cache_file) as session:
+            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_file, session=session)
 
 
 @app.command("query-tdocs", rich_help_panel=HELP_PANEL_QUERY)
@@ -454,7 +459,7 @@ def query_tdocs(
         results = database.query_tdocs(config)
         if not no_fetch:
             # Use cached session for missing TDoc fetching
-            with create_cached_session(manager.http_cache_dir) as session:
+            with create_cached_session(manager.http_cache_file) as session:
                 result = fetch_missing_tdocs(
                     database,
                     config,
@@ -473,7 +478,7 @@ def query_tdocs(
         return
 
     if checkout:
-        with create_cached_session(manager.http_cache_dir) as session:
+        with create_cached_session(manager.http_cache_file) as session:
             checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
 
     if config.output_format is OutputFormat.JSON:
@@ -519,7 +524,7 @@ def query_meetings(
     )
 
     db_file = manager.db_file
-    with SpecDatabase(db_file) as database:
+    with MeetingDatabase(db_file) as database:
         checkout_dir = manager.checkout_dir
         if clear_tdocs:
             deleted_count = database.clear_tdocs()
@@ -542,8 +547,8 @@ def query_meetings(
         return
 
     if checkout:
-        with create_cached_session(manager.http_cache_dir) as session:
-            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_dir, session=session)
+        with create_cached_session(manager.http_cache_file) as session:
+            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_file, session=session)
 
     try:
         output = OutputFormat(output_format.lower())
@@ -649,7 +654,7 @@ def open_tdoc(
     )
 
     db_file = manager.db_file
-    with create_cached_session(manager.http_cache_dir) as session:
+    with create_cached_session(manager.http_cache_file) as session:
         with TDocDatabase(db_file) as database:
             results = database.query_tdocs(config)
 
@@ -704,7 +709,7 @@ def checkout(
     )
 
     db_file = manager.db_file
-    with create_cached_session(manager.http_cache_dir) as session:
+    with create_cached_session(manager.http_cache_file) as session:
         with TDocDatabase(db_file) as database:
             results = database.query_tdocs(config)
 
@@ -766,7 +771,7 @@ def stats(
         console.print(f"[red]Database not found: {db_file}[/red]")
         raise typer.Exit(code=1)
 
-    with SpecDatabase(db_file) as database:
+    with TDocDatabase(db_file) as database:
         stats_dict = cast(dict[str, Any], database.get_statistics())
 
     table = Table(title="TDoc database statistics")

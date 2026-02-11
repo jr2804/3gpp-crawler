@@ -7,7 +7,7 @@ import sys
 
 import typer
 
-from tdoc_crawler.models import PortalCredentials
+from tdoc_crawler.models.base import PortalCredentials
 
 
 def set_credentials(username: str | None, password: str | None, prompt: bool | None) -> None:
