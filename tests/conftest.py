@@ -10,7 +10,9 @@ import pytest
 
 from tdoc_crawler.config import CacheManager, register_cache_manager
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import MeetingMetadata, TDocMetadata, WorkingGroup
+from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.tdocs.models import TDocMetadata
 
 
 @pytest.fixture

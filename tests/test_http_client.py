@@ -19,8 +19,10 @@ class TestCreateCachedSession:
 
     def test_creates_session(self, test_cache_dir: Path) -> None:
         """Test that create_cached_session returns a requests.Session."""
+        # The cache_dir parameter should be the database file path, not a directory
+        cache_file = test_cache_dir / "http-cache.sqlite3"
         session = create_cached_session(
-            cache_dir=test_cache_dir,
+            cache_dir=cache_file,
             ttl=3600,
             refresh_ttl_on_access=True,
             max_retries=3,
@@ -31,17 +33,20 @@ class TestCreateCachedSession:
 
     def test_creates_cache_directory(self, tmp_path: Path) -> None:
         """Test that cache directory is created if it doesn't exist."""
-        cache_dir = tmp_path / "nonexistent" / "cache"
-        assert not cache_dir.exists()
+        cache_file = tmp_path / "nonexistent" / "cache.sqlite3"
+        assert not cache_file.exists()
+        assert not cache_file.parent.exists()
 
         session = create_cached_session(
-            cache_dir=cache_dir,
+            cache_dir=cache_file,
             ttl=3600,
             refresh_ttl_on_access=True,
             max_retries=3,
         )
 
-        assert cache_dir.exists()
+        # The parent directory should be created
+        assert cache_file.parent.exists()
+        # Note: The cache file itself is created lazily by SQLite when first request is made
         session.close()
 
     def test_creates_cache_database(self, test_cache_dir: Path) -> None:
@@ -164,8 +169,10 @@ class TestCachingBehavior:
 
         This test is marked as integration and may be skipped in unit test runs.
         """
+        # create_cached_session expects a file path, not a directory
+        cache_db = test_cache_dir / "http-cache.sqlite3"
         session = create_cached_session(
-            cache_dir=test_cache_dir,
+            cache_dir=cache_db,
             ttl=3600,
             refresh_ttl_on_access=True,
             max_retries=2,
@@ -181,7 +188,6 @@ class TestCachingBehavior:
             assert response2.status_code == 200
 
             # Verify cache database exists
-            cache_db = test_cache_dir / "http-cache.sqlite3"
             assert cache_db.exists()
             assert cache_db.stat().st_size > 0
 

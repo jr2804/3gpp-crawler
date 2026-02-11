@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
+from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.models.specs import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion
-from tdoc_crawler.specs.database import SpecDatabase
 from tdoc_crawler.specs.query import SpecQueryFilters
 
 

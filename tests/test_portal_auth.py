@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -29,8 +31,8 @@ def _get_credentials() -> PortalCredentials | None:
     """Get credentials from environment, loading .env file first."""
     _load_env_file()
 
-    username = os.getenv("EOL_USERNAME")
-    password = os.getenv("EOL_PASSWORD")
+    username = os.getenv("TDC_EOL_USERNAME")
+    password = os.getenv("TDC_EOL_PASSWORD")
 
     if not username or not password:
         return None
@@ -53,7 +55,7 @@ def credentials() -> PortalCredentials:
     """Fixture to provide credentials, skipping test if not available."""
     creds = _get_credentials()
     if not creds:
-        pytest.skip("Missing EOL_USERNAME or EOL_PASSWORD environment variables")
+        pytest.skip("Missing TDC_EOL_USERNAME or TDC_EOL_PASSWORD environment variables")
     return creds
 
 
@@ -78,8 +80,12 @@ def test_fetch_tdoc_metadata_success(credentials: PortalCredentials) -> None:
     # Using a recent TDoc - if this fails, the portal structure may have changed
     tdoc_id = "S4-260001"
 
+    # Create a temporary cache file (not a directory)
+    with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as f:
+        cache_file = Path(f.name)
+
     try:
-        with PortalSession(credentials=credentials, cache_dir=Path("."), timeout=30) as session:
+        with PortalSession(credentials=credentials, cache_dir=cache_file, timeout=30) as session:
             metadata = session.fetch_tdoc_metadata(tdoc_id)
 
         # If we get here, parsing succeeded - verify basic fields
@@ -89,15 +95,28 @@ def test_fetch_tdoc_metadata_success(credentials: PortalCredentials) -> None:
     except PortalParsingError as exc:
         # The portal structure may have changed - this is not a refactoring issue
         pytest.skip(f"Portal structure may have changed: {exc}")
+    finally:
+        # Clean up temporary cache file
+        with contextlib.suppress(OSError):
+            cache_file.unlink()
 
 
 def test_fetch_tdoc_metadata_invalid_tdoc(credentials: PortalCredentials) -> None:
     """Test fetching metadata for non-existent TDoc."""
     tdoc_id = "S4-999999999"
 
-    # Should raise PortalParsingError for non-existent TDoc
-    with pytest.raises(PortalParsingError), PortalSession(credentials=credentials, cache_dir=Path("."), timeout=30) as session:
-        session.fetch_tdoc_metadata(tdoc_id)
+    # Create a temporary cache file (not a directory)
+    with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as f:
+        cache_file = Path(f.name)
+
+    try:
+        # Should raise PortalParsingError for non-existent TDoc
+        with pytest.raises(PortalParsingError), PortalSession(credentials=credentials, cache_dir=cache_file, timeout=30) as session:
+            session.fetch_tdoc_metadata(tdoc_id)
+    finally:
+        # Clean up temporary cache file
+        with contextlib.suppress(OSError):
+            cache_file.unlink()
 
 
 def test_fetch_tdoc_metadata_invalid_credentials() -> None:
@@ -106,5 +125,14 @@ def test_fetch_tdoc_metadata_invalid_credentials() -> None:
     invalid_credentials = PortalCredentials(username="invalid_user", password="invalid_password")  # noqa: S106
     tdoc_id = "S4-251364"
 
-    with pytest.raises(PortalAuthenticationError), PortalSession(credentials=invalid_credentials, cache_dir=Path("."), timeout=30) as session:
-        session.fetch_tdoc_metadata(tdoc_id)
+    # Create a temporary cache file (not a directory)
+    with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as f:
+        cache_file = Path(f.name)
+
+    try:
+        with pytest.raises(PortalAuthenticationError), PortalSession(credentials=invalid_credentials, cache_dir=cache_file, timeout=30) as session:
+            session.fetch_tdoc_metadata(tdoc_id)
+    finally:
+        # Clean up temporary cache file
+        with contextlib.suppress(OSError):
+            cache_file.unlink()

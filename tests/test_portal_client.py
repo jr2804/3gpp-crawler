@@ -13,7 +13,7 @@ from tdoc_crawler.clients.portal import PortalClient as ReExportedPortalClient
 from tdoc_crawler.clients.portal import create_portal_client as ReExportedCreatePortalClient
 from tdoc_crawler.constants.urls import TDOC_DOWNLOAD_URL
 from tdoc_crawler.models.base import PortalCredentials
-from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_page
 
 

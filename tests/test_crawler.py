@@ -10,9 +10,11 @@ from bs4 import BeautifulSoup
 
 from tdoc_crawler.constants.patterns import EXCLUDED_DIRS, TDOC_PATTERN
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import MeetingMetadata, QueryConfig, TDocCrawlConfig, WorkingGroup
+from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.parsers.meetings import parse_meeting_row, parse_single_date
-from tdoc_crawler.tdocs import TDocCrawler
+from tdoc_crawler.tdocs.models import QueryConfig, TDocCrawlConfig
+from tdoc_crawler.tdocs.operations import TDocCrawler
 
 
 class TestTDocCrawler:

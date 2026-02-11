@@ -6,10 +6,13 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import requests
 from conftest import insert_sample_meetings
 
+from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import PortalCredentials, QueryConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import PortalCredentials, WorkingGroup
+from tdoc_crawler.tdocs.models import QueryConfig, TDocMetadata
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
 from tdoc_crawler.utils.parse import infer_working_groups_from_ids
@@ -65,16 +68,20 @@ class TestInferWorkingGroups:
 class TestFetchMissingTdocsBatch:
     """Tests for fetch_missing_tdocs_batch function."""
 
-    @patch("tdoc_crawler.tdocs.operations.fetch.create_portal_client")
+    @patch("tdoc_crawler.tdocs.operations.fetch.PortalSource")
     def test_fetch_missing_creates_config(
         self,
-        mock_create_client: MagicMock,
+        mock_portal_source_class: MagicMock,
         test_db_path: Path,
         sample_meetings: list[dict],
     ) -> None:
         """Ensure targeted fetch creates proper config."""
-        mock_client = MagicMock()
-        mock_client.fetch_tdoc_metadata.return_value = TDocMetadata(
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
+        # Setup the mock to return a PortalSource instance with fetch_by_id mocked
+        mock_source_instance = MagicMock()
+        mock_source_instance.fetch_by_id.return_value = TDocMetadata(
             tdoc_id="R1-2301234",
             meeting_id=0,
             meeting_name="RAN1#98",
@@ -88,8 +95,12 @@ class TestFetchMissingTdocsBatch:
             agenda_item_text="Test agenda",
             status="Approved",
             validated=True,
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validation_failed=False,
         )
-        mock_create_client.return_value = mock_client
+        mock_portal_source_class.return_value = mock_source_instance
 
         credentials = PortalCredentials(username="test", password="test")
 
@@ -97,7 +108,6 @@ class TestFetchMissingTdocsBatch:
             insert_sample_meetings(database, sample_meetings)
             result = fetch_missing_tdocs_batch(
                 database,
-                test_db_path.parent,
                 ["R1-2301234"],
                 credentials=credentials,
             )
@@ -105,18 +115,22 @@ class TestFetchMissingTdocsBatch:
         assert result.processed == 1
         assert result.inserted == 1
         assert not result.errors
-        mock_client.fetch_tdoc_metadata.assert_called_once_with("R1-2301234")
+        mock_source_instance.fetch_by_id.assert_called_once_with("R1-2301234", timeout=30)
 
-    @patch("tdoc_crawler.tdocs.operations.fetch.create_portal_client")
+    @patch("tdoc_crawler.tdocs.operations.fetch.PortalSource")
     def test_fetch_missing_infers_working_groups(
         self,
-        mock_create_client: MagicMock,
+        mock_portal_source_class: MagicMock,
         test_db_path: Path,
         sample_meetings: list[dict],
     ) -> None:
         """Verify working groups are inferred from target IDs."""
-        mock_client = MagicMock()
-        mock_client.fetch_tdoc_metadata.side_effect = [
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
+        # Setup the mock to return a PortalSource instance with fetch_by_id mocked
+        mock_source_instance = MagicMock()
+        mock_source_instance.fetch_by_id.side_effect = [
             TDocMetadata(
                 tdoc_id="R1-2301234",
                 meeting_id=0,
@@ -131,6 +145,10 @@ class TestFetchMissingTdocsBatch:
                 agenda_item_text="Test agenda",
                 status="Approved",
                 validated=True,
+                is_revision_of=None,
+                file_size=None,
+                date_created=None,
+                validation_failed=False,
             ),
             TDocMetadata(
                 tdoc_id="S4-2301890",
@@ -146,9 +164,13 @@ class TestFetchMissingTdocsBatch:
                 agenda_item_text="Test agenda",
                 status="Approved",
                 validated=True,
+                is_revision_of=None,
+                file_size=None,
+                date_created=None,
+                validation_failed=False,
             ),
         ]
-        mock_create_client.return_value = mock_client
+        mock_portal_source_class.return_value = mock_source_instance
 
         credentials = PortalCredentials(username="test", password="test")  # noqa: S106
 
@@ -156,7 +178,6 @@ class TestFetchMissingTdocsBatch:
             insert_sample_meetings(database, sample_meetings)
             result = fetch_missing_tdocs_batch(
                 database,
-                test_db_path.parent,
                 ["R1-2301234", "S4-2301890"],
                 credentials=credentials,
             )
@@ -192,7 +213,6 @@ class TestFetchMissingTdocs:
             results = database.query_tdocs(config)
             result = fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
             )
@@ -207,6 +227,9 @@ class TestFetchMissingTdocs:
         test_db_path: Path,
     ) -> None:
         """Trigger fetch when requested TDocs are missing."""
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
         mock_fetch_batch.return_value = TDocCrawlResult(
             processed=1,
             inserted=1,
@@ -223,18 +246,15 @@ class TestFetchMissingTdocs:
             results = database.query_tdocs(config)
             fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
             )
 
         mock_fetch_batch.assert_called_once()
-        mock_fetch_batch.assert_called_with(
-            database=database,
-            cache_dir=test_db_path.parent,
-            missing_ids=["R1-9999999"],
-            credentials=None,
-        )
+        call_kwargs = mock_fetch_batch.call_args.kwargs
+        assert call_kwargs["database"] == database
+        assert call_kwargs["missing_ids"] == ["R1-9999999"]
+        assert call_kwargs["credentials"] is None
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     def test_no_fetch_without_tdoc_ids(
@@ -243,6 +263,9 @@ class TestFetchMissingTdocs:
         test_db_path: Path,
     ) -> None:
         """Skip fetch when query has no specific TDoc IDs."""
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
         config = QueryConfig(
             cache_dir=test_db_path.parent,
             working_groups=[WorkingGroup.RAN],
@@ -252,7 +275,6 @@ class TestFetchMissingTdocs:
             results = database.query_tdocs(config)
             result = fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
             )
@@ -269,6 +291,9 @@ class TestFetchMissingTdocs:
         sample_meetings: list[dict],
     ) -> None:
         """Fetch only the missing TDocs when some are present."""
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
         mock_fetch_batch.return_value = TDocCrawlResult(
             processed=1,
             inserted=1,
@@ -289,20 +314,17 @@ class TestFetchMissingTdocs:
             results = database.query_tdocs(config)
             fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
             )
 
         mock_fetch_batch.assert_called_once()
-        mock_fetch_batch.assert_called_with(
-            database=database,
-            cache_dir=test_db_path.parent,
-            missing_ids=["R1-9999999"],
-            credentials=None,
-        )
-        assert "R1-9999999" in mock_fetch_batch.call_args.kwargs["missing_ids"]
-        assert "R1-2301234" not in mock_fetch_batch.call_args.kwargs["missing_ids"]
+        call_kwargs = mock_fetch_batch.call_args.kwargs
+        assert call_kwargs["database"] == database
+        assert call_kwargs["missing_ids"] == ["R1-9999999"]
+        assert call_kwargs["credentials"] is None
+        assert "R1-9999999" in call_kwargs["missing_ids"]
+        assert "R1-2301234" not in call_kwargs["missing_ids"]
 
 
 class TestWhatTheSpecFallback:
@@ -318,6 +340,9 @@ class TestWhatTheSpecFallback:
         sample_meetings: list[dict],
     ) -> None:
         """Verify whatthespec fallback is used when credentials unavailable."""
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
         config = QueryConfig(
             cache_dir=test_db_path.parent,
             tdoc_ids=["S4-260001"],
@@ -331,7 +356,7 @@ class TestWhatTheSpecFallback:
                 processed=1,
                 inserted=0,
                 updated=0,
-                errors=["Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD."],
+                errors=["Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD."],
             )
 
             metadata = TDocMetadata(
@@ -345,14 +370,20 @@ class TestWhatTheSpecFallback:
                 tdoc_type="agenda",
                 for_purpose="Approval",
                 agenda_item_nbr=Decimal("2"),
+                agenda_item_text="Unknown",
                 status="available",
                 validated=False,
+                is_revision_of=None,
+                file_size=None,
+                date_created=None,
+                validation_failed=False,
             )
 
             def insert_via_whatthespec(
                 database: TDocDatabase,
-                cache_dir: Path,
                 missing_ids: list[str],
+                session: requests.Session | None = None,
+                cache_manager_name: str | None = None,
             ) -> TDocCrawlResult:
                 database.upsert_tdoc(metadata)
                 return TDocCrawlResult(
@@ -366,7 +397,6 @@ class TestWhatTheSpecFallback:
 
             result = fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
                 credentials=None,
@@ -388,6 +418,9 @@ class TestWhatTheSpecFallback:
         sample_meetings: list[dict],
     ) -> None:
         """Verify whatthespec fetches multiple TDocs."""
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
         config = QueryConfig(
             cache_dir=test_db_path.parent,
             tdoc_ids=["S4-260001", "S4-260002"],
@@ -406,8 +439,9 @@ class TestWhatTheSpecFallback:
 
             def insert_multiple_via_whatthespec(
                 database: TDocDatabase,
-                cache_dir: Path,
                 missing_ids: list[str],
+                session: requests.Session | None = None,
+                cache_manager_name: str | None = None,
             ) -> TDocCrawlResult:
                 inserted = 0
                 for tdoc_id in missing_ids:
@@ -423,8 +457,13 @@ class TestWhatTheSpecFallback:
                             tdoc_type="agenda",
                             for_purpose="Approval",
                             agenda_item_nbr=Decimal("2"),
+                            agenda_item_text="Unknown",
                             status="available",
                             validated=False,
+                            is_revision_of=None,
+                            file_size=None,
+                            date_created=None,
+                            validation_failed=False,
                         )
                     elif tdoc_id == "S4-260002":
                         metadata = TDocMetadata(
@@ -438,8 +477,13 @@ class TestWhatTheSpecFallback:
                             tdoc_type="discussion",
                             for_purpose="Discussion",
                             agenda_item_nbr=Decimal("3"),
+                            agenda_item_text="Unknown",
                             status="available",
                             validated=False,
+                            is_revision_of=None,
+                            file_size=None,
+                            date_created=None,
+                            validation_failed=False,
                         )
                     else:
                         continue
@@ -456,7 +500,6 @@ class TestWhatTheSpecFallback:
 
             result = fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
                 credentials=None,
@@ -505,7 +548,6 @@ class TestWhatTheSpecFallback:
 
             result = fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
                 credentials=None,
@@ -545,7 +587,6 @@ class TestWhatTheSpecFallback:
 
             fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
                 credentials=credentials,
@@ -564,6 +605,9 @@ class TestWhatTheSpecFallback:
         sample_meetings: list[dict],
     ) -> None:
         """Verify whatthespec-resolved TDoc is inserted into database."""
+        manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
+        manager.register()
+
         metadata = TDocMetadata(
             tdoc_id="S4-260001",
             meeting_id=0,
@@ -575,8 +619,13 @@ class TestWhatTheSpecFallback:
             tdoc_type="agenda",
             for_purpose="Approval",
             agenda_item_nbr=Decimal("2"),
+            agenda_item_text="Unknown",
             status="available",
             validated=False,
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validation_failed=False,
         )
 
         config = QueryConfig(
@@ -597,8 +646,9 @@ class TestWhatTheSpecFallback:
 
             def insert_metadata(
                 database: TDocDatabase,
-                cache_dir: Path,
                 missing_ids: list[str],
+                session: requests.Session | None = None,
+                cache_manager_name: str | None = None,
             ) -> TDocCrawlResult:
                 database.upsert_tdoc(metadata)
                 return TDocCrawlResult(
@@ -612,7 +662,6 @@ class TestWhatTheSpecFallback:
 
             fetch_missing_tdocs(
                 database,
-                test_db_path.parent,
                 config,
                 results,
                 credentials=None,

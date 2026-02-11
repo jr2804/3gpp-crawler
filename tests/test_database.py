@@ -10,7 +10,9 @@ import pytest
 from conftest import insert_sample_meetings
 
 from tdoc_crawler.database import DatabaseError, TDocDatabase
-from tdoc_crawler.models import MeetingMetadata, MeetingQueryConfig, QueryConfig, SortOrder, TDocMetadata, WorkingGroup
+from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
+from tdoc_crawler.models import SortOrder, WorkingGroup
+from tdoc_crawler.tdocs.models import QueryConfig, TDocMetadata
 
 
 class TestTDocDatabase:

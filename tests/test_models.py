@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from tdoc_crawler.models import CrawlConfig, QueryConfig, TDocMetadata, WorkingGroup
+from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.tdocs.models import CrawlConfig, QueryConfig, TDocMetadata
 
 
 class TestTDocMetadata:
@@ -64,7 +65,6 @@ class TestCrawlConfig:
             incremental=True,
             max_retries=3,
             timeout=30,
-            verbose=False,
         )
         assert config.incremental is True
         assert config.max_retries == 3
@@ -78,12 +78,10 @@ class TestCrawlConfig:
             incremental=False,
             max_retries=5,
             timeout=60,
-            verbose=True,
         )
         assert config.incremental is False
         assert config.max_retries == 5
         assert config.timeout == 60
-        assert config.verbose is True
         assert len(config.working_groups) == 1
 
 

@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import patch
 
 from typer.testing import CliRunner
@@ -21,7 +22,7 @@ class TestSpecCli:
         assert "open-spec" in result.stdout
 
     @patch("tdoc_crawler.cli.app.SpecDownloads")
-    def test_checkout_spec_execution(self, mock_downloads_cls: object) -> None:  # noqa: ANN001
+    def test_checkout_spec_execution(self, mock_downloads_cls: Any) -> None:
         """Test execution of checkout-spec with args."""
         result = runner.invoke(app, ["checkout-spec", "26.132", "--doc-only"])
         # Should call SpecDownloads.checkout_specs

@@ -12,9 +12,10 @@ import pandas as pd
 import pytest
 
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import MeetingMetadata, TDocCrawlConfig, WorkingGroup
-from tdoc_crawler.models.tdocs import TDocMetadata
-from tdoc_crawler.tdocs import HybridCrawlResult, HybridTDocCrawler
+from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata
+from tdoc_crawler.tdocs.operations.crawl import HybridCrawlResult, HybridTDocCrawler
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list, parse_excel_document_list
 
 
@@ -284,7 +285,7 @@ class TestMeetingDocumentList:
 
             with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
                 # Mock parallel crawling result
-                def side_effect(*args, **kwargs) -> None:  # noqa: ANN202
+                def side_effect(*args, **kwargs) -> asyncio.Future:
                     f = asyncio.Future()
                     f.set_result(([], 1))
                     return f

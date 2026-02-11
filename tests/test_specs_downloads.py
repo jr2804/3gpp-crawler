@@ -7,19 +7,19 @@ from tdoc_crawler.config import CacheManager
 from tdoc_crawler.specs.downloads import SpecDownloads
 
 
-@pytest.fixture  # noqa: ANN201
+@pytest.fixture
 def mock_db() -> MagicMock:
     return MagicMock()
 
 
-@pytest.fixture  # noqa: ANN201
+@pytest.fixture
 def mock_cache_manager(tmp_path: Path) -> CacheManager:
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return CacheManager(root_path=cache_dir, name="test")
 
 
-@pytest.fixture  # noqa: ANN201
+@pytest.fixture
 def downloader(mock_db: MagicMock, mock_cache_manager: CacheManager) -> SpecDownloads:
     mock_cache_manager.register()
     return SpecDownloads(mock_db, cache_manager_name="test")
@@ -28,7 +28,7 @@ def downloader(mock_db: MagicMock, mock_cache_manager: CacheManager) -> SpecDown
 class TestSpecDownloads:
     # This test verifies that checkout_specs resolves URL and uses doc-only logic.
     @patch("tdoc_crawler.specs.downloads.HTTPZipReader")
-    def test_checkout_specs_doc_only_remote(self, MockHTTPZipReader: MagicMock, downloader: SpecDownloads, mock_db: MagicMock, tmp_path: Path) -> None:  # noqa: ANN001
+    def test_checkout_specs_doc_only_remote(self, MockHTTPZipReader: MagicMock, downloader: SpecDownloads, mock_db: MagicMock, tmp_path: Path) -> None:
         """Test that checkout_specs resolves URL and uses zipinspect for doc-only."""
         specs = ["26.132"]
         checkout_dir = tmp_path / "checkout"

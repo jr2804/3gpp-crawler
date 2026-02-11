@@ -11,7 +11,8 @@ from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import TDocMetadata, WorkingGroup
+from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
@@ -91,7 +92,7 @@ class TestCrawlMeetingsCommand:
     """Tests for crawl-meetings command."""
 
     @patch("tdoc_crawler.cli.app.MeetingCrawler")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_crawl_meetings_basic(
         self,
         mock_db_class: MagicMock,
@@ -99,9 +100,9 @@ class TestCrawlMeetingsCommand:
         test_cache_dir: Path,
     ) -> None:
         """Test basic crawl-meetings command execution."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.log_crawl_start.return_value = "1"
+        mock_db.log_crawl_start.return_value = 1
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
@@ -215,14 +216,14 @@ class TestQueryCommand:
 class TestQueryMeetingsCommand:
     """Tests for query-meetings command."""
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_query_meetings_no_results(
         self,
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with no results."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
 
@@ -234,14 +235,14 @@ class TestQueryMeetingsCommand:
         assert result.exit_code == 0
         assert "No meetings found" in result.stdout
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_query_meetings_with_subgroup_filter(
         self,
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with subgroup filter."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
 
@@ -255,14 +256,14 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert call_args.subgroups == ["S4"]
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_query_meetings_with_subgroup_alias(
         self,
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with subgroup alias (S4 -> SA4)."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
 
@@ -276,14 +277,14 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "S4" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_query_meetings_with_plenary_alias(
         self,
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with plenary subgroup alias (RP -> RAN Plenary)."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
 
@@ -297,14 +298,14 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "RP" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_query_meetings_with_working_group_alias(
         self,
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with working group alias (SP -> SA)."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
 
@@ -318,14 +319,14 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert WorkingGroup.SA in call_args.working_groups
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_query_meetings_combined_filters(
         self,
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
         """Test query-meetings with combined working group and subgroup filters."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
 
@@ -780,14 +781,14 @@ class TestEnvironmentVariables:
         config = call_args[0]
         assert config.workers == 8
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.app.SpecDatabase")
     def test_env_var_working_group(
         self,
         mock_db_class: MagicMock,
         monkeypatch,
     ) -> None:
         """Test that TDC_WORKING_GROUP environment variable filters by working group."""
-        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db = MagicMock()
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_meetings.return_value = []
 
@@ -824,8 +825,7 @@ class TestEnvironmentVariables:
         monkeypatch,
     ) -> None:
         """Test that CLI arguments override environment variables."""
-        # Set environment variable for verbose mode
-        monkeypatch.setenv("TDC_VERBOSE", "false")
+        # Note: TDC_VERBOSE has been removed - verbose mode is now controlled by --verbose flag only
 
         # But override with CLI argument
         result = runner.invoke(app, ["--help"])
