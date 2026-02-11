@@ -45,10 +45,12 @@ from tdoc_crawler.cli.args import (
     SpecArgument,
     SpecFileOption,
     StartDateOption,
+    StatusOption,
     SubgroupOption,
     TDocIdArgument,
     TDocIdsArgument,
     TimeoutOption,
+    TitleOption,
     UseWhatTheSpecOption,
     VerbosityOption,
     WorkersOption,
@@ -111,18 +113,18 @@ HELP_PANEL_QUERY = "Query Commands"
 def crawl_tdocs(
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
-    incremental: IncrementalOption = True,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
-    checkout: CheckoutOption = False,
     limit_tdocs: LimitTDocsOption = None,
     limit_meetings: LimitMeetingsOption = None,
     limit_meetings_per_wg: LimitMeetingsPerWgOption = None,
     limit_wgs: LimitWgsOption = None,
+    checkout: CheckoutOption = False,
+    incremental: IncrementalOption = True,
+    clear_tdocs: ClearTDocsOption = False,
+    clear_specs: ClearSpecsOption = False,
     workers: WorkersOption = 4,
-    overall_timeout: OverallTimeoutOption = None,
-    max_retries: MaxRetriesOption = 3,
     timeout: TimeoutOption = 30,
+    max_retries: MaxRetriesOption = 3,
+    overall_timeout: OverallTimeoutOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
@@ -186,7 +188,7 @@ def crawl_tdocs(
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
         crawler = TDocCrawler(database)
-        crawl_id = database.log_crawl_start("tdoc", config.working_groups, config.incremental)
+        crawl_id = database.log_crawl_start("tdoc", [wg.value for wg in config.working_groups], config.incremental)
 
         # Track crawl start time for performance metrics
         crawl_start_time = datetime.now()
@@ -258,23 +260,23 @@ def crawl_tdocs(
 
 @app.command("crawl-meetings", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_meetings(
-    cache_dir: CacheDirOption = None,
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
+    limit_meetings: LimitMeetingsOption = None,
+    limit_meetings_per_wg: LimitMeetingsPerWgOption = None,
+    limit_wgs: LimitWgsOption = None,
+    checkout: CheckoutOption = False,
     incremental: IncrementalOption = True,
     clear_db: ClearDbOption = False,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
-    checkout: CheckoutOption = False,
-    limit_meetings: LimitMeetingsOption = None,
-    limit_meetings_per_wg: LimitMeetingsPerWgOption = None,
-    limit_wgs: LimitWgsOption = None,
-    max_retries: MaxRetriesOption = 3,
     timeout: TimeoutOption = 30,
-    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
+    max_retries: MaxRetriesOption = 3,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
+    cache_dir: CacheDirOption = None,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl meeting metadata from 3GPP portal."""
     # Set logging verbosity early to ensure all log messages respect the configured level
@@ -331,8 +333,9 @@ def crawl_meetings(
             if removed_specs:
                 console.print("[yellow]Cleared checkout entries for specs[/yellow]")
 
-        crawler = MeetingCrawler(database)
-        crawl_id = database.log_crawl_start("meeting", config.working_groups, config.incremental)
+    with TDocDatabase(db_file) as database:
+        # TDocDatabase inherits from DocDatabase which handles crawl logging
+        crawl_id = database.log_crawl_start("meeting", [wg.value for wg in config.working_groups], config.incremental)
 
         # Create progress bar for meeting crawling
         with Progress(
@@ -388,19 +391,19 @@ def crawl_meetings(
 @app.command("query-tdocs", rich_help_panel=HELP_PANEL_QUERY)
 def query_tdocs(
     tdoc_ids: TDocIdsArgument = None,
-    cache_dir: CacheDirOption = None,
     working_group: WorkingGroupOption = None,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
-    checkout: CheckoutOption = False,
-    output_format: OutputFormatOption = OutputFormat.TABLE.value,
-    limit: LimitOption = None,
-    order: OrderOption = SortOrder.DESC.value,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
+    limit: LimitOption = None,
+    order: OrderOption = SortOrder.DESC.value,
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    checkout: CheckoutOption = False,
     no_fetch: NoFetchOption = False,
+    clear_tdocs: ClearTDocsOption = False,
+    clear_specs: ClearSpecsOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query TDoc metadata from database."""
@@ -491,16 +494,16 @@ def query_tdocs(
 
 @app.command("query-meetings", rich_help_panel=HELP_PANEL_QUERY)
 def query_meetings(
-    cache_dir: CacheDirOption = None,
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
-    checkout: CheckoutOption = False,
-    output_format: OutputFormatOption = OutputFormat.TABLE.value,
     limit: LimitOption = None,
     order: OrderOption = SortOrder.DESC.value,
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    checkout: CheckoutOption = False,
     include_without_files: IncludeWithoutFilesOption = False,
+    clear_tdocs: ClearTDocsOption = False,
+    clear_specs: ClearSpecsOption = False,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query meeting metadata from database."""
@@ -566,14 +569,14 @@ def query_meetings(
 @app.command("query-specs", rich_help_panel=HELP_PANEL_QUERY)
 def query_specs(
     spec_numbers: SpecArgument = None,
-    spec_file: SpecFileOption = None,
-    title: str = typer.Option(None, help="Filter by title contains"),
+    title: TitleOption = None,
     working_group: WorkingGroupOption = None,
-    status: str = typer.Option(None, help="Filter by status"),
+    status: StatusOption = None,
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    checkout: CheckoutOption = False,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
-    checkout: CheckoutOption = False,
-    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    spec_file: SpecFileOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
@@ -636,11 +639,11 @@ def query_specs(
 @app.command("open", rich_help_panel=HELP_PANEL_MAIN)
 def open_tdoc(
     tdoc_id: TDocIdArgument,
-    cache_dir: CacheDirOption = None,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download, extract, and open a TDoc file."""
@@ -690,12 +693,12 @@ def open_tdoc(
 @app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)
 def checkout(
     tdoc_id: CheckoutTDocIdsArgument,
-    cache_dir: CacheDirOption = None,
     force: ForceOption = False,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
+    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract TDoc(s) to checkout folder."""
@@ -771,7 +774,7 @@ def stats(
         console.print(f"[red]Database not found: {db_file}[/red]")
         raise typer.Exit(code=1)
 
-    with TDocDatabase(db_file) as database:
+    with MeetingDatabase(db_file) as database:
         stats_dict = cast(dict[str, Any], database.get_statistics())
 
     table = Table(title="TDoc database statistics")
@@ -795,12 +798,12 @@ def stats(
 @app.command("crawl-specs", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_specs(
     spec_numbers: SpecArgument = None,
-    spec_file: SpecFileOption = None,
     release: ReleaseOption = "latest",
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
     checkout: CheckoutOption = False,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    clear_tdocs: ClearTDocsOption = False,
+    clear_specs: ClearSpecsOption = False,
+    spec_file: SpecFileOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
@@ -861,11 +864,11 @@ def crawl_specs(
 @app.command("checkout-spec", rich_help_panel=HELP_PANEL_MAIN)
 def checkout_spec(
     spec_numbers: SpecArgument = None,
-    spec_file: SpecFileOption = None,
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
-    checkout_dir: CheckoutDirOption = None,
+    spec_file: SpecFileOption = None,
     cache_dir: CacheDirOption = None,
+    checkout_dir: CheckoutDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract spec documents."""
