@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import requests
 
@@ -16,11 +15,9 @@ from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
+from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
-
-if TYPE_CHECKING:
-    from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +49,6 @@ def resolve_via_whatthespec(
     Returns:
         TDocMetadata if found, otherwise None.
     """
-    from tdoc_crawler.models.tdocs import TDocMetadata
-
     manager = resolve_cache_manager(cache_manager_name)
     temp_session: requests.Session | None = None
     if session is None:

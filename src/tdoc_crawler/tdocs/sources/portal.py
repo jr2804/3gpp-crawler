@@ -8,14 +8,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
 from tdoc_crawler.parsers.portal import PortalParsingError
+from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
-
-if TYPE_CHECKING:
-    from tdoc_crawler.models.tdocs import TDocMetadata
 
 logger = logging.getLogger(__name__)
 

@@ -7,6 +7,8 @@ from decimal import Decimal
 
 from bs4 import BeautifulSoup
 
+from tdoc_crawler.tdocs.models import TDocMetadata
+
 logger = logging.getLogger(__name__)
 
 
@@ -116,10 +118,6 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         error_msg = f"Missing mandatory fields for TDoc {tdoc_id}: {', '.join(missing_fields)}"
         logger.warning(error_msg)
         raise PortalParsingError(error_msg)
-
-    # Create and return TDocMetadata instance
-    # Import here to avoid circular dependency
-    from tdoc_crawler.models.tdocs import TDocMetadata
 
     return TDocMetadata(
         tdoc_id=tdoc_id,

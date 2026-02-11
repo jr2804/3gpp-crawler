@@ -7,12 +7,10 @@ of TDoc metadata (WhatTheSpec, 3GPP portal, meeting document lists, etc.).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
-
-if TYPE_CHECKING:
-    from tdoc_crawler.models.tdocs import TDocMetadata
+from tdoc_crawler.tdocs.models import TDocMetadata
 
 
 class TDocSource(Protocol):

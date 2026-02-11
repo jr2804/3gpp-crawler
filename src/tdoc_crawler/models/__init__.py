@@ -17,9 +17,6 @@ from .base import (
 )
 from .crawl_limits import CrawlLimits
 from .crawl_log import CrawlLogEntry
-
-# Note: Specification models have been moved to tdoc_crawler.specs.models
-# Import from there directly to avoid circular dependencies
 from .subworking_groups import (
     CODE_INDEX,
     SUBTB_INDEX,
@@ -44,12 +41,6 @@ __all__ = [
     "OutputFormat",
     "PortalCredentials",
     "SortOrder",
-    "SpecQueryFilters",
-    "SpecQueryResult",
-    "Specification",
-    "SpecificationDownload",
-    "SpecificationSourceRecord",
-    "SpecificationVersion",
     "SubWorkingGroupRecord",
     "WorkingGroup",
     "WorkingGroupRecord",

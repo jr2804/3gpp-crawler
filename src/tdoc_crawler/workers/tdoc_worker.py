@@ -13,6 +13,7 @@ import requests
 from tdoc_crawler.constants.patterns import TDOC_PATTERN_STR
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.parsers.directory import collect_tdocs_from_html, extract_subdirectories
+from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ def fetch_meeting_tdocs(
     timeout: int,
     max_retries: int,
     target_ids: Iterable[str] | None,
-    cache_dir_str: str,
+    cache_dir: Path,
     cache_ttl: int,
     cache_refresh_on_access: bool,
 ) -> tuple[str, ...]:
@@ -48,7 +49,6 @@ def fetch_meeting_tdocs(
     Returns:
         Tuple of JSON-serialized TDocMetadata records
     """
-    cache_dir = Path(cache_dir_str)
     session = create_cached_session(
         cache_dir=cache_dir,
         ttl=cache_ttl,
@@ -113,7 +113,7 @@ def _fetch_directory(session: requests.Session, url: str, timeout: int) -> str |
 
 def fetch_meeting_document_list_subinterpreter(
     meeting_id: int,
-    cache_dir: str,
+    cache_dir: Path,
     cache_ttl: int,
     cache_refresh_on_access: bool,
     timeout: int,
@@ -133,16 +133,10 @@ def fetch_meeting_document_list_subinterpreter(
         JSON string containing list of TDocMetadata or error information
     """
     try:
-        # Local import to avoid circular dependency
-        from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
-
-        # Convert string path to Path object
-        cache_dir_path = Path(cache_dir)
-
         # Fetch document list for the meeting
         tdoc_metadata_list = fetch_meeting_document_list(
             meeting_id=meeting_id,
-            cache_path=cache_dir_path,
+            cache_dir=cache_dir,
             cache_ttl=cache_ttl,
             cache_refresh_on_access=cache_refresh_on_access,
             timeout=timeout,

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING
 
 import requests
 from pydantic import ValidationError
@@ -17,7 +16,9 @@ from pydantic import ValidationError
 from tdoc_crawler.clients.portal import create_portal_client
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.credentials import resolve_credentials
+from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
+from tdoc_crawler.tdocs.models import QueryConfig, TDocMetadata
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.sources import (
     DocumentListSource,
@@ -25,10 +26,6 @@ from tdoc_crawler.tdocs.sources import (
     TDocSourceConfig,
     WhatTheSpecSource,
 )
-
-if TYPE_CHECKING:
-    from tdoc_crawler.database import TDocDatabase
-    from tdoc_crawler.models.tdocs import QueryConfig, TDocMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -170,8 +167,6 @@ def fetch_tdoc(
 
     # Handle URL-only method separately (doesn't use source abstraction)
     if method == FetchMethod.PORTAL_URL_ONLY:
-        # Import here to avoid circular dependency
-        from tdoc_crawler.models.tdocs import TDocMetadata
 
         logger.debug(f"Fetching {tdoc_id} via unauthenticated 3GPP portal")
         client = create_portal_client(cache_dir=manager.root, timeout=min(timeout, 15), session=session)
@@ -272,7 +267,8 @@ def fetch_missing_tdocs_batch(
 
             # Resolve meeting_id if needed
             if metadata.meeting_name:
-                meeting_id = database.resolve_meeting_id(metadata.meeting_name)
+                with MeetingDatabase(database.db_file) as meeting_db:
+                    meeting_id = meeting_db.resolve_meeting_id(metadata.meeting_name)
                 if meeting_id is not None:
                     metadata.meeting_id = meeting_id
                 else:

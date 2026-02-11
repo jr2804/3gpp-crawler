@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from datetime import date
 from urllib.parse import urljoin
 
@@ -11,6 +12,8 @@ from bs4 import BeautifulSoup, Tag
 
 from tdoc_crawler.constants.patterns import DATE_PATTERN
 from tdoc_crawler.constants.urls import PORTAL_BASE_URL
+from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.models.working_groups import WorkingGroup
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +22,7 @@ def parse_meeting_page(
     html: str,
     working_group: WorkingGroup,
     subgroup: str | None,
-    get_subtb: callable | None = None,
+    get_subtb: Callable[[str], int] | None = None,
 ) -> list[MeetingMetadata]:
     """Parse meeting page HTML into list of MeetingMetadata.
 
@@ -53,7 +56,7 @@ def parse_meeting_row(
     cells: list[Tag],
     working_group: WorkingGroup,
     subgroup: str | None,
-    get_subtb: callable | None = None,
+    get_subtb: Callable[[str], int] | None = None,
 ) -> MeetingMetadata:
     """Parse a single meeting row from the table.
 
@@ -80,10 +83,6 @@ def parse_meeting_row(
 
     location = cells[2].get_text(" ", strip=True) if len(cells) > 2 else "TBC"
     files_url = extract_first_link(cells[-3])
-
-    # Get tbid from working group, subtb from callback if subgroup is available
-    # Import here to avoid circular dependency
-    from tdoc_crawler.models import MeetingMetadata
 
     tbid = working_group.tbid
     subtb: int | None = None
