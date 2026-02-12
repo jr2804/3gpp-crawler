@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, datetime
-from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.models.base import BaseConfigModel, PortalCredentials, SortOrder
+from tdoc_crawler.models.base import BaseConfigModel, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
@@ -95,7 +93,6 @@ class MeetingMetadata(BaseModel):
 class MeetingCrawlConfig(BaseConfigModel):
     """Configuration for meeting crawling operations."""
 
-    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     working_groups: list[WorkingGroup] = Field(
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
         description="Working groups to crawl",
@@ -105,7 +102,6 @@ class MeetingCrawlConfig(BaseConfigModel):
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="HTTP timeout in seconds")
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
-    credentials: PortalCredentials | None = Field(None, description="Optional portal credentials")
 
     @field_validator("working_groups", mode="before")
     @classmethod
@@ -128,7 +124,6 @@ class MeetingCrawlConfig(BaseConfigModel):
 class MeetingQueryConfig(BaseConfigModel):
     """Configuration for querying meeting metadata."""
 
-    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
     subgroups: list[str] | None = Field(None, description="Filter by sub-working group")
     limit: int | None = Field(None, ge=1, description="Maximum results")
