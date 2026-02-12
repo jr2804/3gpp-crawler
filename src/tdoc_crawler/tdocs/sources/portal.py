@@ -6,18 +6,18 @@ from the official 3GPP portal using authenticated access.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.parsers.portal import PortalParsingError
 from tdoc_crawler.tdocs.models import TDocMetadata
-from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
+from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-class PortalSource:
+class PortalSource(TDocSource):
     """TDoc metadata source using 3GPP Portal.
 
     This source provides authenticated access to official 3GPP portal metadata.
@@ -37,9 +37,6 @@ class PortalSource:
         Raises:
             ValueError: If credentials are not provided
         """
-        if config.credentials is None:
-            raise ValueError("Portal source requires credentials")
-
         self.config = config
         self._client: PortalClient | None = None
 
@@ -105,8 +102,7 @@ class PortalSource:
         Returns:
             Empty list (not supported by this source)
         """
-        logger.debug(f"Portal source does not support bulk meeting queries for meeting {meeting_id}")
-        return []
+        raise NotImplementedError(f"Portal source does not support bulk meeting queries for meeting {meeting_id}")
 
     @property
     def source_name(self) -> str:
@@ -133,13 +129,7 @@ class PortalSource:
             Configured PortalClient instance
         """
         if self._client is None:
-            self._client = PortalClient(
-                credentials=self.config.credentials,
-                cache_dir=self.config.cache_dir,
-                cache_ttl=self.config.http_cache.ttl,
-                cache_refresh_on_access=self.config.http_cache.refresh_ttl_on_access,
-                timeout=self.config.timeout,
-            )
+            self._client = PortalClient(timeout=self.config.timeout, http_cache=self.config.http_cache, cache_manager_name=self.config.cache_manager_name)
         return self._client
 
 

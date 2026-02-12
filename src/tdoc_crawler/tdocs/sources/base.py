@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
+from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 
@@ -76,24 +76,18 @@ class TDocSourceConfig:
 
     def __init__(
         self,
-        cache_dir: Path,
-        http_cache: HttpCacheConfig | None = None,
-        credentials: PortalCredentials | None = None,
         timeout: int = 30,
+        http_cache: HttpCacheConfig | None = None,
         cache_manager_name: str | None = None,
     ) -> None:
         """Initialize source configuration.
 
         Args:
-            cache_dir: Directory for HTTP cache storage
-            http_cache: HTTP cache configuration
-            credentials: Optional portal credentials
             timeout: Request timeout in seconds
+            http_cache: HTTP cache configuration
             cache_manager_name: Optional name of cache manager to use
         """
-        self.cache_dir = cache_dir
-        self.http_cache = http_cache or HttpCacheConfig()
-        self.credentials = credentials
+        self.http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
         self.timeout = timeout
         self.cache_manager_name = cache_manager_name
 

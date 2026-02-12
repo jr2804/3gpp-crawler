@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -12,12 +11,13 @@ from tdoc_crawler.constants.urls import MEETINGS_BASE_URL
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
 from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.parsers.meetings import parse_meeting_page
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -60,13 +60,8 @@ class MeetingCrawler:
         existing_ids: set[int] = set()
         if config.incremental:
             existing_ids = self.database.get_existing_meeting_ids(working_groups)
-        credentials = config.credentials or resolve_credentials(None, None)
-        session = create_cached_session(
-            cache_dir=config.cache_dir,
-            ttl=config.http_cache.ttl,
-            refresh_ttl_on_access=config.http_cache.refresh_ttl_on_access,
-            max_retries=config.max_retries,
-        )
+        credentials = resolve_credentials(None, None)
+        session = create_cached_session(cache_manager_name=config.cache_manager_name, http_cache=config.http_cache)
         session.headers["User-Agent"] = "tdoc-crawler/0.0.1"
         if credentials is not None:
             session.auth = (credentials.username, credentials.password)
@@ -123,17 +118,6 @@ class MeetingCrawler:
             errors=errors,
         )
 
-    def _limit_working_groups(
-        self,
-        working_groups: list[WorkingGroup],
-        limits: CrawlLimits,
-    ) -> list[WorkingGroup]:
-        """Apply working group limits from crawl configuration."""
-        if limits.limit_wgs is None or limits.limit_wgs == 0:
-            return working_groups
-        limit = limits.limit_wgs
-        return working_groups[:limit] if limit > 0 else working_groups[limit:]
-
     def _apply_limits(
         self,
         meetings: list[MeetingMetadata],
@@ -147,8 +131,19 @@ class MeetingCrawler:
         filtered = self._limit_meetings(filtered, limits.limit_meetings)
         return filtered
 
+    @staticmethod
+    def _limit_working_groups(
+        working_groups: list[WorkingGroup],
+        limits: CrawlLimits,
+    ) -> list[WorkingGroup]:
+        """Apply working group limits from crawl configuration."""
+        if limits.limit_wgs is None or limits.limit_wgs == 0:
+            return working_groups
+        limit = limits.limit_wgs
+        return working_groups[:limit] if limit > 0 else working_groups[limit:]
+
+    @staticmethod
     def _limit_meetings_per_wg(
-        self,
         meetings: list[MeetingMetadata],
         limit: int | None,
     ) -> list[MeetingMetadata]:
@@ -166,8 +161,8 @@ class MeetingCrawler:
             allowed_ids[working_group] = set(selected)
         return [meeting for meeting in meetings if meeting.meeting_id in allowed_ids.get(meeting.working_group, {meeting.meeting_id})]
 
+    @staticmethod
     def _limit_meetings(
-        self,
         meetings: list[MeetingMetadata],
         limit: int | None,
     ) -> list[MeetingMetadata]:

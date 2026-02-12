@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from tdoc_crawler.config import CacheManager, register_cache_manager
-from tdoc_crawler.database import TDocDatabase, MeetingDatabase
+from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata

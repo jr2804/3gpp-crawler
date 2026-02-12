@@ -22,10 +22,9 @@ from tdoc_crawler.tdocs.operations.fetch import (
     FetchMethod,
     FetchMissingResult,
     create_source,
-    create_source_config,
     fetch_missing_tdocs,
     fetch_missing_tdocs_batch,
-    fetch_tdoc,
+    # fetch_tdoc,
     fetch_via_whatthespec_batch,
 )
 
@@ -42,7 +41,6 @@ __all__ = [
     "checkout_tdocs",
     "clear_checkout_tdocs",
     "create_source",
-    "create_source_config",
     "fetch_missing_tdocs",
     "fetch_missing_tdocs_batch",
     "fetch_tdoc",

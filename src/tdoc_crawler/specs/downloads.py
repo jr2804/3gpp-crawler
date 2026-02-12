@@ -1,6 +1,6 @@
 """Spec download orchestration."""
+
 import asyncio
-import logging
 import zipfile
 from pathlib import Path
 
@@ -11,10 +11,11 @@ from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import download_to_file
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class SpecDownloads:

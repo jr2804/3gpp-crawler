@@ -1,11 +1,11 @@
 """Meeting database operations."""
 
-import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import datetime
 
 from tdoc_crawler.database.base import DocDatabase
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.subworking_groups import CODE_INDEX
@@ -13,7 +13,7 @@ from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS, WorkingGro
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class MeetingDatabase(DocDatabase):
@@ -187,7 +187,6 @@ class MeetingDatabase(DocDatabase):
             Meeting ID if found, None otherwise
         """
         config = MeetingQueryConfig(
-            cache_dir=self.db_file.parent,
             working_groups=None,
             subgroups=None,
             limit=None,
@@ -224,25 +223,6 @@ class MeetingDatabase(DocDatabase):
                     return meeting.meeting_id
 
         return None
-
-    def get_subgroup_by_code(self, code: str) -> dict[str, int | str] | None:
-        """Get subgroup metadata by code.
-
-        Args:
-            code: Subgroup code (e.g., "S4", "R1")
-
-        Returns:
-            Dictionary with subgroup metadata or None if not found
-        """
-        record = CODE_INDEX.get(code.strip().upper())
-        if record is None:
-            return None
-        return {
-            "subtb": record.subtb,
-            "tbid": record.tbid,
-            "code": record.code,
-            "name": record.name,
-        }
 
     # ------------------------------------------------------------------
     # Crawl logging and statistics
@@ -285,6 +265,26 @@ class MeetingDatabase(DocDatabase):
             "total_working_groups": len(WORKING_GROUP_RECORDS),
             "by_working_group": dict(by_working_group),
             "recent_crawls": recent_crawls,
+        }
+
+    @staticmethod
+    def get_subgroup_by_code(code: str) -> dict[str, int | str] | None:
+        """Get subgroup metadata by code.
+
+        Args:
+            code: Subgroup code (e.g., "S4", "R1")
+
+        Returns:
+            Dictionary with subgroup metadata or None if not found
+        """
+        record = CODE_INDEX.get(code.strip().upper())
+        if record is None:
+            return None
+        return {
+            "subtb": record.subtb,
+            "tbid": record.tbid,
+            "code": record.code,
+            "name": record.name,
         }
 
     def _meeting_map(self) -> dict[int, MeetingMetadata]:

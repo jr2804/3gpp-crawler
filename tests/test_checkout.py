@@ -105,10 +105,10 @@ class TestGetCheckoutPath:
 class TestCheckoutTDoc:
     """Tests for checkout_tdoc function."""
 
-    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_path")
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
     def test_successful_checkout(
         self,
-        mock_download_to_path: Mock,
+        mock_download_to_file: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
@@ -123,7 +123,7 @@ class TestCheckoutTDoc:
                 zf.writestr("test.txt", "test content")
             destination.write_bytes(content.getvalue())
 
-        mock_download_to_path.side_effect = mock_download
+        mock_download_to_file.side_effect = mock_download
 
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir)
 
@@ -146,10 +146,10 @@ class TestCheckoutTDoc:
 
         assert result == checkout_path
 
-    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_path")
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
     def test_force_recheckout(
         self,
-        mock_download_to_path: Mock,
+        mock_download_to_file: Mock,
         sample_tdoc_metadata: TDocMetadata,
         checkout_dir: Path,
     ) -> None:
@@ -165,12 +165,12 @@ class TestCheckoutTDoc:
                 zf.writestr("new.txt", "new content")
             destination.write_bytes(content.getvalue())
 
-        mock_download_to_path.side_effect = mock_download
+        mock_download_to_file.side_effect = mock_download
 
         result = checkout_tdoc(sample_tdoc_metadata, checkout_dir, force=True)
 
         assert result == checkout_path
-        mock_download_to_path.assert_called_once()
+        mock_download_to_file.assert_called_once()
 
     def test_invalid_url_scheme(self, checkout_dir: Path) -> None:
         """Test that invalid URL scheme raises ValueError."""

@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import Decimal
-from pathlib import Path
+from typing import Any
 
 import requests
 from pydantic import BaseModel, Field, field_validator
 
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import (
     BaseConfigModel,
-    HttpCacheConfig,
     OutputFormat,
-    PortalCredentials,
     SortOrder,
 )
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
@@ -24,7 +21,7 @@ from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_ids
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class TDocMetadata(BaseModel):
@@ -133,7 +130,6 @@ class TDocMetadata(BaseModel):
 class TDocCrawlConfig(BaseConfigModel):
     """Configuration for TDoc crawling runs."""
 
-    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     working_groups: list[WorkingGroup] = Field(
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
         description="Working groups to crawl",
@@ -159,7 +155,6 @@ class TDocCrawlConfig(BaseConfigModel):
         ge=1,
         description="Maximum total crawl duration in seconds (None = unlimited). When exceeded remaining futures are cancelled and crawl ends early.",
     )
-    max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="Request timeout seconds")
 
     # New options for document list vs parallel crawling
@@ -169,8 +164,6 @@ class TDocCrawlConfig(BaseConfigModel):
 
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
     target_ids: list[str] | None = Field(None, description="Specific TDoc identifiers to fetch")
-    credentials: PortalCredentials | None = Field(None, description="Optional portal credentials")
-    http_cache: HttpCacheConfig = Field(default_factory=HttpCacheConfig, description="HTTP cache configuration")
 
     @field_validator("working_groups", mode="before")
     @classmethod
@@ -198,11 +191,9 @@ class TDocCrawlConfig(BaseConfigModel):
         return normalize_tdoc_ids(value)
 
 
-# TODO: Should be named TDocQueryConfig for consistency?
-class QueryConfig(BaseConfigModel):
+class TDocQueryConfig(BaseConfigModel):
     """Configuration for querying TDoc metadata."""
 
-    cache_dir: Path = Field(default_factory=lambda: resolve_cache_manager().root, description="Cache directory path")
     output_format: OutputFormat = Field(OutputFormat.TABLE, description="Output format")
     tdoc_ids: list[str] | None = Field(None, description="TDoc IDs to query")
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
@@ -211,7 +202,7 @@ class QueryConfig(BaseConfigModel):
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to date_retrieved")
 
-    def __init__(self, **data: object) -> None:
+    def __init__(self, **data: Any) -> None:
         """Normalize identifiers and accept enum values from strings."""
         tdoc_ids = data.get("tdoc_ids")
         if tdoc_ids:
@@ -237,12 +228,8 @@ class QueryConfig(BaseConfigModel):
         return normalized
 
 
-# TODO: Legacy alias; Kept for backward compatibility with CLI commands that reference CrawlConfig. should be renamed soon in the whole project for consistency
-CrawlConfig = TDocCrawlConfig
-
 __all__ = [
-    "CrawlConfig",
-    "QueryConfig",
     "TDocCrawlConfig",
     "TDocMetadata",
+    "TDocQueryConfig",
 ]

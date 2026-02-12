@@ -1,13 +1,13 @@
 """3GPP portal metadata fetcher for specs."""
 
-import logging
 from urllib.parse import parse_qs, urlparse
 
-from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class SpecNotFoundError(Exception):
@@ -16,11 +16,12 @@ class SpecNotFoundError(Exception):
     pass
 
 
-def fetch_threegpp_metadata(spec_number: str, cache_manager_name: str | None = None) -> dict[str, object]:
+def fetch_threegpp_metadata(spec_number: str, http_cache: HttpCacheConfig | None = None, cache_manager_name: str | None = None) -> dict[str, object]:
     """Fetch spec metadata via 3GPP.org redirect flow.
 
     Args:
         spec_number: Spec number to fetch (e.g., "26.131").
+        http_cache: Optional HTTP cache configuration
         cache_manager_name: Optional name of cache manager to use for HTTP caching.
 
     Returns:
@@ -39,11 +40,11 @@ def fetch_threegpp_metadata(spec_number: str, cache_manager_name: str | None = N
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     }
 
-    session = create_cached_session(resolve_cache_manager(cache_manager_name).http_cache_file)
+    session = create_cached_session(http_cache=http_cache, cache_manager_name=cache_manager_name)
     response = session.get(url, timeout=30, allow_redirects=True, headers=headers)
     response.raise_for_status()
 
-    parsed = urlparse(response.url)
+    parsed = urlparse(response.request.url)
     query = parse_qs(parsed.query)
     spec_id = query.get("specificationId", [None])[0]
 
@@ -65,7 +66,7 @@ def fetch_threegpp_metadata(spec_number: str, cache_manager_name: str | None = N
     return {
         "spec_number": normalized,
         "source_name": "3gpp",
-        "source_identifier": spec_id,
+        "source_identifier": int(spec_id),
         "metadata_payload": payload,
         "versions": versions,
     }

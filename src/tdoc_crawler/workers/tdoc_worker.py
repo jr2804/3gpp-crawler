@@ -3,31 +3,29 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from collections.abc import Iterable
-from pathlib import Path
 
 import requests
 
 from tdoc_crawler.constants.patterns import TDOC_PATTERN_STR
 from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models import HttpCacheConfig
 from tdoc_crawler.parsers.directory import collect_tdocs_from_html, extract_subdirectories
 from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def fetch_meeting_tdocs(
     meeting_id: int,
     files_url: str,
     meeting_short_name: str,
-    timeout: int,
-    max_retries: int,
     target_ids: Iterable[str] | None,
-    cache_dir: Path,
-    cache_ttl: int,
-    cache_refresh_on_access: bool,
+    timeout: int,
+    cache_manager_name: str | None,
+    http_cache: HttpCacheConfig | None,
 ) -> tuple[str, ...]:
     """Fetch all TDocs for a meeting directory in a subinterpreter.
 
@@ -39,21 +37,17 @@ def fetch_meeting_tdocs(
         meeting_id: Meeting identifier
         files_url: Base URL of meeting files directory
         meeting_short_name: Short name of meeting (e.g., "RAN1#98")
-        timeout: Request timeout in seconds
-        max_retries: Maximum number of retry attempts
         target_ids: Optional set of specific TDoc IDs to fetch
-        cache_dir_str: Cache directory path as string
-        cache_ttl: HTTP cache TTL in seconds
-        cache_refresh_on_access: Whether to refresh cache TTL on access
+        timeout: Request timeout in seconds
 
+        http_cache: Optional HTTP cache configuration
+        cache_manager_name: Optional name of cache manager to use for HTTP caching
     Returns:
         Tuple of JSON-serialized TDocMetadata records
     """
     session = create_cached_session(
-        cache_dir=cache_dir,
-        ttl=cache_ttl,
-        refresh_ttl_on_access=cache_refresh_on_access,
-        max_retries=max_retries,
+        cache_manager_name=cache_manager_name,
+        http_cache=http_cache,
     )
     base_url = files_url if files_url.endswith("/") else f"{files_url}/"
     target_set = {item.upper() for item in target_ids} if target_ids else None
@@ -113,10 +107,9 @@ def _fetch_directory(session: requests.Session, url: str, timeout: int) -> str |
 
 def fetch_meeting_document_list_subinterpreter(
     meeting_id: int,
-    cache_dir: Path,
-    cache_ttl: int,
-    cache_refresh_on_access: bool,
     timeout: int,
+    http_cache: HttpCacheConfig | None = None,
+    cache_manager_name: str | None = None,
 ) -> str:
     """Fetch meeting document list in subinterpreter context.
 
@@ -124,23 +117,16 @@ def fetch_meeting_document_list_subinterpreter(
 
     Args:
         meeting_id: Meeting identifier
-        cache_dir: Cache directory path as string
-        cache_ttl: HTTP cache TTL in seconds
-        cache_refresh_on_access: Whether to refresh cache TTL on access
         timeout: Request timeout in seconds
+        http_cache: Optional HTTP cache configuration for caching document list responses
+        cache_manager_name: Optional name of cache manager to use for HTTP caching
 
     Returns:
         JSON string containing list of TDocMetadata or error information
     """
     try:
         # Fetch document list for the meeting
-        tdoc_metadata_list = fetch_meeting_document_list(
-            meeting_id=meeting_id,
-            cache_dir=cache_dir,
-            cache_ttl=cache_ttl,
-            cache_refresh_on_access=cache_refresh_on_access,
-            timeout=timeout,
-        )
+        tdoc_metadata_list = fetch_meeting_document_list(meeting_id=meeting_id, timeout=timeout, http_cache=http_cache, cache_manager_name=cache_manager_name)
 
         # Serialize to JSON for inter-process communication
         serialized = []
@@ -154,7 +140,7 @@ def fetch_meeting_document_list_subinterpreter(
         error_data = {
             "error": str(exc),
             "meeting_id": meeting_id,
-            "cache_dir": cache_dir,
+            "http_cache": http_cache,
         }
         return json.dumps({"_error": error_data})
 

@@ -10,6 +10,7 @@ from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
 
 from pool_executors.pool_executors import Runner, create_executor
+from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
@@ -48,10 +49,7 @@ class TDocCrawler:
     """Configuration-driven crawler orchestrating subinterpreter workers."""
 
     def __init__(self, database: TDocDatabase) -> None:
-        # Local import to avoid circular dependency
-        from tdoc_crawler.database import TDocDatabase as _TDocDatabase
-
-        if not isinstance(database, _TDocDatabase):
+        if not isinstance(database, TDocDatabase):
             raise TypeError(f"Expected TDocDatabase, got {type(database)}")
         self.database = database
 
@@ -330,10 +328,7 @@ class HybridTDocCrawler:
     """Hybrid crawler that supports both document list and parallel crawling methods."""
 
     def __init__(self, database: TDocDatabase) -> None:
-        # Local import to avoid circular dependency
-        from tdoc_crawler.database import TDocDatabase as _TDocDatabase
-
-        if not isinstance(database, _TDocDatabase):
+        if not isinstance(database, TDocDatabase):
             raise TypeError(f"Expected TDocDatabase, got {type(database)}")
         self.database = database
 

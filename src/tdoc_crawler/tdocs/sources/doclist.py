@@ -7,7 +7,6 @@ from 3GPP meeting document list Excel files (unauthenticated).
 from __future__ import annotations
 
 import io
-import logging
 import re
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -16,10 +15,12 @@ from pathlib import Path
 import pandas as pd
 
 from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
-from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
+from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DocumentListError(Exception):
@@ -28,20 +29,17 @@ class DocumentListError(Exception):
 
 def fetch_meeting_document_list(
     meeting_id: int,
-    cache_dir: Path,
-    cache_ttl: int = 7200,
-    cache_refresh_on_access: bool = True,
     timeout: int = 30,
+    http_cache: HttpCacheConfig | None = None,
+    cache_manager_name: str | None = None,
 ) -> list[TDocMetadata]:
     """Fetch all TDoc metadata for a meeting via document list Excel file.
 
     Args:
         meeting_id: 3GPP meeting identifier
-        cache_dir: Path to HTTP cache SQLite database
-        cache_ttl: HTTP cache TTL in seconds
-        cache_refresh_on_access: Whether to refresh cache TTL on access
         timeout: Request timeout in seconds
-
+        http_cache: Optional HTTP cache configuration for caching document list responses
+        cache_manager_name: Optional name of cache manager to use for HTTP caching
     Returns:
         List of TDocMetadata instances for all TDocs in the meeting
 
@@ -54,10 +52,8 @@ def fetch_meeting_document_list(
 
     # Create cached session (no credentials required)
     session = create_cached_session(
-        cache_dir=cache_dir,
-        ttl=cache_ttl,
-        refresh_ttl_on_access=cache_refresh_on_access,
-        max_retries=3,
+        http_cache=http_cache,
+        cache_manager_name=cache_manager_name,
     )
 
     try:
@@ -153,8 +149,6 @@ def convert_excel_row_to_tdoc_metadata(
     Returns:
         TDocMetadata instance or None if conversion fails
     """
-    from tdoc_crawler.tdocs.models import TDocMetadata
-
     # Map Excel columns to TDocMetadata fields
     # Try multiple possible column names to handle different Excel formats
     tdoc_id = _extract_tdoc_id(row)
@@ -335,7 +329,7 @@ def _parse_date(date_value: str | None) -> datetime | None:
         return None
 
 
-class DocumentListSource:
+class DocumentListSource(TDocSource):
     """TDoc metadata source using meeting document lists.
 
     This source provides unauthenticated bulk access to all TDocs in a meeting
@@ -374,8 +368,7 @@ class DocumentListSource:
         Returns:
             None (not supported by this source)
         """
-        logger.debug(f"Document list source does not support individual TDoc lookups for {tdoc_id}")
-        return None
+        raise NotImplementedError(f"Document list source does not support individual TDoc lookups for {tdoc_id}")
 
     def fetch_by_meeting(
         self,
@@ -395,9 +388,8 @@ class DocumentListSource:
         try:
             tdocs = fetch_meeting_document_list(
                 meeting_id=meeting_id,
-                cache_dir=self.config.cache_dir,
-                cache_ttl=self.config.http_cache.ttl,
-                cache_refresh_on_access=self.config.http_cache.refresh_ttl_on_access,
+                http_cache=self.config.http_cache,
+                cache_manager_name=self.config.cache_manager_name,
                 timeout=timeout,
             )
             logger.info(f"Fetched {len(tdocs)} TDocs from document list for meeting {meeting_id}")

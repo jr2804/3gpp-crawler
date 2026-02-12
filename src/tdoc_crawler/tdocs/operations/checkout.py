@@ -17,10 +17,11 @@ from urllib.parse import urlparse
 
 import requests
 
-from tdoc_crawler.http_client import download_to_path
+from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
 
 logger = get_logger(__name__)
 
@@ -97,7 +98,7 @@ def checkout_tdoc(
         raise ValueError(f"TDoc {metadata.tdoc_id} has no URL")
 
     try:
-        download_to_path(metadata.url, temp_zip_path, session=session)
+        download_to_file(metadata.url, temp_zip_path, session=session)
         with zipfile.ZipFile(temp_zip_path) as archive:
             archive.extractall(checkout_path)
         logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
@@ -138,7 +139,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
                 return extract_dir if return_dir else files[0]
             shutil.rmtree(extract_dir)
         zip_path = downloads_dir / f"{metadata.tdoc_id}.zip"
-        download_to_path(metadata.url, zip_path, session=session)
+        download_to_file(metadata.url, zip_path, session=session)
         try:
             with zipfile.ZipFile(zip_path) as archive:
                 archive.extractall(extract_dir)
@@ -156,7 +157,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
     target_path = downloads_dir / target_name
     if not target_path.exists():
         try:
-            download_to_path(metadata.url, target_path, session=session)
+            download_to_file(metadata.url, target_path, session=session)
         except requests.exceptions.HTTPError as exc:
             status_code = exc.response.status_code if exc.response is not None else "unknown"
             raise FileNotFoundError(f"failed-to-download ({status_code}): {metadata.url}") from exc
@@ -268,9 +269,6 @@ def checkout_meeting_tdocs(
     Returns:
         CheckoutResult with success/error counts
     """
-    # Local import to avoid circular dependency
-    from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
-
     if not meetings:
         return CheckoutResult(success_count=0, error_count=0, errors=[])
 

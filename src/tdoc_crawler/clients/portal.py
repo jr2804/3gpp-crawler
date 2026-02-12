@@ -13,20 +13,20 @@ For backward compatibility, standalone functions are also provided.
 
 from __future__ import annotations
 
-import logging
 import re
-from pathlib import Path
 from typing import Any
 
 import requests
 
 from tdoc_crawler.constants.urls import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
+from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.models.base import PortalCredentials
+from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_page
 from tdoc_crawler.tdocs.models import TDocMetadata
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Common browser headers to avoid 403 Forbidden responses
 _BROWSER_HEADERS: dict[str, str] = {
@@ -44,6 +44,7 @@ class PortalAuthenticationError(Exception):
     """Raised when portal authentication fails."""
 
 
+'''
 class PortalSession:
     """Manages authenticated session with 3GPP portal.
 
@@ -220,15 +221,15 @@ def extract_tdoc_url_from_portal(tdoc_id: str, cache_dir: Path | None = None, ti
             raise PortalParsingError(f"TDoc {tdoc_id} not found on portal")
 
         # Extract URL from JavaScript redirect pattern
-        pattern = r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]"
+        pattern = r"window\\.location\\.href\\s*=\\s*['\"]([^'\"]+)['\"]"
         match = re.search(pattern, response.text)
 
         if not match:
             # Also try for the pattern in the CDATA section
-            cdata_pattern = r"<!\[CDATA\[(.*?)\]\]>"
+            cdata_pattern = r"<!\\[CDATA\\[(.*?)\\]\\]>"
             cdata_matches = re.findall(cdata_pattern, response.text)
             for cdata_match in cdata_matches:
-                inner_match = re.search(r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]", cdata_match)
+                inner_match = re.search(r"window\\.location\\.href\\s*=\\s*['\"]([^'\"]+)['\"]", cdata_match)
                 if inner_match:
                     match = inner_match
                     break
@@ -254,6 +255,7 @@ def extract_tdoc_url_from_portal(tdoc_id: str, cache_dir: Path | None = None, ti
         raise PortalParsingError(error_msg) from e
     finally:
         session.close()
+'''
 
 
 class PortalClient:
@@ -276,30 +278,36 @@ class PortalClient:
 
     def __init__(
         self,
-        credentials: PortalCredentials | None = None,
-        cache_dir: Path | None = None,
-        cache_ttl: int = 7200,
-        cache_refresh_on_access: bool = True,
-        timeout: int = 30,
         session: requests.Session | None = None,
+        credentials: PortalCredentials | None = None,
+        timeout: int = 30,
+        http_cache: HttpCacheConfig | None = None,
+        cache_manager_name: str | None = None,
     ) -> None:
         """Initialize portal client.
 
         Args:
-            credentials: Optional credentials (required for full metadata fetching)
-            cache_dir: Directory for HTTP cache storage
-            cache_ttl: Cache TTL in seconds
-            cache_refresh_on_access: Whether to refresh TTL on access
-            timeout: Request timeout in seconds
             session: Optional requests.Session to reuse
+            credentials: Optional portal credentials (if not provided, will attempt to resolve registered credentials)
+            timeout: Request timeout in seconds
+            http_cache: Optional HTTP cache configuration
+            cache_manager_name: Optional cache manager name for resolving cache configuration
         """
-        self.credentials = credentials
-        self.cache_dir = cache_dir or Path.home() / ".tdoc-crawler"
+        self._credentials = credentials
+        self._cache_manager_name = cache_manager_name
         self.timeout = timeout
-        self._cache_ttl = cache_ttl
-        self._cache_refresh_on_access = cache_refresh_on_access
+        self._http_cache = http_cache
         self._authenticated = False
         self._session = session
+
+    @property
+    def credentials(self) -> PortalCredentials | None:
+        """Return the credentials used by this client."""
+        if self._credentials is None:
+            # if not available, try to resolve registered credentials
+            self._credentials = resolve_credentials(None, None)
+
+        return self._credentials
 
     def close(self) -> None:
         """Close the underlying session if it exists."""
@@ -326,7 +334,7 @@ class PortalClient:
             return
 
         if self.credentials is None:
-            raise ValueError("Credentials required for authentication")
+            raise ValueError("Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD.")
 
         logger.info("Authenticating with 3GPP portal...")
 
@@ -494,7 +502,19 @@ class PortalClient:
         """
         return parse_tdoc_portal_page(html, tdoc_id, url)
 
-    def _get_auth_session(self) -> requests.Session:
+    def _get_session(self) -> requests.Session:
+        """Get or create a cached session with browser headers.
+
+        Returns:
+            Session configured with browser-like headers for portal access
+        """
+        if self._session is None:
+            self._session = create_cached_session(http_cache=self._http_cache, cache_manager_name=self._cache_manager_name)
+            self._session.headers.update(_BROWSER_HEADERS)
+        return self._session
+
+    @staticmethod
+    def _get_auth_session() -> requests.Session:
         """Get a non-cached session for authentication.
 
         Returns:
@@ -504,60 +524,11 @@ class PortalClient:
         session.headers.update(_BROWSER_HEADERS)
         return session
 
-    def _get_session(self) -> requests.Session:
-        """Get or create a cached session with browser headers.
-
-        Returns:
-            Session configured with browser-like headers for portal access
-        """
-        if self._session is None:
-            self._session = create_cached_session(
-                cache_dir=self.cache_dir,
-                ttl=self._cache_ttl,
-                refresh_ttl_on_access=self._cache_refresh_on_access,
-                max_retries=3,
-            )
-            self._session.headers.update(_BROWSER_HEADERS)
-        return self._session
-
-
-def create_portal_client(
-    credentials: PortalCredentials | None = None,
-    cache_dir: Path | None = None,
-    cache_ttl: int = 7200,
-    cache_refresh_on_access: bool = True,
-    timeout: int = 30,
-    session: requests.Session | None = None,
-) -> PortalClient:
-    """Factory function to create a PortalClient instance.
-
-    This is the recommended way to create a PortalClient for new code.
-
-    Args:
-        credentials: Optional credentials (required for full metadata)
-        cache_dir: Directory for HTTP cache storage
-        cache_ttl: Cache TTL in seconds
-        cache_refresh_on_access: Whether to refresh TTL on access
-        timeout: Request timeout in seconds
-        session: Optional requests.Session to reuse
-
-    Returns:
-        Configured PortalClient instance
-    """
-    return PortalClient(
-        credentials=credentials,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl,
-        cache_refresh_on_access=cache_refresh_on_access,
-        timeout=timeout,
-        session=session,
-    )
-
 
 __all__ = [
     "PortalAuthenticationError",
     "PortalClient",
-    "PortalSession",
-    "create_portal_client",
-    "extract_tdoc_url_from_portal",
+    # "PortalSession",
+    # "create_portal_client",
+    # "extract_tdoc_url_from_portal",
 ]

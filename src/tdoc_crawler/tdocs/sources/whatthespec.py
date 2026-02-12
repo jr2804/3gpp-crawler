@@ -6,7 +6,6 @@ from the whatthespec.net community API.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import requests
@@ -14,12 +13,13 @@ import requests
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
-from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
+from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 WHATSPEC_BASE_URL = "https://whatthespec.net/3gpp/tdoc.php?name={tdoc}&api=1"
 
@@ -30,34 +30,26 @@ class WhatTheSpecResolutionError(Exception):
 
 def resolve_via_whatthespec(
     tdoc_id: str,
-    db_file: Path,
-    http_cache: HttpCacheConfig,
-    timeout: int = 30,
     session: requests.Session | None = None,
+    timeout: int = 30,
+    http_cache: HttpCacheConfig | None = None,
     cache_manager_name: str | None = None,
 ) -> TDocMetadata | None:
     """Resolve TDoc metadata from whatthespec.net API.
 
     Args:
         tdoc_id: TDoc identifier (e.g., "S4-260001").
-        db_file: Path to local TDoc database.
-        http_cache: HTTP cache configuration for hishel.
-        timeout: Request timeout in seconds.
         session: Optional requests.Session to reuse.
+        timeout: Request timeout in seconds.
+        http_cache: HTTP cache configuration for hishel.
         cache_manager_name: Optional name of the cache manager to use for HTTP caching.
 
     Returns:
         TDocMetadata if found, otherwise None.
     """
-    manager = resolve_cache_manager(cache_manager_name)
     temp_session: requests.Session | None = None
     if session is None:
-        temp_session = create_cached_session(
-            cache_dir=manager.http_cache_file,
-            ttl=http_cache.ttl,
-            refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
-            max_retries=3,
-        )
+        temp_session = create_cached_session(cache_manager_name=cache_manager_name, http_cache=http_cache)
         active_session = temp_session
     else:
         active_session = session
@@ -83,7 +75,8 @@ def resolve_via_whatthespec(
     meeting_name = str(record.get("meeting") or "")
     agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
 
-    with MeetingDatabase(db_file) as db:
+    manager = resolve_cache_manager(cache_manager_name)
+    with MeetingDatabase(manager.db_file) as db:
         meeting_id = db.resolve_meeting_id(meeting_name) or 0
 
     metadata = TDocMetadata(
@@ -105,7 +98,7 @@ def resolve_via_whatthespec(
     return metadata
 
 
-class WhatTheSpecSource:
+class WhatTheSpecSource(TDocSource):
     """TDoc metadata source using whatthespec.net API.
 
     This source provides unauthenticated access to TDoc metadata through
@@ -144,13 +137,9 @@ class WhatTheSpecSource:
         Returns:
             TDocMetadata if found, None otherwise
         """
-        # Use the database path from config if not provided
-        db_path = db_file or (self.config.cache_dir / "tdoc_crawler.db")
-
         try:
             metadata = resolve_via_whatthespec(
                 tdoc_id=tdoc_id,
-                db_file=db_path,
                 http_cache=self.config.http_cache,
                 timeout=timeout,
                 session=self.session,
@@ -179,8 +168,7 @@ class WhatTheSpecSource:
         Returns:
             Empty list (not supported by this source)
         """
-        logger.debug(f"WhatTheSpec does not support bulk meeting queries for meeting {meeting_id}")
-        return []
+        raise NotImplementedError(f"WhatTheSpec does not support bulk meeting queries for meeting {meeting_id}")
 
     @property
     def source_name(self) -> str:

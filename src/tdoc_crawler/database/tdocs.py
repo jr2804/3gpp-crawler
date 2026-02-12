@@ -149,9 +149,6 @@ class TDocDatabase(DocDatabase):
         if not working_groups:
             return {record.tdoc_id for record in records}
 
-        # Import here to avoid circular dependency
-        from tdoc_crawler.database.meetings import MeetingDatabase
-
         meeting_db = MeetingDatabase(self.db_file)
         meeting_db._database = self._database  # Share connection
         meeting_map = meeting_db._meeting_map()
@@ -182,9 +179,6 @@ class TDocDatabase(DocDatabase):
             Set of meeting IDs
         """
         records = self._table_rows("tdocs")
-
-        # Import here to avoid circular dependency
-        from tdoc_crawler.database.meetings import MeetingDatabase
 
         meeting_db = MeetingDatabase(self.db_file)
         meeting_db._database = self._database  # Share connection

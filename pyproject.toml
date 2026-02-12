@@ -50,6 +50,7 @@ dev = [
     "undersort>=0.1.5",
     "specify-cli",
     "pydeps>=3.0.2",
+    "ruff>=0.15.0",
 ]
 
 [build-system]

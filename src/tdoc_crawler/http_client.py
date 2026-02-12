@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import cast
 
@@ -12,9 +11,10 @@ from hishel.requests import CacheAdapter
 from urllib3.util.retry import Retry
 
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import HttpCacheConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def download_to_file(
