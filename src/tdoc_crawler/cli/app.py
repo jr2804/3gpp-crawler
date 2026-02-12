@@ -70,7 +70,7 @@ from tdoc_crawler.cli.printing import (
 )
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
-from tdoc_crawler.credentials import resolve_credentials, set_credentials
+from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import create_cached_session
@@ -108,6 +108,12 @@ HELP_PANEL_MAIN = "Main Commands"
 HELP_PANEL_CRAWLING = "Crawling Commands"
 HELP_PANEL_QUERY = "Query Commands"
 
+# TODO: move each command into a separate module for better organization and maintainability, e.g.:
+# - tdoc_crawler/cli/crawl.py (with crawl_tdocs and crawl_meetings)
+# - tdoc_crawler/cli/query.py (with query_tdocs, query_meetings, query_specs)
+# - tdoc_crawler/cli/specs.py (with crawl-specs and checkout-spec)
+# - ...
+# - tdoc_crawler/cli/app.py (with remaining commands like open and checkout)
 
 @app.command("crawl-tdocs", rich_help_panel=HELP_PANEL_CRAWLING)
 def crawl_tdocs(
@@ -129,11 +135,11 @@ def crawl_tdocs(
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl TDocs from 3GPP FTP directories."""
+    """No credentials needed, crawl-tdocs always resolves meetings first -> parse Excel files that includes metadata"""
     # Set logging verbosity early to ensure all log messages respect the configured level
     set_verbosity(verbosity)
 
     manager = CacheManager(cache_dir).register()
-
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
 
@@ -153,7 +159,6 @@ def crawl_tdocs(
         timeout=timeout,
         limits=limits,
         target_ids=None,
-        credentials=None,
         use_document_list=True,
         allow_parallel_fallback=True,
         use_parallel_crawling=False,
@@ -281,13 +286,14 @@ def crawl_meetings(
     """Crawl meeting metadata from 3GPP portal."""
     # Set logging verbosity early to ensure all log messages respect the configured level
     set_verbosity(verbosity)
+    set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
     manager = CacheManager(cache_dir).register()
 
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
     limits = CrawlLimits.build(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
-    set_credentials(eol_username, eol_password, prompt_credentials)
+
     config = MeetingCrawlConfig(
         cache_dir=manager.root,
         working_groups=working_groups,
@@ -296,7 +302,6 @@ def crawl_meetings(
         max_retries=max_retries,
         timeout=timeout,
         limits=limits,
-        credentials=None,
     )
 
     db_file = manager.db_file
@@ -406,12 +411,15 @@ def query_tdocs(
     clear_specs: ClearSpecsOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
+    prompt_credentials: PromptCredentialsOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query TDoc metadata from database."""
     set_verbosity(verbosity)
+    set_credentials(eol_username, eol_password, prompt=prompt_credentials)
     manager = CacheManager(cache_dir).register()
+
     working_groups = parse_working_groups(working_group)
     try:
         start = datetime.fromisoformat(start_date) if start_date else None
@@ -440,10 +448,6 @@ def query_tdocs(
         limit=limit,
         order=sort_order,
     )
-
-    # Resolve credentials (only if --no-fetch is not set)
-    if not no_fetch:
-        set_credentials(eol_username, eol_password, prompt=None)
 
     db_file = manager.db_file
     with TDocDatabase(db_file) as database:
@@ -646,12 +650,14 @@ def open_tdoc(
     use_whatthespec: UseWhatTheSpecOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
+    prompt_credentials: PromptCredentialsOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download, extract, and open a TDoc file."""
     set_verbosity(verbosity)
-    set_credentials(eol_username, eol_password, prompt=None)
+    set_credentials(eol_username, eol_password, prompt=prompt_credentials)
+
     manager = CacheManager(cache_dir).register()
     normalized_id = tdoc_id.strip().upper()
     config = QueryConfig(
@@ -664,12 +670,10 @@ def open_tdoc(
         with TDocDatabase(db_file) as database:
             results = database.query_tdocs(config)
 
-            credentials = resolve_credentials(eol_username, eol_password, prompt=None)
             result = fetch_missing_tdocs(
                 database,
                 config,
                 results,
-                credentials=credentials,
                 full_metadata=full_metadata,
                 use_whatthespec=use_whatthespec,
                 session=session,
@@ -701,12 +705,14 @@ def checkout(
     use_whatthespec: UseWhatTheSpecOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
+    prompt_credentials: PromptCredentialsOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract TDoc(s) to checkout folder."""
     set_verbosity(verbosity)
-    set_credentials(eol_username, eol_password, prompt=None)
+    set_credentials(eol_username, eol_password, prompt=prompt_credentials)
+
     manager = CacheManager(cache_dir).register()
     normalized_ids = [tid.strip().upper() for tid in tdoc_id]
     config = QueryConfig(
@@ -719,12 +725,10 @@ def checkout(
         with TDocDatabase(db_file) as database:
             results = database.query_tdocs(config)
 
-            credentials = resolve_credentials(eol_username, eol_password, prompt=None)
             result = fetch_missing_tdocs(
                 database,
                 config,
                 results,
-                credentials=credentials,
                 full_metadata=full_metadata,
                 use_whatthespec=use_whatthespec,
                 session=session,
