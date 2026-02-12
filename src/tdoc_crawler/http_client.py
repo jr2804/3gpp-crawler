@@ -1,16 +1,19 @@
 """HTTP client factory with hishel caching support."""
 
 from __future__ import annotations
+from babel.messages.frontend import log
 
 import logging
 from pathlib import Path
+from typing import cast
 
 import requests
-from hishel import SyncSqliteStorage
+from hishel import SyncBaseStorage, SyncSqliteStorage
 from hishel.requests import CacheAdapter
 from urllib3.util.retry import Retry
 
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.models import HttpCacheConfig
 
 logger = logging.getLogger(__name__)
 
@@ -69,41 +72,41 @@ def download_to_path(url: str, destination: Path, session: requests.Session | No
 
 
 def create_cached_session(
-    cache_dir: Path,
-    ttl: int = 7200,
-    refresh_ttl_on_access: bool = True,
-    max_retries: int = 3,
+    http_cache: HttpCacheConfig | None,
+    cache_manager_name: str | None = None,
 ) -> requests.Session:
     """Create a requests.Session with hishel caching enabled.
 
     Args:
-        cache_dir: Path to the SQLite cache database file.
+        http_cache: HTTP cache configuration
+        cache_manager_name: Optional cache manager name to determine cache configuration.
 
     Returns:
         Configured requests.Session with caching enabled
     """
-    # Ensure parent directory exists (SQLite will create the file)
-    cache_dir.parent.mkdir(parents=True, exist_ok=True)
-
-    logger.debug(f"Creating cached HTTP session: cache_db={cache_dir}, ttl={ttl}s, refresh_on_access={refresh_ttl_on_access}, max_retries={max_retries}")
+    manager = resolve_cache_manager(cache_manager_name)
+    http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
+    logger.debug(f"Creating cached HTTP session with cache_db={manager.http_cache_file})")
+    logger.debug(f"HTTP cache config: ttl={http_cache.ttl}, refresh_ttl_on_access={http_cache.refresh_ttl_on_access}, max_retries={http_cache.max_retries}")
 
     # Create SQLite storage backend (cache_dir is the database file path)
     storage = SyncSqliteStorage(
-        database_path=str(cache_dir),
-        default_ttl=ttl,
-        refresh_ttl_on_access=refresh_ttl_on_access,
+        database_path=str(manager.http_cache_file),
+        default_ttl=http_cache.ttl,
+        refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
     )
+    storage = cast(SyncBaseStorage, storage)
 
     # Configure retry strategy for the session
-    Retry(
-        total=max_retries,
+    max_retries = Retry(
+        total=http_cache.max_retries,
         backoff_factor=1,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["HEAD", "GET", "OPTIONS"],
     )
 
     # Create cache adapter
-    cache_adapter = CacheAdapter(storage=storage)
+    cache_adapter = CacheAdapter(storage=storage, max_retries=max_retries)  # ty:ignore[invalid-argument-type]
 
     # Create session
     session = requests.Session()
