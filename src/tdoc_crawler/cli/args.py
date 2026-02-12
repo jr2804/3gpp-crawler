@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Annotated
 
 import typer
-
-from tdoc_crawler.logging import DEFAULT_LEVEL as LOGGING_DEFAULT_LEVEL
-
-DEFAULT_VERBOSITY = logging.getLevelName(LOGGING_DEFAULT_LEVEL)
 
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]

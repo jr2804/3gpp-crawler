@@ -6,8 +6,8 @@ from typing import Any
 
 from rich.table import Table
 
-from tdoc_crawler.cli.console import get_console
 from tdoc_crawler.database.specs import SpecCrawlResult
+from tdoc_crawler.logging import get_console
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.specs.models import SpecQueryResult
 from tdoc_crawler.tdocs.models import TDocMetadata

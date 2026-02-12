@@ -14,21 +14,43 @@ from rich.logging import RichHandler
 # Default logging level for all loggers
 DEFAULT_LEVEL: Final[int] = logging.WARNING
 
-# Configure the root logger with RichHandler on first import
-_console: Final[Console] = Console()
-_rich_handler: RichHandler = RichHandler(
-    console=_console,
-    show_time=True,
-    show_path=False,
-    rich_tracebacks=True,
-    markup=False,
-    tracebacks_width=None,
-)
 
-# Add RichHandler to root logger (no other handlers)
-logging.root.handlers.clear()
-logging.root.addHandler(_rich_handler)
-logging.root.setLevel(DEFAULT_LEVEL)
+@functools.cache
+def configure_logger() -> None:
+    """Configure the root logger with RichHandler.
+
+    This function sets up the RichHandler on the root logger, which all
+    child loggers will inherit. It is called on first import of this module.
+    """
+    _rich_handler: RichHandler = RichHandler(
+        console=get_console(),
+        show_time=True,
+        show_path=False,
+        rich_tracebacks=True,
+        markup=False,
+        tracebacks_width=None,
+    )
+
+    # Add RichHandler to root logger (no other handlers)
+    logging.root.handlers.clear()
+    logging.root.addHandler(_rich_handler)
+    logging.root.setLevel(DEFAULT_LEVEL)
+
+
+@functools.cache
+def get_console() -> Console:
+    """Get the Rich console instance used by the logging handlers.
+
+    This allows other parts of the application to use the same console
+    for consistent output formatting.
+
+    @functools.cache decorator ensures a simple singleton instance of Console is used throughout the application.
+
+    Returns:
+        The Rich Console instance configured for logging.
+    """
+    _console: Console = Console()
+    return _console
 
 
 @functools.cache
@@ -77,3 +99,7 @@ def set_verbosity(level: int | str) -> None:
             raise ValueError(f"Invalid logging level name: {level}")
 
     logging.root.setLevel(level)
+
+
+# initialize logger configuration on first import (@functools.cache ensures this runs only once)
+configure_logger()
