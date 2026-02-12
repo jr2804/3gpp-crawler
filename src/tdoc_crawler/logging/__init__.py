@@ -6,6 +6,7 @@ configured for consistent console output across the application.
 
 import functools
 import logging
+import sys
 from typing import Final
 
 from rich.console import Console
@@ -22,19 +23,13 @@ def configure_logger() -> None:
     This function sets up the RichHandler on the root logger, which all
     child loggers will inherit. It is called on first import of this module.
     """
-    _rich_handler: RichHandler = RichHandler(
-        console=get_console(),
-        show_time=True,
-        show_path=False,
-        rich_tracebacks=True,
-        markup=False,
-        tracebacks_width=None,
-    )
+    _rich_handler: RichHandler = RichHandler(console=get_console(), show_time=True, show_path=False, rich_tracebacks=True, markup=True, tracebacks_width=None)
 
     # Add RichHandler to root logger (no other handlers)
     logging.root.handlers.clear()
     logging.root.addHandler(_rich_handler)
-    logging.root.setLevel(DEFAULT_LEVEL)
+    # logging.root.addHandler(logging.StreamHandler())
+    # logging.root.setLevel(DEFAULT_LEVEL)
 
 
 @functools.cache
@@ -49,7 +44,7 @@ def get_console() -> Console:
     Returns:
         The Rich Console instance configured for logging.
     """
-    _console: Console = Console()
+    _console: Console = Console(no_color=not sys.stdout.isatty(), width=120)
     return _console
 
 
