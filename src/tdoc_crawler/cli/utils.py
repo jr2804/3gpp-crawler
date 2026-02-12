@@ -9,8 +9,7 @@ from pathlib import Path
 
 import typer
 
-from tdoc_crawler.cli.console import get_console
-from tdoc_crawler.logging import get_logger
+from tdoc_crawler.logging import get_console, get_logger
 
 console = get_console()
 logger = get_logger(__name__)
