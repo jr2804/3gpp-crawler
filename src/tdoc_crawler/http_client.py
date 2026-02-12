@@ -1,7 +1,6 @@
 """HTTP client factory with hishel caching support."""
 
 from __future__ import annotations
-from babel.messages.frontend import log
 
 import logging
 from pathlib import Path
@@ -18,13 +17,22 @@ from tdoc_crawler.models import HttpCacheConfig
 logger = logging.getLogger(__name__)
 
 
-def download_to_path(url: str, destination: Path, session: requests.Session | None = None, cache_manager_name: str | None = None) -> None:
+def download_to_file(
+    url: str,
+    destination: Path,
+    session: requests.Session | None = None,
+    close_session: bool = True,
+    http_cache: HttpCacheConfig | None = None,
+    cache_manager_name: str | None = None,
+) -> requests.Session | None:
     """Download a file from URL to destination path.
 
     Args:
         url: Source URL
         destination: Destination path
         session: Optional requests.Session to reuse. If None, a temporary cached session is created.
+        close_session: Whether to close the session after download. Only applicable if a temporary session is created.
+        http_cache: Optional HTTP cache configuration
         cache_manager_name: Optional cache manager name to determine cache directory when creating a temporary session.
 
     Raises:
@@ -37,11 +45,10 @@ def download_to_path(url: str, destination: Path, session: requests.Session | No
     if not lowered.startswith(allowed_schemes):
         raise ValueError("unsupported-url-scheme")
 
-    # Use provided session or create a temporary one
+    # Use provided session or create a new one (might be used for multiple downloads, so we don't want to create a new session for each)
     temp_session: requests.Session | None = None
     if session is None:
-        manager = resolve_cache_manager(cache_manager_name)
-        temp_session = create_cached_session(manager.http_cache_file)
+        temp_session = create_cached_session(http_cache=http_cache, cache_manager_name=cache_manager_name)
         active_session = temp_session
     else:
         active_session = session
@@ -66,13 +73,19 @@ def download_to_path(url: str, destination: Path, session: requests.Session | No
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     target.write(chunk)
+
+        # return session or None if we created a temporary session and are closing it
+        if close_session:
+            active_session = None
+        return active_session
+
     finally:
-        if temp_session:
+        if temp_session and close_session:
             temp_session.close()
 
 
 def create_cached_session(
-    http_cache: HttpCacheConfig | None,
+    http_cache: HttpCacheConfig | None = None,
     cache_manager_name: str | None = None,
 ) -> requests.Session:
     """Create a requests.Session with hishel caching enabled.

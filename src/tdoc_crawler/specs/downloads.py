@@ -1,15 +1,16 @@
 """Spec download orchestration."""
-
 import asyncio
 import logging
 import zipfile
 from pathlib import Path
 
+import requests
 from zipinspect import HTTPZipReader
 
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
-from tdoc_crawler.http_client import download_to_path
+from tdoc_crawler.database.specs import SpecDatabase
+from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
@@ -19,9 +20,14 @@ _logger = logging.getLogger(__name__)
 class SpecDownloads:
     """Download and extraction utilities for specs."""
 
-    def __init__(self, database, cache_manager_name: str | None = None) -> None:
+    def __init__(self, database: SpecDatabase, cache_manager_name: str | None = None) -> None:
         self._database = database
         self._cache_manager = resolve_cache_manager(cache_manager_name)
+        self.session: requests.Session | None = None
+
+    def __del__(self) -> None:
+        if self.session:
+            self.session.close()
 
     def checkout_specs(
         self,
@@ -184,8 +190,8 @@ class SpecDownloads:
             return False
 
     def _download_full_zip(self, url: str, target_path: Path) -> None:
-        """Download full zip file."""
-        download_to_path(url, target_path, cache_manager_name=self._cache_manager.name)
+        """Download full zip file, re-use session if already created for doc-only attempt."""
+        self.session = download_to_file(url, target_path, session=self.session, close_session=False, cache_manager_name=self._cache_manager.name)
 
     @staticmethod
     def _extract_zip(zip_file: Path, extract_dir: Path, keep_zip: bool = True) -> None:
