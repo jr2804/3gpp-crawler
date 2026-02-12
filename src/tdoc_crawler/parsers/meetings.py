@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from collections.abc import Callable
 from datetime import date
@@ -12,10 +11,11 @@ from bs4 import BeautifulSoup, Tag
 
 from tdoc_crawler.constants.patterns import DATE_PATTERN
 from tdoc_crawler.constants.urls import PORTAL_BASE_URL
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models.working_groups import WorkingGroup
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def parse_meeting_page(

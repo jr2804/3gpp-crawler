@@ -23,9 +23,11 @@ class SortOrder(StrEnum):
     ASC = "asc"
     DESC = "desc"
 
+
 _DEFAULT_TTL: int = 7200
 _DEFAULT_TTL_ON_ACCESS: bool = True
 _DEFAULT_MAX_RETRIES: int = 3
+
 
 @dataclass
 class HttpCacheConfig:

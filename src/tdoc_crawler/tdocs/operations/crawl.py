@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
 
 from pool_executors.pool_executors import Runner, create_executor
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
@@ -18,7 +18,7 @@ from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata
 from tdoc_crawler.workers.tdoc_worker import fetch_meeting_document_list_subinterpreter, fetch_meeting_tdocs
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True, frozen=True)

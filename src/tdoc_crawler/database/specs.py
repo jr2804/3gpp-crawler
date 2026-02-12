@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import contextlib
 import json
-import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
 from tdoc_crawler.database.base import DocDatabase
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.models import (
     Specification,
     SpecificationDownload,
@@ -18,9 +18,10 @@ from tdoc_crawler.specs.models import (
     SpecQueryFilters,
     SpecQueryResult,
 )
+from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

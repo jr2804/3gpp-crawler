@@ -1,16 +1,17 @@
 """TDoc database operations."""
 
-import logging
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from tdoc_crawler.database.base import DocDatabase
+from tdoc_crawler.database.meetings import MeetingDatabase
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
-from tdoc_crawler.tdocs.models import QueryConfig, TDocMetadata
+from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class TDocDatabase(DocDatabase):
@@ -85,7 +86,7 @@ class TDocDatabase(DocDatabase):
                 progress_callback(float(index), total)
         return inserted, updated
 
-    def query_tdocs(self, config: QueryConfig) -> list[TDocMetadata]:
+    def query_tdocs(self, config: TDocQueryConfig) -> list[TDocMetadata]:
         """Query TDocs with filtering and sorting.
 
         Args:
@@ -97,9 +98,6 @@ class TDocDatabase(DocDatabase):
         records = self._table_rows("tdocs")
         if not records:
             return []
-
-        # Import here to avoid circular dependency
-        from tdoc_crawler.database.meetings import MeetingDatabase
 
         meeting_db = MeetingDatabase(self.db_file)
         meeting_db._database = self._database  # Share connection

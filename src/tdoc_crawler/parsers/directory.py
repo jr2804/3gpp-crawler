@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from datetime import UTC, datetime
 from urllib.parse import urljoin
@@ -11,8 +10,9 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from tdoc_crawler.constants.patterns import EXCLUDED_DIRS_NORMALIZED, TDOC_SUBDIRS_NORMALIZED
+from tdoc_crawler.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def parse_file_size(text_content: str) -> int | None:

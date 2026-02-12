@@ -1,7 +1,6 @@
 """Base database class with common operations."""
 
 import json
-import logging
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Self
 from pydantic_sqlite import DataBase
 
 from tdoc_crawler.database.errors import DatabaseError
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models.crawl_log import CrawlLogEntry
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
@@ -22,7 +22,7 @@ from tdoc_crawler.specs.models import (
 )
 from tdoc_crawler.tdocs.models import TDocMetadata
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class DocDatabase:
@@ -143,13 +143,14 @@ class DocDatabase:
             items_updated: Number of existing items updated
             errors_count: Number of errors encountered
         """
-        # DataBase._db is a sqlite3.Connection
+        # Use the pydantic-sqlite connection to execute raw SQL
         db = self.connection._db
         db.execute(
             "UPDATE crawl_log SET end_time = ?, items_added = ?, items_updated = ?, errors_count = ?, status = ? WHERE log_id = ?",
             (datetime.now().isoformat(), items_added, items_updated, errors_count, "COMPLETED", crawl_id),
         )
-        db.commit()
+        # pydantic-sqlite handles commits automatically via context manager
+        # No explicit commit needed
 
     def _ensure_reference_data(self) -> None:
         """Populate reference tables for working and subworking groups."""

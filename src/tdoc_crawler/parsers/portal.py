@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 from decimal import Decimal
 
 from bs4 import BeautifulSoup
 
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PortalParsingError(Exception):
