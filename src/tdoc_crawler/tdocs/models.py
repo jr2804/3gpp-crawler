@@ -126,7 +126,7 @@ class TDocMetadata(BaseModel):
         """Ensure identifiers are uppercase and trimmed."""
         return value.strip().upper()
 
-
+# TODO: this is rather a dataclass?
 class TDocCrawlConfig(BaseConfigModel):
     """Configuration for TDoc crawling runs."""
 
@@ -156,6 +156,7 @@ class TDocCrawlConfig(BaseConfigModel):
         description="Maximum total crawl duration in seconds (None = unlimited). When exceeded remaining futures are cancelled and crawl ends early.",
     )
     timeout: int = Field(30, gt=0, description="Request timeout seconds")
+    max_retries: int = Field(3, ge=0, description="Max retry attempts")
 
     # New options for document list vs parallel crawling
     use_document_list: bool = Field(True, description="Use meeting document list (Excel) for metadata (no credentials required)")
@@ -190,7 +191,7 @@ class TDocCrawlConfig(BaseConfigModel):
             return None
         return normalize_tdoc_ids(value)
 
-
+# TODO: this is rather a dataclass?
 class TDocQueryConfig(BaseConfigModel):
     """Configuration for querying TDoc metadata."""
 

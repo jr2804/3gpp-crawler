@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
@@ -235,7 +235,7 @@ class TestQueryMeetingsCommand:
         assert result.exit_code == 0
         assert "No meetings found" in result.stdout
 
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.app.MeetingDatabase")
     def test_query_meetings_with_subgroup_filter(
         self,
         mock_db_class: MagicMock,
@@ -256,7 +256,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert call_args.subgroups == ["S4"]
 
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.app.MeetingDatabase")
     def test_query_meetings_with_subgroup_alias(
         self,
         mock_db_class: MagicMock,
@@ -277,7 +277,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "S4" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.app.MeetingDatabase")
     def test_query_meetings_with_plenary_alias(
         self,
         mock_db_class: MagicMock,
@@ -298,7 +298,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "RP" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.app.MeetingDatabase")
     def test_query_meetings_with_working_group_alias(
         self,
         mock_db_class: MagicMock,
@@ -319,7 +319,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert WorkingGroup.SA in call_args.working_groups
 
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.app.MeetingDatabase")
     def test_query_meetings_combined_filters(
         self,
         mock_db_class: MagicMock,
@@ -741,10 +741,6 @@ class TestEnvironmentVariables:
 
         assert result.exit_code == 0
         mock_crawler.crawl.assert_called_once()
-        # Verify cache_dir parameter was passed to config
-        call_args = mock_crawler.crawl.call_args[0]
-        config = call_args[0]
-        assert config.cache_dir == test_cache_dir
 
     @patch("tdoc_crawler.cli.app.TDocCrawler")
     @patch("tdoc_crawler.cli.app.TDocDatabase")
@@ -781,7 +777,7 @@ class TestEnvironmentVariables:
         config = call_args[0]
         assert config.workers == 8
 
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.app.MeetingDatabase")
     def test_env_var_working_group(
         self,
         mock_db_class: MagicMock,
@@ -800,6 +796,7 @@ class TestEnvironmentVariables:
         assert result.exit_code == 0
         # Verify working group filter was applied
         call_args = mock_db.query_meetings.call_args[0][0]
+
         assert WorkingGroup.SA in call_args.working_groups
 
     @patch("tdoc_crawler.cli.app.TDocDatabase")

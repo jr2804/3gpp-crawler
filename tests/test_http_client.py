@@ -10,6 +10,7 @@ import pytest
 import requests
 from hishel.requests import CacheAdapter
 
+from tdoc_crawler.config import CacheManager, reset_cache_managers
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
 
@@ -17,15 +18,24 @@ from tdoc_crawler.models.base import HttpCacheConfig
 class TestCreateCachedSession:
     """Tests for create_cached_session function."""
 
+    @pytest.fixture(autouse=True)
+    def setup_cache(self) -> None:
+        """Reset cache managers before each test."""
+        reset_cache_managers()
+
     def test_creates_session(self, test_cache_dir: Path) -> None:
         """Test that create_cached_session returns a requests.Session."""
-        # The cache_dir parameter should be the database file path, not a directory
-        cache_file = test_cache_dir / "http-cache.sqlite3"
-        session = create_cached_session(
-            cache_dir=cache_file,
+        # Setup cache manager
+        CacheManager(root_path=test_cache_dir, name="test_creates_session").register()
+
+        http_config = HttpCacheConfig(
             ttl=3600,
             refresh_ttl_on_access=True,
             max_retries=3,
+        )
+        session = create_cached_session(
+            http_cache=http_config,
+            cache_manager_name="test_creates_session",
         )
 
         assert isinstance(session, requests.Session)
@@ -33,32 +43,41 @@ class TestCreateCachedSession:
 
     def test_creates_cache_directory(self, tmp_path: Path) -> None:
         """Test that cache directory is created if it doesn't exist."""
-        cache_file = tmp_path / "nonexistent" / "cache.sqlite3"
-        assert not cache_file.exists()
-        assert not cache_file.parent.exists()
+        cache_root = tmp_path / "nonexistent"
+        assert not cache_root.exists()
 
-        session = create_cached_session(
-            cache_dir=cache_file,
+        CacheManager(root_path=cache_root, name="test_creates_cache_dir").register()
+
+        # The root directory should be created by CacheManager(ensure_paths=True)
+        assert cache_root.exists()
+
+        http_config = HttpCacheConfig(
             ttl=3600,
             refresh_ttl_on_access=True,
             max_retries=3,
         )
+        session = create_cached_session(
+            http_cache=http_config,
+            cache_manager_name="test_creates_cache_dir",
+        )
 
-        # The parent directory should be created
-        assert cache_file.parent.exists()
-        # Note: The cache file itself is created lazily by SQLite when first request is made
         session.close()
 
     def test_creates_cache_database(self, test_cache_dir: Path) -> None:
-        """Test that cache database file is created."""
-        cache_db = test_cache_dir / "http-cache.sqlite3"
-        assert not cache_db.exists()
+        """Test that cache database file is created lazily."""
+        CacheManager(root_path=test_cache_dir, name="test_lazy_db").register()
 
-        session = create_cached_session(
-            cache_dir=test_cache_dir,
+        # In current hishel implementation, the file might exist immediately or after first use
+        # Let's just verify it can be created
+
+        http_config = HttpCacheConfig(
             ttl=3600,
             refresh_ttl_on_access=True,
             max_retries=3,
+        )
+        session = create_cached_session(
+            http_cache=http_config,
+            cache_manager_name="test_lazy_db",
         )
 
         # The database is created lazily on first use, so make a request
@@ -77,11 +96,10 @@ class TestCreateCachedSession:
 
     def test_session_has_cache_adapter(self, test_cache_dir: Path) -> None:
         """Test that session has cache adapter mounted."""
+        CacheManager(root_path=test_cache_dir, name="test_adapter").register()
+
         session = create_cached_session(
-            cache_dir=test_cache_dir,
-            ttl=3600,
-            refresh_ttl_on_access=True,
-            max_retries=3,
+            cache_manager_name="test_adapter",
         )
 
         # Check that adapters are mounted for http and https
@@ -96,18 +114,24 @@ class TestCreateCachedSession:
 
     def test_default_parameters(self, test_cache_dir: Path) -> None:
         """Test that default parameters work correctly."""
-        session = create_cached_session(cache_dir=test_cache_dir)
+        CacheManager(root_path=test_cache_dir, name="default").register()
+        session = create_cached_session(cache_manager_name="default")
 
         assert isinstance(session, requests.Session)
         session.close()
 
     def test_custom_ttl(self, test_cache_dir: Path) -> None:
         """Test that custom TTL is accepted."""
-        session = create_cached_session(
-            cache_dir=test_cache_dir,
+        CacheManager(root_path=test_cache_dir, name="custom_ttl").register()
+
+        http_config = HttpCacheConfig(
             ttl=1800,
             refresh_ttl_on_access=False,
             max_retries=5,
+        )
+        session = create_cached_session(
+            http_cache=http_config,
+            cache_manager_name="custom_ttl",
         )
 
         assert isinstance(session, requests.Session)
@@ -115,11 +139,14 @@ class TestCreateCachedSession:
 
     def test_zero_retries(self, test_cache_dir: Path) -> None:
         """Test that zero retries is handled correctly."""
-        session = create_cached_session(
-            cache_dir=test_cache_dir,
-            ttl=3600,
-            refresh_ttl_on_access=True,
+        CacheManager(root_path=test_cache_dir, name="zero_retries").register()
+
+        http_config = HttpCacheConfig(
             max_retries=0,
+        )
+        session = create_cached_session(
+            http_cache=http_config,
+            cache_manager_name="zero_retries",
         )
 
         assert isinstance(session, requests.Session)
@@ -127,11 +154,14 @@ class TestCreateCachedSession:
 
     def test_large_ttl(self, test_cache_dir: Path) -> None:
         """Test that large TTL values are handled correctly."""
-        session = create_cached_session(
-            cache_dir=test_cache_dir,
+        CacheManager(root_path=test_cache_dir, name="large_ttl").register()
+
+        http_config = HttpCacheConfig(
             ttl=86400,  # 24 hours
-            refresh_ttl_on_access=True,
-            max_retries=3,
+        )
+        session = create_cached_session(
+            http_cache=http_config,
+            cache_manager_name="large_ttl",
         )
 
         assert isinstance(session, requests.Session)
@@ -139,18 +169,14 @@ class TestCreateCachedSession:
 
     def test_multiple_sessions_same_cache(self, test_cache_dir: Path) -> None:
         """Test that multiple sessions can use the same cache directory."""
+        CacheManager(root_path=test_cache_dir, name="same_cache").register()
+
         session1 = create_cached_session(
-            cache_dir=test_cache_dir,
-            ttl=3600,
-            refresh_ttl_on_access=True,
-            max_retries=3,
+            cache_manager_name="same_cache",
         )
 
         session2 = create_cached_session(
-            cache_dir=test_cache_dir,
-            ttl=3600,
-            refresh_ttl_on_access=True,
-            max_retries=3,
+            cache_manager_name="same_cache",
         )
 
         assert isinstance(session1, requests.Session)
@@ -169,13 +195,15 @@ class TestCachingBehavior:
 
         This test is marked as integration and may be skipped in unit test runs.
         """
-        # create_cached_session expects a file path, not a directory
-        cache_db = test_cache_dir / "http-cache.sqlite3"
-        session = create_cached_session(
-            cache_dir=cache_db,
-            ttl=3600,
-            refresh_ttl_on_access=True,
+        manager = CacheManager(root_path=test_cache_dir, name="integration").register()
+        cache_db = manager.http_cache_file
+
+        http_config = HttpCacheConfig(
             max_retries=2,
+        )
+        session = create_cached_session(
+            http_cache=http_config,
+            cache_manager_name="integration",
         )
 
         try:
@@ -198,15 +226,16 @@ class TestCachingBehavior:
 
     def test_cache_database_path(self, test_cache_dir: Path) -> None:
         """Test that cache database is created at the correct path."""
+        manager = CacheManager(root_path=test_cache_dir, name="path_test").register()
+
         session = create_cached_session(
-            cache_dir=test_cache_dir,
-            ttl=3600,
-            refresh_ttl_on_access=True,
-            max_retries=3,
+            cache_manager_name="path_test",
         )
 
-        # The database should exist after creating the session
-        # (hishel creates it immediately)
+        # The database path should match what CacheManager says
+        # (hishel might not create empty DB if not used, but let's check path)
+        assert manager.http_cache_file.name == "http-cache.sqlite3"
+
         session.close()
 
 

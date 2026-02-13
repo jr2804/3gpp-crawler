@@ -13,7 +13,7 @@ from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.parsers.meetings import parse_meeting_row, parse_single_date
-from tdoc_crawler.tdocs.models import QueryConfig, TDocCrawlConfig
+from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
 
 
@@ -55,12 +55,10 @@ class TestTDocCrawler:
         with TDocDatabase(test_db_path) as database:
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
-                cache_dir=test_db_path.parent,
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
                 max_retries=1,
                 timeout=1,
-                verbose=False,
             )
             result = crawler.crawl(config)
 
@@ -111,14 +109,11 @@ class TestTDocCrawler:
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
-                cache_dir=test_db_path.parent,
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
                 workers=1,  # Use serial executor for deterministic testing
                 overall_timeout=10,  # Prevent infinite loop/hang during test
-                max_retries=3,
                 timeout=30,
-                verbose=False,
             )
             result = crawler.crawl(config)
             assert result.processed == 1
@@ -126,7 +121,7 @@ class TestTDocCrawler:
             assert result.updated == 0
             assert not result.errors
 
-            stored = database.query_tdocs(QueryConfig(cache_dir=test_db_path.parent))
+            stored = database.query_tdocs(TDocQueryConfig())
             assert len(stored) == 1
             assert stored[0].tdoc_id == "R1-2301234"
             assert stored[0].file_size == 2048
@@ -174,14 +169,11 @@ class TestTDocCrawler:
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
-                cache_dir=test_db_path.parent,
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
                 workers=1,  # Use serial executor for deterministic testing
                 overall_timeout=10,  # Prevent infinite loop/hang during test
-                max_retries=1,
                 timeout=5,
-                verbose=False,
                 target_ids=["R1-2301234"],
             )
             result = crawler.crawl(config)
@@ -189,7 +181,7 @@ class TestTDocCrawler:
             assert result.processed == 1
             assert result.inserted == 1
             assert result.updated == 0
-            stored = database.query_tdocs(QueryConfig(cache_dir=test_db_path.parent))
+            stored = database.query_tdocs(TDocQueryConfig())
             assert {record.tdoc_id for record in stored} == {"R1-2301234"}
 
 

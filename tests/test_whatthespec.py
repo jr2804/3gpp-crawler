@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from tdoc_crawler.config import CacheManager, reset_cache_managers
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -17,6 +18,11 @@ from tdoc_crawler.tdocs.sources.whatthespec import WHATSPEC_BASE_URL, WhatTheSpe
 
 class TestWhatTheSpecResolution:
     """Test suite for WhatTheSpec resolver."""
+
+    @pytest.fixture(autouse=True)
+    def setup_cache(self) -> None:
+        """Reset cache managers before each test."""
+        reset_cache_managers()
 
     @pytest.fixture
     def http_cache_config(self) -> HttpCacheConfig:
@@ -61,13 +67,15 @@ class TestWhatTheSpecResolution:
             http_cache_config: HTTP cache configuration.
             sample_api_response: Sample API response.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         with patch("requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.json.return_value = sample_api_response
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("S4-260001", test_cache_dir, http_cache_config, timeout=30)
+            result = resolve_via_whatthespec("S4-260001", http_cache=http_cache_config, cache_manager_name="test_whatspec", timeout=30)
 
             assert result is not None
             assert isinstance(result, TDocMetadata)
@@ -95,13 +103,15 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         with patch("requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.json.return_value = []
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("INVALID-ID", test_cache_dir, http_cache_config)
+            result = resolve_via_whatthespec("INVALID-ID", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is None
 
@@ -115,13 +125,15 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         with patch("requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.json.return_value = [None]
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("S4-260001", test_cache_dir, http_cache_config)
+            result = resolve_via_whatthespec("S4-260001", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is not None
             assert isinstance(result, TDocMetadata)
@@ -140,11 +152,13 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         with patch("requests.Session.get") as mock_get:
             mock_get.side_effect = requests.Timeout("Connection timeout")
 
             with pytest.raises(WhatTheSpecResolutionError) as exc_info:
-                resolve_via_whatthespec("S4-260001", test_cache_dir, http_cache_config, timeout=5)
+                resolve_via_whatthespec("S4-260001", http_cache=http_cache_config, cache_manager_name="test_whatspec", timeout=5)
 
             assert "WhatTheSpec request failed" in str(exc_info.value)
             assert "S4-260001" in str(exc_info.value)
@@ -159,11 +173,13 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         with patch("requests.Session.get") as mock_get:
             mock_get.side_effect = requests.ConnectionError("Connection failed")
 
             with pytest.raises(WhatTheSpecResolutionError) as exc_info:
-                resolve_via_whatthespec("S4-260001", test_cache_dir, http_cache_config)
+                resolve_via_whatthespec("S4-260001", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert "WhatTheSpec request failed" in str(exc_info.value)
 
@@ -177,13 +193,15 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         with patch("requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
             mock_get.return_value = mock_response
 
             with pytest.raises(WhatTheSpecResolutionError):
-                resolve_via_whatthespec("S4-260001", test_cache_dir, http_cache_config)
+                resolve_via_whatthespec("S4-260001", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
     def test_field_mapping_correctness(self, test_cache_dir: Path, http_cache_config: HttpCacheConfig) -> None:
         """Test that all API fields map correctly to TDocMetadata fields.
@@ -195,6 +213,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         api_response = [
             {
                 "name": "R1-250123",
@@ -217,7 +237,7 @@ class TestWhatTheSpecResolution:
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("R1-250123", test_cache_dir, http_cache_config)
+            result = resolve_via_whatthespec("R1-250123", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is not None
             # Verify field mapping
@@ -243,6 +263,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         minimal_response = [
             {
                 "name": "S2-250456",
@@ -258,7 +280,7 @@ class TestWhatTheSpecResolution:
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("S2-250456", test_cache_dir, http_cache_config)
+            result = resolve_via_whatthespec("S2-250456", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is not None
             assert result.tdoc_type == "unknown"  # default for missing tdoctype
@@ -280,6 +302,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         api_response = [
             {
                 "name": "C1-250789",
@@ -295,7 +319,7 @@ class TestWhatTheSpecResolution:
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("C1-250789", test_cache_dir, http_cache_config)
+            result = resolve_via_whatthespec("C1-250789", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is not None
             assert result.agenda_item_nbr == Decimal("0")
@@ -311,6 +335,8 @@ class TestWhatTheSpecResolution:
             http_cache_config: HTTP cache configuration.
             populated_db: Populated database with test meetings.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         api_response = [
             {
                 "name": "S4-2301890",
@@ -320,17 +346,24 @@ class TestWhatTheSpecResolution:
             }
         ]
 
+        # In order for lazy resolution to work with the database, we need to mock TDocDatabase
+        # or ensure resolve_via_whatthespec uses the provided DB.
+        # However, resolve_via_whatthespec uses its own lazy import of TDocDatabase.
+        # So we need to ensure the TDocDatabase it uses points to our test DB.
+
         with patch("requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.json.return_value = api_response
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("S4-2301890", test_cache_dir, http_cache_config)
+            # Point TDC_CACHE_DIR to our test dir so the lazy DB load uses it
+            with patch.dict("os.environ", {"TDC_CACHE_DIR": str(test_cache_dir)}):
+                result = resolve_via_whatthespec("S4-2301890", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is not None
-            # Meeting resolution may fail if meeting not in DB, so just verify structure
-            assert isinstance(result.meeting_id, int)
+            # Meeting resolution should work if meeting is in DB
+            assert result.meeting_id == 12347
             assert result.meeting_name == "SA4#134"
 
     def test_tdoc_id_normalization(self, test_cache_dir: Path, http_cache_config: HttpCacheConfig) -> None:
@@ -343,6 +376,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         api_response = [
             {
                 "name": "r1-250999",  # lowercase
@@ -357,7 +392,7 @@ class TestWhatTheSpecResolution:
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            result = resolve_via_whatthespec("r1-250999", test_cache_dir, http_cache_config)
+            result = resolve_via_whatthespec("r1-250999", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is not None
             assert result.tdoc_id == "R1-250999"  # normalized to uppercase
@@ -371,13 +406,15 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
+        CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
         with patch("requests.Session.get") as mock_get, patch("requests.Session.close"):
             mock_response = MagicMock()
             mock_response.json.return_value = []
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            resolve_via_whatthespec("S4-260001", test_cache_dir, http_cache_config)
+            resolve_via_whatthespec("S4-260001", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             # Session close should be called in finally block
             # Note: Due to mocking, this verifies the pattern is in place

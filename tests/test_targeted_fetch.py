@@ -12,7 +12,7 @@ from conftest import insert_sample_meetings
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models import PortalCredentials, WorkingGroup
-from tdoc_crawler.tdocs.models import QueryConfig, TDocMetadata
+from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
 from tdoc_crawler.utils.parse import infer_working_groups_from_ids
@@ -102,14 +102,13 @@ class TestFetchMissingTdocsBatch:
         )
         mock_portal_source_class.return_value = mock_source_instance
 
-        credentials = PortalCredentials(username="test", password="test")
+        PortalCredentials(username="test", password="test")
 
         with TDocDatabase(test_db_path) as database:
             insert_sample_meetings(database, sample_meetings)
             result = fetch_missing_tdocs_batch(
                 database,
                 ["R1-2301234"],
-                credentials=credentials,
             )
 
         assert result.processed == 1
@@ -172,14 +171,13 @@ class TestFetchMissingTdocsBatch:
         ]
         mock_portal_source_class.return_value = mock_source_instance
 
-        credentials = PortalCredentials(username="test", password="test")  # noqa: S106
+        PortalCredentials(username="test", password="test")  # noqa: S106
 
         with TDocDatabase(test_db_path) as database:
             insert_sample_meetings(database, sample_meetings)
             result = fetch_missing_tdocs_batch(
                 database,
                 ["R1-2301234", "S4-2301890"],
-                credentials=credentials,
             )
 
         assert result.processed == 2
@@ -204,8 +202,7 @@ class TestFetchMissingTdocs:
             for tdoc in sample_tdocs:
                 database.upsert_tdoc(tdoc)
 
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["R1-2301234"],
         )
 
@@ -237,8 +234,7 @@ class TestFetchMissingTdocs:
             errors=[],
         )
 
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["R1-9999999"],
         )
 
@@ -254,7 +250,6 @@ class TestFetchMissingTdocs:
         call_kwargs = mock_fetch_batch.call_args.kwargs
         assert call_kwargs["database"] == database
         assert call_kwargs["missing_ids"] == ["R1-9999999"]
-        assert call_kwargs["credentials"] is None
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     def test_no_fetch_without_tdoc_ids(
@@ -266,8 +261,7 @@ class TestFetchMissingTdocs:
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
         manager.register()
 
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             working_groups=[WorkingGroup.RAN],
         )
 
@@ -305,8 +299,7 @@ class TestFetchMissingTdocs:
             insert_sample_meetings(database, sample_meetings)
             database.upsert_tdoc(sample_tdocs[0])
 
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["R1-2301234", "R1-9999999"],
         )
 
@@ -322,7 +315,6 @@ class TestFetchMissingTdocs:
         call_kwargs = mock_fetch_batch.call_args.kwargs
         assert call_kwargs["database"] == database
         assert call_kwargs["missing_ids"] == ["R1-9999999"]
-        assert call_kwargs["credentials"] is None
         assert "R1-9999999" in call_kwargs["missing_ids"]
         assert "R1-2301234" not in call_kwargs["missing_ids"]
 
@@ -343,8 +335,7 @@ class TestWhatTheSpecFallback:
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
         manager.register()
 
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["S4-260001"],
         )
 
@@ -399,7 +390,6 @@ class TestWhatTheSpecFallback:
                 database,
                 config,
                 results,
-                credentials=None,
             )
 
         # Verify whatthespec was called
@@ -421,8 +411,7 @@ class TestWhatTheSpecFallback:
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
         manager.register()
 
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["S4-260001", "S4-260002"],
         )
 
@@ -502,7 +491,6 @@ class TestWhatTheSpecFallback:
                 database,
                 config,
                 results,
-                credentials=None,
             )
 
         # Verify whatthespec was called
@@ -522,8 +510,7 @@ class TestWhatTheSpecFallback:
         sample_meetings: list[dict],
     ) -> None:
         """Verify whatthespec failure is handled gracefully."""
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["S4-999999"],
         )
 
@@ -550,7 +537,6 @@ class TestWhatTheSpecFallback:
                 database,
                 config,
                 results,
-                credentials=None,
             )
 
         # Verify whatthespec was called
@@ -568,15 +554,14 @@ class TestWhatTheSpecFallback:
         sample_meetings: list[dict],
     ) -> None:
         """Verify whatthespec is NOT used when credentials available."""
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["S4-260001"],
         )
 
         with TDocDatabase(test_db_path) as database:
             insert_sample_meetings(database, sample_meetings)
             results: list[TDocMetadata] = []
-            credentials = PortalCredentials(username="test", password="test")
+            PortalCredentials(username="test", password="test")
 
             mock_fetch_batch.return_value = TDocCrawlResult(
                 processed=1,
@@ -589,7 +574,6 @@ class TestWhatTheSpecFallback:
                 database,
                 config,
                 results,
-                credentials=credentials,
             )
 
         # Verify whatthespec was NOT called (credentials took precedence)
@@ -628,8 +612,7 @@ class TestWhatTheSpecFallback:
             validation_failed=False,
         )
 
-        config = QueryConfig(
-            cache_dir=test_db_path.parent,
+        config = TDocQueryConfig(
             tdoc_ids=["S4-260001"],
         )
 
@@ -664,12 +647,11 @@ class TestWhatTheSpecFallback:
                 database,
                 config,
                 results,
-                credentials=None,
             )
 
         # Query database to verify TDoc was inserted
         with TDocDatabase(test_db_path) as database:
-            query_config = QueryConfig(cache_dir=test_db_path.parent, tdoc_ids=["S4-260001"])
+            query_config = TDocQueryConfig(tdoc_ids=["S4-260001"])
             results = database.query_tdocs(query_config)
             assert len(results) >= 1
             assert results[0].tdoc_id == "S4-260001"

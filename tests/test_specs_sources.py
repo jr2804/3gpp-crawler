@@ -1,6 +1,7 @@
 """Tests for spec source fetchers."""
 
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -13,6 +14,9 @@ class _FakeResponse:
         self.url = url
         self._payload = payload
         self.status_code = 200
+        # Add request object so response.request.url works
+        self.request = MagicMock()
+        self.request.url = url
 
     def raise_for_status(self) -> None:
         return None
@@ -37,7 +41,7 @@ def test_fetch_threegpp_metadata_uses_redirect(monkeypatch: object) -> None:
     result = fetch_threegpp_metadata("26.132")
     assert result["spec_number"] == "26.132"
     assert result["source_name"] == "3gpp"
-    assert result["source_identifier"] == "12345"
+    assert result["source_identifier"] == 12345
 
 
 def test_fetch_threegpp_metadata_raises_when_spec_not_found(monkeypatch: object) -> None:

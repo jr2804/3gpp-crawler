@@ -53,10 +53,10 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.resolve_credentials")
+    @patch("tdoc_crawler.cli.app.set_credentials")
     def test_open_with_full_metadata_flag(
         self,
-        mock_resolve_creds: Mock,
+        mock_set_creds: Mock,
         mock_launch: Mock,
         mock_prepare: Mock,
         mock_fetch: Mock,
@@ -85,7 +85,7 @@ class TestNewCLIFlags:
         # Setup other mocks
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
-        mock_resolve_creds.return_value = None
+        mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
@@ -104,10 +104,10 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.resolve_credentials")
+    @patch("tdoc_crawler.cli.app.set_credentials")
     def test_open_with_whatthespec_flag(
         self,
-        mock_resolve_creds: Mock,
+        mock_set_creds: Mock,
         mock_launch: Mock,
         mock_prepare: Mock,
         mock_fetch: Mock,
@@ -136,7 +136,7 @@ class TestNewCLIFlags:
         # Setup other mocks
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
-        mock_resolve_creds.return_value = None
+        mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
@@ -154,10 +154,10 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.resolve_credentials")
+    @patch("tdoc_crawler.cli.app.set_credentials")
     def test_open_with_both_flags(
         self,
-        mock_resolve_creds: Mock,
+        mock_set_creds: Mock,
         mock_launch: Mock,
         mock_prepare: Mock,
         mock_fetch: Mock,
@@ -186,7 +186,7 @@ class TestNewCLIFlags:
         # Setup other mocks
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
-        mock_resolve_creds.return_value = None
+        mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
@@ -204,10 +204,10 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.app.create_cached_session")
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.app.resolve_credentials")
+    @patch("tdoc_crawler.cli.app.set_credentials")
     def test_checkout_with_full_metadata_flag(
         self,
-        mock_resolve_creds: Mock,
+        mock_set_creds: Mock,
         mock_checkout: Mock,
         mock_fetch: Mock,
         mock_session: Mock,
@@ -234,7 +234,7 @@ class TestNewCLIFlags:
 
         # Setup other mocks
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
-        mock_resolve_creds.return_value = None
+        mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
         mock_checkout.return_value = tmp_path / "S4-260001.zip"
 
@@ -252,10 +252,10 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.app.create_cached_session")
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.app.resolve_credentials")
+    @patch("tdoc_crawler.cli.app.set_credentials")
     def test_checkout_with_whatthespec_flag(
         self,
-        mock_resolve_creds: Mock,
+        mock_set_creds: Mock,
         mock_checkout: Mock,
         mock_fetch: Mock,
         mock_session: Mock,
@@ -282,7 +282,7 @@ class TestNewCLIFlags:
 
         # Setup other mocks
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
-        mock_resolve_creds.return_value = None
+        mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
         mock_checkout.return_value = tmp_path / "S4-260001.zip"
 
@@ -301,10 +301,10 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.resolve_credentials")
+    @patch("tdoc_crawler.cli.app.set_credentials")
     def test_default_behavior_unchanged(
         self,
-        mock_resolve_creds: Mock,
+        mock_set_creds: Mock,
         mock_launch: Mock,
         mock_prepare: Mock,
         mock_fetch: Mock,
@@ -333,7 +333,7 @@ class TestNewCLIFlags:
         # Setup other mocks
         mock_prepare.return_value = tmp_path / "S4-260001.zip"
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
-        mock_resolve_creds.return_value = None
+        mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute

@@ -12,7 +12,7 @@ from conftest import insert_sample_meetings
 from tdoc_crawler.database import DatabaseError, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models import SortOrder, WorkingGroup
-from tdoc_crawler.tdocs.models import QueryConfig, TDocMetadata
+from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 
 
 class TestTDocDatabase:
@@ -46,11 +46,11 @@ class TestTDocDatabase:
             insert_sample_meetings(db, sample_meetings)
             db.upsert_tdoc(sample_tdocs[0])
 
-            results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, tdoc_ids=["r1-2301234"]))
+            results = db.query_tdocs(TDocQueryConfig(tdoc_ids=["r1-2301234"]))
             assert len(results) == 1
             assert results[0].tdoc_id == "R1-2301234"
 
-            results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, tdoc_ids=["R1-2301234"]))
+            results = db.query_tdocs(TDocQueryConfig(tdoc_ids=["R1-2301234"]))
             assert len(results) == 1
 
     def test_query_by_working_group(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
@@ -60,10 +60,10 @@ class TestTDocDatabase:
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
-            ran_results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, working_groups=[WorkingGroup.RAN]))
+            ran_results = db.query_tdocs(TDocQueryConfig(working_groups=[WorkingGroup.RAN]))
             assert len(ran_results) == 2
 
-            sa_results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, working_groups=[WorkingGroup.SA]))
+            sa_results = db.query_tdocs(TDocQueryConfig(working_groups=[WorkingGroup.SA]))
             assert len(sa_results) == 1
 
     def test_query_with_limit(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
@@ -73,7 +73,7 @@ class TestTDocDatabase:
             for tdoc in sample_tdocs:
                 db.upsert_tdoc(tdoc)
 
-            results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, limit=2))
+            results = db.query_tdocs(TDocQueryConfig(limit=2))
             assert len(results) == 2
 
     def test_query_with_date_range(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
@@ -85,11 +85,11 @@ class TestTDocDatabase:
 
             start = datetime(2023, 1, 15, tzinfo=UTC)
             end = datetime(2023, 1, 20, tzinfo=UTC)
-            results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, start_date=start, end_date=end))
+            results = db.query_tdocs(TDocQueryConfig(start_date=start, end_date=end))
             assert len(results) == 3
 
             start = datetime(2023, 1, 20, tzinfo=UTC)
-            results = db.query_tdocs(QueryConfig(cache_dir=test_db_path.parent, start_date=start))
+            results = db.query_tdocs(TDocQueryConfig(start_date=start))
             assert not results
 
     def test_get_statistics(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
@@ -184,7 +184,6 @@ class TestTDocDatabase:
 
             queried = db.query_meetings(
                 MeetingQueryConfig(
-                    cache_dir=test_db_path.parent,
                     working_groups=None,
                     subgroups=None,
                     limit=None,
@@ -228,8 +227,8 @@ class TestTDocDatabase:
         with pytest.raises(DatabaseError):
             _ = db.connection
 
-    def _query_all(self, cache_dir: Path) -> QueryConfig:
-        return QueryConfig(cache_dir=cache_dir)
+    def _query_all(self, cache_dir: Path) -> TDocQueryConfig:
+        return TDocQueryConfig()
 
 
 if __name__ == "__main__":
