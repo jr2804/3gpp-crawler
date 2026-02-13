@@ -2,82 +2,78 @@
 
 from __future__ import annotations
 
-from tdoc_crawler.constants.registry import MEETING_CODE_REGISTRY
+import re
+
+from tdoc_crawler.models.subworking_groups import SubWorkingGroup
+from tdoc_crawler.models.working_groups import WorkingGroup
 
 
-def normalize_working_group_alias(alias: str) -> str:
-    """Normalize working group aliases to canonical names.
+def normalize_working_group_alias(alias: str) -> WorkingGroup:
+    """Normalize working group aliases to canonical working group enums.
 
-    Supports: RP→RAN, SP→SA, CP→CT, and their reverse mappings.
+    Supports: RAN, SA, CT and their common name variants.
 
     Args:
         alias: Working group alias or name
 
     Returns:
-        Normalized working group name (RAN, SA, or CT)
+        Canonical working group enum value (WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT)
+
+    Raises:
+        ValueError: When the alias cannot be resolved
     """
     alias_upper = alias.strip().upper()
-    # Plenary aliases
-    if alias_upper in ("RP", "RAN PLENARY"):
-        return "RAN"
-    if alias_upper in ("SP", "SA PLENARY"):
-        return "SA"
-    if alias_upper in ("CP", "CT PLENARY"):
-        return "CT"
-    # Standard working groups
-    if alias_upper in ("RAN", "SA", "CT"):
-        return alias_upper
-    # If not recognized, return as-is (will be validated later)
-    return alias_upper
+    cleaned = re.sub(r"[#\-_\s]", "", alias_upper)
+
+    # Easy check via list(WorkingGroup): match against name or value
+    for working_group in WorkingGroup:
+        if cleaned.startswith(working_group.value) or cleaned.startswith(working_group.name):
+            return working_group
+
+    # If not found: match first letter
+    if cleaned:
+        for working_group in WorkingGroup:
+            if working_group.value[0] == cleaned[0]:
+                return working_group
+
+    # If not found: any match of name/value in cleaned
+    for working_group in WorkingGroup:
+        if working_group.value in cleaned or working_group.name in cleaned:
+            return working_group
+
+    raise ValueError(f"Unknown working group: {alias}")
 
 
-def normalize_subgroup_alias(alias: str) -> list[str]:
-    """Normalize subgroup aliases to canonical names.
+def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
+    """Normalize subgroup aliases to canonical subgroup enums.
 
-    Returns a list of possible matching subgroup names.
+    Returns a list of possible matching subgroup enum values (e.g., SubWorkingGroup.S4).
     Supports:
     - Short codes: S4, R1, C3
     - Full names: SA4, RAN1, CT3
-    - Plenary codes: RP, SP, CP
-    - Full plenary names: RAN PLENARY, SA PLENARY, CT PLENARY
+    - Separators: SA-4, SA#4, SA 4
+    - Plenary: RP, SP, CP, RAN PLENARY, etc.
 
     Args:
         alias: Subgroup alias or code
 
     Returns:
-        List of possible matching canonical subgroup names
+        List of possible matching canonical subgroup enum values
     """
-    alias_upper = alias.strip().upper()
-    matches: list[str] = []
+    input_str = alias.strip().upper()
+    cleaned = re.sub(r"[#\-_\s]", "", input_str)
 
-    # Try to normalize long form to short form (SA4 → S4, RAN1 → R1, CT3 → C3)
-    normalized_alias = alias_upper
-    if alias_upper.startswith("SA") and len(alias_upper) > 2:
-        # SA4 → S4, SA1 → S1, etc.
-        normalized_alias = "S" + alias_upper[2:]
-    elif alias_upper.startswith("RAN") and len(alias_upper) > 3:
-        # RAN1 → R1, RAN2 → R2, etc.
-        normalized_alias = "R" + alias_upper[3:]
-    elif alias_upper.startswith("CT") and len(alias_upper) > 2:
-        # CT1 → C1, CT2 → C2, etc.
-        normalized_alias = "C" + alias_upper[2:]
+    # determine WorkingGroup first
+    wg = normalize_working_group_alias(cleaned)
 
-    # Check all registries for matches
-    for _working_group, codes in MEETING_CODE_REGISTRY.items():
-        for code, subgroup in codes:
-            # Check if normalized alias matches the code
-            if code.upper() == normalized_alias or code.upper() == alias_upper:
-                if subgroup:
-                    matches.append(subgroup)
-            # Check if subgroup name matches
-            elif subgroup and subgroup.upper() == alias_upper:
-                matches.append(subgroup)
+    # check if cleaned contains a _single_ number or the letter "P"
+    match = re.search(r"(P|\d+)", cleaned)
+    if not match:
+        raise ValueError(f"Cannot parse/normalize subgroup format: {alias}")
+    elif len(match.groups()) != 1:
+        raise ValueError(f"Multiple/ambiguous matches found when parsing subgroup: {alias}")
 
-    # If no matches found, return the original alias (might be exact name)
-    if not matches:
-        matches.append(alias_upper)
-
-    return matches
+    return SubWorkingGroup.from_wg_and_nbr(wg, match.group(1))  # e.g., S4, R1, C3
 
 
 __all__ = [

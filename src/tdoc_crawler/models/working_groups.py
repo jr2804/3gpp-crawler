@@ -15,6 +15,11 @@ class WorkingGroup(StrEnum):
     CT = "CT"
 
     @property
+    def literal(self) -> str:
+        """Return single letter literal for this working group."""
+        return self.value[0].upper()
+
+    @property
     def tbid(self) -> int:
         """Return the technical body ID for this working group."""
         mapping: dict[WorkingGroup, int] = {
@@ -24,20 +29,15 @@ class WorkingGroup(StrEnum):
         }
         return mapping[self]
 
-    @property
-    def ftp_root(self) -> str:
-        """Return the FTP root path segment for the working group."""
-        return f"/tsg_{self.value.lower()}"
+    @classmethod
+    def from_literal(cls, literal: str) -> WorkingGroup:
+        """Parse a working group from first character of a user-provided literal string."""
+        lit = literal.strip().upper()[0]
+        for wg in list(WorkingGroup):
+            if wg.name.startswith(lit):
+                return wg
 
-    @property
-    def portal_meetings_code(self) -> str:
-        """Return the meetings code (two characters) used for the dynareport endpoint."""
-        mapping: dict[WorkingGroup, str] = {
-            WorkingGroup.RAN: "R",
-            WorkingGroup.SA: "S",
-            WorkingGroup.CT: "C",
-        }
-        return mapping[self]
+        raise ValueError(f"Unknown working group literal: {literal}")
 
 
 class WorkingGroupRecord(BaseModel):
@@ -46,14 +46,13 @@ class WorkingGroupRecord(BaseModel):
     tbid: int = Field(..., description="Technical body identifier")
     code: str = Field(..., description="Canonical short code (e.g., 'RAN')")
     name: str = Field(..., description="Display name for the working group")
-    ftp_identifier: str = Field(..., description="FTP root path segment")
+
+    @property
+    def ftp_identifier(self) -> str:
+        """Return the FTP root path segment for the working group."""
+        return f"/tsg_{self.code.lower()}"
 
 
-WORKING_GROUP_RECORDS: tuple[WorkingGroupRecord, ...] = (
-    WorkingGroupRecord(tbid=WorkingGroup.RAN.tbid, code="RAN", name="RAN", ftp_identifier=WorkingGroup.RAN.ftp_root),
-    WorkingGroupRecord(tbid=WorkingGroup.SA.tbid, code="SA", name="SA", ftp_identifier=WorkingGroup.SA.ftp_root),
-    WorkingGroupRecord(tbid=WorkingGroup.CT.tbid, code="CT", name="CT", ftp_identifier=WorkingGroup.CT.ftp_root),
-)
-
+WORKING_GROUP_RECORDS: tuple[WorkingGroupRecord, ...] = tuple(WorkingGroupRecord(tbid=wg.tbid, code=wg.value, name=wg.value) for wg in list(WorkingGroup))
 
 __all__ = ["WORKING_GROUP_RECORDS", "WorkingGroup", "WorkingGroupRecord"]
