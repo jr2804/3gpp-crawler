@@ -97,7 +97,8 @@ def parse_subgroups(values: list[str] | None) -> list[str] | None:
             _logger.warning(f"Unknown subgroup: {item}")
             raise typer.Exit(code=2)
 
-        resolved.extend(normalized)
+        # Use .name to get the short code (e.g., "S4" not "SA4")
+        resolved.append(normalized.name)
 
     return resolved
 

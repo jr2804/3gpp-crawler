@@ -238,12 +238,10 @@ class TDocCrawler:
                     meeting.meeting_id,
                     base_url,
                     meeting.short_name or "",
-                    config.timeout,
-                    config.max_retries,
                     target_tuple,
-                    str(config.cache_dir),
-                    config.http_cache.ttl,
-                    config.http_cache.refresh_ttl_on_access,
+                    config.timeout,
+                    config.cache_manager_name,
+                    config.http_cache,
                 )
                 futures[future] = meeting
 
@@ -573,12 +571,10 @@ class HybridTDocCrawler:
                         meeting.meeting_id,
                         base_url,
                         meeting.short_name or "",
-                        config.timeout,
-                        config.max_retries,
                         target_tuple,
-                        str(config.cache_dir),
-                        config.http_cache.ttl,
-                        config.http_cache.refresh_ttl_on_access,
+                        config.timeout,
+                        config.cache_manager_name,
+                        config.http_cache,
                     )
                 )
                 tasks[task] = meeting

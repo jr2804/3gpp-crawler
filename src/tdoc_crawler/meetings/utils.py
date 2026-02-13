@@ -47,7 +47,7 @@ def normalize_working_group_alias(alias: str) -> WorkingGroup:
 def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
     """Normalize subgroup aliases to canonical subgroup enums.
 
-    Returns a list of possible matching subgroup enum values (e.g., SubWorkingGroup.S4).
+    Returns a SubWorkingGroup enum value (e.g., SubWorkingGroup.S4).
     Supports:
     - Short codes: S4, R1, C3
     - Full names: SA4, RAN1, CT3
@@ -58,7 +58,7 @@ def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
         alias: Subgroup alias or code
 
     Returns:
-        List of possible matching canonical subgroup enum values
+        Canonical subgroup enum value (e.g., SubWorkingGroup.S4)
     """
     input_str = alias.strip().upper()
     cleaned = re.sub(r"[#\-_\s]", "", input_str)
