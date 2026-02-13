@@ -94,6 +94,7 @@ class SubWorkingGroupRecord(BaseModel):
                 return working_group
         raise ValueError
 
+
 @cache
 def _generate_swb_group_records() -> tuple[SubWorkingGroupRecord, ...]:
     """Generate SubWorkingGroupRecord entries for all defined SubWorkingGroup enums."""
@@ -105,6 +106,7 @@ def _generate_swb_group_records() -> tuple[SubWorkingGroupRecord, ...]:
         record = SubWorkingGroupRecord(subtb=subtb, tbid=tbid, code=subgroup.name, name=subgroup.value)
         records.append(record)
     return tuple(records)
+
 
 SUBWORKING_GROUP_RECORDS: tuple[SubWorkingGroupRecord, ...] = _generate_swb_group_records()
 

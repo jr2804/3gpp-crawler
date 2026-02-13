@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import contextlib
 import os
-import tempfile
 from pathlib import Path
 
 import pytest
 import requests
 
-from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalSession
+from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
 from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError
 
@@ -80,13 +78,9 @@ def test_fetch_tdoc_metadata_success(credentials: PortalCredentials) -> None:
     # Using a recent TDoc - if this fails, the portal structure may have changed
     tdoc_id = "S4-260001"
 
-    # Create a temporary cache file (not a directory)
-    with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as f:
-        cache_file = Path(f.name)
-
     try:
-        with PortalSession(credentials=credentials, cache_dir=cache_file, timeout=30) as session:
-            metadata = session.fetch_tdoc_metadata(tdoc_id)
+        with PortalClient(credentials=credentials, timeout=30) as client:
+            metadata = client.fetch_tdoc_metadata(tdoc_id)
 
         # If we get here, parsing succeeded - verify basic fields
         assert metadata is not None, f"Expected metadata for {tdoc_id}"
@@ -95,28 +89,14 @@ def test_fetch_tdoc_metadata_success(credentials: PortalCredentials) -> None:
     except PortalParsingError as exc:
         # The portal structure may have changed - this is not a refactoring issue
         pytest.skip(f"Portal structure may have changed: {exc}")
-    finally:
-        # Clean up temporary cache file
-        with contextlib.suppress(OSError):
-            cache_file.unlink()
 
 
 def test_fetch_tdoc_metadata_invalid_tdoc(credentials: PortalCredentials) -> None:
     """Test fetching metadata for non-existent TDoc."""
     tdoc_id = "S4-999999999"
 
-    # Create a temporary cache file (not a directory)
-    with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as f:
-        cache_file = Path(f.name)
-
-    try:
-        # Should raise PortalParsingError for non-existent TDoc
-        with pytest.raises(PortalParsingError), PortalSession(credentials=credentials, cache_dir=cache_file, timeout=30) as session:
-            session.fetch_tdoc_metadata(tdoc_id)
-    finally:
-        # Clean up temporary cache file
-        with contextlib.suppress(OSError):
-            cache_file.unlink()
+    with pytest.raises(PortalParsingError), PortalClient(credentials=credentials, timeout=30) as client:
+        client.fetch_tdoc_metadata(tdoc_id)
 
 
 def test_fetch_tdoc_metadata_invalid_credentials() -> None:
@@ -125,14 +105,5 @@ def test_fetch_tdoc_metadata_invalid_credentials() -> None:
     invalid_credentials = PortalCredentials(username="invalid_user", password="invalid_password")  # noqa: S106
     tdoc_id = "S4-251364"
 
-    # Create a temporary cache file (not a directory)
-    with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as f:
-        cache_file = Path(f.name)
-
-    try:
-        with pytest.raises(PortalAuthenticationError), PortalSession(credentials=invalid_credentials, cache_dir=cache_file, timeout=30) as session:
-            session.fetch_tdoc_metadata(tdoc_id)
-    finally:
-        # Clean up temporary cache file
-        with contextlib.suppress(OSError):
-            cache_file.unlink()
+    with pytest.raises(PortalAuthenticationError), PortalClient(credentials=invalid_credentials, timeout=30) as client:
+        client.fetch_tdoc_metadata(tdoc_id)

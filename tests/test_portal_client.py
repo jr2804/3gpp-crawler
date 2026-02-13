@@ -8,12 +8,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient, PortalSession, create_portal_client, extract_tdoc_url_from_portal
+from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
 from tdoc_crawler.clients.portal import PortalClient as ReExportedPortalClient
-from tdoc_crawler.clients.portal import create_portal_client as ReExportedCreatePortalClient
 from tdoc_crawler.constants.urls import TDOC_DOWNLOAD_URL
 from tdoc_crawler.models.base import PortalCredentials
-from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_page
+from tdoc_crawler.parsers.portal import PortalParsingError
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 
@@ -34,73 +33,43 @@ class TestPortalClientInit:
         assert client.credentials == creds
         assert client.credentials.username == "test"
 
-    def test_init_with_custom_cache_dir(self) -> None:
-        """Client can be created with custom cache directory."""
-        cache_dir = Path("/custom/cache")
-        client = PortalClient(cache_dir=cache_dir)
-        assert client.cache_dir == cache_dir
-
     def test_init_with_custom_timeout(self) -> None:
         """Client can be created with custom timeout."""
         client = PortalClient(timeout=60)
         assert client.timeout == 60
 
-    def test_default_cache_dir(self) -> None:
-        """Default cache dir is ~/.tdoc-crawler."""
-        client = PortalClient()
-        expected = Path.home() / ".tdoc-crawler"
-        assert client.cache_dir == expected
-
-
-class TestCreatePortalClient:
-    """Tests for create_portal_client factory function."""
-
-    def test_create_portal_client(self) -> None:
-        """Factory function creates PortalClient instance."""
-        creds = PortalCredentials(username="test", password="test")
-        client = create_portal_client(credentials=creds, timeout=45)
-        assert isinstance(client, PortalClient)
-        assert client.credentials == creds
-        assert client.timeout == 45
-
-    def test_create_portal_client_defaults(self) -> None:
-        """Factory function uses sensible defaults."""
-        client = create_portal_client()
-        assert client.timeout == 30
-        assert client._cache_ttl == 7200
-
 
 class TestPortalClientSession:
     """Tests for PortalClient session management."""
 
-    def test_get_session_creates_session(self) -> None:
+    def test_get_session_creates_session(self, test_cache_dir: Path) -> None:
         """Getting session creates it if not exists."""
         client = PortalClient()
         session = client._get_session()
         assert session is not None
         assert client._session is not None
 
-    def test_get_session_returns_same_session(self) -> None:
+    def test_get_session_returns_same_session(self, test_cache_dir: Path) -> None:
         """Getting session returns the same instance."""
         client = PortalClient()
         session1 = client._get_session()
         session2 = client._get_session()
         assert session1 is session2
 
-    def test_close_closes_session(self) -> None:
+    def test_close_closes_session(self, test_cache_dir: Path) -> None:
         """Close method closes the session."""
         client = PortalClient()
         client._get_session()
         client.close()
         assert client._session is None
 
-    def test_context_manager(self) -> None:
+    def test_context_manager(self, test_cache_dir: Path) -> None:
         """Client works as context manager."""
         with PortalClient() as client:
             assert client._get_session() is not None
         assert client._session is None
 
-    def test_close_idempotent(self) -> None:
+    def test_close_idempotent(self, test_cache_dir: Path) -> None:
         """Close can be called multiple times safely."""
         client = PortalClient()
         client._get_session()
@@ -111,7 +80,7 @@ class TestPortalClientSession:
 class TestPortalClientBrowserHeaders:
     """Tests that browser headers are properly set."""
 
-    def test_session_has_browser_headers(self) -> None:
+    def test_session_has_browser_headers(self, test_cache_dir: Path) -> None:
         """Session has browser-like headers to avoid 403 Forbidden."""
         client = PortalClient()
         session = client._get_session()
@@ -297,34 +266,9 @@ class TestPortalClientParseTdocPage:
         assert "url" in params
 
 
-class TestBackwardCompatibility:
-    """Tests to verify backward compatibility with existing API."""
-
-    def test_portal_session_still_available(self) -> None:
-        """PortalSession class is still available for backward compatibility."""
-        assert PortalSession is not None
-
-    def test_extract_tdoc_url_from_portal_still_available(self) -> None:
-        """extract_tdoc_url_from_portal function is still available for backward compatibility."""
-        assert extract_tdoc_url_from_portal is not None
-
-    def test_parse_tdoc_portal_page_still_available(self) -> None:
-        """parse_tdoc_portal_page function is still available for backward compatibility."""
-        assert parse_tdoc_portal_page is not None
-
-    def test_exceptions_still_available(self) -> None:
-        """Exception classes are still available."""
-        assert issubclass(PortalAuthenticationError, Exception)
-        assert issubclass(PortalParsingError, Exception)
-
-
 class TestPortalClientReExports:
     """Tests for re-exports in crawlers package."""
 
     def test_portal_client_re_exported(self) -> None:
         """PortalClient is re-exported from crawlers package."""
         assert ReExportedPortalClient is not None
-
-    def test_create_portal_client_re_exported(self) -> None:
-        """create_portal_client is re-exported from crawlers package."""
-        assert ReExportedCreatePortalClient is not None
