@@ -72,7 +72,8 @@ def resolve_via_whatthespec(
 
     record = payload[0] or {}
     resolved_id = str(record.get("name") or tdoc_id).strip().upper()
-    meeting_name = str(record.get("meeting") or "")
+    meeting_raw = record.get("meeting")
+    meeting_name = str(meeting_raw) if meeting_raw else None
     agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
 
     manager = resolve_cache_manager(cache_manager_name)

@@ -77,11 +77,7 @@ def parse_working_groups(values: list[str] | None, subgroups: list[str] | None =
     for item in values:
         # Try alias normalization first (RP->RAN, SP->SA, CP->CT)
         normalized = normalize_working_group_alias(item)
-        try:
-            resolved.append(WorkingGroup(normalized.upper()))
-        except ValueError as exc:
-            _logger.warning(f"Unknown working group: {item}")
-            raise typer.Exit(code=2) from exc
+        resolved.append(normalized)
     if not resolved:
         _logger.warning("No valid working groups specified")
         raise typer.Exit(code=2)
@@ -89,16 +85,18 @@ def parse_working_groups(values: list[str] | None, subgroups: list[str] | None =
 
 
 def parse_subgroups(values: list[str] | None) -> list[str] | None:
-    """Parse and normalize subgroup aliases to canonical names."""
+    """Parse and normalize subgroup aliases to canonical subgroup codes."""
     if not values:
         return None
 
     resolved: list[str] = []
     for item in values:
+        # Convert SubWorkingGroup enums to their names (e.g., S4, R1, CP)
         normalized = normalize_subgroup_alias(item)
         if not normalized:
             _logger.warning(f"Unknown subgroup: {item}")
             raise typer.Exit(code=2)
+
         resolved.extend(normalized)
 
     return resolved

@@ -14,7 +14,7 @@ def normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
     return [str(value).strip().upper() for value in ids]
 
 
-def normalize_portal_meeting_name(portal_meeting: str) -> str:
+def normalize_portal_meeting_name(portal_meeting: str | None) -> str:
     """Normalize portal meeting name to database format.
 
     The portal uses format like "SA4#133-e" while the database uses "S4-133-e".
@@ -26,6 +26,9 @@ def normalize_portal_meeting_name(portal_meeting: str) -> str:
     Returns:
         Normalized meeting name (e.g., "S4-133-e")
     """
+    if not portal_meeting:
+        return ""
+
     # Replace "SA4#" with "S4-", "RAN1#" with "R1-", etc.
     normalized = portal_meeting.replace("#", "-")
 

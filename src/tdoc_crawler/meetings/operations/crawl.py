@@ -6,7 +6,6 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from tdoc_crawler.constants.registry import MEETING_CODE_REGISTRY
 from tdoc_crawler.constants.urls import MEETINGS_BASE_URL
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database.meetings import MeetingDatabase
@@ -14,6 +13,7 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
 from tdoc_crawler.models.crawl_limits import CrawlLimits
+from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.parsers.meetings import parse_meeting_page
 
@@ -68,30 +68,37 @@ class MeetingCrawler:
 
         try:
             for working_group in working_groups:
-                for code, subgroup in MEETING_CODE_REGISTRY.get(working_group.value, []):
+                # Filter records for the current working group
+                relevant_records = [r for r in SUBWORKING_GROUP_RECORDS if r.tbid == working_group.tbid]
+
+                for record in relevant_records:
                     # Skip subgroup if subgroups filter is set and this subgroup is not in the list
-                    if config.subgroups and subgroup not in config.subgroups:
+                    if config.subgroups and record.code not in config.subgroups:
                         continue
-                    url = MEETINGS_BASE_URL.format(code=code)
+                    url = MEETINGS_BASE_URL.format(code=record.code)
                     try:
                         response = session.get(url, timeout=config.timeout)
                         response.raise_for_status()
                     except Exception as exc:
-                        message = f"Meeting crawl failed for {code}: {exc}"
+                        message = f"Meeting crawl failed for {record.code}: {exc}"
                         logger.warning(message)
                         errors.append(message)
                         continue
 
+                    # TODO: can be made much efficient by directly accessing properties of enum/dataclasses?
                     # Create callback for subtb lookup
                     def get_subtb(subgroup_code: str) -> int | None:
-                        """Get subtb from subgroup code via database lookup."""
-                        subgroup_data = self.database.get_subgroup_by_code(subgroup_code)
-                        return subgroup_data["subtb"] if subgroup_data else None
+                        """Get subtb from subgroup code via record lookup."""
+                        # Using SUBWORKING_GROUP_RECORDS directly as it's the source of truth
+                        for r in SUBWORKING_GROUP_RECORDS:
+                            if r.code == subgroup_code:
+                                return r.subtb
+                        return None
 
                     parsed_meetings = parse_meeting_page(
                         response.text,
                         working_group,
-                        subgroup,
+                        record.code,
                         get_subtb=get_subtb,
                     )
                     for meeting in parsed_meetings:
