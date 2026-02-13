@@ -643,11 +643,10 @@ class HybridTDocCrawler:
                 task = asyncio.create_task(
                     runner.run(
                         fetch_meeting_document_list_subinterpreter,
-                        meeting.meeting_id,
-                        str(config.cache_dir),
-                        config.http_cache.ttl,
-                        config.http_cache.refresh_ttl_on_access,
-                        config.timeout,
+                        meeting_id=meeting.meeting_id,
+                        timeout=config.timeout,
+                        http_cache=config.http_cache,
+                        cache_manager_name=config.cache_manager_name,
                     )
                 )
                 tasks[task] = meeting

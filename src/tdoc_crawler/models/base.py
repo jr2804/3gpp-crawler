@@ -5,8 +5,11 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 
 from pydantic import BaseModel, Field
+
+from tdoc_crawler.config import resolve_cache_manager
 
 
 class OutputFormat(StrEnum):
@@ -33,9 +36,10 @@ _DEFAULT_MAX_RETRIES: int = 3
 class HttpCacheConfig:
     """HTTP cache configuration for hishel caching."""
 
-    ttl: int
-    refresh_ttl_on_access: bool
-    max_retries: int
+    ttl: int = _DEFAULT_TTL
+    refresh_ttl_on_access: bool = _DEFAULT_TTL_ON_ACCESS
+    max_retries: int = _DEFAULT_MAX_RETRIES
+    cache_dir: Path | None = None
 
     @classmethod
     def resolve_http_cache_config(
@@ -71,6 +75,7 @@ class HttpCacheConfig:
         return HttpCacheConfig(ttl=ttl, refresh_ttl_on_access=refresh_on_access, max_retries=max_retries)
 
 
+# TODO: classes derived from BaseConfigModel should be simpler dataclasses, as they are not/never stored in DB and only used for config parsing. BaseModel is more useful for persistent models with validation needs.
 class BaseConfigModel(BaseModel):
     """Shared configuration base enabling attribute parsing and whitespace handling."""
 
@@ -78,6 +83,11 @@ class BaseConfigModel(BaseModel):
 
     cache_manager_name: str | None = Field(default=None, description="Cache configuration manager name")
     http_cache: HttpCacheConfig = Field(default_factory=HttpCacheConfig.resolve_http_cache_config, description="HTTP cache configuration")
+
+    @property
+    def cache_dir(self) -> Path:
+        """Return the cache directory being used."""
+        return resolve_cache_manager(self.cache_manager_name).root
 
 
 @dataclass

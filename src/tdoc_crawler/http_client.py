@@ -99,12 +99,23 @@ def create_cached_session(
     """
     manager = resolve_cache_manager(cache_manager_name)
     http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
-    logger.debug(f"Creating cached HTTP session with cache_db={manager.http_cache_file})")
+
+    # Determine database path: use explicit cache_dir if provided, otherwise from manager
+    if http_cache.cache_dir:
+        # If cache_dir is a file, use it directly. If it's a directory, append default filename.
+        if http_cache.cache_dir.suffix in (".sqlite", ".sqlite3", ".db"):
+            database_path = str(http_cache.cache_dir)
+        else:
+            database_path = str(http_cache.cache_dir / "http-cache.sqlite3")
+    else:
+        database_path = str(manager.http_cache_file)
+
+    logger.debug(f"Creating cached HTTP session with cache_db={database_path})")
     logger.debug(f"HTTP cache config: ttl={http_cache.ttl}, refresh_ttl_on_access={http_cache.refresh_ttl_on_access}, max_retries={http_cache.max_retries}")
 
-    # Create SQLite storage backend (cache_dir is the database file path)
+    # Create SQLite storage backend
     storage = SyncSqliteStorage(
-        database_path=str(manager.http_cache_file),
+        database_path=database_path,
         default_ttl=http_cache.ttl,
         refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
     )
