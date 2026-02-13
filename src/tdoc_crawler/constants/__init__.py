@@ -11,7 +11,6 @@ from tdoc_crawler.constants.patterns import (
     TDOC_SUBDIRS,
     TDOC_SUBDIRS_NORMALIZED,
 )
-from tdoc_crawler.constants.registry import MEETING_CODE_REGISTRY
 from tdoc_crawler.constants.urls import (
     LOGIN_URL,
     MEETINGS_BASE_URL,
@@ -27,7 +26,6 @@ __all__ = [
     "EXCLUDED_DIRS_NORMALIZED",
     "LOGIN_URL",
     "MEETINGS_BASE_URL",
-    "MEETING_CODE_REGISTRY",
     "PORTAL_BASE_URL",
     "SPEC_URL_TEMPLATE",
     "TDOC_DOWNLOAD_URL",
