@@ -21,10 +21,11 @@ class TestPortalClientInit:
 
     def test_init_without_credentials(self) -> None:
         """Client can be created without credentials for URL extraction."""
-        client = PortalClient()
-        assert client.credentials is None
-        assert client.timeout == 30
-        assert client._session is None
+        with patch("tdoc_crawler.clients.portal.resolve_credentials", return_value=None):
+            client = PortalClient()
+            assert client.credentials is None
+            assert client.timeout == 30
+            assert client._session is None
 
     def test_init_with_credentials(self) -> None:
         """Client can be created with credentials for authenticated access."""
@@ -139,9 +140,10 @@ class TestPortalClientAuthenticate:
 
     def test_authenticate_requires_credentials(self) -> None:
         """Authentication fails without credentials."""
-        client = PortalClient()
-        with pytest.raises(ValueError):
-            client.authenticate()
+        with patch("tdoc_crawler.clients.portal.resolve_credentials", return_value=None):
+            client = PortalClient()
+            with pytest.raises(ValueError):
+                client.authenticate()
 
     def test_authenticate_success(self) -> None:
         """Authentication succeeds with valid credentials."""
@@ -191,9 +193,10 @@ class TestPortalClientFetchTdocMetadata:
 
     def test_fetch_requires_authentication(self) -> None:
         """Fetching fails without credentials."""
-        client = PortalClient()
-        with pytest.raises(ValueError):
-            client.fetch_tdoc_metadata("S4-251364")
+        with patch("tdoc_crawler.clients.portal.resolve_credentials", return_value=None):
+            client = PortalClient()
+            with pytest.raises(ValueError):
+                client.fetch_tdoc_metadata("S4-251364")
 
     def test_fetch_success(self) -> None:
         """Successfully fetches TDoc metadata."""
