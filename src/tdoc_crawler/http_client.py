@@ -10,7 +10,7 @@ from hishel import SyncBaseStorage, SyncSqliteStorage
 from hishel.requests import CacheAdapter
 from urllib3.util.retry import Retry
 
-from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME, resolve_cache_manager
+from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import HttpCacheConfig
 
