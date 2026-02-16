@@ -126,6 +126,7 @@ class TDocMetadata(BaseModel):
         """Ensure identifiers are uppercase and trimmed."""
         return value.strip().upper()
 
+
 # TODO: this is rather a dataclass?
 class TDocCrawlConfig(BaseConfigModel):
     """Configuration for TDoc crawling runs."""
@@ -190,6 +191,7 @@ class TDocCrawlConfig(BaseConfigModel):
         if value is None:
             return None
         return normalize_tdoc_ids(value)
+
 
 # TODO: this is rather a dataclass?
 class TDocQueryConfig(BaseConfigModel):

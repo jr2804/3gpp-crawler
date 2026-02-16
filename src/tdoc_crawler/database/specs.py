@@ -19,9 +19,27 @@ from tdoc_crawler.specs.models import (
     SpecQueryResult,
 )
 from tdoc_crawler.specs.sources.base import SpecSource
-from tdoc_crawler.utils.normalization import normalize_spec_number
+from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
 
 _logger = get_logger(__name__)
+
+
+def _version_matches_release(version: str, release_type: str, release_value: str, specificity: int) -> bool:
+    """Check if a version string matches the release selector."""
+    try:
+        v_parts = [int(p) for p in version.split(".")]
+    except ValueError:
+        return False
+
+    if release_type == "exact":
+        return version == release_value
+
+    # prefix match: check major (specificity=1) or major.minor (specificity=2)
+    if len(v_parts) >= specificity:
+        prefix_parts = release_value.split(".")
+        return all(v_parts[i] == int(prefix_parts[i]) for i in range(specificity))
+
+    return False
 
 
 @dataclass(frozen=True)
@@ -324,7 +342,20 @@ class SpecDatabase(DocDatabase):
                 )
                 continue
 
-            release_matches = release == "latest" or any(release in outcome.versions for outcome in outcomes if outcome.status == "ok")
+            release_type, release_value, specificity = normalize_release(release)
+            if release_type in ("all", "latest"):
+                release_matches = True
+            elif release_type in ("exact", "prefix"):
+                # release_value and specificity are guaranteed non-None here
+                release_matches = any(
+                    _version_matches_release(v, release_type, release_value, specificity)  # type: ignore[arg-type]
+                    for outcome in outcomes
+                    if outcome.status == "ok"
+                    for v in outcome.versions
+                )
+            else:
+                release_matches = False
+
             if not release_matches:
                 results.append(
                     SpecCrawlResult(

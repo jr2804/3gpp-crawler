@@ -14,8 +14,14 @@ CheckoutTDocIdsArgument = Annotated[list[str], typer.Argument(help="TDoc identif
 SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) to query (dotted or undotted)")]
 
 # Options - TDocs/Meetings
-WorkingGroupOption = Annotated[list[str] | None, typer.Option("--working-group", "-w", help="Filter by working group", envvar="TDC_WORKING_GROUP")]
-SubgroupOption = Annotated[list[str] | None, typer.Option("--sub-group", "-s", help="Filter by sub-working group", envvar="TDC_SUB_GROUP")]
+WorkingGroupOption = Annotated[
+    list[str] | None,
+    typer.Option("--working-group", "-w", help="Filter by working group (e.g., 'R2', 'SA2')", envvar="TDC_WORKING_GROUP"),
+]
+SubgroupOption = Annotated[
+    list[str] | None,
+    typer.Option("--sub-group", "-s", help="Filter by sub-working group (e.g., 'R2-102')", envvar="TDC_SUB_GROUP"),
+]
 LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar="TDC_LIMIT_MEETINGS")]
 LimitMeetingsPerWgOption = Annotated[
     int | None, typer.Option("--limit-meetings-per-wg", help="Limit meetings per working group", envvar="TDC_LIMIT_MEETINGS_PER_WG")
@@ -23,8 +29,14 @@ LimitMeetingsPerWgOption = Annotated[
 LimitWgsOption = Annotated[int | None, typer.Option("--limit-wgs", help="Limit number of working groups")]
 LimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")]
 OrderOption = Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")]
-StartDateOption = Annotated[str | None, typer.Option("--start-date", help="Filter from ISO timestamp", envvar="TDC_START_DATE")]
-EndDateOption = Annotated[str | None, typer.Option("--end-date", help="Filter until ISO timestamp", envvar="TDC_END_DATE")]
+StartDateOption = Annotated[
+    str | None,
+    typer.Option("--start-date", help="Filter from ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar="TDC_START_DATE"),
+]
+EndDateOption = Annotated[
+    str | None,
+    typer.Option("--end-date", help="Filter until ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar="TDC_END_DATE"),
+]
 NoFetchOption = Annotated[
     bool,
     typer.Option("--no-fetch", help="Disable automatic fetching of missing TDocs from portal"),
@@ -80,7 +92,10 @@ CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="
 WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers", envvar="TDC_WORKERS")]
 MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts", envvar="TDC_MAX_RETRIES")]
 TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds", envvar="TDC_TIMEOUT")]
-VerbosityOption = Annotated[str, typer.Option("--verbosity", "-v", help="Logging verbosity level", envvar="TDC_VERBOSITY")]
+VerbosityOption = Annotated[
+    str,
+    typer.Option("--verbosity", "-v", help="Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)", envvar="TDC_VERBOSITY"),
+]
 
 UseWhatTheSpecOption = Annotated[
     bool, typer.Option("--use-whatthespec/--no-use-whatthespec", help="Use WhatTheSpec API for fetching", envvar="TDC_USE_WHATTHESPEC")

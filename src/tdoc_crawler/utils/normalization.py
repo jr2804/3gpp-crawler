@@ -7,6 +7,7 @@ _DOTTED_BODY_PATTERN = re.compile(r"^(?P<series>\d{2})\s*\.\s*(?P<increment>\d{1
 _UNDOTTED_BODY_PATTERN = re.compile(r"^(?P<series>\d{2})(?P<increment>\d{1,3})$")
 _OFFSET_PATTERN = re.compile(r"^(?P<left>.+?)\s*\+\s*(?P<offset>-?\d+)\s*$")
 _RANGE_SPLIT_PATTERN = re.compile(r"\s*([-:])\s*")
+_RELEASE_PREFIX_PATTERN = re.compile(r"^(?:v|rel|rel[-])", re.IGNORECASE)
 
 
 def normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
@@ -186,3 +187,63 @@ def expand_spec_ranges_batch(spec_inputs: list[str]) -> list[str]:
             # Skip invalid spec inputs silently
             continue
     return expanded
+
+
+def normalize_release(release: str) -> tuple[str, str | None, int | None]:
+    """Normalize a release selector string.
+
+    Supports formats:
+    - 'latest' - Returns ('latest', None, None)
+    - 'all' - Returns ('all', None, None)
+    - '18.0.0' - Full version (returns ('exact', '18.0.0', 3))
+    - '18.1' - Partial major.minor (returns ('prefix', '18.1', 2))
+    - '18' - Partial major only (returns ('prefix', '18', 1))
+    - 'v18', 'V18', 'Rel-18', 'rel18', 'REL18' - Prefix variants (normalized to '18')
+
+    Args:
+        release: Release selector string in various formats.
+
+    Returns:
+        Tuple of (type, normalized_value, specificity):
+        - type: 'latest', 'all', 'exact', or 'prefix'
+        - normalized_value: Cleaned release string without prefixes
+        - specificity: Number of version components (1=major, 2=major.minor, 3=major.minor.patch)
+
+    Raises:
+        ValueError: If the release format is invalid.
+    """
+    cleaned = release.strip()
+
+    # Handle special values (case-insensitive)
+    upper_cleaned = cleaned.upper()
+    if upper_cleaned == "LATEST":
+        return ("latest", None, None)
+    if upper_cleaned == "ALL":
+        return ("all", None, None)
+
+    # Strip prefixes: v, rel, rel- (case-insensitive)
+    normalized = _RELEASE_PREFIX_PATTERN.sub("", cleaned)
+
+    # Validate that we have a valid version number after stripping
+    if not normalized:
+        raise ValueError(f"Invalid release format: '{release}'. Expected 'latest', 'all', or a version number like '18', '18.1', '18.1.0'.")
+
+    # Split into components and validate
+    parts = normalized.split(".")
+    if len(parts) > 3:
+        raise ValueError(f"Invalid release format: '{release}'. Version has too many components (max 3: major.minor.patch).")
+
+    # Validate each part is a number
+    try:
+        [int(p) for p in parts]
+    except ValueError as exc:
+        raise ValueError(f"Invalid release format: '{release}'. Version components must be numbers.") from exc
+
+    specificity = len(parts)
+
+    # Check for exact match (all 3 components)
+    if specificity == 3:
+        return ("exact", normalized, 3)
+
+    # Partial match (1 or 2 components)
+    return ("prefix", normalized, specificity)

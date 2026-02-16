@@ -13,7 +13,7 @@ from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.sources.base import SpecSource
-from tdoc_crawler.utils.normalization import normalize_spec_number
+from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
 
 _logger = get_logger(__name__)
 
@@ -139,20 +139,29 @@ class SpecDownloads:
 
         versions.sort(key=lambda x: parse_version(x.version), reverse=True)
 
-        # If specific release requested, filter versions by major version
-        if release != "latest":
-            try:
-                release_major = int(release.split(".", maxsplit=1)[0])
-                # Filter versions that match this major release
-                filtered_versions = [v for v in versions if parse_version(v.version)[0] == release_major]
-                if filtered_versions:
-                    versions = filtered_versions
-                else:
-                    msg = f"No versions found for spec {normalized} with release {release}"
-                    raise ValueError(msg)
-            except (ValueError, IndexError) as e:
-                msg = f"Invalid release format: {release}. Expected format like '17', '17.1', or '17.1.0'"
-                raise ValueError(msg) from e
+        # If specific release requested, use normalize_release to handle various formats
+        release_type, release_value, specificity = normalize_release(release)
+        if release_type in {"latest", "all"}:
+            pass  # Use all versions, already sorted by version desc
+        elif release_type in ("exact", "prefix"):
+            # Filter versions by release prefix
+            filtered_versions: list = []
+            for v in versions:
+                v_parts = parse_version(v.version)
+                if release_type == "exact":
+                    # Exact match: specificity == 3, match full version
+                    if v.version == release_value:
+                        filtered_versions.append(v)
+                # Prefix match: match major (specificity=1) or major.minor (specificity=2)
+                elif len(v_parts) >= specificity:
+                    prefix_parts = release_value.split(".")
+                    if all(v_parts[i] == int(prefix_parts[i]) for i in range(specificity)):
+                        filtered_versions.append(v)
+            if filtered_versions:
+                versions = filtered_versions
+            else:
+                msg = f"No versions found for spec {normalized} with release {release}"
+                raise ValueError(msg)
 
         target = versions[0]
 
