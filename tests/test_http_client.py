@@ -10,7 +10,7 @@ import pytest
 import requests
 from hishel.requests import CacheAdapter
 
-from tdoc_crawler.config import CacheManager, reset_cache_managers
+from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME, CacheManager, reset_cache_managers
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.base import HttpCacheConfig
 
@@ -234,7 +234,7 @@ class TestCachingBehavior:
 
         # The database path should match what CacheManager says
         # (hishel might not create empty DB if not used, but let's check path)
-        assert manager.http_cache_file.name == "http-cache.sqlite3"
+        assert manager.http_cache_file.name == DEFAULT_HTTP_CACHE_FILENAME
 
         session.close()
 

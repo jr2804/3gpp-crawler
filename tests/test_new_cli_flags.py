@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli.app import app
+from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
@@ -72,7 +73,7 @@ class TestNewCLIFlags:
         mock_manager = MagicMock()
         mock_manager.root = tmp_path
         mock_manager.db_file = tmp_path / "test.db"
-        mock_manager.http_cache_file = tmp_path / "http-cache.sqlite3"
+        mock_manager.http_cache_file = tmp_path / DEFAULT_HTTP_CACHE_FILENAME
         mock_manager.checkout_dir = tmp_path / "checkout"
         mock_manager.name = "test"
         mock_cache_manager_class.return_value.register.return_value = mock_manager
