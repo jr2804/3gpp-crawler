@@ -39,11 +39,15 @@ class HttpCacheConfig:
     ttl: int = _DEFAULT_TTL
     refresh_ttl_on_access: bool = _DEFAULT_TTL_ON_ACCESS
     max_retries: int = _DEFAULT_MAX_RETRIES
-    cache_dir: Path | None = None
+    cache_file: Path | None = None
 
     @classmethod
     def resolve_http_cache_config(
-        cls, cache_ttl: int | None = None, cache_refresh_on_access: bool | None = None, max_retries: int | None = None
+        cls,
+        cache_ttl: int | None = None,
+        cache_refresh_on_access: bool | None = None,
+        max_retries: int | None = None,
+        cache_file: Path | None = None,
     ) -> HttpCacheConfig:
         """Resolve HTTP cache configuration from CLI parameters and environment variables.
 
@@ -51,6 +55,7 @@ class HttpCacheConfig:
             cache_ttl: TTL for cache entries (CLI parameter)
             cache_refresh_on_access: Whether to refresh TTL on access (CLI parameter)
             max_retries: Maximum number of retry attempts for failed requests (CLI parameter)
+            cache_file: Optional explicit cache file path (CLI parameter). If not provided, will be determined by CacheManager.
 
         Returns:
             HttpCacheConfig instance with resolved values
@@ -72,7 +77,7 @@ class HttpCacheConfig:
             refresh_on_access = _DEFAULT_TTL_ON_ACCESS
 
         max_retries = max_retries or _DEFAULT_MAX_RETRIES
-        return HttpCacheConfig(ttl=ttl, refresh_ttl_on_access=refresh_on_access, max_retries=max_retries)
+        return HttpCacheConfig(ttl=ttl, refresh_ttl_on_access=refresh_on_access, max_retries=max_retries, cache_file=cache_file)
 
 
 # TODO: classes derived from BaseConfigModel should be simpler dataclasses, as they are not/never stored in DB and only used for config parsing. BaseModel is more useful for persistent models with validation needs.

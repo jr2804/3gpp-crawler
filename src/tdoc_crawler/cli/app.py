@@ -76,7 +76,7 @@ from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_console, set_verbosity
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawler
-from tdoc_crawler.models.base import OutputFormat, SortOrder
+from tdoc_crawler.models.base import HttpCacheConfig, OutputFormat, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.specs.models import SpecQueryFilters
@@ -144,6 +144,12 @@ def crawl_tdocs(
     working_groups = parse_working_groups(working_group, subgroups)
 
     limits = CrawlLimits.build(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
+
+    # Build HTTP cache config with explicit cache_dir for multiprocessing workers
+    http_cache = HttpCacheConfig.resolve_http_cache_config(
+        cache_ttl=None, cache_refresh_on_access=None, max_retries=max_retries, cache_file=manager.http_cache_file
+    )
+
     config = TDocCrawlConfig(
         working_groups=working_groups,
         subgroups=subgroups,
@@ -160,6 +166,7 @@ def crawl_tdocs(
         use_document_list=True,
         allow_parallel_fallback=True,
         use_parallel_crawling=False,
+        http_cache=http_cache,
     )
 
     db_file = manager.db_file
