@@ -98,7 +98,10 @@ class MeetingCrawlConfig(BaseConfigModel):
         description="Working groups to crawl",
     )
     subgroups: list[str] | None = Field(None, description="Filter by sub-working groups (e.g., 'R1', 'SA4')")
-    incremental: bool = Field(True, description="Only fetch updated meetings")
+    incremental: bool = Field(
+        True,
+        description=("When true, skip meetings already stored in the database (fetch only new meetings)."),
+    )
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="HTTP timeout in seconds")
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")

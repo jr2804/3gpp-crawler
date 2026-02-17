@@ -22,7 +22,7 @@ def parse_meeting_page(
     html: str,
     working_group: WorkingGroup,
     subgroup: str | None,
-    get_subtb: Callable[[str], int] | None = None,
+    get_subtb: Callable[[str], int | None] | None = None,
 ) -> list[MeetingMetadata]:
     """Parse meeting page HTML into list of MeetingMetadata.
 

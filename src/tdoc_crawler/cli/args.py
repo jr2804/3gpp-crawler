@@ -41,7 +41,13 @@ NoFetchOption = Annotated[
     bool,
     typer.Option("--no-fetch", help="Disable automatic fetching of missing TDocs from portal"),
 ]
-IncrementalOption = Annotated[bool, typer.Option("--incremental/--full", help="Toggle incremental mode")]
+IncrementalOption = Annotated[
+    bool,
+    typer.Option(
+        "--incremental/--full",
+        help=("When true, skip items already present in the database (incremental mode). Use --full to re-scan everything."),
+    ),
+]
 LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar="TDC_LIMIT_TDOCS")]
 ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
 OverallTimeoutOption = Annotated[
