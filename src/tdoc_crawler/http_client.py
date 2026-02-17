@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import cast
 
@@ -24,6 +25,7 @@ def download_to_file(
     close_session: bool = True,
     http_cache: HttpCacheConfig | None = None,
     cache_manager_name: str | None = None,
+    http_cache_enabled: bool | None = None,
 ) -> requests.Session | None:
     """Download a file from URL to destination path.
 
@@ -34,6 +36,7 @@ def download_to_file(
         close_session: Whether to close the session after download. Only applicable if a temporary session is created.
         http_cache: Optional HTTP cache configuration
         cache_manager_name: Optional cache manager name to determine cache directory when creating a temporary session.
+        http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
 
     Raises:
         ValueError: If URL scheme is not supported
@@ -48,7 +51,7 @@ def download_to_file(
     # Use provided session or create a new one (might be used for multiple downloads, so we don't want to create a new session for each)
     temp_session: requests.Session | None = None
     if session is None:
-        temp_session = create_cached_session(http_cache=http_cache, cache_manager_name=cache_manager_name)
+        temp_session = create_cached_session(http_cache=http_cache, cache_manager_name=cache_manager_name, http_cache_enabled=http_cache_enabled)
         active_session = temp_session
     else:
         active_session = session
@@ -87,16 +90,29 @@ def download_to_file(
 def create_cached_session(
     http_cache: HttpCacheConfig | None = None,
     cache_manager_name: str | None = None,
+    http_cache_enabled: bool | None = None,
 ) -> requests.Session:
     """Create a requests.Session with hishel caching enabled.
 
     Args:
         http_cache: HTTP cache configuration
         cache_manager_name: Optional cache manager name to determine cache configuration.
+        http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
+                         Can be set via HTTP_CACHE_ENABLED environment variable.
 
     Returns:
-        Configured requests.Session with caching enabled
+        Configured requests.Session with caching enabled (unless disabled)
     """
+    # Check if caching is disabled via parameter or environment variable
+    if http_cache_enabled is None:
+        env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
+        http_cache_enabled = env_enabled not in ("false", "0", "no", "off", "f", "n")
+
+    # If caching is disabled, return a plain session without caching
+    if not http_cache_enabled:
+        logger.debug("Creating plain HTTP session (caching disabled)")
+        return requests.Session()
+
     http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
     if http_cache.cache_file is None:
         # If no explicit cache file is provided, determine it using the cache manager

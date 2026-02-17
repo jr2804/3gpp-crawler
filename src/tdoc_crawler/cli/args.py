@@ -109,3 +109,12 @@ UseWhatTheSpecOption = Annotated[
 
 
 ForceOption = Annotated[bool, typer.Option("--force", "-f", help="Re-download even if already checked out")]
+
+HttpCacheOption = Annotated[
+    bool | None,
+    typer.Option(
+        "--http-cache/--no-http-cache",
+        help="Enable/disable HTTP caching. If not specified, uses HTTP_CACHE_ENABLED env var or defaults to enabled.",
+        envvar="HTTP_CACHE_ENABLED",
+    ),
+]

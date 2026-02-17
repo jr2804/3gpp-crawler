@@ -27,6 +27,7 @@ from tdoc_crawler.cli.args import (
     EolUsernameOption,
     ForceOption,
     FullMetadataOption,
+    HttpCacheOption,
     IncludeWithoutFilesOption,
     IncrementalOption,
     LimitMeetingsOption,
@@ -132,6 +133,7 @@ def crawl_tdocs(
     max_retries: MaxRetriesOption = 3,
     overall_timeout: OverallTimeoutOption = None,
     cache_dir: CacheDirOption = None,
+    http_cache_enabled: HttpCacheOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Crawl TDocs from 3GPP FTP directories."""
@@ -247,7 +249,7 @@ def crawl_tdocs(
             results = database.query_tdocs(query_config)
 
             # Use a shared session for checkout downloads
-            with create_cached_session() as session:
+            with create_cached_session(http_cache_enabled=http_cache_enabled) as session:
                 checkout_result = checkout_tdocs(results, checkout_dir, force=False, session=session)
 
             console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
