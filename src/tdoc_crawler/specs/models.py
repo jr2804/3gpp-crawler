@@ -54,7 +54,6 @@ class SpecificationVersion(BaseModel):
     source_name: str
 
 
-# TODO: this is rather a dataclass?
 class SpecificationDownload(BaseModel):
     """Download and extraction outcome for a spec version."""
 

@@ -127,7 +127,6 @@ class TDocMetadata(BaseModel):
         return value.strip().upper()
 
 
-# TODO: this is rather a dataclass?
 class TDocCrawlConfig(BaseConfigModel):
     """Configuration for TDoc crawling runs."""
 
@@ -193,7 +192,6 @@ class TDocCrawlConfig(BaseConfigModel):
         return normalize_tdoc_ids(value)
 
 
-# TODO: this is rather a dataclass?
 class TDocQueryConfig(BaseConfigModel):
     """Configuration for querying TDoc metadata."""
 

@@ -80,7 +80,6 @@ class HttpCacheConfig:
         return HttpCacheConfig(ttl=ttl, refresh_ttl_on_access=refresh_on_access, max_retries=max_retries, cache_file=cache_file)
 
 
-# TODO: classes derived from BaseConfigModel should be simpler dataclasses, as they are not/never stored in DB and only used for config parsing. BaseModel is more useful for persistent models with validation needs.
 class BaseConfigModel(BaseModel):
     """Shared configuration base enabling attribute parsing and whitespace handling."""
 

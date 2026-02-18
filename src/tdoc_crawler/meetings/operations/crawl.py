@@ -13,7 +13,7 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
 from tdoc_crawler.models.crawl_limits import CrawlLimits
-from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
+from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBWORKING_GROUP_RECORDS
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.parsers.meetings import parse_meeting_page
 
@@ -85,15 +85,11 @@ class MeetingCrawler:
                         errors.append(message)
                         continue
 
-                    # TODO: can be made much efficient by directly accessing properties of enum/dataclasses?
-                    # Create callback for subtb lookup
+                    # Create callback for subtb lookup using pre-built index
                     def get_subtb(subgroup_code: str) -> int | None:
-                        """Get subtb from subgroup code via record lookup."""
-                        # Using SUBWORKING_GROUP_RECORDS directly as it's the source of truth
-                        for r in SUBWORKING_GROUP_RECORDS:
-                            if r.code == subgroup_code:
-                                return r.subtb
-                        return None
+                        """Get subtb from subgroup code via CODE_INDEX lookup."""
+                        record = CODE_INDEX.get(subgroup_code.upper())
+                        return record.subtb if record else None
 
                     parsed_meetings = parse_meeting_page(
                         response.text,
