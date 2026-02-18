@@ -22,8 +22,8 @@ runner = CliRunner()
 class TestCrawlCommand:
     """Tests for crawl command."""
 
-    @patch("tdoc_crawler.cli.app.TDocCrawler")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.crawl.TDocCrawler")
+    @patch("tdoc_crawler.cli.crawl.TDocDatabase")
     def test_crawl_basic(
         self,
         mock_db_class: MagicMock,
@@ -57,8 +57,8 @@ class TestCrawlCommand:
         assert "TDocs" in result.stdout
         mock_crawler.crawl.assert_called_once()
 
-    @patch("tdoc_crawler.cli.app.TDocCrawler")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.crawl.TDocCrawler")
+    @patch("tdoc_crawler.cli.crawl.TDocDatabase")
     def test_crawl_with_working_group_filter(
         self,
         mock_db_class: MagicMock,
@@ -91,8 +91,8 @@ class TestCrawlCommand:
 class TestCrawlMeetingsCommand:
     """Tests for crawl-meetings command."""
 
-    @patch("tdoc_crawler.cli.app.MeetingCrawler")
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.crawl.MeetingCrawler")
+    @patch("tdoc_crawler.cli.crawl.SpecDatabase")
     def test_crawl_meetings_basic(
         self,
         mock_db_class: MagicMock,
@@ -133,7 +133,7 @@ class TestCrawlMeetingsCommand:
 class TestQueryCommand:
     """Tests for query command."""
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_query_no_results(
         self,
         mock_db_class: MagicMock,
@@ -152,7 +152,7 @@ class TestQueryCommand:
         assert result.exit_code == 0
         assert "No TDocs found" in result.stdout
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_query_with_results_table(
         self,
         mock_db_class: MagicMock,
@@ -172,7 +172,7 @@ class TestQueryCommand:
         assert result.exit_code == 0
         assert "R1-2301234" in result.stdout
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_query_json_format(
         self,
         mock_db_class: MagicMock,
@@ -193,7 +193,7 @@ class TestQueryCommand:
         assert "R1-2301234" in result.stdout
         assert "tdoc_id" in result.stdout
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_query_specific_tdoc(
         self,
         mock_db_class: MagicMock,
@@ -216,7 +216,7 @@ class TestQueryCommand:
 class TestQueryMeetingsCommand:
     """Tests for query-meetings command."""
 
-    @patch("tdoc_crawler.cli.app.SpecDatabase")
+    @patch("tdoc_crawler.cli.query.SpecDatabase")
     def test_query_meetings_no_results(
         self,
         mock_db_class: MagicMock,
@@ -235,7 +235,7 @@ class TestQueryMeetingsCommand:
         assert result.exit_code == 0
         assert "No meetings found" in result.stdout
 
-    @patch("tdoc_crawler.cli.app.MeetingDatabase")
+    @patch("tdoc_crawler.cli.query.MeetingDatabase")
     def test_query_meetings_with_subgroup_filter(
         self,
         mock_db_class: MagicMock,
@@ -256,7 +256,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert call_args.subgroups == ["S4"]
 
-    @patch("tdoc_crawler.cli.app.MeetingDatabase")
+    @patch("tdoc_crawler.cli.query.MeetingDatabase")
     def test_query_meetings_with_subgroup_alias(
         self,
         mock_db_class: MagicMock,
@@ -277,7 +277,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "S4" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.app.MeetingDatabase")
+    @patch("tdoc_crawler.cli.query.MeetingDatabase")
     def test_query_meetings_with_plenary_alias(
         self,
         mock_db_class: MagicMock,
@@ -298,7 +298,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "RP" in call_args.subgroups
 
-    @patch("tdoc_crawler.cli.app.MeetingDatabase")
+    @patch("tdoc_crawler.cli.query.MeetingDatabase")
     def test_query_meetings_with_working_group_alias(
         self,
         mock_db_class: MagicMock,
@@ -319,7 +319,7 @@ class TestQueryMeetingsCommand:
         call_args = mock_db.query_meetings.call_args[0][0]
         assert WorkingGroup.SA in call_args.working_groups
 
-    @patch("tdoc_crawler.cli.app.MeetingDatabase")
+    @patch("tdoc_crawler.cli.query.MeetingDatabase")
     def test_query_meetings_combined_filters(
         self,
         mock_db_class: MagicMock,
@@ -386,7 +386,7 @@ class TestOpenCommand:
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_open_existing_tdoc(
         self,
         mock_db_class: MagicMock,
@@ -414,7 +414,7 @@ class TestOpenCommand:
         mock_prepare.assert_called_once()
         mock_launch.assert_called_once()
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_open_missing_tdoc(
         self,
         mock_db_class: MagicMock,
@@ -436,7 +436,7 @@ class TestOpenCommand:
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_open_with_whatthespec_fallback(
         self,
         mock_db_class: MagicMock,
@@ -507,7 +507,7 @@ class TestOpenCommand:
     @patch("tdoc_crawler.cli.app.launch_file")
     @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_open_with_whatthespec_no_credentials_required(
         self,
         mock_db_class: MagicMock,
@@ -579,7 +579,7 @@ class TestCheckoutCommand:
 
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_checkout_with_whatthespec_fallback(
         self,
         mock_db_class: MagicMock,
@@ -664,7 +664,7 @@ class TestCheckoutCommand:
 
     @patch("tdoc_crawler.cli.app.checkout_tdoc")
     @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_checkout_with_whatthespec_graceful_failure(
         self,
         mock_db_class: MagicMock,
@@ -710,8 +710,8 @@ class TestCheckoutCommand:
 class TestEnvironmentVariables:
     """Tests for environment variable support in CLI options."""
 
-    @patch("tdoc_crawler.cli.app.TDocCrawler")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.crawl.TDocCrawler")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_env_var_cache_dir(
         self,
         mock_db_class: MagicMock,
@@ -742,8 +742,8 @@ class TestEnvironmentVariables:
         assert result.exit_code == 0
         mock_crawler.crawl.assert_called_once()
 
-    @patch("tdoc_crawler.cli.app.TDocCrawler")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.crawl.TDocCrawler")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_env_var_workers(
         self,
         mock_db_class: MagicMock,
@@ -777,7 +777,7 @@ class TestEnvironmentVariables:
         config = call_args[0]
         assert config.workers == 8
 
-    @patch("tdoc_crawler.cli.app.MeetingDatabase")
+    @patch("tdoc_crawler.cli.query.MeetingDatabase")
     def test_env_var_working_group(
         self,
         mock_db_class: MagicMock,
@@ -799,7 +799,7 @@ class TestEnvironmentVariables:
 
         assert WorkingGroup.SA in call_args.working_groups
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_env_var_output_format(
         self,
         mock_db_class: MagicMock,
@@ -835,6 +835,7 @@ class TestEnvironmentVariables:
         self,
         mock_resolve: MagicMock,
         monkeypatch,
+        test_cache_dir: Path,
     ) -> None:
         """Test that TDC_EOL_USERNAME and TDC_EOL_PASSWORD set credentials."""
         # Set environment variables
@@ -844,7 +845,11 @@ class TestEnvironmentVariables:
         # Mock resolve_credentials to return valid credentials
         mock_resolve.return_value = None
 
-        result = runner.invoke(app, ["stats"])
+        # Create minimal database file for stats command
+        db_file = test_cache_dir / "tdoc_crawler.db"
+        db_file.touch()
+
+        result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
 
         # Verify resolve_credentials was called
         # (Actual credential resolution happens via Typer's envvar parameter)
@@ -855,6 +860,7 @@ class TestEnvironmentVariables:
         self,
         mock_resolve: MagicMock,
         monkeypatch,
+        test_cache_dir: Path,
     ) -> None:
         """Test that TDC_EOL_PROMPT controls credential prompting."""
         # Set environment variable to disable prompting
@@ -862,11 +868,15 @@ class TestEnvironmentVariables:
 
         mock_resolve.return_value = None
 
-        result = runner.invoke(app, ["stats"])
+        # Create minimal database file for stats command
+        db_file = test_cache_dir / "tdoc_crawler.db"
+        db_file.touch()
+
+        result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
 
         assert result.exit_code == 0
 
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
+    @patch("tdoc_crawler.cli.query.TDocDatabase")
     def test_env_var_limit(
         self,
         mock_db_class: MagicMock,
@@ -891,6 +901,7 @@ class TestEnvironmentVariables:
         self,
         mock_resolve: MagicMock,
         monkeypatch,
+        test_cache_dir: Path,
     ) -> None:
         """Test multiple credential environment variables work together."""
         # Set all credential-related environment variables
@@ -900,6 +911,10 @@ class TestEnvironmentVariables:
 
         mock_resolve.return_value = None
 
-        result = runner.invoke(app, ["stats"])
+        # Create minimal database file for stats command
+        db_file = test_cache_dir / "tdoc_crawler.db"
+        db_file.touch()
+
+        result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
 
         assert result.exit_code == 0
