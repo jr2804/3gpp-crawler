@@ -102,6 +102,10 @@ class MeetingCrawlConfig(BaseConfigModel):
         True,
         description=("When true, skip meetings already stored in the database (fetch only new meetings)."),
     )
+    include_without_files: bool = Field(
+        False,
+        description="Include meetings without associated files URL (e.g., future meetings)",
+    )
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="HTTP timeout in seconds")
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")

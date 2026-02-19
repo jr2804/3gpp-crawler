@@ -100,6 +100,9 @@ class MeetingCrawler:
                     for meeting in parsed_meetings:
                         if config.incremental and meeting.meeting_id in existing_ids:
                             continue
+                        # Filter out meetings without files_url unless explicitly included
+                        if not config.include_without_files and not meeting.files_url:
+                            continue
                         meetings.append(meeting)
         finally:
             session.close()
