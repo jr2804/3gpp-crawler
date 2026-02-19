@@ -23,9 +23,11 @@ SubgroupOption = Annotated[
     typer.Option("--sub-group", "-s", help="Filter by sub-working group (e.g., 'R2-102')", envvar="TDC_SUB_GROUP"),
 ]
 LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar="TDC_LIMIT_MEETINGS")]
+# TODO: This parameter does not make sense for working groups, but would for sub-workinggroups. Consider renaming to --limit-meetings-per-swg.
 LimitMeetingsPerWgOption = Annotated[
     int | None, typer.Option("--limit-meetings-per-wg", help="Limit meetings per working group", envvar="TDC_LIMIT_MEETINGS_PER_WG")
 ]
+# TODO: This parameter does not make sense for working groups, but would for sub-workinggroups.
 LimitWgsOption = Annotated[int | None, typer.Option("--limit-wgs", help="Limit number of working groups")]
 LimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")]
 OrderOption = Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")]
@@ -117,4 +119,9 @@ HttpCacheOption = Annotated[
         help="Enable/disable HTTP caching. If not specified, uses HTTP_CACHE_ENABLED env var or defaults to enabled.",
         envvar="HTTP_CACHE_ENABLED",
     ),
+]
+
+NoProgressOption = Annotated[
+    bool,
+    typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
 ]

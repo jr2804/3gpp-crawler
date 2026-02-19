@@ -26,6 +26,7 @@ from tdoc_crawler.cli.args import (
     LimitTDocsOption,
     LimitWgsOption,
     MaxRetriesOption,
+    NoProgressOption,
     OutputFormatOption,
     OverallTimeoutOption,
     PromptCredentialsOption,
@@ -76,6 +77,7 @@ def crawl_tdocs(
     timeout: TimeoutOption = 30,
     max_retries: MaxRetriesOption = 3,
     overall_timeout: OverallTimeoutOption = None,
+    no_progress: NoProgressOption = False,
     cache_dir: CacheDirOption = None,
     http_cache_enabled: HttpCacheOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
@@ -133,14 +135,18 @@ def crawl_tdocs(
 
         crawl_start_time = datetime.now()
 
-        progress, task = create_progress_bar("[cyan]Crawling TDocs...")
+        if no_progress:
+            # No progress bar - just run the crawl
+            result = crawler.crawl(config, progress_callback=None)
+        else:
+            progress, task = create_progress_bar("[cyan]Crawling TDocs...")
 
-        with progress:
+            with progress:
 
-            def update_progress(completed: float, total: float) -> None:
-                progress.update(task, completed=completed, total=total)
+                def update_progress(completed: float, total: float) -> None:
+                    progress.update(task, completed=completed, total=total)
 
-            result = crawler.crawl(config, progress_callback=update_progress)
+                result = crawler.crawl(config, progress_callback=update_progress)
 
         crawl_end_time = datetime.now()
         elapsed_seconds = (crawl_end_time - crawl_start_time).total_seconds()
