@@ -29,18 +29,20 @@ def print_tdoc_table(results: list[TDocMetadata]) -> None:
     """Print TDoc results as formatted table."""
     table = Table(title=f"TDoc results ({len(results)} rows)")
     table.add_column("TDoc", style="cyan")
-    table.add_column("Meeting ID", style="magenta")
     table.add_column("Title", style="yellow")
+    table.add_column("Source(s)", style="magenta")
     table.add_column("Type", style="green")
+    table.add_column("Meeting", style="cyan")
     table.add_column("Size (KB)", justify="right", style="blue")
 
     for result in results[:100]:
         size_kb = f"{result.file_size // 1024}" if result.file_size else "?"
         table.add_row(
             result.tdoc_id,
-            str(result.meeting_id or "-"),
             result.title or "-",
+            result.source or "-",
             result.tdoc_type or "-",
+            result.meeting_name or "-",
             size_kb,
         )
 

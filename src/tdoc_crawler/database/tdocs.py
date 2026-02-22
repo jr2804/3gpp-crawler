@@ -113,8 +113,15 @@ class TDocDatabase(MeetingDatabase):
                 meeting = meeting_map.get(record.meeting_id or -1)
                 if meeting is None or meeting.tbid not in allowed_tbids:
                     continue
+                record = record.model_copy(update={"meeting_name": meeting.short_name})
                 filtered.append(record)
             records = filtered
+        else:
+            # Always ensure meeting_name is populated even without filters
+            for i, record in enumerate(records):
+                meeting = meeting_map.get(record.meeting_id or -1)
+                if meeting:
+                    records[i] = record.model_copy(update={"meeting_name": meeting.short_name})
 
         if config.start_date is not None:
             records = [record for record in records if record.date_retrieved and record.date_retrieved >= config.start_date]
