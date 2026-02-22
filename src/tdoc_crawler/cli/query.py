@@ -96,9 +96,15 @@ def query_tdocs(
         console.print("[red]Invalid order value; use asc or desc")
         raise typer.Exit(code=2) from exc
 
+    try:
+        format_val = OutputFormat(output_format.lower())
+    except ValueError as exc:
+        console.print("[red]Invalid output format; use table, json, or yaml")
+        raise typer.Exit(code=2) from exc
+
     config = TDocQueryConfig(
         cache_dir=manager.root,
-        output_format=output_format,
+        output_format=format_val,
         tdoc_ids=tdoc_ids,
         working_groups=working_groups,
         start_date=start,
