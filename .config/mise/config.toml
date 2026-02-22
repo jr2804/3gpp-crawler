@@ -1,5 +1,5 @@
 [tools]
-"aqua:steveyegge/beads" = "latest"
+"aqua:steveyegge/beads" = "0.49.6"
 ruff = "latest"
 ty = "latest"
 
