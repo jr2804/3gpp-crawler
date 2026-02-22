@@ -1,8 +1,7 @@
-"""Test the new meeting document list feature."""
+"""Test the meeting document list feature (Excel-based TDoc metadata source)."""
 
 from __future__ import annotations
 
-import asyncio
 import io
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
@@ -10,11 +9,6 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.meetings.models import MeetingMetadata
-from tdoc_crawler.models import WorkingGroup
-from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata
-from tdoc_crawler.tdocs.operations.crawl import HybridCrawlResult, HybridTDocCrawler
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list, parse_excel_document_list
 
 
@@ -119,183 +113,6 @@ class TestMeetingDocumentList:
                 fetch_meeting_document_list(
                     meeting_id=12345,
                 )
-
-    def test_hybrid_crawler_document_list_only(self) -> None:
-        """Test hybrid crawler with document list method only."""
-        # Mock the database
-        mock_database = MagicMock(spec=TDocDatabase)
-        mock_database.query_meetings.return_value = []
-        mock_database.get_existing_tdoc_ids.return_value = []
-        mock_database.bulk_upsert_tdocs.return_value = (0, 0)
-        mock_database.log_crawl_start.return_value = 1
-        mock_database.log_crawl_end.return_value = None
-
-        # Create hybrid crawler
-        crawler = HybridTDocCrawler(mock_database)
-
-        # Configure for document list only
-        config = TDocCrawlConfig(
-            use_document_list=True,
-            use_parallel_crawling=False,
-            allow_parallel_fallback=False,
-            working_groups=[WorkingGroup.RAN],
-            workers=1,
-        )
-
-        # Mock the document list method to return test data
-        test_metadata = [
-            TDocMetadata(
-                tdoc_id="R1-2301234",
-                meeting_id=12345,
-                title="Test Document",
-                url="https://example.com/R1-2301234.zip",
-                source="Test Company",
-                contact="Test Contact",
-                tdoc_type="CR",
-                for_purpose="Agreement",
-                agenda_item_nbr=Decimal("7.1"),
-                agenda_item_text="Test Agenda",
-                status="Approved",
-            )
-        ]
-
-        with patch.object(crawler, "_get_meetings_to_crawl") as mock_get_meetings:
-            # Mock meeting
-
-            mock_meeting = MeetingMetadata(
-                meeting_id=12345,
-                tbid=373,  # RAN
-                subtb=379,  # RAN1
-                working_group=WorkingGroup.RAN,
-                subgroup="R1",
-                short_name="RAN1#98",
-                files_url="https://example.com/meeting/",
-                start_date=None,
-            )
-            mock_get_meetings.return_value = [mock_meeting]
-
-            with patch.object(crawler, "_crawl_meetings_document_list") as mock_doc_list:
-
-                async def doc_list_side_effect(
-                    meetings: list[object], config: object, collected: list[TDocMetadata], existing_ids: set[str], targets: set[str]
-                ) -> tuple[list[str], int]:
-                    collected.extend(test_metadata)
-                    return [], 1
-
-                mock_doc_list.side_effect = doc_list_side_effect
-
-                # Use async patch for the internal _crawl_meetings_parallel as well if needed
-                # But here we just want to mock the top level crawl to return metadata
-                result = crawler.crawl(config)
-
-                assert isinstance(result, HybridCrawlResult)
-                assert result.processed == 1
-                assert result.document_list_meetings == 1
-                assert result.parallel_meetings == 0
-                assert result.fallbacks == 0
-                assert len(result.errors) == 0
-
-    def test_hybrid_crawler_fallback_scenario(self) -> None:
-        """Test hybrid crawler with document list failure and parallel fallback."""
-        # Mock the database
-        mock_database = MagicMock(spec=TDocDatabase)
-        mock_database.query_meetings.return_value = []
-        mock_database.get_existing_tdoc_ids.return_value = []
-        mock_database.bulk_upsert_tdocs.return_value = (0, 0)
-        mock_database.log_crawl_start.return_value = 1
-        mock_database.log_crawl_end.return_value = None
-
-        crawler = HybridTDocCrawler(mock_database)
-
-        # Configure for document list with fallback
-        config = TDocCrawlConfig(
-            use_document_list=True,
-            use_parallel_crawling=False,
-            allow_parallel_fallback=True,
-            working_groups=[WorkingGroup.RAN],
-            workers=1,
-        )
-
-        with patch.object(crawler, "_get_meetings_to_crawl") as mock_get_meetings:
-            mock_meeting = MeetingMetadata(
-                meeting_id=12345,
-                tbid=373,  # RAN
-                subtb=379,  # RAN1
-                working_group=WorkingGroup.RAN,
-                subgroup="R1",
-                short_name="RAN1#98",
-                files_url="https://example.com/meeting/",
-                start_date=None,
-            )
-            mock_get_meetings.return_value = [mock_meeting]
-
-            # Mock document list to fail, parallel to succeed
-            with patch("tdoc_crawler.tdocs.sources.doclist.fetch_meeting_document_list") as mock_fetch:
-                mock_fetch.side_effect = DocumentListError("Document list not available")
-
-            with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
-                # Mock parallel crawling result
-                def side_effect(*args: object, **kwargs: object) -> asyncio.Future[tuple[list[str], int]]:
-                    f: asyncio.Future[tuple[list[str], int]] = asyncio.Future()
-                    f.set_result(([], 1))
-                    return f
-
-                mock_parallel.side_effect = side_effect
-
-                result = crawler.crawl(config)
-
-            assert isinstance(result, HybridCrawlResult)
-            assert result.fallbacks == 1
-            assert result.document_list_meetings == 1
-
-    def test_hybrid_crawler_force_parallel(self) -> None:
-        """Test hybrid crawler with forced parallel crawling."""
-        # Mock the database
-        mock_database = MagicMock(spec=TDocDatabase)
-        mock_database.query_meetings.return_value = []
-        mock_database.get_existing_tdoc_ids.return_value = []
-        mock_database.bulk_upsert_tdocs.return_value = (0, 0)
-        mock_database.log_crawl_start.return_value = 1
-        mock_database.log_crawl_end.return_value = None
-
-        crawler = HybridTDocCrawler(mock_database)
-
-        # Configure for forced parallel crawling
-        config = TDocCrawlConfig(
-            use_document_list=False,  # Disabled
-            use_parallel_crawling=True,
-            working_groups=[WorkingGroup.RAN],
-            workers=1,
-        )
-
-        with patch.object(crawler, "_get_meetings_to_crawl") as mock_get_meetings:
-            mock_meeting = MeetingMetadata(
-                meeting_id=12345,
-                tbid=373,  # RAN
-                subtb=379,  # RAN1
-                working_group=WorkingGroup.RAN,
-                subgroup="R1",
-                short_name="RAN1#98",
-                files_url="https://example.com/meeting/",
-                start_date=None,
-            )
-            mock_get_meetings.return_value = [mock_meeting]
-
-            with patch.object(crawler, "_crawl_meetings_parallel", new_callable=MagicMock) as mock_parallel:
-                # Mock parallel crawling result
-                def side_effect(*args, **kwargs) -> asyncio.Future:
-                    f = asyncio.Future()
-                    f.set_result(([], 1))
-                    return f
-
-                mock_parallel.side_effect = side_effect
-
-                result = crawler.crawl(config)
-
-                assert isinstance(result, HybridCrawlResult)
-                assert result.document_list_meetings == 0
-                assert result.parallel_meetings == 1
-                assert result.fallbacks == 0
 
 
 def _create_test_excel_bytes(df: pd.DataFrame) -> bytes:

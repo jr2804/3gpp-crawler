@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -13,7 +14,7 @@ from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.parsers.meetings import parse_meeting_row, parse_single_date
-from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
+from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
 
 
@@ -41,23 +42,24 @@ class TestTDocCrawler:
         assert not TDOC_PATTERN.search("README.txt")
         assert not TDOC_PATTERN.search("data.csv")
 
-    @patch("tdoc_crawler.workers.tdoc_worker.requests.Session")
+    @patch("tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter")
     def test_crawl_connection_failure(
         self,
-        mock_session_class: MagicMock,
+        mock_fetch: MagicMock,
         test_db_path: Path,
     ) -> None:
-        """Handle HTTP connection failures gracefully."""
-        mock_session = MagicMock()
-        mock_session.get.side_effect = OSError("Connection refused")
-        mock_session_class.return_value = mock_session
+        """Handle document list fetch failures gracefully."""
+        mock_fetch.side_effect = OSError("Connection refused")
 
         with TDocDatabase(test_db_path) as database:
+            meeting = _create_test_meeting()
+            database.upsert_meeting(meeting)
+
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
-                max_retries=1,
+                workers=1,
                 timeout=1,
             )
             result = crawler.crawl(config)
@@ -67,52 +69,34 @@ class TestTDocCrawler:
         assert result.updated == 0
         assert result.errors
 
-    @patch("tdoc_crawler.workers.tdoc_worker.requests.Session")
+    @patch("tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter")
     def test_crawl_collects_tdocs(
         self,
-        mock_session_class: MagicMock,
+        mock_fetch: MagicMock,
         test_db_path: Path,
     ) -> None:
-        """Collect TDocs and persist them to the database."""
-        # Mock HTML directory listing
-        html_content = """
-        <html><body>
-        <a href="R1-2301234.zip">R1-2301234.zip</a> 2048 bytes
-        </body></html>
-        """
-
-        mock_session = MagicMock()
-        mock_response = MagicMock()
-        mock_response.text = html_content
-        mock_response.raise_for_status.return_value = None
-        mock_session.get.return_value = mock_response
-        mock_session.close.return_value = None
-        mock_session_class.return_value = mock_session
+        """Collect TDocs from document list and persist them to the database."""
+        tdoc = TDocMetadata(
+            tdoc_id="R1-2301234",
+            meeting_id=12345,
+            title="Test Contribution",
+            source="Test Corp",
+            contact="J. Doe",
+            agenda_item_nbr="1.0",
+            file_size=2048,
+        )
+        mock_fetch.return_value = json.dumps([tdoc.model_dump_json()])
 
         with TDocDatabase(test_db_path) as database:
-            # Add a sample meeting with files_url
-            meeting = MeetingMetadata(
-                meeting_id=12345,
-                tbid=373,  # RAN
-                subtb=379,  # RAN1
-                working_group=WorkingGroup.RAN,
-                subgroup="R1",
-                short_name="RAN1#98",
-                title="RAN1 Meeting #98",
-                start_date=date(2024, 1, 15),
-                end_date=date(2024, 1, 19),
-                location="Paris, France",
-                files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/",
-                portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345",
-            )
+            meeting = _create_test_meeting()
             database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
-                workers=1,  # Use serial executor for deterministic testing
-                overall_timeout=10,  # Prevent infinite loop/hang during test
+                workers=1,
+                overall_timeout=10,
                 timeout=30,
             )
             result = crawler.crawl(config)
@@ -126,53 +110,46 @@ class TestTDocCrawler:
             assert stored[0].tdoc_id == "R1-2301234"
             assert stored[0].file_size == 2048
 
-    @patch("tdoc_crawler.workers.tdoc_worker.requests.Session")
+    @patch("tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter")
     def test_crawl_targets_specific_ids(
         self,
-        mock_session_class: MagicMock,
+        mock_fetch: MagicMock,
         test_db_path: Path,
     ) -> None:
         """Respect target identifiers by only persisting requested TDocs."""
-        # Mock HTML directory listing with multiple files
-        html_content = """
-        <html><body>
-        <a href="R1-2301234.zip">R1-2301234.zip</a> 2048 bytes<br>
-        <a href="R1-2305678.zip">R1-2305678.zip</a> 4096 bytes
-        </body></html>
-        """
-
-        mock_session = MagicMock()
-        mock_response = MagicMock()
-        mock_response.text = html_content
-        mock_response.raise_for_status.return_value = None
-        mock_session.get.return_value = mock_response
-        mock_session.close.return_value = None
-        mock_session_class.return_value = mock_session
+        tdoc1 = TDocMetadata(
+            tdoc_id="R1-2301234",
+            meeting_id=12345,
+            title="Wanted Contribution",
+            source="Test Corp",
+            contact="J. Doe",
+            agenda_item_nbr="1.0",
+        )
+        tdoc2 = TDocMetadata(
+            tdoc_id="R1-2305678",
+            meeting_id=12345,
+            title="Unwanted Contribution",
+            source="Other Corp",
+            contact="A. Smith",
+            agenda_item_nbr="2.0",
+        )
+        mock_fetch.return_value = json.dumps(
+            [
+                tdoc1.model_dump_json(),
+                tdoc2.model_dump_json(),
+            ]
+        )
 
         with TDocDatabase(test_db_path) as database:
-            # Add a sample meeting with files_url
-            meeting = MeetingMetadata(
-                meeting_id=12345,
-                tbid=373,  # RAN
-                subtb=379,  # RAN1
-                working_group=WorkingGroup.RAN,
-                subgroup="R1",
-                short_name="RAN1#98",
-                title="RAN1 Meeting #98",
-                start_date=date(2024, 1, 15),
-                end_date=date(2024, 1, 19),
-                location="Paris, France",
-                files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/",
-                portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345",
-            )
+            meeting = _create_test_meeting()
             database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 working_groups=[WorkingGroup.RAN],
                 incremental=False,
-                workers=1,  # Use serial executor for deterministic testing
-                overall_timeout=10,  # Prevent infinite loop/hang during test
+                workers=1,
+                overall_timeout=10,
                 timeout=5,
                 target_ids=["R1-2301234"],
             )
@@ -183,6 +160,24 @@ class TestTDocCrawler:
             assert result.updated == 0
             stored = database.query_tdocs(TDocQueryConfig())
             assert {record.tdoc_id for record in stored} == {"R1-2301234"}
+
+
+def _create_test_meeting() -> MeetingMetadata:
+    """Create a reusable test meeting for TDocCrawler tests."""
+    return MeetingMetadata(
+        meeting_id=12345,
+        tbid=373,
+        subtb=379,
+        working_group=WorkingGroup.RAN,
+        subgroup="R1",
+        short_name="RAN1#98",
+        title="RAN1 Meeting #98",
+        start_date=date(2024, 1, 15),
+        end_date=date(2024, 1, 19),
+        location="Paris, France",
+        files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/",
+        portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345",
+    )
 
 
 class TestMeetingCrawler:

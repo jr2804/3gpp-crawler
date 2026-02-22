@@ -82,9 +82,9 @@ def crawl_tdocs(
     http_cache_enabled: HttpCacheOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
-    """Crawl TDocs from 3GPP FTP directories.
+    """Crawl TDoc metadata from 3GPP meeting document lists (Excel).
 
-    No credentials needed, crawl-tdocs always resolves meetings first -> parse Excel files that includes metadata.
+    No credentials needed. Resolves meetings first, then downloads Excel document lists with full metadata.
     """
     set_verbosity(verbosity)
 
@@ -109,11 +109,9 @@ def crawl_tdocs(
         workers=workers,
         overall_timeout=overall_timeout,
         timeout=timeout,
+        max_retries=max_retries,
         limits=limits,
         target_ids=None,
-        use_document_list=True,
-        allow_parallel_fallback=True,
-        use_parallel_crawling=False,
         http_cache=http_cache,
     )
 

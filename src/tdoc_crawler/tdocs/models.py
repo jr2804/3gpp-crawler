@@ -97,28 +97,30 @@ class TDocMetadata(BaseModel):
         if not self.is_valid:
             _logger.debug(f"URL validation skipped for {self.tdoc_id}: basic validation failed")
             return False
+        url = self.url
+        if url is None:
+            return False
 
+        is_accessible = False
         try:
             # Use HEAD request to check accessibility without downloading
-            response = requests.head(self.url, timeout=timeout, allow_redirects=True)
+            response = requests.head(url, timeout=timeout, allow_redirects=True)
 
             # Check for successful response (2xx or 3xx)
             if response.status_code < 400:
-                _logger.debug(f"URL accessible for {self.tdoc_id}: {self.url} (status {response.status_code})")
-                return True
+                _logger.debug(f"URL accessible for {self.tdoc_id}: {url} (status {response.status_code})")
+                is_accessible = True
             else:
-                _logger.warning(f"URL returned error for {self.tdoc_id}: {self.url} (status {response.status_code})")
-                return False
+                _logger.warning(f"URL returned error for {self.tdoc_id}: {url} (status {response.status_code})")
 
         except requests.exceptions.Timeout:
-            _logger.warning(f"URL validation timeout for {self.tdoc_id}: {self.url}")
-            return False
+            _logger.warning(f"URL validation timeout for {self.tdoc_id}: {url}")
         except requests.exceptions.ConnectionError as exc:
             _logger.warning(f"URL validation connection error for {self.tdoc_id}: {exc}")
-            return False
         except requests.exceptions.RequestException as exc:
             _logger.warning(f"URL validation failed for {self.tdoc_id}: {exc}")
-            return False
+
+        return is_accessible
 
     @field_validator("tdoc_id")
     @classmethod
@@ -157,11 +159,6 @@ class TDocCrawlConfig(BaseConfigModel):
     )
     timeout: int = Field(30, gt=0, description="Request timeout seconds")
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
-
-    # New options for document list vs parallel crawling
-    use_document_list: bool = Field(True, description="Use meeting document list (Excel) for metadata (no credentials required)")
-    allow_parallel_fallback: bool = Field(True, description="Allow fallback to parallel directory crawling if document list fails")
-    use_parallel_crawling: bool = Field(False, description="Force use of parallel directory crawling (requires credentials for validation)")
 
     limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
     target_ids: list[str] | None = Field(None, description="Specific TDoc identifiers to fetch")

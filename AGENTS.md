@@ -25,7 +25,7 @@ src/tdoc_crawler/
 │   ├── operations/     # Spec operations (crawl, checkout, normalize)
 │   └── sources/        # Spec data sources (3gpp, whatthespec)
 ├── clients/            # External API clients (Portal)
-├── parsers/            # HTML/data parsers (portal, meetings, directory)
+├── parsers/            # HTML/data parsers (portal, meetings)
 ├── workers/            # Parallel processing workers
 ├── database/           # Database layer (base, connection)
 ├── models/             # Shared data models
@@ -40,7 +40,7 @@ src/tdoc_crawler/
 
 ```python
 # TDoc operations
-from tdoc_crawler.tdocs import TDocCrawler, HybridTDocCrawler
+from tdoc_crawler.tdocs import TDocCrawler
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
@@ -381,12 +381,38 @@ The project maintains a modular documentation structure:
 - `docs/index.md` and related referenced files **MUST** always be up to date and reflect the current state of ALL commands.
 - When adding or modifying commands, **BOTH** the history file AND the relevant documentation files must be updated.
 
-## Data Source Guidelines
+## TDoc Data Sources
 
-- **WhatTheSpec (whatthespec.net)** is the primary unauthenticated community source for metadata.
-- **3GPP Portal (EOL)** is the official authenticated fallback source.
-- Credentials (EOL) are only needed for authoritative 3GPP-official data or when WhatTheSpec is unavailable.
-- For most users, **WhatTheSpec** is sufficient and preferred as it requires no login.
+The project uses **three distinct mechanisms** for fetching TDoc metadata — each suited to different use cases. Do NOT add new crawl mechanisms without understanding why these three exist.
+
+| Source | Module | Auth | Batch | Single | Use Case |
+|--------|--------|:----:|:-----:|:------:|----------|
+| Excel DocList | `tdocs/sources/doclist.py` | No | ✓ | ✗ | Batch crawl all TDocs per meeting (`crawl-tdocs` command) |
+| WhatTheSpec API | `tdocs/sources/whatthespec.py` | No | ✗ | ✓ | Single/few TDoc lookups (`query`, `open` commands) |
+| 3GPP Portal | `tdocs/sources/portal.py` | Yes (EOL) | ✗ | ✓ | Authenticated fallback when WhatTheSpec unavailable |
+
+### Excel Document List (batch crawl, no auth)
+
+- **Primary method for `crawl-tdocs`** — downloads the per-meeting Excel spreadsheet from 3GPP FTP and parses it
+- Best for batch-crawling all TDocs per meeting, but cannot resolve a single TDoc without knowing its meeting
+- Implemented in `TDocCrawler` (`tdocs/operations/crawl.py`) which delegates to `fetch_meeting_document_list_subinterpreter()` in the workers module
+
+### WhatTheSpec API (single/few TDocs, no auth)
+
+- Community-maintained API at `whatthespec.net` — most flexible for individual TDoc lookups
+- Primary source for `query` and `open` commands
+- No authentication required
+- Preferred over Portal for most single-TDoc queries
+
+### 3GPP Portal Authentication (fallback, requires EOL credentials)
+
+- Official authenticated source via 3GPP EOL portal
+- Should only be used as a fallback when WhatTheSpec is unavailable or when explicitly requested
+- Credentials are only needed for authoritative 3GPP-official data
+
+### Historical Note
+
+A fourth mechanism (FTP/HTTP directory crawling via `parsers/directory.py`) was removed because it only produced placeholder metadata with `title='Pending validation'` — no actual TDoc content was extracted. The Excel document list method fully supersedes it for batch crawling.
 
 ## AGENTS.md File Design Guidelines
 

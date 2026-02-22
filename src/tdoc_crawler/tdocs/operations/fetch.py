@@ -425,6 +425,5 @@ __all__ = [
     "create_source",
     "fetch_missing_tdocs",
     "fetch_missing_tdocs_batch",
-    "fetch_tdoc",
     "fetch_via_whatthespec_batch",
 ]
