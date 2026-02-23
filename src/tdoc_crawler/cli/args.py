@@ -16,11 +16,11 @@ SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) t
 # Options - TDocs/Meetings
 WorkingGroupOption = Annotated[
     list[str] | None,
-    typer.Option("--working-group", "-w", help="Filter by working group (e.g., 'R2', 'SA2')", envvar="TDC_WORKING_GROUP"),
+    typer.Option("--working-group", "-w", help="Filter by working group (e.g., 'R'/'RAN', 'S'/'SA', 'C'/'CT')", envvar="TDC_WORKING_GROUP"),
 ]
 SubgroupOption = Annotated[
     list[str] | None,
-    typer.Option("--sub-group", "-s", help="Filter by sub-working group (e.g., 'R2-102')", envvar="TDC_SUB_GROUP"),
+    typer.Option("--sub-group", "-s", help="Filter by sub-working group (e.g., 'R2/RAN2, SA4, CT1, CP, ...')", envvar="TDC_SUB_GROUP"),
 ]
 LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar="TDC_LIMIT_MEETINGS")]
 # TODO: This parameter does not make sense for working groups, but would for sub-workinggroups. Consider renaming to --limit-meetings-per-swg.
