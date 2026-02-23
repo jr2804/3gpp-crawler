@@ -28,10 +28,7 @@ class DocumentListError(Exception):
 
 
 def fetch_meeting_document_list(
-    meeting_id: int,
-    timeout: int = 30,
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
+    meeting_id: int, timeout: int = 30, http_cache: HttpCacheConfig | None = None, cache_manager_name: str | None = None
 ) -> list[TDocMetadata]:
     """Fetch all TDoc metadata for a meeting via document list Excel file.
 

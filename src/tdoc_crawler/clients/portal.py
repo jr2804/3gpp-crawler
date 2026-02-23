@@ -18,7 +18,7 @@ from typing import Any
 
 import requests
 
-from tdoc_crawler.constants.urls import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
+from tdoc_crawler.constants.urls import BROWSER_HEADERS, LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
@@ -27,17 +27,6 @@ from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_pa
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 logger = get_logger(__name__)
-
-# Common browser headers to avoid 403 Forbidden responses
-_BROWSER_HEADERS: dict[str, str] = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-    "Accept-Encoding": "gzip, deflate, br",
-    "DNT": "1",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-}
 
 
 class PortalAuthenticationError(Exception):
@@ -299,7 +288,7 @@ class PortalClient:
         """
         if self._session is None:
             self._session = create_cached_session(http_cache=self._http_cache, cache_manager_name=self._cache_manager_name)
-            self._session.headers.update(_BROWSER_HEADERS)
+
         return self._session
 
     @staticmethod
@@ -310,7 +299,7 @@ class PortalClient:
             Non-cached session with browser-like headers
         """
         session = requests.Session()
-        session.headers.update(_BROWSER_HEADERS)
+        session.headers.update(BROWSER_HEADERS)
         return session
 
 

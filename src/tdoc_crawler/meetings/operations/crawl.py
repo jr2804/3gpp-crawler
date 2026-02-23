@@ -62,7 +62,6 @@ class MeetingCrawler:
             existing_ids = self.database.get_existing_meeting_ids(working_groups)
         credentials = resolve_credentials(None, None)
         session = create_cached_session(cache_manager_name=config.cache_manager_name, http_cache=config.http_cache)
-        session.headers["User-Agent"] = "tdoc-crawler/0.0.1"
         if credentials is not None:
             session.auth = (credentials.username, credentials.password)
 

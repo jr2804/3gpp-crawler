@@ -12,6 +12,7 @@ from hishel.requests import CacheAdapter
 from urllib3.util.retry import Retry
 
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.constants.urls import BROWSER_HEADERS
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import HttpCacheConfig
 
@@ -57,19 +58,6 @@ def download_to_file(
         active_session = session
 
     try:
-        # Use requests with browser-like headers to avoid 403 Forbidden
-        active_session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.5",
-                "Accept-Encoding": "gzip, deflate, br",
-                "DNT": "1",
-                "Connection": "keep-alive",
-                "Upgrade-Insecure-Requests": "1",
-            }
-        )
-
         response = active_session.get(url, timeout=60, stream=True)
         response.raise_for_status()
         with destination.open("wb") as target:
@@ -103,6 +91,10 @@ def create_cached_session(
     Returns:
         Configured requests.Session with caching enabled (unless disabled)
     """
+    # Create session, use requests with browser-like headers to avoid 403 Forbidden
+    session = requests.Session()
+    session.headers.update(BROWSER_HEADERS)
+
     # Check if caching is disabled via parameter or environment variable
     if http_cache_enabled is None:
         env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
@@ -111,7 +103,7 @@ def create_cached_session(
     # If caching is disabled, return a plain session without caching
     if not http_cache_enabled:
         logger.debug("Creating plain HTTP session (caching disabled)")
-        return requests.Session()
+        return session
 
     http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
     if http_cache.cache_file is None:
@@ -140,9 +132,6 @@ def create_cached_session(
 
     # Create cache adapter
     cache_adapter = CacheAdapter(storage=storage, max_retries=max_retries)  # ty:ignore[invalid-argument-type]
-
-    # Create session
-    session = requests.Session()
 
     # Mount the cache adapter
     session.mount("http://", cache_adapter)
