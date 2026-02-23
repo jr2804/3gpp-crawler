@@ -82,7 +82,10 @@ class SubWorkingGroupRecord(BaseModel):
     """Persistent representation of a subworking group."""
 
     subtb: int = Field(..., description="Sub-technical body identifier")
-    tbid: int = Field(..., description="Parent technical body identifier")
+    tbid: int = Field(
+        ...,
+        description="Parent technical body identifier (FK to working_groups.tbid)",
+    )
     code: str = Field(..., description="Canonical subgroup code (e.g., 'S4', 'RP')")
     name: str = Field(..., description="Display name of the subgroup")
 

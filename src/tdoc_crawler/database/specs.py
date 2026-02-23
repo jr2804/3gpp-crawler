@@ -24,6 +24,72 @@ from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_n
 _logger = get_logger(__name__)
 
 
+def _build_spec_candidate(
+    *,
+    compact: str,
+    metadata_payload: dict[str, object],
+    normalized: str,
+    source_name: str,
+    versions: list[str],
+) -> tuple[Specification, list[SpecificationVersion]]:
+    title = str(metadata_payload.get("title", "Unknown"))
+    spec_type = str(metadata_payload.get("spec_type", "TS"))
+    status = str(metadata_payload.get("status", "unknown"))
+    working_group = str(metadata_payload.get("working_group", "unknown"))
+    series = str(metadata_payload.get("series", f"{normalized.split('.', maxsplit=1)[0]}_series"))
+    latest_version = metadata_payload.get("latest_version")
+    if latest_version is None and versions:
+        latest_version = versions[0]
+
+    candidate = Specification(
+        spec_number=normalized,
+        spec_number_compact=compact,
+        spec_type=spec_type,
+        title=title,
+        status=status,
+        working_group=working_group,
+        series=series,
+        latest_version=str(latest_version) if latest_version is not None else None,
+    )
+    spec_versions = _build_spec_versions(
+        compact=compact,
+        metadata_payload=metadata_payload,
+        normalized=normalized,
+        source_name=source_name,
+        versions=versions,
+    )
+    return candidate, spec_versions
+
+
+def _build_spec_versions(
+    *,
+    compact: str,
+    metadata_payload: dict[str, object],
+    normalized: str,
+    source_name: str,
+    versions: list[str],
+) -> list[SpecificationVersion]:
+    spec_versions: list[SpecificationVersion] = []
+    for i, version in enumerate(versions):
+        file_name = f"{compact}-unknown.zip"
+        if "specfile" in metadata_payload and isinstance(metadata_payload["specfile"], list):
+            spec_files = metadata_payload["specfile"]
+            if i < len(spec_files):
+                file_name = str(spec_files[i])
+        elif "file_name" in metadata_payload:
+            file_name = str(metadata_payload["file_name"])
+
+        spec_versions.append(
+            SpecificationVersion(
+                spec_number=normalized,
+                version=str(version),
+                file_name=file_name,
+                source_name=source_name,
+            )
+        )
+    return spec_versions
+
+
 def _version_matches_release(version: str, release_type: str, release_value: str, specificity: int) -> bool:
     """Check if a version string matches the release selector."""
     try:
@@ -207,7 +273,12 @@ class SpecDatabase(DocDatabase):
         """
         return self._clear_tables(["spec_downloads", "spec_versions", "spec_source_records", "specs"])
 
-    def crawl_specs(self, spec_numbers: list[str], release: str, sources: list[SpecSource]) -> list[SpecCrawlResult]:
+    def crawl_specs(
+        self,
+        spec_numbers: list[str],
+        release: str,
+        sources: list[SpecSource],
+    ) -> list[SpecCrawlResult]:
         """Crawl and store spec metadata for the provided spec numbers.
 
         Args:
@@ -219,186 +290,166 @@ class SpecDatabase(DocDatabase):
             List of crawl outcomes for each requested spec.
         """
         results: list[SpecCrawlResult] = []
+        release_type, release_value, specificity = normalize_release(release)
+        resolved_release = release_value if release_value is not None else ""
+        resolved_specificity = specificity if specificity is not None else 0
         for raw_spec in spec_numbers:
             normalized = normalize_spec_number(raw_spec)
             compact = normalized.replace(".", "")
-            outcomes: list[SpecCrawlSourceOutcome] = []
-            source_records: list[SpecificationSourceRecord] = []
-            spec_versions: list[SpecificationVersion] = []
-            aggregated: Specification | None = None
+            results.append(
+                self._crawl_single_spec(
+                    compact=compact,
+                    normalized=normalized,
+                    release=release,
+                    release_type=release_type,
+                    release_value=resolved_release,
+                    specificity=resolved_specificity,
+                    sources=sources,
+                )
+            )
+        return results
 
-            for source in sources:
-                try:
-                    payload = source.fetch(normalized)
-                except Exception as exc:  # noqa: BLE001
-                    _logger.warning("Spec crawl failed for %s (%s)", normalized, source.name, exc_info=exc)
-                    outcomes.append(
-                        SpecCrawlSourceOutcome(
-                            source_name=source.name,
-                            status="error",
-                            versions=[],
-                            message=str(exc),
-                        )
-                    )
-                    continue
+    def _crawl_single_spec(
+        self,
+        *,
+        compact: str,
+        normalized: str,
+        release: str,
+        release_type: str,
+        release_value: str,
+        specificity: int,
+        sources: list[SpecSource],
+    ) -> SpecCrawlResult:
+        outcomes: list[SpecCrawlSourceOutcome] = []
+        source_records: list[SpecificationSourceRecord] = []
+        spec_versions: list[SpecificationVersion] = []
+        aggregated: Specification | None = None
 
-                source_name = str(payload.get("source_name", source.name))
-                source_identifier = payload.get("source_identifier")
-                metadata_payload = payload.get("metadata_payload")
-                if not isinstance(metadata_payload, dict):
-                    metadata_payload = {}
-
-                versions = payload.get("versions")
-                if not isinstance(versions, list):
-                    versions = []
-                normalized_versions = [str(item) for item in versions]
-
+        for source in sources:
+            try:
+                payload = source.fetch(normalized)
+            except Exception as exc:  # noqa: BLE001
+                _logger.warning("Spec crawl failed for %s (%s)", normalized, source.name, exc_info=exc)
                 outcomes.append(
                     SpecCrawlSourceOutcome(
-                        source_name=source_name,
-                        status="ok",
-                        versions=normalized_versions,
-                    )
-                )
-
-                source_records.append(
-                    SpecificationSourceRecord(
-                        spec_number=normalized,
-                        source_name=source_name,
-                        source_identifier=source_identifier if isinstance(source_identifier, str) else None,
-                        metadata_payload=metadata_payload,
-                        versions=normalized_versions,
-                    )
-                )
-
-                title = str(metadata_payload.get("title", "Unknown"))
-                spec_type = str(metadata_payload.get("spec_type", "TS"))
-                status = str(metadata_payload.get("status", "unknown"))
-                working_group = str(metadata_payload.get("working_group", "unknown"))
-                series = str(metadata_payload.get("series", f"{normalized.split('.')[0]}_series"))
-                latest_version = metadata_payload.get("latest_version")
-                if latest_version is None and normalized_versions:
-                    latest_version = normalized_versions[0]
-
-                candidate = Specification(
-                    spec_number=normalized,
-                    spec_number_compact=compact,
-                    spec_type=spec_type,
-                    title=title,
-                    status=status,
-                    working_group=working_group,
-                    series=series,
-                    latest_version=str(latest_version) if latest_version is not None else None,
-                )
-                if aggregated is None:
-                    aggregated = candidate
-                elif aggregated.latest_version is None and candidate.latest_version is not None:
-                    aggregated = aggregated.model_copy(update={"latest_version": candidate.latest_version})
-
-                for i, version in enumerate(normalized_versions):
-                    # Try to get specific file name for this version from payload
-                    file_name = f"{compact}-unknown.zip"
-                    if "specfile" in metadata_payload and isinstance(metadata_payload["specfile"], list):
-                        if i < len(metadata_payload["specfile"]):
-                            file_name = str(metadata_payload["specfile"][i])
-                    elif "file_name" in metadata_payload:
-                        file_name = str(metadata_payload["file_name"])
-
-                    spec_versions.append(
-                        SpecificationVersion(
-                            spec_number=normalized,
-                            version=str(version),
-                            file_name=file_name,
-                            source_name=source_name,
-                        )
-                    )
-
-            if not outcomes:
-                results.append(
-                    SpecCrawlResult(
-                        spec_number=normalized,
-                        release=release,
+                        source_name=source.name,
                         status="error",
-                        latest_version=None,
-                        sources=[],
-                        message="no-sources",
+                        versions=[],
+                        message=str(exc),
                     )
                 )
                 continue
 
-            # Check if 3GPP source failed - if so, skip this spec entirely
-            threegpp_outcome = next((o for o in outcomes if o.source_name == "3gpp"), None)
-            if threegpp_outcome is not None and threegpp_outcome.status == "error":
-                _logger.warning("Skipping spec %s due to 3GPP source error", normalized)
-                results.append(
-                    SpecCrawlResult(
-                        spec_number=normalized,
-                        release=release,
-                        status="skipped",
-                        latest_version=None,
-                        sources=outcomes,
-                        message="3gpp-source-error",
-                    )
-                )
-                continue
+            source_name = str(payload.get("source_name", source.name))
+            source_identifier = payload.get("source_identifier")
+            metadata_payload = payload.get("metadata_payload")
+            if not isinstance(metadata_payload, dict):
+                metadata_payload = {}
 
-            release_type, release_value, specificity = normalize_release(release)
-            if release_type in ("all", "latest"):
-                release_matches = True
-            elif release_type in ("exact", "prefix"):
-                # release_value and specificity are guaranteed non-None here
-                release_matches = any(
-                    _version_matches_release(v, release_type, release_value, specificity)  # type: ignore[arg-type]
-                    for outcome in outcomes
-                    if outcome.status == "ok"
-                    for v in outcome.versions
-                )
-            else:
-                release_matches = False
+            versions = payload.get("versions")
+            if not isinstance(versions, list):
+                versions = []
+            normalized_versions = [str(item) for item in versions]
 
-            if not release_matches:
-                results.append(
-                    SpecCrawlResult(
-                        spec_number=normalized,
-                        release=release,
-                        status="skipped",
-                        latest_version=aggregated.latest_version if aggregated else None,
-                        sources=outcomes,
-                        message="release-not-found",
-                    )
-                )
-                continue
-
-            if aggregated is None:
-                results.append(
-                    SpecCrawlResult(
-                        spec_number=normalized,
-                        release=release,
-                        status="error",
-                        latest_version=None,
-                        sources=outcomes,
-                        message="no-metadata",
-                    )
-                )
-                continue
-
-            for record in source_records:
-                self.upsert_spec_source_record(record)
-            self.upsert_specification(aggregated)
-            for version in spec_versions:
-                self.upsert_spec_version(version)
-
-            results.append(
-                SpecCrawlResult(
-                    spec_number=normalized,
-                    release=release,
-                    status="stored",
-                    latest_version=aggregated.latest_version,
-                    sources=outcomes,
+            outcomes.append(
+                SpecCrawlSourceOutcome(
+                    source_name=source_name,
+                    status="ok",
+                    versions=normalized_versions,
                 )
             )
 
-        return results
+            source_records.append(
+                SpecificationSourceRecord(
+                    spec_number=normalized,
+                    source_name=source_name,
+                    source_identifier=source_identifier if isinstance(source_identifier, str) else None,
+                    metadata_payload=metadata_payload,
+                    versions=normalized_versions,
+                )
+            )
+
+            candidate, versions_payload = _build_spec_candidate(
+                compact=compact,
+                metadata_payload=metadata_payload,
+                normalized=normalized,
+                source_name=source_name,
+                versions=normalized_versions,
+            )
+            if aggregated is None:
+                aggregated = candidate
+            elif aggregated.latest_version is None and candidate.latest_version is not None:
+                aggregated = aggregated.model_copy(update={"latest_version": candidate.latest_version})
+
+            spec_versions.extend(versions_payload)
+
+        if not outcomes:
+            return SpecCrawlResult(
+                spec_number=normalized,
+                release=release,
+                status="error",
+                latest_version=None,
+                sources=[],
+                message="no-sources",
+            )
+
+        threegpp_outcome = next((o for o in outcomes if o.source_name == "3gpp"), None)
+        if threegpp_outcome is not None and threegpp_outcome.status == "error":
+            _logger.warning("Skipping spec %s due to 3GPP source error", normalized)
+            return SpecCrawlResult(
+                spec_number=normalized,
+                release=release,
+                status="skipped",
+                latest_version=None,
+                sources=outcomes,
+                message="3gpp-source-error",
+            )
+
+        if release_type in ("all", "latest"):
+            release_matches = True
+        elif release_type in ("exact", "prefix"):
+            release_matches = any(
+                _version_matches_release(v, release_type, release_value, specificity)  # type: ignore[arg-type]
+                for outcome in outcomes
+                if outcome.status == "ok"
+                for v in outcome.versions
+            )
+        else:
+            release_matches = False
+
+        if not release_matches:
+            return SpecCrawlResult(
+                spec_number=normalized,
+                release=release,
+                status="skipped",
+                latest_version=aggregated.latest_version if aggregated else None,
+                sources=outcomes,
+                message="release-not-found",
+            )
+
+        if aggregated is None:
+            return SpecCrawlResult(
+                spec_number=normalized,
+                release=release,
+                status="error",
+                latest_version=None,
+                sources=outcomes,
+                message="no-metadata",
+            )
+
+        for record in source_records:
+            self.upsert_spec_source_record(record)
+        self.upsert_specification(aggregated)
+        for version in spec_versions:
+            self.upsert_spec_version(version)
+
+        return SpecCrawlResult(
+            spec_number=normalized,
+            release=release,
+            status="stored",
+            latest_version=aggregated.latest_version,
+            sources=outcomes,
+        )
 
     def _spec_table_rows(self) -> list[Specification]:
         return self._table_rows("specs")

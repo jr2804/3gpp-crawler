@@ -7,6 +7,7 @@ from decimal import Decimal
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
 
@@ -113,15 +114,8 @@ class TDocDatabase(MeetingDatabase):
                 meeting = meeting_map.get(record.meeting_id or -1)
                 if meeting is None or meeting.tbid not in allowed_tbids:
                     continue
-                record = record.model_copy(update={"meeting_name": meeting.short_name})
                 filtered.append(record)
             records = filtered
-        else:
-            # Always ensure meeting_name is populated even without filters
-            for i, record in enumerate(records):
-                meeting = meeting_map.get(record.meeting_id or -1)
-                if meeting:
-                    records[i] = record.model_copy(update={"meeting_name": meeting.short_name})
 
         if config.start_date is not None:
             records = [record for record in records if record.date_retrieved and record.date_retrieved >= config.start_date]
@@ -202,8 +196,14 @@ class TDocDatabase(MeetingDatabase):
                 continue
             if allowed_tbids and meeting.tbid not in allowed_tbids:
                 continue
-            if allowed_subgroups and (meeting.subgroup or "").upper() not in allowed_subgroups:
-                continue
+            if allowed_subgroups:
+                subgroup_code = None
+                if meeting.subtb is not None:
+                    subgroup_record = SUBTB_INDEX.get(meeting.subtb)
+                    if subgroup_record:
+                        subgroup_code = subgroup_record.code
+                if subgroup_code is None or subgroup_code.upper() not in allowed_subgroups:
+                    continue
             processed.add(record.meeting_id)
         return processed
 
@@ -238,7 +238,6 @@ class TDocDatabase(MeetingDatabase):
             agenda_item_nbr=Decimal("0.0"),
             agenda_item_text="Unknown",
             status=None,
-            meeting_name=None,
             is_revision_of=None,
             file_size=None,
             date_created=None,
@@ -258,7 +257,7 @@ class TDocDatabase(MeetingDatabase):
     def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
         """Get a TDoc by ID."""
         try:
-            return self.connection.model_from_table("tdocs", tdoc_id.upper())  # type: ignore[arg-type]
+            return self.connection.model_from_table("tdocs", tdoc_id.upper())
         except KeyError:
             return None
 

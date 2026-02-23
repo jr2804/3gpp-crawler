@@ -8,7 +8,7 @@ from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
-from tdoc_crawler.models.subworking_groups import CODE_INDEX
+from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS, WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
@@ -101,12 +101,12 @@ class MeetingDatabase(DocDatabase):
         meetings = self._table_rows("meetings")
 
         if config.working_groups:
-            allowed = {wg.value for wg in config.working_groups}
-            meetings = [meeting for meeting in meetings if meeting.working_group and meeting.working_group in allowed]
+            allowed = {wg.tbid for wg in config.working_groups}
+            meetings = [meeting for meeting in meetings if meeting.tbid in allowed]
 
         if config.subgroups:
             allowed_subgroups = {value.strip().upper() for value in config.subgroups}
-            meetings = [meeting for meeting in meetings if (meeting.subgroup or "").upper() in allowed_subgroups]
+            meetings = [meeting for meeting in meetings if meeting.subtb in SUBTB_INDEX and SUBTB_INDEX[meeting.subtb].code in allowed_subgroups]
 
         if not config.include_without_files:
             meetings = [meeting for meeting in meetings if meeting.files_url]
@@ -138,8 +138,8 @@ class MeetingDatabase(DocDatabase):
         if not working_groups:
             return {meeting.meeting_id for meeting in meetings}
 
-        allowed = {wg.value for wg in working_groups}
-        return {meeting.meeting_id for meeting in meetings if meeting.working_group and meeting.working_group in allowed}
+        allowed = {wg.tbid for wg in working_groups}
+        return {meeting.meeting_id for meeting in meetings if meeting.tbid in allowed}
 
     def get_tdoc_count_for_meeting(self, meeting_id: int) -> int:
         """Get the number of TDocs associated with a meeting.
@@ -238,10 +238,16 @@ class MeetingDatabase(DocDatabase):
         crawl_entries = self._table_rows("crawl_log")
 
         by_working_group: dict[str, int] = defaultdict(int)
+        tbid_to_code = {working_group.tbid: working_group.value for working_group in WorkingGroup}
         for record in tdocs:
             meeting = meetings.get(record.meeting_id or -1)
-            if meeting and meeting.working_group:
-                by_working_group[meeting.working_group] += 1
+            if meeting is None:
+                continue
+            code = tbid_to_code.get(meeting.tbid)
+            if code is None:
+                _logger.debug("Unknown tbid in meeting %s: %s", meeting.meeting_id, meeting.tbid)
+                continue
+            by_working_group[code] += 1
 
         recent_crawls = [
             {
@@ -304,10 +310,6 @@ class MeetingDatabase(DocDatabase):
     @staticmethod
     def _prepare_meeting(metadata: MeetingMetadata) -> MeetingMetadata:
         """Prepare meeting metadata for insertion (set defaults)."""
-        if metadata.working_group is None and metadata.tbid:
-            for working_group in WorkingGroup:
-                if working_group.tbid == metadata.tbid:
-                    return metadata.model_copy(update={"working_group": working_group})
         return metadata
 
     @staticmethod

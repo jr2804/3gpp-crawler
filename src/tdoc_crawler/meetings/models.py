@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tdoc_crawler.models.base import BaseConfigModel, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
-from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBTB_INDEX
+from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
 
@@ -19,10 +19,14 @@ class MeetingMetadata(BaseModel):
 
     # parsed from the portal
     meeting_id: int = Field(..., description="Unique meeting identifier from the 3GPP portal")
-    tbid: int = Field(..., description="Technical body identifier of the parent working group")
-    subtb: int | None = Field(..., description="Sub-technical body identifier of the subworking group")
-    working_group: str | None = Field(None, description="Working group (as string, e.g., 'SA')")
-    subgroup: str | None = Field(None, description="Canonical subgroup code (e.g., 'R1')")
+    tbid: int = Field(
+        ...,
+        description="Technical body identifier of the parent working group (FK to working_groups.tbid)",
+    )
+    subtb: int | None = Field(
+        ...,
+        description="Sub-technical body identifier (FK to subworking_groups.subtb)",
+    )
     short_name: str = Field(..., description="Short meeting name (e.g., SA4#134)")
     title: str | None = Field(None, description="Descriptive meeting title")
     start_date: date | None = Field(None, description="Meeting start date")
@@ -41,53 +45,15 @@ class MeetingMetadata(BaseModel):
 
     @model_validator(mode="after")
     def _sync_relationships(self) -> MeetingMetadata:
-        # working_group is now a string, so match tbid if not set
-        if self.working_group is None:
-            for working_group in WorkingGroup:
-                if working_group.tbid == self.tbid:
-                    self.working_group = working_group.value
-                    break
-        else:
-            # Validate tbid matches working_group
-            try:
-                wg = WorkingGroup(self.working_group)
-            except Exception:
-                raise ValueError(f"Invalid working_group: {self.working_group}")
-            if wg.tbid != self.tbid:
-                msg = "tbid does not match provided working_group"
-                raise ValueError(msg)
-
-        if self.subtb is None and self.subgroup:
-            record = CODE_INDEX.get(self.subgroup)
-            if record is not None:
-                self.subtb = record.subtb
-
-        if self.subgroup is None and self.subtb is not None:
-            record = SUBTB_INDEX.get(self.subtb)
-            if record is not None:
-                self.subgroup = record.code
-
+        if self.subtb is None:
+            return self
+        record = SUBTB_INDEX.get(self.subtb)
+        if record is None:
+            return self
+        if record.tbid != self.tbid:
+            msg = "tbid does not match subworking group"
+            raise ValueError(msg)
         return self
-
-    @field_validator("working_group", mode="before")
-    @classmethod
-    def _validate_working_group(cls, value: WorkingGroup | str | None) -> str | None:
-        if value is None:
-            return None
-        # Accept enum or str, store as str
-        if isinstance(value, WorkingGroup):
-            return value.value
-        if value not in {wg.value for wg in WorkingGroup}:
-            raise ValueError(f"Invalid working_group: {value}")
-        return value
-
-    @field_validator("subgroup", mode="before")
-    @classmethod
-    def _normalize_subgroup(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip().upper()
-        return normalized or None
 
 
 class MeetingCrawlConfig(BaseConfigModel):
