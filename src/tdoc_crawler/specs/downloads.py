@@ -169,7 +169,12 @@ class SpecDownloads:
         url = SPEC_URL_TEMPLATE.format(series=series, normalized=normalized, file_name=target.file_name)
         return url, target.file_name
 
-    async def _attempt_doc_only_async(self, url: str, normalized: str, target_dir: Path) -> bool:
+    def _download_full_zip(self, url: str, target_path: Path) -> None:
+        """Download full zip file, re-use session if already created for doc-only attempt."""
+        self.session = download_to_file(url, target_path, session=self.session, close_session=False, cache_manager_name=self._cache_manager.name)
+
+    @staticmethod
+    async def _attempt_doc_only_async(url: str, normalized: str, target_dir: Path) -> bool:
         """Attempt to download only the document file from remote zip."""
         try:
             async with HTTPZipReader(url) as reader:
@@ -198,10 +203,6 @@ class SpecDownloads:
         except Exception as exc:
             _logger.warning("Doc-only download failed for %s: %s", url, exc)
             return False
-
-    def _download_full_zip(self, url: str, target_path: Path) -> None:
-        """Download full zip file, re-use session if already created for doc-only attempt."""
-        self.session = download_to_file(url, target_path, session=self.session, close_session=False, cache_manager_name=self._cache_manager.name)
 
     @staticmethod
     def _extract_zip(zip_file: Path, extract_dir: Path, keep_zip: bool = True) -> None:

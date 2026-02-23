@@ -173,7 +173,7 @@ def crawl_tdocs(
             results = database.query_tdocs(query_config)
 
             with create_cached_session(http_cache_enabled=http_cache_enabled) as session:
-                checkout_result = checkout_tdocs(results, checkout_dir, force=False, session=session)
+                checkout_result = checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
 
             console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
             if checkout_result.error_count:

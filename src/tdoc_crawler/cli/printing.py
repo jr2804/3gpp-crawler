@@ -9,6 +9,8 @@ from rich.table import Table
 from tdoc_crawler.database.specs import SpecCrawlResult
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
+from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.specs.models import SpecQueryResult
 from tdoc_crawler.tdocs.models import TDocMetadata
 
@@ -32,7 +34,6 @@ def print_tdoc_table(results: list[TDocMetadata]) -> None:
     table.add_column("Title", style="yellow")
     table.add_column("Source(s)", style="magenta")
     table.add_column("Type", style="green")
-    table.add_column("Meeting", style="cyan")
     table.add_column("Size (KB)", justify="right", style="blue")
 
     for result in results[:100]:
@@ -42,7 +43,6 @@ def print_tdoc_table(results: list[TDocMetadata]) -> None:
             result.title or "-",
             result.source or "-",
             result.tdoc_type or "-",
-            result.meeting_name or "-",
             size_kb,
         )
 
@@ -72,10 +72,12 @@ def print_meeting_table(results: list[MeetingMetadata]) -> None:
             )
             or "-"
         )
+        working_group = next((wg.value for wg in WorkingGroup if wg.tbid == meeting.tbid), "-")
+        subgroup = SUBTB_INDEX[meeting.subtb].code if meeting.subtb in SUBTB_INDEX else "-"
         table.add_row(
             meeting.short_name,
-            meeting.working_group,
-            meeting.subgroup or "-",
+            working_group,
+            subgroup,
             date_range,
             meeting.location or "-",
             meeting.files_url or "-",
