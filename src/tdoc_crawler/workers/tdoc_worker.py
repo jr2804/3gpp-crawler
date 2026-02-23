@@ -16,6 +16,7 @@ def fetch_meeting_document_list_subinterpreter(
     timeout: int,
     http_cache: HttpCacheConfig | None = None,
     cache_manager_name: str | None = None,
+    files_url: str | None = None,
 ) -> str:
     """Fetch meeting document list in subinterpreter context.
 
@@ -26,13 +27,20 @@ def fetch_meeting_document_list_subinterpreter(
         timeout: Request timeout in seconds
         http_cache: Optional HTTP cache configuration for caching document list responses
         cache_manager_name: Optional name of cache manager to use for HTTP caching
+        files_url: Optional HTTP directory containing meeting documents (for URL construction)
 
     Returns:
         JSON string containing list of TDocMetadata or error information
     """
     try:
         # Fetch document list for the meeting
-        tdoc_metadata_list = fetch_meeting_document_list(meeting_id=meeting_id, timeout=timeout, http_cache=http_cache, cache_manager_name=cache_manager_name)
+        tdoc_metadata_list = fetch_meeting_document_list(
+            meeting_id=meeting_id,
+            timeout=timeout,
+            http_cache=http_cache,
+            cache_manager_name=cache_manager_name,
+            files_url=files_url,
+        )
 
         # Serialize to JSON for inter-process communication
         serialized = []

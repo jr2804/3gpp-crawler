@@ -28,7 +28,11 @@ class DocumentListError(Exception):
 
 
 def fetch_meeting_document_list(
-    meeting_id: int, timeout: int = 30, http_cache: HttpCacheConfig | None = None, cache_manager_name: str | None = None
+    meeting_id: int,
+    timeout: int = 30,
+    http_cache: HttpCacheConfig | None = None,
+    cache_manager_name: str | None = None,
+    files_url: str | None = None,
 ) -> list[TDocMetadata]:
     """Fetch all TDoc metadata for a meeting via document list Excel file.
 
@@ -37,6 +41,8 @@ def fetch_meeting_document_list(
         timeout: Request timeout in seconds
         http_cache: Optional HTTP cache configuration for caching document list responses
         cache_manager_name: Optional name of cache manager to use for HTTP caching
+        files_url: Optional HTTP directory containing meeting documents (for URL construction)
+
     Returns:
         List of TDocMetadata instances for all TDocs in the meeting
 
@@ -67,7 +73,7 @@ def fetch_meeting_document_list(
 
         # Parse Excel file
         logger.debug(f"Parsing Excel document list for meeting {meeting_id}")
-        return parse_excel_document_list(response.content, meeting_id)
+        return parse_excel_document_list(response.content, meeting_id, files_url)
 
     except Exception as exc:
         if isinstance(exc, DocumentListError):
@@ -81,12 +87,14 @@ def fetch_meeting_document_list(
 def parse_excel_document_list(
     excel_content: bytes,
     meeting_id: int,
+    files_url: str | None = None,
 ) -> list[TDocMetadata]:
     """Parse Excel document list and convert to TDocMetadata instances.
 
     Args:
         excel_content: Raw Excel file content
         meeting_id: Meeting ID for reference
+        files_url: Optional HTTP directory containing meeting documents (for URL construction)
 
     Returns:
         List of TDocMetadata instances
@@ -117,7 +125,7 @@ def parse_excel_document_list(
         tdoc_metadata_list = []
         for i, (_idx, row) in enumerate(df.iterrows()):
             try:
-                tdoc_metadata = convert_excel_row_to_tdoc_metadata(row, meeting_id)
+                tdoc_metadata = convert_excel_row_to_tdoc_metadata(row, meeting_id, files_url)
                 if tdoc_metadata:
                     tdoc_metadata_list.append(tdoc_metadata)
                 else:
@@ -136,12 +144,14 @@ def parse_excel_document_list(
 def convert_excel_row_to_tdoc_metadata(
     row: pd.Series,
     meeting_id: int,
+    files_url: str | None = None,
 ) -> TDocMetadata | None:
     """Convert a single Excel row to TDocMetadata.
 
     Args:
         row: pandas Series representing one Excel row
         meeting_id: Meeting ID for reference
+        files_url: Optional HTTP directory containing meeting documents (for URL construction)
 
     Returns:
         TDocMetadata instance or None if conversion fails
@@ -164,8 +174,9 @@ def convert_excel_row_to_tdoc_metadata(
     is_revision_of = _get_column_value(row, ["Is revision of"])
     date_created = _get_column_value(row, ["Date", "Created", "Date Created", "Submission Date", "Reservation date"])
 
-    # Generate URL (this will be validated/updated later by the directory crawler)
-    url = f"https://www.3gpp.org/ftp/tsg_ran/.../{tdoc_id.upper()}.zip"
+    # Generate URL from files_url if available
+    # Format: files_url + "/Docs/" + tdoc_id + ".zip"
+    url = _construct_tdoc_url(files_url, tdoc_id.upper()) if files_url else None
 
     now = datetime.now(UTC)
 
@@ -203,6 +214,23 @@ def convert_excel_row_to_tdoc_metadata(
     except Exception as exc:
         logger.debug(f"Failed to create TDocMetadata for {tdoc_id}: {exc}")
         return None
+
+
+def _construct_tdoc_url(files_url: str | None, tdoc_id: str) -> str | None:
+    """Construct the full TDoc URL from files_url.
+
+    Args:
+        files_url: Base HTTP directory containing meeting documents
+        tdoc_id: TDoc identifier (e.g., "S4-260454")
+
+    Returns:
+        Full URL to TDoc zip file (e.g., "https://.../Docs/S4-260454.zip")
+        or None if files_url is not available
+    """
+    if not files_url:
+        return None
+    base = files_url.rstrip("/")
+    return f"{base}/Docs/{tdoc_id.upper()}.zip"
 
 
 def _extract_tdoc_id(row: pd.Series) -> str | None:

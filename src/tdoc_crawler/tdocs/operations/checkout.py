@@ -20,7 +20,7 @@ import requests
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata
-from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.tdocs.models import TDocMetadata, TDocStatus
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
 
 logger = get_logger(__name__)
@@ -85,6 +85,11 @@ def checkout_tdoc(
     Raises:
         FileNotFoundError: If download fails or zip is empty
     """
+    # Check if TDoc is withdrawn - if so, skip download and log debug message
+    if metadata.status == TDocStatus.WITHDRAWN:
+        logger.debug(f"Skipping checkout for withdrawn TDoc {metadata.tdoc_id}")
+        raise FileNotFoundError("withdrawn")
+
     checkout_path = get_checkout_path(metadata, checkout_dir)
 
     if checkout_path.exists() and not force:
@@ -120,10 +125,18 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
 
     Returns:
         Path to the downloaded file, or the extract directory when return_dir is True.
+
+    Raises:
+        FileNotFoundError: If download fails for non-withdrawn TDocs
     """
     # Handle the case where metadata.url is None
     if metadata.url is None:
         raise ValueError(f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None")
+
+    # Check if TDoc is withdrawn - if so, skip download and log debug message
+    if metadata.status == TDocStatus.WITHDRAWN:
+        logger.debug(f"Skipping download for withdrawn TDoc {metadata.tdoc_id}")
+        raise FileNotFoundError("withdrawn")
 
     downloads_dir = cache_dir / "checkout"
     downloads_dir.mkdir(parents=True, exist_ok=True)
@@ -244,8 +257,13 @@ def checkout_tdocs(
             checkout_tdoc(metadata, checkout_dir, force=force, session=session)
             success_count += 1
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
-            errors.append(f"{metadata.tdoc_id}: {exc}")
-            error_count += 1
+            error_message = str(exc)
+            # For withdrawn TDocs, log debug instead of adding to errors
+            if error_message == "withdrawn":  # This matches the FileNotFoundError message
+                logger.debug(f"Skipped withdrawn TDoc {metadata.tdoc_id}")
+            else:
+                errors.append(f"{metadata.tdoc_id}: {exc}")
+                error_count += 1
 
     return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors)
 

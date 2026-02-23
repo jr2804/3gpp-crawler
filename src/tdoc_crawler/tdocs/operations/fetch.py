@@ -145,7 +145,7 @@ def fetch_tdoc(
             for_purpose="unknown",
             agenda_item_nbr=Decimal("0"),
             agenda_item_text="Unknown",
-            status="",
+            status=None,
             meeting_name=None,
             is_revision_of=None,
             file_size=None,

@@ -142,6 +142,7 @@ class TDocCrawler:
                     timeout=config.timeout,
                     http_cache=config.http_cache,
                     cache_manager_name=config.cache_manager_name,
+                    files_url=meeting.files_url,
                 )
                 futures[future] = meeting
 
