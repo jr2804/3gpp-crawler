@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import Decimal
+from enum import StrEnum
 from typing import Any
 
 import requests
@@ -24,6 +25,61 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_ids
 _logger = get_logger(__name__)
 
 
+class TDocStatus(StrEnum):
+    """Enumeration of valid TDoc status values.
+
+    These status values represent the lifecycle states of TDocs as reported
+    by the 3GPP portal and should be used consistently throughout the application.
+    Any status not in this enum will raise a ValueError during parsing.
+    """
+
+    RESERVED = "reserved"
+    AVAILABLE = "available"
+    REVISED = "revised"
+    AGREED = "agreed"
+    CONDITIONALLY_AGREED = "conditionally agreed"
+    APPROVED = "approved"
+    CONDITIONALLY_APPROVED = "conditionally approved"
+    PARTIALLY_APPROVED = "partially approved"
+    TREATED = "treated"
+    ENDORSED = "endorsed"
+    REPLIED_TO = "replied to"
+    MERGED = "merged"
+    NOT_PURSUED = "not pursued"
+    POSTPONED = "postponed"
+    NOTED = "noted"
+    NOT_CONCLUDED = "not concluded"
+    WITHDRAWN = "withdrawn"
+    REISSUED = "reissued"
+    NOT_TREATED = "not treated"
+
+    @classmethod
+    def _missing_(cls, value: object) -> TDocStatus | None:
+        """Handle case-insensitive lookup and provide clear error messages.
+
+        This method is called when a value cannot be found in the enum.
+        It attempts case-insensitive matching first before raising an error.
+
+        Args:
+            value: The string value to look up
+
+        Returns:
+            The matching TDocStatus enum member
+
+        Raises:
+            ValueError: If the value doesn't match any known status (case-insensitive)
+        """
+        if isinstance(value, str):
+            # Try case-insensitive match
+            for member in cls:
+                if member.value == value.lower():
+                    return member
+
+        # Provide helpful error message with all valid values
+        valid_values = [f"'{m.value}'" for m in cls]
+        raise ValueError(f"Invalid TDoc status '{value}'. Expected one of: {', '.join(valid_values)}")
+
+
 class TDocMetadata(BaseModel):
     """Persistent representation for a TDoc entry."""
 
@@ -39,19 +95,7 @@ class TDocMetadata(BaseModel):
     for_purpose: str = Field("unknown", description="Purpose of the contribution (agreement, information, etc.)")
     agenda_item_nbr: Decimal = Field(..., max_digits=3, decimal_places=1, description="Associated agenda item (numerical identifier)")
     agenda_item_text: str = Field("Unknown", description="Associated agenda item (text identifier)")
-    status: str | None = Field(None, description="Document status as reported by the portal")
-
-    # Optional metadata fields (from portal or determined otherwise)
-    is_revision_of: str | None = Field(None, description="Reference to a previous TDoc version")
-    file_size: int | None = Field(None, description="File size in bytes, when available/downloaded")
-
-    # fields for local database management
-
-    date_created: datetime | None = Field(None, description="Original creation timestamp when provided")
-    date_retrieved: datetime = Field(default_factory=utc_now, description="Timestamp of the last retrieval")
-    date_updated: datetime = Field(default_factory=utc_now, description="Timestamp of the last database update")
-    validated: bool = Field(False, description="Flag indicating successful portal validation")
-    validation_failed: bool = Field(False, description="Flag indicating cached failed validation")
+    status: TDocStatus | None = Field(None, description="Document status as reported by the portal")
 
     @property
     def is_valid(self) -> bool:
@@ -122,11 +166,46 @@ class TDocMetadata(BaseModel):
 
         return is_accessible
 
+    @field_validator("status", mode="before")
+    @classmethod
+    def _validate_status(cls, value: str | TDocStatus | None) -> TDocStatus | None:
+        """Validate and normalize status value against TDocStatus enum.
+
+        Args:
+            value: Status string or enum value
+
+        Returns:
+            TDocStatus enum value or None
+
+        Raises:
+            ValueError: If status value is not in TDocStatus enum
+        """
+        if value is None:
+            return None
+
+        if isinstance(value, TDocStatus):
+            return value
+
+        # Let TDocStatus._missing_ handle validation and case-insensitive lookup
+        return TDocStatus(value)
+
     @field_validator("tdoc_id")
     @classmethod
     def _normalize_tdoc_id(cls, value: str) -> str:
         """Ensure identifiers are uppercase and trimmed."""
         return value.strip().upper()
+
+    # Optional metadata fields (from portal or determined otherwise)
+    is_revision_of: str | None = Field(None, description="Reference to a previous TDoc version")
+    file_size: int | None = Field(None, description="File size in bytes, when available/downloaded")
+
+    # fields for local database management
+
+    date_created: datetime | None = Field(None, description="Original creation timestamp when provided")
+    date_retrieved: datetime = Field(default_factory=utc_now, description="Timestamp of the last retrieval")
+    date_updated: datetime = Field(default_factory=utc_now, description="Timestamp of the last database update")
+    validated: bool = Field(False, description="Flag indicating successful portal validation")
+    validation_failed: bool = Field(False, description="Flag indicating cached failed validation")
 
 
 class TDocCrawlConfig(BaseConfigModel):
@@ -230,4 +309,5 @@ __all__ = [
     "TDocCrawlConfig",
     "TDocMetadata",
     "TDocQueryConfig",
+    "TDocStatus",
 ]
