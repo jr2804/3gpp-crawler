@@ -64,8 +64,8 @@ ignore = [
 max-locals = 20
 
 [lint.per-file-ignores]
-"tests/*.py" = ["S101", "PLR6301"]
-"tests/**/*.py" = ["S101", "PLR6301"]
+"tests/*.py" = ["S101", "S106", "PLR6301"]
+"tests/**/*.py" = ["S101", "S106", "PLR6301"]
 
 [lint.pydocstyle]
 convention = "google"

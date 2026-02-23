@@ -99,7 +99,7 @@ class TestMeetingDocumentList:
         excel_content = _create_test_excel_bytes(df)
 
         # Should raise an error or return empty list
-        with pytest.raises(Exception):  # DocumentListError or pandas error
+        with pytest.raises(DocumentListError, match="No recognizable TDoc ID columns found"):
             parse_excel_document_list(excel_content, meeting_id=12345)
 
     def test_fetch_meeting_document_list_network_error(self) -> None:

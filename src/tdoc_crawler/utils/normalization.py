@@ -10,6 +10,10 @@ _RANGE_SPLIT_PATTERN = re.compile(r"\s*([-:])\s*")
 _RELEASE_PREFIX_PATTERN = re.compile(r"^(?:v|rel|rel[-])", re.IGNORECASE)
 
 
+class NormalizationError(ValueError):
+    """Raised when spec identifier normalization or expansion fails."""
+
+
 def normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
     """Uppercase and strip whitespace from TDoc identifiers."""
     return [str(value).strip().upper() for value in ids]
@@ -65,13 +69,13 @@ def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
     """Parse a spec number and return (series, increment, format_kind, increment_digits)."""
     body = _strip_prefixes(value)
     if not body:
-        raise ValueError("Spec number is required")
+        raise NormalizationError("Spec number is required")
 
     if "." in body:
         body_no_space = re.sub(r"\s+", "", body)
         match = _DOTTED_BODY_PATTERN.match(body_no_space)
         if not match:
-            raise ValueError(f"Unsupported spec number format: {value}")
+            raise NormalizationError(f"Unsupported spec number format: {value}")
         series = match.group("series")
         increment_raw = match.group("increment")
         increment = increment_raw.zfill(3)
@@ -80,7 +84,7 @@ def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
     digits_only = re.sub(r"\s+", "", body)
     match = _UNDOTTED_BODY_PATTERN.match(digits_only)
     if not match:
-        raise ValueError(f"Unsupported spec number format: {value}")
+        raise NormalizationError(f"Unsupported spec number format: {value}")
     series = match.group("series")
     increment_raw = match.group("increment")
     increment = increment_raw.zfill(3)
@@ -89,9 +93,9 @@ def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
 
 def _validate_range(start_num: int, end_num: int, spec_input: str) -> None:
     if start_num > end_num:
-        raise ValueError(f"Invalid range: start {start_num} > end {end_num}")
+        raise NormalizationError(f"Invalid range: start {start_num} > end {end_num}")
     if end_num - start_num > 1329:
-        raise ValueError(f"Range too large: {end_num - start_num + 1} specs")
+        raise NormalizationError(f"Range too large: {end_num - start_num + 1} specs")
 
 
 def normalize_spec_number(value: str) -> str:
@@ -126,20 +130,20 @@ def expand_spec_ranges(spec_input: str) -> Generator[str]:
         Individual normalized spec numbers (e.g., "26.260", "26.261", ...)
 
     Raises:
-        ValueError: If the range syntax is invalid or series numbers don't match.
+        NormalizationError: If the range syntax is invalid or series numbers don't match.
     """
     cleaned = spec_input.strip()
     if not cleaned:
-        raise ValueError("Spec number is required")
+        raise NormalizationError("Spec number is required")
 
     if "+" in cleaned:
         offset_match = _OFFSET_PATTERN.match(cleaned)
         if not offset_match:
-            raise ValueError("Invalid offset format")
+            raise NormalizationError("Invalid offset format")
         left = offset_match.group("left")
         offset = int(offset_match.group("offset"))
         if offset < 0:
-            raise ValueError("Offset must be non-negative")
+            raise NormalizationError("Offset must be non-negative")
         series, start_str, _, _ = _parse_spec_number(left)
         start_num = int(start_str)
         end_num = start_num + offset
@@ -152,13 +156,13 @@ def expand_spec_ranges(spec_input: str) -> Generator[str]:
     if len(split) == 3:
         left, _sep, right = split
         if not right.strip():
-            raise ValueError("Missing end value in range")
+            raise NormalizationError("Missing end value in range")
         series1, num1, format1, digits1 = _parse_spec_number(left)
         series2, num2, format2, digits2 = _parse_spec_number(right)
         if series1 != series2:
-            raise ValueError(f"Series numbers don't match: {series1} vs {series2}")
+            raise NormalizationError(f"Series numbers don't match: {series1} vs {series2}")
         if format1 != format2 and (digits1 == 1 or digits2 == 1):
-            raise ValueError("Both range endpoints must use the same format")
+            raise NormalizationError("Both range endpoints must use the same format")
         start_num = int(num1)
         end_num = int(num2)
         _validate_range(start_num, end_num, spec_input)
@@ -183,7 +187,7 @@ def expand_spec_ranges_batch(spec_inputs: list[str]) -> list[str]:
     for spec_input in spec_inputs:
         try:
             expanded.extend(expand_spec_ranges(spec_input))
-        except ValueError:
+        except NormalizationError:
             # Skip invalid spec inputs silently
             continue
     return expanded

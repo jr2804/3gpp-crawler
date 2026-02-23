@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
+from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient, PortalCredentialsError
 from tdoc_crawler.clients.portal import PortalClient as ReExportedPortalClient
 from tdoc_crawler.constants.urls import TDOC_DOWNLOAD_URL
 from tdoc_crawler.models.base import PortalCredentials
@@ -142,7 +142,7 @@ class TestPortalClientAuthenticate:
         """Authentication fails without credentials."""
         with patch("tdoc_crawler.clients.portal.resolve_credentials", return_value=None):
             client = PortalClient()
-            with pytest.raises(ValueError):
+            with pytest.raises(PortalCredentialsError, match="Portal credentials required"):
                 client.authenticate()
 
     def test_authenticate_success(self) -> None:
@@ -195,7 +195,7 @@ class TestPortalClientFetchTdocMetadata:
         """Fetching fails without credentials."""
         with patch("tdoc_crawler.clients.portal.resolve_credentials", return_value=None):
             client = PortalClient()
-            with pytest.raises(ValueError):
+            with pytest.raises(PortalCredentialsError, match="Portal credentials required"):
                 client.fetch_tdoc_metadata("S4-251364")
 
     def test_fetch_success(self) -> None:

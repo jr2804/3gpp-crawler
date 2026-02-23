@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import pytest
 
+from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.subworking_groups import SubWorkingGroup
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata, TDocQueryConfig
@@ -277,8 +278,6 @@ class TestNormalizeWorkingGroupAlias:
 
     def test_normalize_ran_variants(self) -> None:
         """Test RAN working group alias normalization."""
-        from tdoc_crawler.meetings.utils import normalize_working_group_alias
-
         assert normalize_working_group_alias("RAN") == WorkingGroup.RAN
         assert normalize_working_group_alias("ran") == WorkingGroup.RAN
         assert normalize_working_group_alias("R") == WorkingGroup.RAN
@@ -286,8 +285,6 @@ class TestNormalizeWorkingGroupAlias:
 
     def test_normalize_sa_variants(self) -> None:
         """Test SA working group alias normalization."""
-        from tdoc_crawler.meetings.utils import normalize_working_group_alias
-
         assert normalize_working_group_alias("SA") == WorkingGroup.SA
         assert normalize_working_group_alias("sa") == WorkingGroup.SA
         assert normalize_working_group_alias("S") == WorkingGroup.SA
@@ -295,8 +292,6 @@ class TestNormalizeWorkingGroupAlias:
 
     def test_normalize_ct_variants(self) -> None:
         """Test CT working group alias normalization."""
-        from tdoc_crawler.meetings.utils import normalize_working_group_alias
-
         assert normalize_working_group_alias("CT") == WorkingGroup.CT
         assert normalize_working_group_alias("ct") == WorkingGroup.CT
         assert normalize_working_group_alias("C") == WorkingGroup.CT
@@ -304,32 +299,24 @@ class TestNormalizeWorkingGroupAlias:
 
     def test_normalize_with_hyphen(self) -> None:
         """Test working group normalization with hyphens."""
-        from tdoc_crawler.meetings.utils import normalize_working_group_alias
-
         assert normalize_working_group_alias("RAN-") == WorkingGroup.RAN
         assert normalize_working_group_alias("SA-") == WorkingGroup.SA
         assert normalize_working_group_alias("CT-") == WorkingGroup.CT
 
     def test_normalize_with_space(self) -> None:
         """Test working group normalization with spaces."""
-        from tdoc_crawler.meetings.utils import normalize_working_group_alias
-
         assert normalize_working_group_alias("RAN ") == WorkingGroup.RAN
         assert normalize_working_group_alias(" SA ") == WorkingGroup.SA
         assert normalize_working_group_alias(" CT") == WorkingGroup.CT
 
     def test_normalize_with_hash(self) -> None:
         """Test working group normalization with hash symbol."""
-        from tdoc_crawler.meetings.utils import normalize_working_group_alias
-
         assert normalize_working_group_alias("RAN#") == WorkingGroup.RAN
         assert normalize_working_group_alias("SA#") == WorkingGroup.SA
         assert normalize_working_group_alias("CT#") == WorkingGroup.CT
 
     def test_normalize_invalid_alias(self) -> None:
         """Test that invalid alias raises ValueError."""
-        from tdoc_crawler.meetings.utils import normalize_working_group_alias
-
         with pytest.raises(ValueError, match="Unknown working group"):
             normalize_working_group_alias("XYZ")
 
@@ -339,8 +326,6 @@ class TestNormalizeSubgroupAlias:
 
     def test_normalize_short_codes(self) -> None:
         """Test normalizing short subgroup codes."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("S4") == SubWorkingGroup.S4
         assert normalize_subgroup_alias("R1") == SubWorkingGroup.R1
         assert normalize_subgroup_alias("C3") == SubWorkingGroup.C3
@@ -350,40 +335,30 @@ class TestNormalizeSubgroupAlias:
 
     def test_normalize_full_names(self) -> None:
         """Test normalizing full subgroup names."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("SA4") == SubWorkingGroup.S4
         assert normalize_subgroup_alias("RAN1") == SubWorkingGroup.R1
         assert normalize_subgroup_alias("CT3") == SubWorkingGroup.C3
 
     def test_normalize_separators_hyphen(self) -> None:
         """Test normalizing with hyphen separators."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("SA-4") == SubWorkingGroup.S4
         assert normalize_subgroup_alias("RAN-1") == SubWorkingGroup.R1
         assert normalize_subgroup_alias("CT-3") == SubWorkingGroup.C3
 
     def test_normalize_separators_hash(self) -> None:
         """Test normalizing with hash separators."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("SA#4") == SubWorkingGroup.S4
         assert normalize_subgroup_alias("RAN#1") == SubWorkingGroup.R1
         assert normalize_subgroup_alias("CT#3") == SubWorkingGroup.C3
 
     def test_normalize_separators_space(self) -> None:
         """Test normalizing with space separators."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("SA 4") == SubWorkingGroup.S4
         assert normalize_subgroup_alias("RAN 1") == SubWorkingGroup.R1
         assert normalize_subgroup_alias("CT 3") == SubWorkingGroup.C3
 
     def test_normalize_plenary_variants(self) -> None:
         """Test normalizing plenary subgroup variants."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("RP") == SubWorkingGroup.RP
         assert normalize_subgroup_alias("RAN PLENARY") == SubWorkingGroup.RP
         assert normalize_subgroup_alias("SP") == SubWorkingGroup.SP
@@ -393,8 +368,6 @@ class TestNormalizeSubgroupAlias:
 
     def test_normalize_all_sa_subgroups(self) -> None:
         """Test normalizing all SA subgroups."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("S1") == SubWorkingGroup.S1
         assert normalize_subgroup_alias("S2") == SubWorkingGroup.S2
         assert normalize_subgroup_alias("S3") == SubWorkingGroup.S3
@@ -404,8 +377,6 @@ class TestNormalizeSubgroupAlias:
 
     def test_normalize_all_ct_subgroups(self) -> None:
         """Test normalizing all CT subgroups."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("C1") == SubWorkingGroup.C1
         assert normalize_subgroup_alias("C2") == SubWorkingGroup.C2
         assert normalize_subgroup_alias("C3") == SubWorkingGroup.C3
@@ -415,8 +386,6 @@ class TestNormalizeSubgroupAlias:
 
     def test_normalize_all_ran_subgroups(self) -> None:
         """Test normalizing all RAN subgroups."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         assert normalize_subgroup_alias("R1") == SubWorkingGroup.R1
         assert normalize_subgroup_alias("R2") == SubWorkingGroup.R2
         assert normalize_subgroup_alias("R3") == SubWorkingGroup.R3
@@ -426,7 +395,5 @@ class TestNormalizeSubgroupAlias:
 
     def test_normalize_invalid_subgroup(self) -> None:
         """Test that invalid subgroup raises ValueError."""
-        from tdoc_crawler.meetings.utils import normalize_subgroup_alias
-
         with pytest.raises(ValueError, match="Unknown working group"):
             normalize_subgroup_alias("XYZ")

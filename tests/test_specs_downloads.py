@@ -1,4 +1,6 @@
+from collections.abc import AsyncGenerator
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,7 +45,7 @@ class TestSpecDownloads:
         # extract() is an async generator - track it with a wrapper mock
         extracted_entries: list[MagicMock] = []
 
-        async def mock_extract(info, output):
+        async def mock_extract(info: Any, output: Any) -> AsyncGenerator[int]:
             extracted_entries.append(info)
             # Simulate extracting by writing placeholder bytes
             output.write(b"test content")
@@ -52,10 +54,10 @@ class TestSpecDownloads:
         mock_reader.extract = mock_extract
 
         # Set up async context manager on the return value
-        async def mock_aenter(self):
+        async def mock_aenter(self: Any) -> Any:
             return mock_reader
 
-        async def mock_aexit(self, *args) -> None:
+        async def mock_aexit(self: Any, *args: Any) -> None:
             return None
 
         MockHTTPZipReader.return_value.__aenter__ = mock_aenter

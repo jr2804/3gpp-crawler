@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from tdoc_crawler.utils.normalization import expand_spec_ranges, expand_spec_ranges_batch, normalize_spec_number
+from tdoc_crawler.utils.normalization import (
+    NormalizationError,
+    expand_spec_ranges,
+    expand_spec_ranges_batch,
+    normalize_spec_number,
+)
 from tdoc_crawler.utils.parse import collect_spec_numbers
 
 
@@ -64,7 +69,7 @@ def test_normalize_no_whitespace_between_prefixes() -> None:
 
 
 def test_normalize_invalid_spec_number() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(NormalizationError, match="Unsupported spec number format"):
         normalize_spec_number("ABC")
 
 
@@ -123,19 +128,19 @@ def test_expand_range_mixed_formats() -> None:
 
 def test_expand_range_invalid() -> None:
     """Test invalid range syntax."""
-    with pytest.raises(ValueError):
+    with pytest.raises(NormalizationError, match="Series numbers don't match"):
         list(expand_spec_ranges("26.260-25.266"))  # Different series
 
-    with pytest.raises(ValueError):
+    with pytest.raises(NormalizationError, match="Missing end value in range"):
         list(expand_spec_ranges("26.260-"))  # Missing end
 
-    with pytest.raises(ValueError):
+    with pytest.raises(NormalizationError, match="Invalid offset format"):
         list(expand_spec_ranges("26.260+"))  # Missing offset value
 
 
 def test_expand_range_reverse() -> None:
     """Test that reverse ranges are rejected."""
-    with pytest.raises(ValueError):
+    with pytest.raises(NormalizationError, match="Invalid range: start"):
         list(expand_spec_ranges("26.266-26.260"))  # Start > end
 
 

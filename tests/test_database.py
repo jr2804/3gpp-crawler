@@ -13,6 +13,8 @@ from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models import SortOrder, WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 
+from .conftest import insert_sample_meetings
+
 
 class TestTDocDatabase:
     """Tests for TDocDatabase class."""
@@ -35,8 +37,6 @@ class TestTDocDatabase:
     ) -> None:
         """Insert a TDoc record and validate persistence."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             created, changed = db.upsert_tdoc(sample_tdocs[0])
             assert created is True
@@ -54,8 +54,6 @@ class TestTDocDatabase:
     ) -> None:
         """Ensure TDoc IDs are matched case-insensitively."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             _ = db.upsert_tdoc(sample_tdocs[0])
 
@@ -74,8 +72,6 @@ class TestTDocDatabase:
     ) -> None:
         """Filter by working group."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 _ = db.upsert_tdoc(tdoc)
@@ -94,8 +90,6 @@ class TestTDocDatabase:
     ) -> None:
         """Respect limit parameter when querying TDocs."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 _ = db.upsert_tdoc(tdoc)
@@ -111,8 +105,6 @@ class TestTDocDatabase:
     ) -> None:
         """Apply start and end date filters."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 _ = db.upsert_tdoc(tdoc)
@@ -134,8 +126,6 @@ class TestTDocDatabase:
     ) -> None:
         """Compute summary statistics for stored TDocs."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 _ = db.upsert_tdoc(tdoc)
@@ -164,8 +154,6 @@ class TestTDocDatabase:
     ) -> None:
         """Update metadata for existing TDocs."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             _ = db.upsert_tdoc(sample_tdocs[0])
             updated_tdoc = TDocMetadata(
@@ -204,8 +192,6 @@ class TestTDocDatabase:
     ) -> None:
         """Return existing TDoc identifiers for incremental crawls."""
         with TDocDatabase(test_db_path) as db:
-            from .conftest import insert_sample_meetings
-
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
                 _ = db.upsert_tdoc(tdoc)

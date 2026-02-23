@@ -14,6 +14,7 @@ from tdoc_crawler.constants.patterns import EXCLUDED_DIRS, TDOC_PATTERN
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.models.subworking_groups import CODE_INDEX
 from tdoc_crawler.parsers.meetings import parse_meeting_row, parse_single_date
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
@@ -265,8 +266,6 @@ class TestMeetingCrawler:
         row = soup.find("tr")
         assert row is not None
         cells = row.find_all("td")
-
-        from tdoc_crawler.models.subworking_groups import CODE_INDEX
 
         # Create get_subtb callback for subtb lookup
         def get_subtb(subgroup_code: str) -> int | None:

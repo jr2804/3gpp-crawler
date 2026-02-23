@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
@@ -714,7 +715,7 @@ class TestEnvironmentVariables:
         mock_db_class: MagicMock,
         mock_crawler_class: MagicMock,
         test_cache_dir: Path,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_CACHE_DIR environment variable sets cache directory."""
         mock_db = MagicMock(spec=TDocDatabase)
@@ -745,7 +746,7 @@ class TestEnvironmentVariables:
         self,
         mock_db_class: MagicMock,
         mock_crawler_class: MagicMock,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_WORKERS environment variable sets worker count."""
         mock_db = MagicMock(spec=TDocDatabase)
@@ -778,7 +779,7 @@ class TestEnvironmentVariables:
     def test_env_var_working_group(
         self,
         mock_db_class: MagicMock,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_WORKING_GROUP environment variable filters by working group."""
         mock_db = MagicMock()
@@ -800,7 +801,7 @@ class TestEnvironmentVariables:
     def test_env_var_output_format(
         self,
         mock_db_class: MagicMock,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_OUTPUT environment variable sets output format."""
         mock_db = MagicMock(spec=TDocDatabase)
@@ -816,7 +817,7 @@ class TestEnvironmentVariables:
 
     def test_env_var_cli_override(
         self,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that CLI arguments override environment variables."""
         # Note: TDC_VERBOSE has been removed - verbose mode is now controlled by --verbose flag only
@@ -831,7 +832,7 @@ class TestEnvironmentVariables:
     def test_env_var_credentials(
         self,
         mock_resolve: MagicMock,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
         test_cache_dir: Path,
     ) -> None:
         """Test that TDC_EOL_USERNAME and TDC_EOL_PASSWORD set credentials."""
@@ -856,7 +857,7 @@ class TestEnvironmentVariables:
     def test_env_var_prompt_credentials(
         self,
         mock_resolve: MagicMock,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
         test_cache_dir: Path,
     ) -> None:
         """Test that TDC_EOL_PROMPT controls credential prompting."""
@@ -877,7 +878,7 @@ class TestEnvironmentVariables:
     def test_env_var_limit(
         self,
         mock_db_class: MagicMock,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_LIMIT environment variables set limits."""
         mock_db = MagicMock(spec=TDocDatabase)
@@ -897,7 +898,7 @@ class TestEnvironmentVariables:
     def test_env_var_multiple_credentials(
         self,
         mock_resolve: MagicMock,
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
         test_cache_dir: Path,
     ) -> None:
         """Test multiple credential environment variables work together."""

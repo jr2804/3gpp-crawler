@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -87,10 +88,8 @@ class TestCreateCachedSession:
             mock_response.headers = {}
             mock_get.return_value = mock_response
 
-            try:
+            with contextlib.suppress(Exception):
                 session.get("http://example.com")
-            except Exception:
-                pass  # Ignore any errors, we just want to trigger cache creation
 
         session.close()
 

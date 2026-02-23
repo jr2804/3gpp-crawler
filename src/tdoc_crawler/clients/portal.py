@@ -33,6 +33,10 @@ class PortalAuthenticationError(Exception):
     """Raised when portal authentication fails."""
 
 
+class PortalCredentialsError(ValueError):
+    """Raised when portal credentials are missing or invalid."""
+
+
 class PortalClient:
     """Unified 3GPP portal client with authentication and TDoc fetching.
 
@@ -103,13 +107,13 @@ class PortalClient:
 
         Raises:
             PortalAuthenticationError: If authentication fails
-            ValueError: If no credentials were provided
+            PortalCredentialsError: If no credentials were provided
         """
         if self._authenticated:
             return
 
         if self.credentials is None:
-            raise ValueError("Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD.")
+            raise PortalCredentialsError("Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD.")
 
         logger.info("Authenticating with 3GPP portal...")
 
@@ -230,7 +234,7 @@ class PortalClient:
         Raises:
             PortalAuthenticationError: If authentication fails
             PortalParsingError: If page parsing fails or TDoc not found
-            ValueError: If no credentials were provided
+            PortalCredentialsError: If no credentials were provided
         """
         # Extract URL if not provided
         if url is None:
