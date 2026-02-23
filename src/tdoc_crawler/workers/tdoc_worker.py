@@ -46,7 +46,6 @@ def fetch_meeting_document_list_subinterpreter(
         error_data = {
             "error": str(exc),
             "meeting_id": meeting_id,
-            "http_cache": http_cache,
         }
         return json.dumps({"_error": error_data})
 

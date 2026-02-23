@@ -51,6 +51,7 @@ from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawler
 from tdoc_crawler.models.base import HttpCacheConfig, OutputFormat, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
+from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, checkout_specs
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
@@ -118,10 +119,31 @@ def crawl_tdocs(
     db_file = manager.db_file
 
     scope_parts = []
-    if subgroups:
+
+    # Query actual meetings from database to show realistic scope
+    with MeetingDatabase(db_file) as meeting_db:
+        query_config = MeetingQueryConfig(
+            working_groups=working_groups,
+            subgroups=subgroups,
+            limit=None,
+            order=SortOrder.ASC,
+            include_without_files=False,
+        )
+        meetings = meeting_db.query_meetings(query_config)
+
+    if meetings:
+        # Extract unique subgroups from queried meetings
+        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
+        if unique_subgroups:
+            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
+        else:
+            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
+    # Fallback to input parameters if no meetings found in DB
+    elif subgroups:
         scope_parts.append(f"subgroups: {', '.join(subgroups)}")
     else:
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
     handle_clear_options(
