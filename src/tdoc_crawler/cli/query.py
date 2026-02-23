@@ -114,10 +114,14 @@ def query_tdocs(
     )
 
     db_file = manager.db_file
+    handle_clear_options(
+        db_file,
+        manager.checkout_dir,
+        TDocDatabase,
+        clear_tdocs=clear_tdocs,
+        clear_specs=clear_specs,
+    )
     with TDocDatabase(db_file) as database:
-        checkout_dir = manager.checkout_dir
-        handle_clear_options(database, checkout_dir, clear_tdocs=clear_tdocs, clear_specs=clear_specs)
-
         results = database.query_tdocs(config)
         if not no_fetch:
             with create_cached_session() as session:
@@ -183,10 +187,14 @@ def query_meetings(
     )
 
     db_file = manager.db_file
+    handle_clear_options(
+        db_file,
+        manager.checkout_dir,
+        MeetingDatabase,
+        clear_tdocs=clear_tdocs,
+        clear_specs=clear_specs,
+    )
     with MeetingDatabase(db_file) as database:
-        checkout_dir = manager.checkout_dir
-        handle_clear_options(database, checkout_dir, clear_tdocs=clear_tdocs, clear_specs=clear_specs)
-
         meetings = database.query_meetings(config)
 
     if not meetings:
@@ -244,10 +252,14 @@ def query_specs(
         raise typer.Exit(code=2) from exc
 
     db_file = manager.db_file
+    handle_clear_options(
+        db_file,
+        manager.checkout_dir,
+        SpecDatabase,
+        clear_tdocs=clear_tdocs,
+        clear_specs=clear_specs,
+    )
     with SpecDatabase(db_file) as database:
-        checkout_dir = manager.checkout_dir
-        handle_clear_options(database, checkout_dir, clear_tdocs=clear_tdocs, clear_specs=clear_specs)
-
         results = database.query_specs(filters)
 
     if not results:

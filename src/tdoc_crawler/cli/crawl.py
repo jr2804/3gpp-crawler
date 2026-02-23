@@ -124,10 +124,15 @@ def crawl_tdocs(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
-    with TDocDatabase(db_file) as database:
-        checkout_dir = manager.checkout_dir
-        handle_clear_options(database, checkout_dir, clear_tdocs=clear_tdocs, clear_specs=clear_specs)
+    handle_clear_options(
+        db_file,
+        manager.checkout_dir,
+        TDocDatabase,
+        clear_tdocs=clear_tdocs,
+        clear_specs=clear_specs,
+    )
 
+    with TDocDatabase(db_file) as database:
         crawler = TDocCrawler(database)
         crawl_id = database.log_crawl_start("tdoc", [wg.value for wg in config.working_groups], config.incremental)
 
@@ -234,9 +239,14 @@ def crawl_meetings(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    with MeetingDatabase(db_file) as database:
-        checkout_dir = manager.checkout_dir
-        handle_clear_options(database, checkout_dir, clear_tdocs=clear_tdocs, clear_specs=clear_specs, clear_db=clear_db)
+    handle_clear_options(
+        db_file,
+        manager.checkout_dir,
+        MeetingDatabase,
+        clear_tdocs=clear_tdocs,
+        clear_specs=clear_specs,
+        clear_db=clear_db,
+    )
 
     with MeetingDatabase(db_file) as database:
         crawl_id = database.log_crawl_start("meeting", [wg.value for wg in config.working_groups], config.incremental)
@@ -306,10 +316,15 @@ def crawl_specs(
 
     sources = build_default_spec_sources()
 
-    with SpecDatabase(manager.db_file) as database:
-        checkout_dir = manager.checkout_dir
-        handle_clear_options(database, checkout_dir, clear_tdocs=clear_tdocs, clear_specs=clear_specs)
+    handle_clear_options(
+        manager.db_file,
+        manager.checkout_dir,
+        SpecDatabase,
+        clear_tdocs=clear_tdocs,
+        clear_specs=clear_specs,
+    )
 
+    with SpecDatabase(manager.db_file) as database:
         results = database.crawl_specs(specs, release, sources)
 
     if not results:
