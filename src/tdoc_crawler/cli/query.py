@@ -146,12 +146,16 @@ def query_tdocs(
         with create_cached_session() as session:
             checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
 
+    # Build meeting map for enriched output
+    with MeetingDatabase(db_file) as meeting_db:
+        meeting_map = meeting_db._meeting_map()
+
     if config.output_format is OutputFormat.JSON:
-        console.print(json.dumps([tdoc_to_dict(result) for result in results], indent=2))
+        console.print(json.dumps([tdoc_to_dict(result, meeting_map) for result in results], indent=2))
     elif config.output_format is OutputFormat.YAML:
-        console.print(yaml.dump([tdoc_to_dict(result) for result in results], sort_keys=False))
+        console.print(yaml.dump([tdoc_to_dict(result, meeting_map) for result in results], sort_keys=False))
     else:
-        print_tdoc_table(results)
+        print_tdoc_table(results, meeting_map)
 
 
 def query_meetings(

@@ -158,10 +158,11 @@ def convert_excel_row_to_tdoc_metadata(
     for_purpose = _get_column_value(row, ["For", "Purpose", "For Purpose"])
     source = _get_column_value(row, ["Source", "Organization", "Company"])
     contact = _get_column_value(row, ["Contact", "Contact Person", "Author"])
-    agenda_item = _get_column_value(row, ["Agenda Item", "Agenda", "Agenda Ref"])
-    status = _get_column_value(row, ["Status", "Document Status"])
-    is_revision_of = _get_column_value(row, ["Revision of", "Is Revision of", "Based on"])
-    date_created = _get_column_value(row, ["Date", "Created", "Date Created", "Submission Date"])
+    agenda_item = _get_column_value(row, ["Agenda item"])
+    agenda_item_desc = _get_column_value(row, ["Agenda item description"])
+    status = _get_column_value(row, ["TDoc Status"])
+    is_revision_of = _get_column_value(row, ["Is revision of"])
+    date_created = _get_column_value(row, ["Date", "Created", "Date Created", "Submission Date", "Reservation date"])
 
     # Generate URL (this will be validated/updated later by the directory crawler)
     url = f"https://www.3gpp.org/ftp/tsg_ran/.../{tdoc_id.upper()}.zip"
@@ -169,8 +170,11 @@ def convert_excel_row_to_tdoc_metadata(
     now = datetime.now(UTC)
 
     try:
-        # Parse agenda item number
+        # Parse agenda item number and text
         agenda_nbr, agenda_text = _parse_agenda_item(agenda_item)
+        # If we have a separate description column, use it instead
+        if agenda_item_desc and agenda_text == "Unknown":
+            agenda_text = agenda_item_desc
 
         # Parse date
         parsed_date = _parse_date(date_created)
@@ -239,7 +243,7 @@ def _is_valid_tdoc_id(tdoc_id: str) -> bool:
 
 
 def _get_column_value(row: pd.Series, possible_names: list[str]) -> str | None:
-    """Get value from row using possible column names.
+    """Get value from row using possible column names (case-insensitive).
 
     Args:
         row: pandas Series representing one Excel row
@@ -248,13 +252,18 @@ def _get_column_value(row: pd.Series, possible_names: list[str]) -> str | None:
     Returns:
         Column value or None if not found
     """
+    # Build lowercase lookup for case-insensitive matching
+    row_lower = {k.lower(): k for k in row.index}
+
     for col_name in possible_names:
-        value = row.get(col_name)
-        if value and isinstance(value, str):
-            return value.strip()
-        elif value is not None:
-            # Handle non-string values (dates, numbers, etc.)
-            return str(value).strip()
+        actual_col = row_lower.get(col_name.lower())
+        if actual_col is not None:
+            value = row[actual_col]
+            if value and isinstance(value, str):
+                return value.strip()
+            elif value is not None:
+                # Handle non-string values (dates, numbers, etc.)
+                return str(value).strip()
     return None
 
 
