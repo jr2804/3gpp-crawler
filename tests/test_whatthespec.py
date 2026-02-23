@@ -86,7 +86,6 @@ class TestWhatTheSpecResolution:
             assert result.tdoc_type == "agenda"
             assert result.for_purpose == "Approval"
             assert result.url == "https://www.3gpp.org/tsg_sa/WG4_CODEC/TSGS4_135_India/Docs/S4-260001.zip"
-            assert result.meeting_name == "S4-135"
             assert result.agenda_item_nbr == Decimal("2")
             assert result.agenda_item_text == "Approval of agenda and association of documents"
             assert result.status == "available"
@@ -248,7 +247,6 @@ class TestWhatTheSpecResolution:
             assert result.tdoc_type == "discussion"  # tdoctype -> tdoc_type
             assert result.for_purpose == "information"  # for -> for_purpose
             assert result.url == "https://example.com/doc.zip"  # link -> url
-            assert result.meeting_name == "R1-98"  # meeting -> meeting_name
             assert result.agenda_item_nbr == Decimal("3.5")  # ainumber -> agenda_item_nbr
             assert result.agenda_item_text == "Test agenda item"  # ainame -> agenda_item_text
             assert result.status == "approved"  # status -> status
@@ -287,7 +285,6 @@ class TestWhatTheSpecResolution:
             assert result.for_purpose == "unknown"  # default for missing for
             assert result.source == ""  # default for missing source
             assert result.contact == ""  # default for missing contact
-            assert result.meeting_name is None  # None for missing meeting
             assert result.agenda_item_nbr == Decimal("0")  # default for invalid ainumber
             assert result.agenda_item_text == "Unknown"  # default for missing ainame
             assert result.status is None  # None for missing status
@@ -364,7 +361,6 @@ class TestWhatTheSpecResolution:
             assert result is not None
             # Meeting resolution should work if meeting is in DB
             assert result.meeting_id == 12347
-            assert result.meeting_name == "SA4#134"
 
     def test_tdoc_id_normalization(self, test_cache_dir: Path, http_cache_config: HttpCacheConfig) -> None:
         """Test that TDoc IDs are normalized to uppercase.

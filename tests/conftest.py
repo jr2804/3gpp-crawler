@@ -11,7 +11,6 @@ import pytest
 from tdoc_crawler.config import CacheManager, register_cache_manager
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
-from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 
@@ -117,7 +116,7 @@ def sample_tdocs() -> list[TDocMetadata]:
 
 
 @pytest.fixture
-def sample_meetings() -> list[dict]:
+def sample_meetings() -> list[dict[str, object]]:
     """Create sample meeting metadata for testing.
 
     Returns:
@@ -158,7 +157,11 @@ def sample_meetings() -> list[dict]:
 
 
 @pytest.fixture
-def populated_db(test_db_path: Path, sample_meetings: list[dict], sample_tdocs: list[TDocMetadata]) -> TDocDatabase:
+def populated_db(
+    test_db_path: Path,
+    sample_meetings: list[dict[str, object]],
+    sample_tdocs: list[TDocMetadata],
+) -> TDocDatabase:
     """Create and populate a test database.
 
     Args:
@@ -172,11 +175,11 @@ def populated_db(test_db_path: Path, sample_meetings: list[dict], sample_tdocs: 
     with TDocDatabase(test_db_path) as db:
         insert_sample_meetings(db, sample_meetings)
         for tdoc in sample_tdocs:
-            db.upsert_tdoc(tdoc)
+            _ = db.upsert_tdoc(tdoc)
     return TDocDatabase(test_db_path)
 
 
-def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict]) -> None:
+def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
     """Insert sample meetings into database using the proper database API.
 
     This function uses db.upsert_meeting() instead of raw SQL to ensure
@@ -194,68 +197,40 @@ def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict]) -> N
             - location: Meeting location
             - files_url: URL to meeting files
     """
-    # Map tbid to WorkingGroup enum
-    tbid_to_wg = {
-        373: WorkingGroup.RAN,  # RAN
-        375: WorkingGroup.SA,  # SA
-        649: WorkingGroup.CT,  # CT
-    }
-
-    # Map subtb to subgroup name
-    subtb_to_sg = {
-        373: "RP",  # RAN Plenary
-        379: "R1",  # RAN1
-        380: "R2",  # RAN2
-        381: "R3",  # RAN3
-        382: "R4",  # RAN4
-        657: "R5",  # RAN5
-        843: "R6",  # RAN6
-        375: "SP",  # SA Plenary
-        384: "S1",  # SA1
-        385: "S2",  # SA2
-        386: "S3",  # SA3
-        387: "S4",  # SA4
-        388: "S5",  # SA5
-        825: "S6",  # SA6
-        649: "CP",  # CT Plenary
-        651: "C1",  # CT1
-        652: "C2",  # CT2
-        653: "C3",  # CT3
-        654: "C4",  # CT4
-        655: "C5",  # CT5
-        656: "C6",  # CT6
-    }
-
     for meeting_dict in meetings:
+        meeting_id = int(str(meeting_dict.get("meeting_id", 0)))
+        tbid = int(str(meeting_dict.get("tbid", 0)))
+        subtb_raw = meeting_dict.get("subtb")
+        subtb = int(str(subtb_raw)) if subtb_raw is not None else None
+        short_name = str(meeting_dict.get("short_name", ""))
+        location_raw = meeting_dict.get("location")
+        location = str(location_raw) if location_raw else None
+        files_url_raw = meeting_dict.get("files_url")
+        files_url = str(files_url_raw) if files_url_raw else None
         # Parse date strings to date objects
         start_date_str = meeting_dict.get("start_date")
         end_date_str = meeting_dict.get("end_date")
 
-        start_date = date.fromisoformat(start_date_str) if start_date_str else None
-        end_date = date.fromisoformat(end_date_str) if end_date_str else None
+        start_date = date.fromisoformat(str(start_date_str)) if start_date_str else None
+        end_date = date.fromisoformat(str(end_date_str)) if end_date_str else None
 
         # Create MeetingMetadata using the database API
-        tbid = meeting_dict["tbid"]
-        subtb = meeting_dict["subtb"]
-
         meeting_metadata = MeetingMetadata(
-            meeting_id=meeting_dict["meeting_id"],
+            meeting_id=meeting_id,
             tbid=tbid,
             subtb=subtb,
-            working_group=tbid_to_wg.get(tbid, WorkingGroup.RAN),
-            subgroup=subtb_to_sg.get(subtb),
-            short_name=meeting_dict["short_name"],
+            short_name=short_name,
             title=None,
             start_date=start_date,
             end_date=end_date,
-            location=meeting_dict.get("location"),
-            files_url=meeting_dict.get("files_url"),
+            location=location,
+            files_url=files_url,
             portal_url=None,
             tdoc_count=0,
         )
 
         # Use the proper database API instead of raw SQL
-        database.upsert_meeting(meeting_metadata)
+        _ = database.upsert_meeting(meeting_metadata)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.credentials import resolve_credentials
-from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
@@ -216,14 +216,7 @@ def fetch_missing_tdocs_batch(
                 errors.append(error_msg)
                 continue
 
-            # Resolve meeting_id if needed
-            if metadata.meeting_name:
-                with MeetingDatabase(database.db_file) as meeting_db:
-                    meeting_id = meeting_db.resolve_meeting_id(metadata.meeting_name)
-                if meeting_id is not None:
-                    metadata.meeting_id = meeting_id
-                else:
-                    logger.warning(f"Could not resolve meeting '{metadata.meeting_name}' to meeting_id for {tdoc_id}")
+            # meeting_id resolution is now done inside source modules
 
             inserted, updated = database.upsert_tdoc(metadata)
             if inserted:

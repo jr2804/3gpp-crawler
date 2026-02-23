@@ -42,11 +42,11 @@ class TDocMetadata(BaseModel):
     status: str | None = Field(None, description="Document status as reported by the portal")
 
     # Optional metadata fields (from portal or determined otherwise)
-    meeting_name: str | None = Field(None, description="Meeting name from portal (temporary, used for resolution)")
     is_revision_of: str | None = Field(None, description="Reference to a previous TDoc version")
     file_size: int | None = Field(None, description="File size in bytes, when available/downloaded")
 
     # fields for local database management
+
     date_created: datetime | None = Field(None, description="Original creation timestamp when provided")
     date_retrieved: datetime = Field(default_factory=utc_now, description="Timestamp of the last retrieval")
     date_updated: datetime = Field(default_factory=utc_now, description="Timestamp of the last database update")

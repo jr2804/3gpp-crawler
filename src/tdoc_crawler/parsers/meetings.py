@@ -56,7 +56,7 @@ def parse_meeting_row(
     cells: list[Tag],
     working_group: WorkingGroup,
     subgroup: str | None,
-    get_subtb: Callable[[str], int] | None = None,
+    get_subtb: Callable[[str], int | None] | None = None,
 ) -> MeetingMetadata:
     """Parse a single meeting row from the table.
 
@@ -93,8 +93,6 @@ def parse_meeting_row(
         meeting_id=meeting_id,
         tbid=tbid,
         subtb=subtb,
-        working_group=working_group,
-        subgroup=subgroup,
         short_name=short_name,
         title=title or None,
         start_date=start_date,
@@ -102,6 +100,7 @@ def parse_meeting_row(
         location=location or None,
         files_url=files_url,
         portal_url=portal_url,
+        tdoc_count=0,
     )
 
 

@@ -7,7 +7,6 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from conftest import insert_sample_meetings
 
 from tdoc_crawler.database import DatabaseError, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
@@ -28,9 +27,16 @@ class TestTDocDatabase:
 
         assert test_db_path.exists()
 
-    def test_upsert_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_upsert_tdoc(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Insert a TDoc record and validate persistence."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
             created, changed = db.upsert_tdoc(sample_tdocs[0])
             assert created is True
@@ -40,11 +46,18 @@ class TestTDocDatabase:
             assert len(results) == 1
             assert results[0].tdoc_id == "R1-2301234"
 
-    def test_case_insensitive_query(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_case_insensitive_query(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Ensure TDoc IDs are matched case-insensitively."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
-            db.upsert_tdoc(sample_tdocs[0])
+            _ = db.upsert_tdoc(sample_tdocs[0])
 
             results = db.query_tdocs(TDocQueryConfig(tdoc_ids=["r1-2301234"]))
             assert len(results) == 1
@@ -53,12 +66,19 @@ class TestTDocDatabase:
             results = db.query_tdocs(TDocQueryConfig(tdoc_ids=["R1-2301234"]))
             assert len(results) == 1
 
-    def test_query_by_working_group(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_query_by_working_group(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Filter by working group."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
-                db.upsert_tdoc(tdoc)
+                _ = db.upsert_tdoc(tdoc)
 
             ran_results = db.query_tdocs(TDocQueryConfig(working_groups=[WorkingGroup.RAN]))
             assert len(ran_results) == 2
@@ -66,22 +86,36 @@ class TestTDocDatabase:
             sa_results = db.query_tdocs(TDocQueryConfig(working_groups=[WorkingGroup.SA]))
             assert len(sa_results) == 1
 
-    def test_query_with_limit(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_query_with_limit(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Respect limit parameter when querying TDocs."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
-                db.upsert_tdoc(tdoc)
+                _ = db.upsert_tdoc(tdoc)
 
             results = db.query_tdocs(TDocQueryConfig(limit=2))
             assert len(results) == 2
 
-    def test_query_with_date_range(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_query_with_date_range(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Apply start and end date filters."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
-                db.upsert_tdoc(tdoc)
+                _ = db.upsert_tdoc(tdoc)
 
             start = datetime(2023, 1, 15, tzinfo=UTC)
             end = datetime(2023, 1, 20, tzinfo=UTC)
@@ -92,12 +126,19 @@ class TestTDocDatabase:
             results = db.query_tdocs(TDocQueryConfig(start_date=start))
             assert not results
 
-    def test_get_statistics(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_get_statistics(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Compute summary statistics for stored TDocs."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
-                db.upsert_tdoc(tdoc)
+                _ = db.upsert_tdoc(tdoc)
 
             stats: dict[str, object] = db.get_statistics()
             assert isinstance(stats, dict)
@@ -115,11 +156,18 @@ class TestTDocDatabase:
 
             db.log_crawl_end(crawl_id, items_added=2, items_updated=1, errors_count=0)
 
-    def test_update_existing_tdoc(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_update_existing_tdoc(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Update metadata for existing TDocs."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
-            db.upsert_tdoc(sample_tdocs[0])
+            _ = db.upsert_tdoc(sample_tdocs[0])
             updated_tdoc = TDocMetadata(
                 tdoc_id="R1-2301234",
                 url="https://www.3gpp.org/updated/r1-2301234.zip",
@@ -148,12 +196,19 @@ class TestTDocDatabase:
             assert results[0].title == "Updated Title"
             assert results[0].file_size == 512000
 
-    def test_get_existing_tdoc_ids(self, test_db_path: Path, sample_tdocs: list[TDocMetadata], sample_meetings: list[dict]) -> None:
+    def test_get_existing_tdoc_ids(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Return existing TDoc identifiers for incremental crawls."""
         with TDocDatabase(test_db_path) as db:
+            from .conftest import insert_sample_meetings
+
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
-                db.upsert_tdoc(tdoc)
+                _ = db.upsert_tdoc(tdoc)
 
             existing = db.get_existing_tdoc_ids()
             assert existing == {"R1-2301234", "R2-2301567", "S4-2301890"}
@@ -166,8 +221,6 @@ class TestTDocDatabase:
             meeting_id=12345,
             tbid=373,
             subtb=379,
-            working_group=WorkingGroup.RAN,
-            subgroup="RAN1",
             short_name="RAN1#98",
             title="RAN1 Meeting 98",
             start_date=date(2024, 5, 1),
@@ -175,6 +228,7 @@ class TestTDocDatabase:
             location="Somewhere",
             files_url="https://www.3gpp.org/ftp/tsg_ran/RAN1/RAN1_98/Docs/",
             portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345",
+            tdoc_count=0,
         )
 
         with TDocDatabase(test_db_path) as db:
@@ -200,8 +254,6 @@ class TestTDocDatabase:
             meeting_id=6789,
             tbid=375,
             subtb=387,
-            working_group=WorkingGroup.SA,
-            subgroup="SA4",
             short_name="SA4#134",
             title=None,
             start_date=date(2024, 4, 10),
@@ -209,10 +261,11 @@ class TestTDocDatabase:
             location="Online",
             files_url="https://www.3gpp.org/ftp/tsg_sa/SA4/SA4_134/Docs/",
             portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=6789",
+            tdoc_count=0,
         )
 
         with TDocDatabase(test_db_path) as db:
-            db.upsert_meeting(meeting)
+            _ = db.upsert_meeting(meeting)
             existing = db.get_existing_meeting_ids()
             assert existing == {6789}
             filtered = db.get_existing_meeting_ids([WorkingGroup.SA])
@@ -228,6 +281,7 @@ class TestTDocDatabase:
             _ = db.connection
 
     def _query_all(self, cache_dir: Path) -> TDocQueryConfig:
+        _ = cache_dir
         return TDocQueryConfig()
 
 

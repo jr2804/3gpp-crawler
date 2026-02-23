@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
-from conftest import insert_sample_meetings
 
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
@@ -16,6 +15,8 @@ from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
 from tdoc_crawler.utils.parse import infer_working_groups_from_ids
+
+from .conftest import insert_sample_meetings
 
 
 class TestInferWorkingGroups:
@@ -73,18 +74,17 @@ class TestFetchMissingTdocsBatch:
         self,
         mock_portal_source_class: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Ensure targeted fetch creates proper config."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         # Setup the mock to return a PortalSource instance with fetch_by_id mocked
         mock_source_instance = MagicMock()
         mock_source_instance.fetch_by_id.return_value = TDocMetadata(
             tdoc_id="R1-2301234",
             meeting_id=0,
-            meeting_name="RAN1#98",
             title="Test TDoc",
             url="https://example.com/R1-2301234.zip",
             contact="Test Contact",
@@ -102,7 +102,7 @@ class TestFetchMissingTdocsBatch:
         )
         mock_portal_source_class.return_value = mock_source_instance
 
-        PortalCredentials(username="test", password="test")
+        _ = PortalCredentials(username="test", password="test")
 
         with TDocDatabase(test_db_path) as database:
             insert_sample_meetings(database, sample_meetings)
@@ -121,11 +121,11 @@ class TestFetchMissingTdocsBatch:
         self,
         mock_portal_source_class: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Verify working groups are inferred from target IDs."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         # Setup the mock to return a PortalSource instance with fetch_by_id mocked
         mock_source_instance = MagicMock()
@@ -133,7 +133,6 @@ class TestFetchMissingTdocsBatch:
             TDocMetadata(
                 tdoc_id="R1-2301234",
                 meeting_id=0,
-                meeting_name="RAN1#98",
                 title="Test TDoc 1",
                 url="https://example.com/R1-2301234.zip",
                 contact="Test Contact",
@@ -152,7 +151,6 @@ class TestFetchMissingTdocsBatch:
             TDocMetadata(
                 tdoc_id="S4-2301890",
                 meeting_id=0,
-                meeting_name="SA4#134",
                 title="Test TDoc 2",
                 url="https://example.com/S4-2301890.zip",
                 contact="Test Contact",
@@ -171,7 +169,7 @@ class TestFetchMissingTdocsBatch:
         ]
         mock_portal_source_class.return_value = mock_source_instance
 
-        PortalCredentials(username="test", password="test")  # noqa: S106
+        _ = PortalCredentials(username="test", password="test")  # noqa: S106
 
         with TDocDatabase(test_db_path) as database:
             insert_sample_meetings(database, sample_meetings)
@@ -194,7 +192,7 @@ class TestFetchMissingTdocs:
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Skip fetch when all requested TDocs are present."""
         with TDocDatabase(test_db_path) as database:
@@ -225,7 +223,7 @@ class TestFetchMissingTdocs:
     ) -> None:
         """Trigger fetch when requested TDocs are missing."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         mock_fetch_batch.return_value = TDocCrawlResult(
             processed=1,
@@ -259,7 +257,7 @@ class TestFetchMissingTdocs:
     ) -> None:
         """Skip fetch when query has no specific TDoc IDs."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         config = TDocQueryConfig(
             working_groups=[WorkingGroup.RAN],
@@ -282,11 +280,11 @@ class TestFetchMissingTdocs:
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Fetch only the missing TDocs when some are present."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         mock_fetch_batch.return_value = TDocCrawlResult(
             processed=1,
@@ -329,11 +327,11 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Verify whatthespec fallback is used when credentials unavailable."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         config = TDocQueryConfig(
             tdoc_ids=["S4-260001"],
@@ -353,7 +351,6 @@ class TestWhatTheSpecFallback:
             metadata = TDocMetadata(
                 tdoc_id="S4-260001",
                 meeting_id=0,
-                meeting_name="S4-135",
                 title="SA4#135 meeting agenda",
                 url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
                 source="SA WG4 Chair",
@@ -376,7 +373,7 @@ class TestWhatTheSpecFallback:
                 session: requests.Session | None = None,
                 cache_manager_name: str | None = None,
             ) -> TDocCrawlResult:
-                database.upsert_tdoc(metadata)
+                _ = database.upsert_tdoc(metadata)
                 return TDocCrawlResult(
                     processed=len(missing_ids),
                     inserted=len(missing_ids),
@@ -405,11 +402,11 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Verify whatthespec fetches multiple TDocs."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         config = TDocQueryConfig(
             tdoc_ids=["S4-260001", "S4-260002"],
@@ -438,7 +435,6 @@ class TestWhatTheSpecFallback:
                         metadata = TDocMetadata(
                             tdoc_id="S4-260001",
                             meeting_id=0,
-                            meeting_name="S4-135",
                             title="SA4#135 meeting agenda",
                             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
                             source="SA WG4 Chair",
@@ -458,7 +454,6 @@ class TestWhatTheSpecFallback:
                         metadata = TDocMetadata(
                             tdoc_id="S4-260002",
                             meeting_id=0,
-                            meeting_name="S4-135",
                             title="SA4#135 another document",
                             url="https://www.3gpp.org/tsg_sa/WG4/s4-260002.zip",
                             source="SA WG4 Chair",
@@ -476,7 +471,7 @@ class TestWhatTheSpecFallback:
                         )
                     else:
                         continue
-                    database.upsert_tdoc(metadata)
+                    _ = database.upsert_tdoc(metadata)
                     inserted += 1
                 return TDocCrawlResult(
                     processed=len(missing_ids),
@@ -507,7 +502,7 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Verify whatthespec failure is handled gracefully."""
         config = TDocQueryConfig(
@@ -551,7 +546,7 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Verify whatthespec is NOT used when credentials available."""
         config = TDocQueryConfig(
@@ -561,7 +556,7 @@ class TestWhatTheSpecFallback:
         with TDocDatabase(test_db_path) as database:
             insert_sample_meetings(database, sample_meetings)
             results: list[TDocMetadata] = []
-            PortalCredentials(username="test", password="test")
+            _ = PortalCredentials(username="test", password="test")
 
             mock_fetch_batch.return_value = TDocCrawlResult(
                 processed=1,
@@ -586,16 +581,15 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Verify whatthespec-resolved TDoc is inserted into database."""
         manager = CacheManager(root_path=test_db_path.parent, ensure_paths=True)
-        manager.register()
+        _ = manager.register()
 
         metadata = TDocMetadata(
             tdoc_id="S4-260001",
             meeting_id=0,
-            meeting_name="S4-135",
             title="SA4#135 meeting agenda",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
             source="SA WG4 Chair",
@@ -633,7 +627,7 @@ class TestWhatTheSpecFallback:
                 session: requests.Session | None = None,
                 cache_manager_name: str | None = None,
             ) -> TDocCrawlResult:
-                database.upsert_tdoc(metadata)
+                _ = database.upsert_tdoc(metadata)
                 return TDocCrawlResult(
                     processed=len(missing_ids),
                     inserted=len(missing_ids),

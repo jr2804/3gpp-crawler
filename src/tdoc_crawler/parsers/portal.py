@@ -119,21 +119,24 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         logger.warning(error_msg)
         raise PortalParsingError(error_msg)
 
+    agenda_item_value = metadata.get("agenda_item_nbr") or "0"
     return TDocMetadata(
         tdoc_id=tdoc_id,
         meeting_id=0,  # Placeholder - caller must resolve via meeting_name
-        title=metadata.get("title", ""),
+        title=str(metadata.get("title") or ""),
         url=url,
-        source=metadata.get("source", ""),
-        contact=metadata.get("contact", ""),
-        tdoc_type=metadata.get("tdoc_type", "unknown"),
-        for_purpose=metadata.get("for", "unknown"),
-        agenda_item_nbr=Decimal(metadata.get("agenda_item_nbr", "0")),
-        agenda_item_text=metadata.get("agenda_item_text", "Unknown"),
+        source=str(metadata.get("source") or ""),
+        contact=str(metadata.get("contact") or ""),
+        tdoc_type=str(metadata.get("tdoc_type") or "unknown"),
+        for_purpose=str(metadata.get("for") or "unknown"),
+        agenda_item_nbr=Decimal(str(agenda_item_value)),
+        agenda_item_text=str(metadata.get("agenda_item_text") or "Unknown"),
         status=metadata.get("status"),
-        meeting_name=metadata.get("meeting"),
         is_revision_of=metadata.get("is_revision_of"),
+        file_size=None,
+        date_created=None,
         validated=True,
+        validation_failed=False,
     )
 
 

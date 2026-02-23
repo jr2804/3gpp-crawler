@@ -190,7 +190,6 @@ def convert_excel_row_to_tdoc_metadata(
             agenda_item_nbr=agenda_nbr,
             agenda_item_text=agenda_text,
             status=status,
-            meeting_name=None,  # Will be resolved from meeting database
             is_revision_of=is_revision_of,
             file_size=None,  # Not available in Excel
             date_created=parsed_date,

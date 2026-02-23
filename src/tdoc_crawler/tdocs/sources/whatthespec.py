@@ -73,7 +73,7 @@ def resolve_via_whatthespec(
     record = payload[0] or {}
     resolved_id = str(record.get("name") or tdoc_id).strip().upper()
     meeting_raw = record.get("meeting")
-    meeting_name = str(meeting_raw) if meeting_raw else None
+    meeting_name = str(meeting_raw) if meeting_raw else ""
     agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
 
     manager = resolve_cache_manager(cache_manager_name)
@@ -83,7 +83,6 @@ def resolve_via_whatthespec(
     metadata = TDocMetadata(
         tdoc_id=resolved_id,
         meeting_id=meeting_id,
-        meeting_name=meeting_name,
         title=str(record.get("title") or ""),
         url=str(record.get("link") or ""),
         source=str(record.get("source") or ""),
@@ -93,6 +92,9 @@ def resolve_via_whatthespec(
         agenda_item_nbr=agenda_item_nbr,
         agenda_item_text=str(record.get("ainame") or "Unknown"),
         status=record.get("status"),
+        is_revision_of=None,
+        file_size=None,
+        date_created=None,
         validated=False,
         validation_failed=False,
     )

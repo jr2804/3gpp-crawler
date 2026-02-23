@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -53,14 +54,22 @@ class TestTDocCrawler:
 
         with TDocDatabase(test_db_path) as database:
             meeting = _create_test_meeting()
-            database.upsert_meeting(meeting)
+            _ = database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 working_groups=[WorkingGroup.RAN],
+                subgroups=None,
+                meeting_ids=None,
+                start_date=None,
+                end_date=None,
                 incremental=False,
+                force_revalidate=False,
                 workers=1,
+                overall_timeout=None,
                 timeout=1,
+                max_retries=3,
+                target_ids=None,
             )
             result = crawler.crawl(config)
 
@@ -82,22 +91,38 @@ class TestTDocCrawler:
             title="Test Contribution",
             source="Test Corp",
             contact="J. Doe",
-            agenda_item_nbr="1.0",
+            agenda_item_nbr=Decimal("1.0"),
+            url=None,
+            tdoc_type="unknown",
+            for_purpose="unknown",
+            agenda_item_text="Unknown",
+            status=None,
+            is_revision_of=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
             file_size=2048,
         )
         mock_fetch.return_value = json.dumps([tdoc.model_dump_json()])
 
         with TDocDatabase(test_db_path) as database:
             meeting = _create_test_meeting()
-            database.upsert_meeting(meeting)
+            _ = database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 working_groups=[WorkingGroup.RAN],
+                subgroups=None,
+                meeting_ids=None,
+                start_date=None,
+                end_date=None,
                 incremental=False,
+                force_revalidate=False,
                 workers=1,
                 overall_timeout=10,
                 timeout=30,
+                max_retries=3,
+                target_ids=None,
             )
             result = crawler.crawl(config)
             assert result.processed == 1
@@ -123,7 +148,17 @@ class TestTDocCrawler:
             title="Wanted Contribution",
             source="Test Corp",
             contact="J. Doe",
-            agenda_item_nbr="1.0",
+            agenda_item_nbr=Decimal("1.0"),
+            url=None,
+            tdoc_type="unknown",
+            for_purpose="unknown",
+            agenda_item_text="Unknown",
+            status=None,
+            is_revision_of=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
+            file_size=None,
         )
         tdoc2 = TDocMetadata(
             tdoc_id="R1-2305678",
@@ -131,7 +166,17 @@ class TestTDocCrawler:
             title="Unwanted Contribution",
             source="Other Corp",
             contact="A. Smith",
-            agenda_item_nbr="2.0",
+            agenda_item_nbr=Decimal("2.0"),
+            url=None,
+            tdoc_type="unknown",
+            for_purpose="unknown",
+            agenda_item_text="Unknown",
+            status=None,
+            is_revision_of=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
+            file_size=None,
         )
         mock_fetch.return_value = json.dumps(
             [
@@ -142,15 +187,21 @@ class TestTDocCrawler:
 
         with TDocDatabase(test_db_path) as database:
             meeting = _create_test_meeting()
-            database.upsert_meeting(meeting)
+            _ = database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
                 working_groups=[WorkingGroup.RAN],
+                subgroups=None,
+                meeting_ids=None,
+                start_date=None,
+                end_date=None,
                 incremental=False,
+                force_revalidate=False,
                 workers=1,
                 overall_timeout=10,
                 timeout=5,
+                max_retries=3,
                 target_ids=["R1-2301234"],
             )
             result = crawler.crawl(config)
@@ -168,8 +219,6 @@ def _create_test_meeting() -> MeetingMetadata:
         meeting_id=12345,
         tbid=373,
         subtb=379,
-        working_group=WorkingGroup.RAN,
-        subgroup="R1",
         short_name="RAN1#98",
         title="RAN1 Meeting #98",
         start_date=date(2024, 1, 15),
@@ -177,6 +226,7 @@ def _create_test_meeting() -> MeetingMetadata:
         location="Paris, France",
         files_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/RAN1_98/Docs/",
         portal_url="https://portal.3gpp.org/Home.aspx#/meeting?MtgId=12345",
+        tdoc_count=0,
     )
 
 
@@ -185,6 +235,7 @@ class TestMeetingCrawler:
 
     def test_parse_single_date(self, test_db_path: Path) -> None:
         """Verify single date parsing from text."""
+        _ = test_db_path
         # Regular hyphen-minus (U+002D)
         assert parse_single_date("2025-10-20") == date(2025, 10, 20)
         assert parse_single_date("Meeting on 2025-10-20") == date(2025, 10, 20)
@@ -215,21 +266,22 @@ class TestMeetingCrawler:
         assert row is not None
         cells = row.find_all("td")
 
-        with TDocDatabase(test_db_path) as database:
-            # Create get_subtb callback for subtb lookup
-            def get_subtb(subgroup_code: str) -> int | None:
-                subgroup_data = database.get_subgroup_by_code(subgroup_code)
-                return subgroup_data["subtb"] if subgroup_data else None
+        from tdoc_crawler.models.subworking_groups import CODE_INDEX
 
-            meeting = parse_meeting_row(cells, WorkingGroup.SA, "SA4", get_subtb=get_subtb)
+        # Create get_subtb callback for subtb lookup
+        def get_subtb(subgroup_code: str) -> int | None:
+            record = CODE_INDEX.get(subgroup_code.upper())
+            return record.subtb if record else None
 
-            assert meeting.meeting_id == 12345
-            assert meeting.title == "Meeting Title"
-            assert meeting.start_date == date(2025, 10, 20)
-            assert meeting.end_date == date(2025, 10, 24)
-            assert meeting.location == "Paris, France"
-            assert meeting.working_group == WorkingGroup.SA
-            assert meeting.subgroup == "SA4"
+        meeting = parse_meeting_row(cells, WorkingGroup.SA, "S4", get_subtb=get_subtb)
+
+        assert meeting.meeting_id == 12345
+        assert meeting.title == "Meeting Title"
+        assert meeting.start_date == date(2025, 10, 20)
+        assert meeting.end_date == date(2025, 10, 24)
+        assert meeting.location == "Paris, France"
+        assert meeting.tbid == WorkingGroup.SA.tbid
+        assert meeting.tdoc_count == 0
 
 
 if __name__ == "__main__":

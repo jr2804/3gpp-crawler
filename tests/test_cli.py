@@ -6,7 +6,6 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from conftest import insert_sample_meetings
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
@@ -15,6 +14,8 @@ from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
+
+from .conftest import insert_sample_meetings
 
 runner = CliRunner()
 
@@ -349,13 +350,13 @@ class TestStatsCommand:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict],
+        sample_meetings: list[dict[str, object]],
     ) -> None:
         """Test stats command execution."""
         with TDocDatabase(test_db_path) as db:
             insert_sample_meetings(db, sample_meetings)
             for tdoc in sample_tdocs:
-                db.upsert_tdoc(tdoc)
+                _ = db.upsert_tdoc(tdoc)
 
         result = runner.invoke(
             app,
@@ -464,7 +465,6 @@ class TestOpenCommand:
         metadata = TDocMetadata(
             tdoc_id="S4-260001",
             meeting_id=123,
-            meeting_name="S4-135",
             title="SA4#135 meeting agenda",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
             source="SA WG4 Chair",
@@ -532,7 +532,6 @@ class TestOpenCommand:
         metadata = TDocMetadata(
             tdoc_id="R1-260001",
             meeting_id=123,
-            meeting_name="RAN1#100",
             title="RAN1 discussion document",
             url="https://www.3gpp.org/tsg_ran/RAN1/r1-260001.zip",
             source="RAN1 Chair",
@@ -606,7 +605,6 @@ class TestCheckoutCommand:
         tdoc1 = TDocMetadata(
             tdoc_id="S4-260001",
             meeting_id=123,
-            meeting_name="S4-135",
             title="SA4#135 agenda",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
             source="SA WG4 Chair",
@@ -625,7 +623,6 @@ class TestCheckoutCommand:
         tdoc2 = TDocMetadata(
             tdoc_id="S4-260002",
             meeting_id=123,
-            meeting_name="S4-135",
             title="SA4#135 document",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260002.zip",
             source="SA WG4 Chair",
