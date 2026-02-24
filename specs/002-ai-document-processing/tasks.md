@@ -19,9 +19,9 @@
 
 **Purpose**: Create the ai/ package skeleton, declare AI dependencies, and prepare test fixtures
 
-- [ ] T001 [P] Create ai/ package structure with `__init__.py` in src/tdoc_crawler/ai/ and src/tdoc_crawler/ai/operations/
-- [ ] T002 [P] Add optional `[ai]` dependency group (docling, lancedb, litellm, sentence-transformers) to pyproject.toml
-- [ ] T003 [P] Create test fixture directory tests/data/ai/ with sample DOCX files (single-file TDoc, multi-file TDoc with cover note, corrupt/empty file)
+- [x] T001 [P] Create ai/ package structure with `__init__.py` in src/tdoc_crawler/ai/ and src/tdoc_crawler/ai/operations/
+- [x] T002 [P] Add optional `[ai]` dependency group (docling, lancedb, litellm, sentence-transformers) to pyproject.toml
+- [x] T003 [P] Create test fixture directory tests/data/ai/ with sample DOCX files (single-file TDoc, multi-file TDoc with cover note, corrupt/empty file)
 
 ______________________________________________________________________
 
@@ -31,10 +31,10 @@ ______________________________________________________________________
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Implement all pydantic models, enums (PipelineStage, GraphNodeType, GraphEdgeType), and error types (AiError, TDocNotFoundError, ExtractionError, LlmConfigError, AiConfigError, EmbeddingDimensionError) per data-model.md in src/tdoc_crawler/ai/models.py
-- [ ] T005 [P] Implement AiConfig configuration model with environment variable loading and defaults per data-model.md in src/tdoc_crawler/ai/config.py
-- [ ] T006 Implement AiStorage class with LanceDB connection, table initialization (processing_status, classifications, chunks, summaries, graph_nodes, graph_edges), and all CRUD methods per contracts/api.md in src/tdoc_crawler/ai/storage.py
-- [ ] T007 Create public API module with stub functions (process_tdoc, process_all, get_status, query_embeddings, query_graph) per contracts/api.md in src/tdoc_crawler/ai/**init**.py
+- [x] T004 Implement all pydantic models, enums (PipelineStage, GraphNodeType, GraphEdgeType), and error types (AiError, TDocNotFoundError, ExtractionError, LlmConfigError, AiConfigError, EmbeddingDimensionError) per data-model.md in src/tdoc_crawler/ai/models.py
+- [x] T005 [P] Implement AiConfig configuration model with environment variable loading and defaults per data-model.md in src/tdoc_crawler/ai/config.py
+- [x] T006 Implement AiStorage class with LanceDB connection, table initialization (processing_status, classifications, chunks, summaries, graph_nodes, graph_edges), and all CRUD methods per contracts/api.md in src/tdoc_crawler/ai/storage.py
+- [x] T007 Create public API module with stub functions (process_tdoc, process_all, get_status, query_embeddings, query_graph) per contracts/api.md in src/tdoc_crawler/ai/**init**.py
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -191,6 +191,7 @@ ______________________________________________________________________
 - [ ] T026 [P] Run Ruff and Ty checks, fix all lint and type errors across src/tdoc_crawler/ai/ and tests/test_ai\_\*.py
 - [ ] T027 [P] Update docs/index.md and relevant docs/ files with AI commands reference documentation
 - [ ] T028 Run quickstart.md validation: execute all CLI examples from specs/002-ai-document-processing/quickstart.md and verify outputs
+- [ ] T028b Run success criteria validation against spec.md success criteria and record outcomes in docs/history/
 - [ ] T029 [P] Add @pytest.mark.integration markers for tests requiring real AI models (Docling, sentence-transformers, litellm) in tests/
 - [ ] T030 Run full test suite with uv run pytest -v and verify all tests pass
 

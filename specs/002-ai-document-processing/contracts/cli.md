@@ -57,12 +57,13 @@ Embedded, Summarized, Graphed, Error.
 Semantic search over processed TDocs.
 
 ```
-tdoc-crawler ai query "<question>" [--top-k <N>] [--json] [--cache-dir <PATH>]
+tdoc-crawler ai query "<question>" [--tdoc-id <ID>] [--top-k <N>] [--json] [--cache-dir <PATH>]
 ```
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `<question>` | str | required | Natural language query |
+| `--tdoc-id` | str | None | Limit search to a single TDoc |
 | `--top-k` | int | 5 | Number of results |
 | `--json` | bool | False | Output JSON |
 | `--cache-dir` | Path | None | Override cache directory |

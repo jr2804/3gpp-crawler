@@ -43,7 +43,7 @@ AI dependencies are packaged as optional extras (`tdoc_crawler[ai]`).
     `logging` module. Optional extras in pyproject.toml. Ruff + Ty clean.
 - [x] Domain placement confirmed (correct domain package; no logic in cli/ or utils/;
   no legacy crawlers/ reference).
-  - All AI logic in `src/tdoc_crawler/ai/` with `operations/`, `sources/`, `models.py`.
+  - All AI logic in `src/tdoc_crawler/ai/` with `operations/` and `models.py`.
     CLI file `cli/ai.py` delegates only. No crawlers/ references.
 - [x] DRY validation done (existing code searched; no duplicated logic introduced).
   - Reuses: `CacheManager` for path resolution, `create_cached_session()` for HTTP,
@@ -91,7 +91,7 @@ CLI functions only parse arguments and delegate to the library API.
 | `ai process --tdoc-id <id>` | TDoc ID | Progress + summary line | `{"tdoc_id": ..., "stages": {...}}` |
 | `ai process --all [--new-only]` | Flags | Progress bar + counts | `[{"tdoc_id": ..., "stages": {...}}, ...]` |
 | `ai status --tdoc-id <id>` | TDoc ID | Stage table | `{"tdoc_id": ..., "stages": {...}}` |
-| `ai query "<question>"` | Query text | Answer + source refs | `{"answer": ..., "sources": [...]}` |
+| `ai query "<question>" [--tdoc-id <id>]` | Query text | Answer + source refs | `{"answer": ..., "sources": [...]}` |
 | `ai graph --query "<question>"` | Query text | Chronological chain | `{"nodes": [...], "edges": [...]}` |
 
 All commands accept `--json` for structured output. Errors go to stderr.

@@ -213,8 +213,7 @@ ______________________________________________________________________
 ### Edge Cases
 
 - What happens when a TDoc download folder contains no DOCX files (only PDF or ZIP)?
-  The system should log a warning and skip extraction, marking the TDoc as
-  `extraction_skipped`.
+  The system should log a warning and skip extraction, marking the TDoc as `failed`.
 - What happens when the configured LLM endpoint is unreachable? The summarization and
   graph stages should fail gracefully with a clear error; earlier stages (extraction,
   embeddings) should still succeed.
@@ -259,9 +258,10 @@ ______________________________________________________________________
 - **FR-011**: Before implementing any new functionality, existing code MUST be searched
   for equivalent implementations; CLI code MUST only delegate to core library functions
   and MUST NOT duplicate domain logic.
-- **FR-012**: All HTTP requests (to LLM endpoints, embedding services) MUST use
-  `create_cached_session()` from `tdoc_crawler.http_client` where applicable; direct
-  HTTP calls to external services are prohibited.
+- **FR-012**: All HTTP requests that are deterministic and cacheable MUST use
+  `create_cached_session()` from `tdoc_crawler.http_client`; direct HTTP calls to
+  external services are prohibited. LLM calls via litellm are exempt from caching, and
+  local embedding generation does not use HTTP.
 - **FR-013**: All AI processing stages MUST be idempotent: re-running a stage on an
   already-processed TDoc with unchanged inputs MUST produce no side effects.
 - **FR-014**: The pipeline MUST support incremental processing: only new or updated
@@ -286,17 +286,15 @@ ______________________________________________________________________
 - **DocumentClassification**: Records main/secondary classification for each file in a
   TDoc folder. Includes confidence score, decisive heuristic, and file path.
 - **DocumentChunk**: A segment of extracted Markdown text with position metadata (TDoc ID,
-  section heading, chunk index, character offsets). Input for embeddings.
-- **ChunkEmbedding**: A vector representation of a DocumentChunk. Includes the embedding
-  model version, vector dimension, and creation timestamp.
+  section heading, chunk index, character offsets) and its embedding vector metadata.
 - **DocumentSummary**: The LLM-generated abstract and structured summary for a TDoc.
   Includes model ID, prompt version, and generation timestamp.
 - **GraphNode**: An entity in the knowledge graph (TDoc, Meeting, Spec, WorkItem, CR,
-  Company, Person, or Concept). Has temporal validity fields (valid_from, valid_to) and
-  a type discriminator.
+  Company, or Concept). Has temporal validity fields (valid_from, valid_to) and a type
+  discriminator.
 - **GraphEdge**: A typed relationship between two GraphNodes (discusses, revises,
-  references, supersedes, authored_by, merged_into). Has weight, temporal context, and
-  source provenance.
+  references, supersedes, authored_by, merged_into, presented_at). Has weight, temporal
+  context, and source provenance.
 
 ## Assumptions
 
