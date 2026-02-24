@@ -50,7 +50,8 @@ ______________________________________________________________________
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T008 [US1] Write extraction tests (single DOCX to Markdown, table preservation, heading hierarchy, 3GPP section numbering, idempotent re-run skips unchanged, corrupt file raises ExtractionError, no-DOCX folder logs warning) in tests/test_ai_extraction.py
+YR|- [ ] T008 [US1] Write extraction tests (single DOCX to Markdown, table preservation, heading hierarchy, 3GPP section numbering, idempotent re-run skips unchanged, corrupt file raises ExtractionError, no-DOCX folder logs warning) in tests/test_ai_extraction.py
+- [ ] T008a [US1] **RED PHASE CHECKPOINT**: Run `uv run pytest tests/test_ai_extraction.py -v`, verify ALL tests FAIL (red). Record output. **GATE**: T009 implementation BLOCKED until complete
 
 ### Implementation for User Story 1
 
@@ -70,7 +71,8 @@ ______________________________________________________________________
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [US2] Write classification tests (single file gets confidence 1.0, two files picks larger/structured one, filename heuristics for final/draft, revision preference, confidence scoring range) in tests/test_ai_classification.py
+WK|- [ ] T010 [US2] Write classification tests (single file gets confidence 1.0, two files picks larger/structured one, filename heuristics for final/draft, revision preference, confidence scoring range) in tests/test_ai_classification.py
+- [ ] T010a [US2] **RED PHASE CHECKPOINT**: Run `uv run pytest tests/test_ai_classification.py -v`, verify ALL tests FAIL (red). Record output. **GATE**: T011 implementation BLOCKED until complete
 
 ### Implementation for User Story 2
 
@@ -90,7 +92,8 @@ ______________________________________________________________________
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T012 [US3] Write pipeline tests (full single-TDoc pipeline, batch processing, resume from interrupted stage, incremental new-only mode, failed TDoc does not block others, progress callback invocation) in tests/test_ai_pipeline.py
+VT|- [ ] T012 [US3] Write pipeline tests (full single-TDoc pipeline, batch processing, resume from interrupted stage, incremental new-only mode, failed TDoc does not block others, progress callback invocation) in tests/test_ai_pipeline.py
+- [ ] T012a [US3] **RED PHASE CHECKPOINT**: Run `uv run pytest tests/test_ai_pipeline.py -v`, verify ALL tests FAIL (red). Record output. **GATE**: T013-T014 implementation BLOCKED until complete
 
 ### Implementation for User Story 3
 
@@ -111,7 +114,8 @@ ______________________________________________________________________
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T015 [US7] Write CLI tests (--help lists all subcommands, process delegates to process_tdoc/process_all, status delegates to get_status, --json flag produces valid JSON, errors go to stderr) in tests/test_ai_cli.py
+ZM|- [ ] T015 [US7] Write CLI tests (--help lists all subcommands, process delegates to process_tdoc/process_all, status delegates to get_status, --json flag produces valid JSON, errors go to stderr) in tests/test_ai_cli.py
+- [ ] T015a [US7] **RED PHASE CHECKPOINT**: Run `uv run pytest tests/test_ai_cli.py -v`, verify ALL tests FAIL (red). Record output. **GATE**: T016-T017 implementation BLOCKED until complete
 
 ### Implementation for User Story 7
 
@@ -132,7 +136,8 @@ ______________________________________________________________________
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T018 [US4] Write embedding tests (section-based chunking splits at headings, paragraph fallback for long sections, chunk metadata includes TDoc ID and section, vector dimensions match model, skip unchanged TDoc, model version recorded, embedding dimension mismatch detected) in tests/test_ai_embeddings.py
+WX|- [ ] T018 [US4] Write embedding tests (section-based chunking splits at headings, paragraph fallback for long sections, chunk metadata includes TDoc ID and section, vector dimensions match model, skip unchanged TDoc, model version recorded, embedding dimension mismatch detected) in tests/test_ai_embeddings.py
+- [ ] T018a [US4] **RED PHASE CHECKPOINT**: Run `uv run pytest tests/test_ai_embeddings.py -v`, verify ALL tests FAIL (red). Record output. **GATE**: T019-T020 implementation BLOCKED until complete
 
 ### Implementation for User Story 4
 
@@ -153,7 +158,8 @@ ______________________________________________________________________
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T021 [US5] Write summarization tests (abstract word count 150-250, structured summary has key_points/action_items/decisions/affected_specs, skip unchanged TDoc, missing LLM config raises LlmConfigError, Change Request TDoc includes affected spec and rationale) in tests/test_ai_summarization.py
+WQ|- [ ] T021 [US5] Write summarization tests (abstract word count 150-250, structured summary has key_points/action_items/decisions/affected_specs, skip unchanged TDoc, missing LLM config raises LlmConfigError, Change Request TDoc includes affected spec and rationale) in tests/test_ai_summarization.py
+- [ ] T021a [US5] **RED PHASE CHECKPOINT**: Run `uv run pytest tests/test_ai_summarization.py -v`, verify ALL tests FAIL (red). Record output. **GATE**: T022 implementation BLOCKED until complete
 
 ### Implementation for User Story 5
 
@@ -173,7 +179,8 @@ ______________________________________________________________________
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T023 [US6] Write graph tests (node creation for TDoc/Meeting/Spec/Concept types, edge creation for discusses/revises/references relationships, temporal validity fields populated, incremental update adds without rebuild, cross-meeting query returns chronological order, explicit TDoc-ID reference creates references edge) in tests/test_ai_graph.py
+RB|- [ ] T023 [US6] Write graph tests (node creation for TDoc/Meeting/Spec/Concept types, edge creation for discusses/revises/references relationships, temporal validity fields populated, incremental update adds without rebuild, cross-meeting query returns chronological order, explicit TDoc-ID reference creates references edge) in tests/test_ai_graph.py
+- [ ] T023a [US6] **RED PHASE CHECKPOINT**: Run `uv run pytest tests/test_ai_graph.py -v`, verify ALL tests FAIL (red). Record output. **GATE**: T024-T025 implementation BLOCKED until complete
 
 ### Implementation for User Story 6
 
@@ -193,7 +200,28 @@ ______________________________________________________________________
 - [ ] T028 Run quickstart.md validation: execute all CLI examples from specs/002-ai-document-processing/quickstart.md and verify outputs
 - [ ] T028b Run success criteria validation against spec.md success criteria and record outcomes in docs/history/
 - [ ] T029 [P] Add @pytest.mark.integration markers for tests requiring real AI models (Docling, sentence-transformers, litellm) in tests/
-- [ ] T030 Run full test suite with uv run pytest -v and verify all tests pass
+JT|- [ ] T030 Run full test suite with uv run pytest -v and verify all tests pass
+
+### API Contract Validation (FR-006, FR-007)
+
+- [ ] T031 [P] Verify public API exports: Import `tdoc_crawler.ai` in fresh Python process, confirm `process_tdoc`, `process_all`, `get_status`, `query_embeddings`, `query_graph` are accessible without error
+- [ ] T032 [P] Verify CLI JSON mode: Run each ai subcommand with `--json` flag, validate output is parseable JSON
+- [ ] T033 [P] Verify CLI delegates to library: Add instrumentation test confirming CLI functions do not contain domain logic
+- [ ] T034 [P] Verify no cli/ logic duplication: Run grep for core operation function names in cli/ai.py
+
+### Success Criteria Validation
+
+- [ ] T035 [P] Validate SC-001: Process 5 TDocs, measure extraction time. Pass if p95 < 30s.
+- [ ] T036 [P] Validate SC-002: Create test set of 50 TDocs (20 multi-file). Pass if ≥90% accuracy.
+- [ ] T037 [P] Validate SC-003: Create 20 semantic queries. Pass if ≥80% recall.
+- [ ] T038 [P] Validate SC-004: Process 20 TDocs. Pass if 95% abstracts are 150-250 words.
+- [ ] T039 [P] Validate SC-005: Process corpus of 50 TDocs. Pass if re-run ≤ 1.1 × original time.
+- [ ] T040 [P] Validate SC-006: Simulate crash at each stage. Verify resume works.
+- [ ] T041 [P] Validate SC-007: Build graph from 10 TDocs across 3 meetings. Pass if ≥90% chronological.
+
+______________________________________________________________________
+
+## Dependencies & Execution Order
 
 ______________________________________________________________________
 
