@@ -4,7 +4,10 @@ Welcome to the documentation for **tdoc-crawler**, a command-line tool for query
 
 ## 📖 Table of Contents
 
-- [**Crawl Documentation**](crawl.md) – How to fetch metadata from 3GPP servers and portal.
+SS|- [**Crawl Documentation**](crawl.md) – How to fetch metadata from 3GPP servers and portal.
+QM|- [**AI Document Processing**](ai.md) – AI-powered TDoc analysis and embeddings.
+PQ|- [**Query Documentation**](query.md) – How to search and display stored metadata.
+
 - [**Query Documentation**](query.md) – How to search and display stored metadata.
 - [**Utility Documentation**](utils.md) – File access, spec handling, and database inspection.
 - [**WhatIsWhatTheSpec**](whatthespec.md) – Understanding the primary WhatTheSpec data source and 3GPP fallback.
