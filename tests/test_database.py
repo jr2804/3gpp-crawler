@@ -168,7 +168,7 @@ class TestTDocDatabase:
                 for_purpose="Updated Purpose",
                 agenda_item_nbr=Decimal("7.2"),
                 agenda_item_text="Updated agenda",
-                status="Updated",
+                status="revised",
                 is_revision_of=None,
                 date_created=None,
                 date_retrieved=datetime(2023, 1, 17),

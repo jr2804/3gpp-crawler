@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 import requests
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import (
@@ -95,7 +95,7 @@ class TDocMetadata(BaseModel):
     for_purpose: str = Field("unknown", description="Purpose of the contribution (agreement, information, etc.)")
     agenda_item_nbr: Decimal = Field(..., max_digits=3, decimal_places=1, description="Associated agenda item (numerical identifier)")
     agenda_item_text: str = Field("Unknown", description="Associated agenda item (text identifier)")
-    status: TDocStatus | None = Field(None, description="Document status as reported by the portal")
+    status: str | None = Field(None, description="Document status as reported by the portal")
 
     @property
     def is_valid(self) -> bool:
@@ -166,16 +166,26 @@ class TDocMetadata(BaseModel):
 
         return is_accessible
 
+    @classmethod
+    @field_serializer("status")
+    def _serialize_status(cls, value: TDocStatus | str | None) -> str | None:
+        """Serialize TDocStatus enum to string for database storage."""
+        if value is None:
+            return None
+        if isinstance(value, TDocStatus):
+            return value.value
+        return value
+
     @field_validator("status", mode="before")
     @classmethod
-    def _validate_status(cls, value: str | TDocStatus | None) -> TDocStatus | None:
+    def _validate_status(cls, value: str | TDocStatus | None) -> str | None:
         """Validate and normalize status value against TDocStatus enum.
 
         Args:
             value: Status string or enum value
 
         Returns:
-            TDocStatus enum value or None
+            Normalized status string (lowercase) or None
 
         Raises:
             ValueError: If status value is not in TDocStatus enum
@@ -184,10 +194,10 @@ class TDocMetadata(BaseModel):
             return None
 
         if isinstance(value, TDocStatus):
-            return value
+            return value.value
 
         # Let TDocStatus._missing_ handle validation and case-insensitive lookup
-        return TDocStatus(value)
+        return TDocStatus(value).value
 
     @field_validator("tdoc_id")
     @classmethod
