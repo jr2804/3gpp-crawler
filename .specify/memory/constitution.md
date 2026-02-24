@@ -1,27 +1,31 @@
 <!--
 Sync Impact Report:
-- Version change: 1.2.0 -> 1.3.0
-- Modified principles: None
-- Added sections: Core Principles V, VI, VII; Implementation Gates 5, 6, 7
+- Version change: 1.3.0 -> 2.0.0
+- Modified principles: VII Responsible Network Access -> VII Responsible Network Access (Core Crawler Scope)
+- Added sections: None
 - Removed sections: None
 - Templates requiring updates:
-  - UPDATED: .specify/templates/plan-template.md (Constitution Check section)
-  - UPDATED: .specify/templates/spec-template.md (FR-010, FR-011, FR-012)
-  - UPDATED: .specify/templates/tasks-template.md (domain placement reminder)
+  - ✅ updated: .specify/templates/plan-template.md
+  - ✅ updated: .specify/templates/spec-template.md
+  - ✅ updated: .specify/templates/tasks-template.md
   - N/A: .specify/templates/commands/*.md (directory not present)
+  - ✅ updated: AGENTS.md
 - Follow-up TODOs: None
 -->
+
 # tdoc-crawler Constitution
 
 ## Core Principles
 
 ### I. Library-First Development
+
 Every feature must start as a standalone, reusable library component. Application or CLI
 code may only call into this library; direct feature implementation inside application
 modules is prohibited. Libraries must be independently testable and have a clear,
 reusable interface.
 
 ### II. CLI Text + JSON Interface
+
 Every library must expose its functionality through a command-line interface. Each CLI
 must accept text input via stdin, arguments, or files, and must emit text output via
 stdout. Every CLI must support a JSON output mode for structured data exchange; errors
@@ -31,6 +35,7 @@ Exception: For the `crawl-specs`, `query-specs`, `checkout-spec`, and `open-spec
 commands, JSON output is optional for the initial release of the specs feature.
 
 ### III. Test-Driven Development (Non-Negotiable)
+
 Implementation code must not be written until unit tests are written, reviewed by the
 user, and explicitly approved. The approved tests must be executed and verified to fail
 (red phase) before any implementation begins. Development must follow the
@@ -75,16 +80,21 @@ domain logic MUST NOT be copied into `cli/`, test helpers, or utility modules.
 Rationale: code duplication was the primary driver of the domain-oriented refactoring.
 Duplicated logic makes bugs harder to find and fixes harder to apply consistently.
 
-### VII. Responsible Network Access
+### VII. Responsible Network Access (Core Crawler Scope)
 
-All HTTP requests MUST use `create_cached_session()` from `tdoc_crawler.http_client` to
-enable hishel caching. Direct HTTP requests to external services (3gpp.org,
-whatthespec.net) are prohibited. Features that introduce network calls MUST plan and
-document their use of the caching layer before implementation begins.
+For the core `tdoc-crawler` source-fetching workflow (3gpp.org, whatthespec.net, portal
+resources), all HTTP requests MUST use `create_cached_session()` from
+`tdoc_crawler.http_client` to enable hishel caching. Direct HTTP requests to these
+sources are prohibited.
 
-Rationale: the 3GPP portal and related services have strict rate-limiting policies. The
-caching layer reduces traffic by 50–90% on incremental crawls and protects against
-blocking.
+This principle does NOT apply to AI model-provider traffic used by the AI feature
+(for example, LLM or embedding provider endpoints). AI features MUST still document
+their network access approach in spec/plan artifacts and MUST NOT bypass approved
+provider/client integrations.
+
+Rationale: core crawler sources have strict rate-limiting policies where caching reduces
+traffic by 50–90% on incremental crawls. AI provider traffic is non-deterministic and
+requires a separate integration policy.
 
 ## Implementation Gates
 
@@ -99,8 +109,9 @@ blocking.
   `cli/` or `utils/`; no reference to the legacy `crawlers/` package.
 - Gate 6: Existing functionality has been searched before implementation; no duplicated
   logic is introduced; CLI delegates to core library.
-- Gate 7: All HTTP requests use `create_cached_session()`; no direct network calls to
-  external services.
+- Gate 7: Core crawler HTTP requests use `create_cached_session()`; no direct network
+  calls to 3GPP/WhatTheSpec sources. AI model-provider traffic is exempt but must be
+  explicitly documented in feature specs/plans.
 
 ## Development Workflow
 
@@ -119,4 +130,4 @@ blocking.
 - Compliance is verified in specs, plans, task lists, and code reviews; non-compliant
   changes must be blocked or accompanied by an approved amendment.
 
-**Version**: 1.3.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-24
+**Version**: 2.0.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-24

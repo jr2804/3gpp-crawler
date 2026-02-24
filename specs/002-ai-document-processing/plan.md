@@ -46,12 +46,14 @@ AI dependencies are packaged as optional extras (`tdoc_crawler[ai]`).
   - All AI logic in `src/tdoc_crawler/ai/` with `operations/` and `models.py`.
     CLI file `cli/ai.py` delegates only. No crawlers/ references.
 - [x] DRY validation done (existing code searched; no duplicated logic introduced).
-  - Reuses: `CacheManager` for path resolution, `create_cached_session()` for HTTP,
+  - Reuses: `CacheManager` for path resolution, `create_cached_session()` for core crawler source HTTP,
     existing `TDocDatabase` for reading TDoc metadata. No duplication of existing logic.
-- [x] Network access plan documented (all HTTP via create_cached_session(); no direct
-  calls to external services).
+- [x] Network access plan documented (core crawler source traffic via create_cached_session();
+  AI model-provider traffic explicitly documented as exempt with approved provider/client integration).
   - LLM calls go through litellm (local Ollama by default, no 3GPP server calls).
+    Sentence-transformers is the approved local embedding integration path.
     Embedding model runs locally in-process. No HTTP to 3GPP servers from AI module.
+    Direct ad-hoc HTTP clients for AI provider endpoints are not permitted.
     If remote LLM endpoints are configured, litellm handles the connection (not cached
     via hishel since LLM responses are non-deterministic and should not be cached).
 

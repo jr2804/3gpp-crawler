@@ -2,9 +2,19 @@
 
 **Feature Branch**: `002-ai-document-processing`
 **Created**: 2026-02-24
-**Status**: Draft
+**Status**: Implementation Ready
 **Input**: User description: "AI-based processing of downloaded files: document classification, DOCX-to-Markdown extraction, embeddings generation, LLM summarization, and temporal graph-RAG construction for 3GPP TDocs"
 **Epic**: tdc-b9w
+
+## Clarifications
+
+### Session 2026-02-24
+
+- Q: Should newly introduced AI configuration variables also be documented in `.env.example`? → A: Yes, updating `.env.example` is mandatory whenever new configurable AI environment variables are introduced.
+- Q: Which linter rules are mandatory non-violation gates for this feature? → A: `PLC0415`, `ANN001`, `F821`, `ANN201`, `B008`, `PLW2901`, and `S108` must never be introduced and must be fixed if present.
+- Q: How must LLM and embedding models be specified? → A: They must always use `<provider>/<model_name>` format, where `<provider>` is a LiteLLM-supported provider (and `<model_name>` may contain `/` characters).
+- Q: Does Constitution Principle VII require cached-session HTTP for AI model-provider traffic? → A: No. Principle VII applies to core crawler source-fetching traffic (3GPP/WhatTheSpec/portal). AI model-provider traffic is exempt and must use approved provider/client integrations.
+- Q: Which provider/client integrations are approved for this feature? → A: LiteLLM is the approved integration path for LLM providers and sentence-transformers is the approved integration path for local embeddings. Direct ad-hoc HTTP clients for AI provider endpoints are not permitted.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -122,7 +132,8 @@ appears in the top-5 results.
 1. **Given** a previously-embedded TDoc whose source has not changed, **When** embeddings
    generation runs again, **Then** it is skipped.
 1. **Given** 50 TDoc Markdown files, **When** embeddings generation runs in batch,
-   **Then** processing completes within a reasonable time using configurable parallelism.
+   **Then** processing completes within 15 minutes on a 4-core CPU baseline using
+   configurable parallelism.
 1. **Given** a change in the configured embedding model, **When** the user triggers
    re-embedding, **Then** all existing embeddings are regenerated with the new model and
    the model version is recorded.
@@ -151,7 +162,8 @@ topic.
 1. **Given** a previously-summarized TDoc, **When** summarization runs again without
    source changes, **Then** it is skipped.
 1. **Given** no LLM endpoint configured, **When** summarization is attempted, **Then**
-   a clear error message is shown indicating the missing configuration.
+   stderr output in text mode includes `AI_CONFIG_MISSING`, and `--json` mode returns
+   an error object with `error_code="AI_CONFIG_MISSING"` indicating missing configuration.
 
 ______________________________________________________________________
 
@@ -251,17 +263,20 @@ ______________________________________________________________________
 - **FR-009**: Python implementations MUST use `pyproject.toml` with `uv`, include type
   hints and Google-style docstrings for public code, use `logging` instead of `print`,
   rely on `pathlib` for file paths, and keep Ruff and Ty checks clean without
-  suppressions unless explicitly approved.
+  suppressions unless explicitly approved. The following Ruff rule IDs are strict
+  no-violation gates for this feature and MUST be fixed wherever found: `PLC0415`,
+  `ANN001`, `F821`, `ANN201`, `B008`, `PLW2901`, `S108`.
 - **FR-010**: All new code MUST be placed in the new `ai/` domain package under
   `src/tdoc_crawler/ai/`; domain logic MUST NOT appear in `cli/`, `parsers/`, or
   `utils/`; the legacy `crawlers/` package MUST NOT be referenced.
 - **FR-011**: Before implementing any new functionality, existing code MUST be searched
   for equivalent implementations; CLI code MUST only delegate to core library functions
   and MUST NOT duplicate domain logic.
-- **FR-012**: All HTTP requests that are deterministic and cacheable MUST use
-  `create_cached_session()` from `tdoc_crawler.http_client`; direct HTTP calls to
-  external services are prohibited. LLM calls via litellm are exempt from caching, and
-  local embedding generation does not use HTTP.
+- **FR-012**: For core crawler source traffic (3GPP/WhatTheSpec/portal), all HTTP
+  requests MUST use `create_cached_session()` from `tdoc_crawler.http_client`; direct
+  HTTP calls to those sources are prohibited. AI model-provider traffic (LLM/embedding
+  endpoints) is exempt from caching requirements and MUST use approved provider/client
+  integrations.
 - **FR-013**: All AI processing stages MUST be idempotent: re-running a stage on an
   already-processed TDoc with unchanged inputs MUST produce no side effects.
 - **FR-014**: The pipeline MUST support incremental processing: only new or updated
@@ -269,7 +284,11 @@ ______________________________________________________________________
 - **FR-015**: The pipeline MUST support resume from failure: after a crash, re-running
   picks up from the last successfully completed stage per TDoc.
 - **FR-016**: AI configuration (model endpoints, chunk sizes, embedding model, prompt
-  templates) MUST be managed via a configuration model, not hard-coded.
+  templates) MUST be managed via a configuration model, not hard-coded. All supported
+  environment variables for AI configuration MUST be documented and kept current in
+  `.env.example`. LLM and embedding model identifiers MUST be validated in the format
+  `<provider>/<model_name>`, where `<provider>` is supported by LiteLLM; the
+  `<model_name>` segment may itself contain `/` characters.
 - **FR-017**: Graph construction MUST support incremental updates: new nodes and edges
   are merged into the existing graph without requiring a full rebuild.
 - **FR-018**: AI processing data (embeddings, summaries, graph, processing status) MUST

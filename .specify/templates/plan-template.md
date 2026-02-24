@@ -24,7 +24,7 @@
 **Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
 **Project Type**: [single/web/mobile - determines source structure]
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
+**Constraints**: [domain-specific, e.g., \<200ms p95, \<100MB memory, offline-capable or NEEDS CLARIFICATION]
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
@@ -39,18 +39,19 @@
 - [ ] Domain placement confirmed (correct domain package; no logic in cli/ or utils/;
   no legacy crawlers/ reference).
 - [ ] DRY validation done (existing code searched; no duplicated logic introduced).
-- [ ] Network access plan documented (all HTTP via create_cached_session(); no direct
-  calls to external services).
+- [ ] Network access plan documented (core crawler source traffic via
+  create_cached_session(); any AI model-provider traffic explicitly documented as
+  exempt with approved provider/client integration).
 
 ## Library Boundary & CLI Contract
 
-[Describe the standalone library module, its public API, and the CLI entrypoints.
-Include text input/output channels and JSON output mode.]
+\[Describe the standalone library module, its public API, and the CLI entrypoints.
+Include text input/output channels and JSON output mode.\]
 
 ## TDD Evidence
 
-[Describe the unit tests to be written first and how failing tests (red phase) will be
-validated before implementation begins.]
+\[Describe the unit tests to be written first and how failing tests (red phase) will be
+validated before implementation begins.\]
 
 ## Project Structure
 
@@ -67,6 +68,7 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
+
 <!--
   ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
   for this feature. Delete unused options and expand the chosen structure with
@@ -110,8 +112,8 @@ ios/ or android/
 └── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: \[Document the selected structure and reference the real
+directories captured above\]
 
 ## Complexity Tracking
 

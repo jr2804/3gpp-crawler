@@ -284,8 +284,9 @@ Whenever you execute shell commands (including via `mise`, `uv`, `pytest`, or an
 
 ## HTTP Client Guidelines
 
-- All HTTP requests **MUST** use `create_cached_session()` from the `tdoc_crawler.http_client` module to enable hishel caching
-- This requirement applies to all network calls to avoid unnecessary traffic to 3GPP servers (3gpp.org, whatthespec.net) and prevent rate-limiting/blocking
+- For core crawler source traffic (3gpp.org, whatthespec.net, portal), all HTTP requests **MUST** use `create_cached_session()` from the `tdoc_crawler.http_client` module to enable hishel caching
+- This requirement applies to source-fetching network calls to avoid unnecessary traffic to 3GPP servers and prevent rate-limiting/blocking
+- AI model-provider traffic used by the AI feature (LLM/embedding endpoints) is exempt from this caching requirement and must follow the approved provider/client integration path documented in the feature spec/plan
 - The caching layer significantly reduces network overhead and improves performance for incremental crawls (50-90% faster)
 - Direct HTTP requests without caching are not permitted in this project
 
