@@ -11,6 +11,11 @@ description: "Task list template for feature implementation"
 **Tests**: The examples below include test tasks. Tests are REQUIRED unless explicitly
 exempted by the feature specification and approved in the constitution.
 
+**Domain placement**: Every implementation task MUST place code in the correct domain
+package (`tdocs/`, `meetings/`, `specs/`). Tasks that add HTTP calls MUST include a
+sub-task verifying use of `create_cached_session()`. Search for existing implementations
+before creating new files.
+
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`

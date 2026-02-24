@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report:
-- Version change: 1.0.0 -> 1.1.0
+- Version change: 1.2.0 -> 1.3.0
 - Modified principles: None
-- Added sections: Core Principles item IV
+- Added sections: Core Principles V, VI, VII; Implementation Gates 5, 6, 7
 - Removed sections: None
 - Templates requiring updates:
-  - UPDATED: .specify/templates/plan-template.md
-  - UPDATED: .specify/templates/spec-template.md
-  - UPDATED: .specify/templates/tasks-template.md
-  - PENDING: .specify/templates/commands/*.md (directory not present)
+  - UPDATED: .specify/templates/plan-template.md (Constitution Check section)
+  - UPDATED: .specify/templates/spec-template.md (FR-010, FR-011, FR-012)
+  - UPDATED: .specify/templates/tasks-template.md (domain placement reminder)
+  - N/A: .specify/templates/commands/*.md (directory not present)
 - Follow-up TODOs: None
 -->
 # tdoc-crawler Constitution
@@ -49,6 +49,43 @@ user-facing output.
 Rationale: these standards keep Python code predictable, testable, and maintainable
 across the toolchain.
 
+### V. Domain-Oriented Architecture
+
+All new features and code MUST be placed in the correct domain package. The project is
+organized into `tdocs/`, `meetings/`, and `specs/` domains, each with dedicated
+`operations/`, `sources/`, and `models` sub-packages. Domain logic MUST NOT be
+implemented in `cli/`, `parsers/`, or `utils/`. The legacy `crawlers/` package MUST
+never be referenced or recreated.
+
+Circular imports are a structural problem and MUST be resolved by refactoring module
+organization. `TYPE_CHECKING` guards and import hoisting are prohibited as permanent
+solutions.
+
+Rationale: a clean domain-oriented structure was the product of a major refactoring to
+eliminate duplication and improve testability. Violating domain boundaries reintroduces
+the coupling and duplication problems that originally motivated it.
+
+### VI. No Duplication (DRY)
+
+Before implementing any new functionality, existing code MUST be searched for a
+similar or equivalent implementation. If equivalent logic already exists it MUST be
+refactored rather than duplicated. CLI code MUST only call into core library functions;
+domain logic MUST NOT be copied into `cli/`, test helpers, or utility modules.
+
+Rationale: code duplication was the primary driver of the domain-oriented refactoring.
+Duplicated logic makes bugs harder to find and fixes harder to apply consistently.
+
+### VII. Responsible Network Access
+
+All HTTP requests MUST use `create_cached_session()` from `tdoc_crawler.http_client` to
+enable hishel caching. Direct HTTP requests to external services (3gpp.org,
+whatthespec.net) are prohibited. Features that introduce network calls MUST plan and
+document their use of the caching layer before implementation begins.
+
+Rationale: the 3GPP portal and related services have strict rate-limiting policies. The
+caching layer reduces traffic by 50–90% on incremental crawls and protects against
+blocking.
+
 ## Implementation Gates
 
 - Gate 1: A standalone library interface exists and is planned before any application
@@ -58,11 +95,18 @@ across the toolchain.
   implementation begins.
 - Gate 4: Python standards (type hints, logging, uv/pyproject, Ruff, Ty, pathlib,
   dataclasses, Typer CLI) are explicitly planned and enforced.
+- Gate 5: Feature code is placed in the correct domain package; no domain logic in
+  `cli/` or `utils/`; no reference to the legacy `crawlers/` package.
+- Gate 6: Existing functionality has been searched before implementation; no duplicated
+  logic is introduced; CLI delegates to core library.
+- Gate 7: All HTTP requests use `create_cached_session()`; no direct network calls to
+  external services.
 
 ## Development Workflow
 
 - Feature specs and plans must document the library boundary, CLI I/O contract, TDD
-  evidence, and Python standards compliance.
+  evidence, Python standards compliance, domain placement, DRY validation, and network
+  access plan.
 - Code reviews and CI checks must verify the gates above; exceptions require a
   constitution amendment.
 
@@ -75,4 +119,4 @@ across the toolchain.
 - Compliance is verified in specs, plans, task lists, and code reviews; non-compliant
   changes must be blocked or accompanied by an approved amendment.
 
-**Version**: 1.2.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-05
+**Version**: 1.3.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-24

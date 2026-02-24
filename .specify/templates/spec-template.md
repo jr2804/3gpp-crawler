@@ -99,11 +99,19 @@
   hints and Google-style docstrings for public code, use `logging` instead of `print`,
   rely on `pathlib` for file paths, and keep Ruff and Ty checks clean without
   suppressions unless explicitly approved.
+- **FR-010**: All new code MUST be placed in the correct domain package (`tdocs/`,
+  `meetings/`, or `specs/`); domain logic MUST NOT appear in `cli/`, `parsers/`, or
+  `utils/`; the legacy `crawlers/` package MUST NOT be referenced.
+- **FR-011**: Before implementing any new functionality, existing code MUST be searched
+  for equivalent implementations; CLI code MUST only delegate to core library functions
+  and MUST NOT duplicate domain logic.
+- **FR-012**: All HTTP requests MUST use `create_cached_session()` from
+  `tdoc_crawler.http_client`; direct HTTP calls to external services are prohibited.
 
 *Example of marking unclear requirements:*
 
-- **FR-010**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-011**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-013**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-014**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 ### Key Entities *(include if feature involves data)*
 

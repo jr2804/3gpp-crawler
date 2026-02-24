@@ -36,6 +36,11 @@
 - [ ] TDD evidence planned (tests written/approved + red phase before implementation).
 - [ ] Python standards planned (type hints, logging, uv/pyproject, Ruff, Ty, pathlib,
   dataclasses where appropriate, Typer CLI).
+- [ ] Domain placement confirmed (correct domain package; no logic in cli/ or utils/;
+  no legacy crawlers/ reference).
+- [ ] DRY validation done (existing code searched; no duplicated logic introduced).
+- [ ] Network access plan documented (all HTTP via create_cached_session(); no direct
+  calls to external services).
 
 ## Library Boundary & CLI Contract
 
