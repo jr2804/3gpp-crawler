@@ -240,3 +240,14 @@ This does not block planning or test writing.
 | Embeddings | sentence-transformers + bge-small-en-v1.5 | latest | Apache-2.0 |
 | Chunking | Section-based with paragraph fallback | custom | N/A |
 | Graph Storage | LanceDB (same instance) | 0.29.2 | Apache-2.0 |
+
+## FR-011 DRY/Search Evidence
+
+- Reviewed existing code before implementation updates in:
+  - `src/tdoc_crawler/cli/ai.py`
+  - `src/tdoc_crawler/cli/app.py`
+  - `src/tdoc_crawler/ai/{__init__.py,config.py,models.py,storage.py}`
+  - `src/tdoc_crawler/ai/operations/{classify.py,extract.py,embeddings.py,summarize.py,graph.py,pipeline.py}`
+  - `tests/test_ai*.py`
+- Reused existing domain architecture and storage primitives rather than introducing duplicate code paths in CLI modules.
+- Kept network-policy enforcement and storage-boundary validation as dedicated foundational tasks (`T016`-`T019`) to avoid scattered duplicate checks.

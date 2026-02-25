@@ -182,13 +182,13 @@ Run AI tests:
 
 ```bash
 # All AI tests
-uv run pytest tests/test_ai*.py -v
+uv run pytest tests/ai -v
 
 # Specific module
-uv run pytest tests/test_ai_extraction.py -v
+uv run pytest tests/ai/test_ai_extraction.py -v
 ```
 
-Test data is located in `tests/data/ai/`.
+Test data is located in `tests/ai/data/`.
 
 ## Troubleshooting
 

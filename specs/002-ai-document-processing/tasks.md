@@ -18,10 +18,10 @@
 
 **Purpose**: Establish AI package, dependencies, fixtures, and environment-variable baseline.
 
-- [ ] T001 [P] Create/verify AI package skeleton in `src/tdoc_crawler/ai/__init__.py` and `src/tdoc_crawler/ai/operations/__init__.py`
-- [ ] T002 [P] Add/verify optional AI dependency group in `pyproject.toml`
-- [ ] T003 [P] Normalize AI fixture inventory documentation in `tests/data/ai/README.md`
-- [ ] T004 [P] Add and document AI environment variables in `.env.example`
+- [X] T001 [P] Create/verify AI package skeleton in `src/tdoc_crawler/ai/__init__.py` and `src/tdoc_crawler/ai/operations/__init__.py`
+- [X] T002 [P] Add/verify optional AI dependency group in `pyproject.toml`
+- [X] T003 [P] Normalize AI fixture inventory documentation in `tests/ai/data/README.md`
+- [X] T004 [P] Add and document AI environment variables in `.env.example`
 
 ______________________________________________________________________
 
@@ -31,21 +31,21 @@ ______________________________________________________________________
 
 **CRITICAL**: No user story implementation starts until this phase is complete.
 
-- [ ] T005 Implement AI data models, enums, and errors in `src/tdoc_crawler/ai/models.py`
-- [ ] T006 Implement `AiConfig` with env loading and defaults in `src/tdoc_crawler/ai/config.py`
-- [ ] T007 Implement `<provider>/<model_name>` validator (LiteLLM provider + slash-safe model segment) in `src/tdoc_crawler/ai/config.py`
-- [ ] T008 Implement LanceDB storage init and CRUD in `src/tdoc_crawler/ai/storage.py`
-- [ ] T009 Align public API signatures with contracts in `src/tdoc_crawler/ai/__init__.py`
-- [ ] T010 Remove eager imports and keep operations package init minimal in `src/tdoc_crawler/ai/operations/__init__.py`
-- [ ] T011 [P] Add config validation tests (env loading, provider/model format, invalid provider) in `tests/test_ai_config.py`
-- [ ] T012 [P] Record FR-011 DRY/search evidence in `specs/002-ai-document-processing/research.md`
-- [ ] T013 [P] Run focused foundational red/collect checks for `tests/test_ai_config.py` and AI modules
-- [ ] T014 [P] User approval checkpoint: confirm foundational red-phase failures are reviewed and approved before continuing implementation work
-- [ ] T015 [P] Fix strict lint-rule gates (`PLC0415`, `ANN001`, `F821`, `ANN201`, `B008`, `PLW2901`, `S108`) in `src/tdoc_crawler/ai/` and `tests/test_ai_*.py`
-- [ ] T016 [P] Add FR-012 network-policy regression tests in `tests/test_ai_network_policy.py` (core crawler-source traffic must use `create_cached_session()`; AI provider traffic remains exempt)
-- [ ] T017 [P] Add FR-012 compliance checks for forbidden direct core-source HTTP usage in `scripts/check.py`
-- [ ] T018 [P] Add FR-018 storage-boundary test in `tests/test_ai_storage_boundary.py` verifying AI writes only to AI storage and does not mutate core SQLite schema
-- [ ] T019 [P] Add FR-018 integration test in `tests/test_ai_pipeline.py` verifying metadata reads from `TDocDatabase` are read-only while artifacts persist only in AI storage
+- [X] T005 Implement AI data models, enums, and errors in `src/tdoc_crawler/ai/models.py`
+- [X] T006 Implement `AiConfig` with env loading and defaults in `src/tdoc_crawler/ai/config.py`
+- [X] T007 Implement `<provider>/<model_name>` validator (LiteLLM provider + slash-safe model segment) in `src/tdoc_crawler/ai/config.py`
+- [X] T008 Implement LanceDB storage init and CRUD in `src/tdoc_crawler/ai/storage.py`
+- [X] T009 Align public API signatures with contracts in `src/tdoc_crawler/ai/__init__.py`
+- [X] T010 Remove eager imports and keep operations package init minimal in `src/tdoc_crawler/ai/operations/__init__.py`
+- [X] T011 [P] Add config validation tests (env loading, provider/model format, invalid provider) in `tests/ai/test_ai_config.py`
+- [X] T012 [P] Record FR-011 DRY/search evidence in `specs/002-ai-document-processing/research.md`
+- [X] T013 [P] Run focused foundational red/collect checks for `tests/ai/test_ai_config.py` and AI modules
+- [X] T014 [P] User approval checkpoint: confirm foundational red-phase failures are reviewed and approved before continuing implementation work
+- [X] T015 [P] Fix strict lint-rule gates (`PLC0415`, `ANN001`, `F821`, `ANN201`, `B008`, `PLW2901`, `S108`) in `src/tdoc_crawler/ai/` and `tests/ai/test_ai_*.py`
+- [X] T016 [P] Add FR-012 network-policy regression tests in `tests/ai/test_ai_network_policy.py` (core crawler-source traffic must use `create_cached_session()`; AI provider traffic remains exempt)
+- [X] T017 [P] Add FR-012 compliance checks for forbidden direct core-source HTTP usage in `scripts/check.py`
+- [X] T018 [P] Add FR-018 storage-boundary test in `tests/ai/test_ai_storage_boundary.py` verifying AI writes only to AI storage and does not mutate core SQLite schema
+- [X] T019 [P] Add FR-018 integration test in `tests/ai/test_ai_pipeline.py` verifying metadata reads from `TDocDatabase` are read-only while artifacts persist only in AI storage
 
 **Checkpoint**: Foundation stable and constitution-aligned.
 
@@ -59,8 +59,8 @@ ______________________________________________________________________
 
 ### Tests for User Story 1 (REQUIRED)
 
-- [ ] T020 [US1] Write extraction tests in `tests/test_ai_extraction.py`
-- [ ] T021 [US1] Run red checkpoint for `tests/test_ai_extraction.py` and record failing output in `tests/test_ai_extraction.py`
+- [ ] T020 [US1] Write extraction tests in `tests/ai/test_ai_extraction.py`
+- [ ] T021 [US1] Run red checkpoint for `tests/ai/test_ai_extraction.py` and record failing output in `tests/ai/test_ai_extraction.py`
 - [ ] T022 [US1] User approval checkpoint: confirm US1 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 1
@@ -81,8 +81,8 @@ ______________________________________________________________________
 
 ### Tests for User Story 2 (REQUIRED)
 
-- [ ] T026 [US2] Write classification tests in `tests/test_ai_classification.py`
-- [ ] T027 [US2] Run red checkpoint for `tests/test_ai_classification.py` and record failing output in `tests/test_ai_classification.py`
+- [ ] T026 [US2] Write classification tests in `tests/ai/test_ai_classification.py`
+- [ ] T027 [US2] Run red checkpoint for `tests/ai/test_ai_classification.py` and record failing output in `tests/ai/test_ai_classification.py`
 - [ ] T028 [US2] User approval checkpoint: confirm US2 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 2
@@ -102,8 +102,8 @@ ______________________________________________________________________
 
 ### Tests for User Story 3 (REQUIRED)
 
-- [ ] T031 [US3] Write pipeline orchestration tests in `tests/test_ai_pipeline.py`
-- [ ] T032 [US3] Run red checkpoint for `tests/test_ai_pipeline.py` and record failing output in `tests/test_ai_pipeline.py`
+- [ ] T031 [US3] Write pipeline orchestration tests in `tests/ai/test_ai_pipeline.py`
+- [ ] T032 [US3] Run red checkpoint for `tests/ai/test_ai_pipeline.py` and record failing output in `tests/ai/test_ai_pipeline.py`
 - [ ] T033 [US3] User approval checkpoint: confirm US3 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 3
@@ -124,8 +124,8 @@ ______________________________________________________________________
 
 ### Tests for User Story 7 (REQUIRED)
 
-- [ ] T037 [US7] Write AI CLI tests in `tests/test_ai_cli.py`
-- [ ] T038 [US7] Run red checkpoint for `tests/test_ai_cli.py` and record failing output in `tests/test_ai_cli.py`
+- [ ] T037 [US7] Write AI CLI tests in `tests/ai/test_ai_cli.py`
+- [ ] T038 [US7] Run red checkpoint for `tests/ai/test_ai_cli.py` and record failing output in `tests/ai/test_ai_cli.py`
 - [ ] T039 [US7] User approval checkpoint: confirm US7 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 7
@@ -146,8 +146,8 @@ ______________________________________________________________________
 
 ### Tests for User Story 4 (REQUIRED)
 
-- [ ] T043 [US4] Write embedding tests in `tests/test_ai_embeddings.py`
-- [ ] T044 [US4] Run red checkpoint for `tests/test_ai_embeddings.py` and record failing output in `tests/test_ai_embeddings.py`
+- [ ] T043 [US4] Write embedding tests in `tests/ai/test_ai_embeddings.py`
+- [ ] T044 [US4] Run red checkpoint for `tests/ai/test_ai_embeddings.py` and record failing output in `tests/ai/test_ai_embeddings.py`
 - [ ] T045 [US4] User approval checkpoint: confirm US4 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 4
@@ -168,8 +168,8 @@ ______________________________________________________________________
 
 ### Tests for User Story 5 (REQUIRED)
 
-- [ ] T049 [US5] Write summarization tests in `tests/test_ai_summarization.py`
-- [ ] T050 [US5] Run red checkpoint for `tests/test_ai_summarization.py` and record failing output in `tests/test_ai_summarization.py`
+- [ ] T049 [US5] Write summarization tests in `tests/ai/test_ai_summarization.py`
+- [ ] T050 [US5] Run red checkpoint for `tests/ai/test_ai_summarization.py` and record failing output in `tests/ai/test_ai_summarization.py`
 - [ ] T051 [US5] User approval checkpoint: confirm US5 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 5
@@ -190,8 +190,8 @@ ______________________________________________________________________
 
 ### Tests for User Story 6 (REQUIRED)
 
-- [ ] T055 [US6] Write graph construction/query tests in `tests/test_ai_graph.py`
-- [ ] T056 [US6] Run red checkpoint for `tests/test_ai_graph.py` and record failing output in `tests/test_ai_graph.py`
+- [ ] T055 [US6] Write graph construction/query tests in `tests/ai/test_ai_graph.py`
+- [ ] T056 [US6] Run red checkpoint for `tests/ai/test_ai_graph.py` and record failing output in `tests/ai/test_ai_graph.py`
 - [ ] T057 [US6] User approval checkpoint: confirm US6 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 6
@@ -253,7 +253,7 @@ ______________________________________________________________________
 
 ### US1 Parallel Example
 
-- T020 in `tests/test_ai_extraction.py` can run in parallel with fixture adjustments in `tests/data/ai/README.md`.
+- T020 in `tests/ai/test_ai_extraction.py` can run in parallel with fixture adjustments in `tests/ai/data/README.md`.
 
 ### US2 Parallel Example
 
