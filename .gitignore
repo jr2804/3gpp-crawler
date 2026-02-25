@@ -234,3 +234,5 @@ Thumbs.db
 .vscode/
 .idea/
 /scripts/cache
+/.agents/skills/visual-explainer
+skills-lock.json

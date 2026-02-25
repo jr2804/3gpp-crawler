@@ -55,8 +55,24 @@ arg "[script]" help="Script variant to use: sh (bash/zsh) or ps (PowerShell)" de
 run = ["cls", "uv run specify init --here --ai {{usage.ai_agent}} --script {{usage.script}}", "uv run specify check"]
 
 [tasks.convert-mcp-cfg]
+description = "Obsolete - use npx add-mcp ... -a <agent> instead!"
 run = ["cls",
     "uvx --from https://github.com/jr2804/mcp-config-converter.git mcp-config-converter convert .vscode/mcp.json --provider{% if args %} {{ args }}{% endif %}"
+]
+
+[tasks.add-mcp-servers]
+usage = '''
+arg "[ai_agent]" help="AI assistant to use (default: universal): claude, gemini, copilot, opencode, ... see: https://github.com/vercel-labs/skills?tab=readme-ov-file#supported-agents" default="universal"
+'''
+run = ["@echo off", "cls",
+    "npx add-mcp  --from"
+]
+
+[tasks.add-skills]
+run = [
+    "@echo off",
+    "cls",
+    "bunx skills add https://github.com/nicobailon/visual-explainer -a universal",
 ]
 
 [tasks.beads-up]
