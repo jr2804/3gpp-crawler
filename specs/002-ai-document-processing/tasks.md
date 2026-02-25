@@ -59,15 +59,15 @@ ______________________________________________________________________
 
 ### Tests for User Story 1 (REQUIRED)
 
-- [ ] T020 [US1] Write extraction tests in `tests/ai/test_ai_extraction.py`
-- [ ] T021 [US1] Run red checkpoint for `tests/ai/test_ai_extraction.py` and record failing output in `tests/ai/test_ai_extraction.py`
-- [ ] T022 [US1] User approval checkpoint: confirm US1 red-phase failures are reviewed and approved before implementation
+- [X] T020 [US1] Write extraction tests in `tests/ai/test_ai_extraction.py`
+- [X] T021 [US1] Run red checkpoint for `tests/ai/test_ai_extraction.py` and record failing output in `tests/ai/test_ai_extraction.py`
+- [X] T022 [US1] User approval checkpoint: confirm US1 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 1
 
-- [ ] T023 [US1] Implement `extract_docx_to_markdown()` with Docling conversion in `src/tdoc_crawler/ai/operations/extract.py`
-- [ ] T024 [US1] Implement extraction idempotency via source hash and skip logic in `src/tdoc_crawler/ai/operations/extract.py`
-- [ ] T025 [US1] Persist extraction status transitions and errors in `src/tdoc_crawler/ai/operations/pipeline.py`
+- [X] T023 [US1] Implement `extract_docx_to_markdown()` with Docling conversion in `src/tdoc_crawler/ai/operations/extract.py`
+- [X] T024 [US1] Implement extraction idempotency via source hash and skip logic in `src/tdoc_crawler/ai/operations/extract.py`
+- [X] T025 [US1] Persist extraction status transitions and errors in `src/tdoc_crawler/ai/operations/pipeline.py`
 
 **Checkpoint**: Single-TDoc extraction works and skips unchanged input.
 
@@ -81,14 +81,14 @@ ______________________________________________________________________
 
 ### Tests for User Story 2 (REQUIRED)
 
-- [ ] T026 [US2] Write classification tests in `tests/ai/test_ai_classification.py`
-- [ ] T027 [US2] Run red checkpoint for `tests/ai/test_ai_classification.py` and record failing output in `tests/ai/test_ai_classification.py`
-- [ ] T028 [US2] User approval checkpoint: confirm US2 red-phase failures are reviewed and approved before implementation
+- [X] T026 [US2] Write classification tests in `tests/ai/test_ai_classification.py`
+- [X] T027 [US2] Run red checkpoint for `tests/ai/test_ai_classification.py` and record failing output in `tests/ai/test_ai_classification.py`
+- [X] T028 [US2] User approval checkpoint: confirm US2 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Implement heuristic classifier and confidence scoring in `src/tdoc_crawler/ai/operations/classify.py`
-- [ ] T030 [US2] Persist classification outputs and decisive heuristic in `src/tdoc_crawler/ai/storage.py`
+- [X] T029 [US2] Implement heuristic classifier and confidence scoring in `src/tdoc_crawler/ai/operations/classify.py`
+- [X] T030 [US2] Persist classification outputs and decisive heuristic in `src/tdoc_crawler/ai/storage.py`
 
 **Checkpoint**: Exactly one main document is identified per folder.
 
@@ -102,15 +102,15 @@ ______________________________________________________________________
 
 ### Tests for User Story 3 (REQUIRED)
 
-- [ ] T031 [US3] Write pipeline orchestration tests in `tests/ai/test_ai_pipeline.py`
-- [ ] T032 [US3] Run red checkpoint for `tests/ai/test_ai_pipeline.py` and record failing output in `tests/ai/test_ai_pipeline.py`
-- [ ] T033 [US3] User approval checkpoint: confirm US3 red-phase failures are reviewed and approved before implementation
+- [X] T031 [US3] Write pipeline orchestration tests in `tests/ai/test_ai_pipeline.py`
+- [X] T032 [US3] Run red checkpoint for `tests/ai/test_ai_pipeline.py` and record failing output in `tests/ai/test_ai_pipeline.py`
+- [X] T033 [US3] User approval checkpoint: confirm US3 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Implement `run_pipeline()` stage order and transitions in `src/tdoc_crawler/ai/operations/pipeline.py`
-- [ ] T035 [US3] Implement incremental and resume behavior in `src/tdoc_crawler/ai/operations/pipeline.py`
-- [ ] T036 [US3] Implement `process_tdoc()`, `process_all()`, and `get_status()` in `src/tdoc_crawler/ai/__init__.py`
+- [X] T034 [US3] Implement `run_pipeline()` stage order and transitions in `src/tdoc_crawler/ai/operations/pipeline.py`
+- [X] T035 [US3] Implement incremental and resume behavior in `src/tdoc_crawler/ai/operations/pipeline.py`
+- [X] T036 [US3] Implement `process_tdoc()`, `process_all()`, and `get_status()` in `src/tdoc_crawler/ai/__init__.py`
 
 **Checkpoint**: Orchestration works for classify+extract with resume/incremental behavior.
 
@@ -124,15 +124,15 @@ ______________________________________________________________________
 
 ### Tests for User Story 7 (REQUIRED)
 
-- [ ] T037 [US7] Write AI CLI tests in `tests/ai/test_ai_cli.py`
-- [ ] T038 [US7] Run red checkpoint for `tests/ai/test_ai_cli.py` and record failing output in `tests/ai/test_ai_cli.py`
-- [ ] T039 [US7] User approval checkpoint: confirm US7 red-phase failures are reviewed and approved before implementation
+- [X] T037 [US7] Write AI CLI tests in `tests/ai/test_ai_cli.py`
+- [X] T038 [US7] Run red checkpoint for `tests/ai/test_ai_cli.py` and record failing output in `tests/ai/test_ai_cli.py`
+- [X] T039 [US7] User approval checkpoint: confirm US7 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 7
 
-- [ ] T040 [US7] Implement AI Typer subcommands in `src/tdoc_crawler/cli/ai.py`
-- [ ] T041 [US7] Register AI sub-app in `src/tdoc_crawler/cli/app.py`
-- [ ] T042 [US7] Ensure CLI delegates to library API only in `src/tdoc_crawler/cli/ai.py`
+- [X] T040 [US7] Implement AI Typer subcommands in `src/tdoc_crawler/cli/ai.py`
+- [X] T041 [US7] Register AI sub-app in `src/tdoc_crawler/cli/app.py`
+- [X] T042 [US7] Ensure CLI delegates to library API only in `src/tdoc_crawler/cli/ai.py`
 
 **Checkpoint**: CLI surface is complete for all AI commands.
 
@@ -146,15 +146,15 @@ ______________________________________________________________________
 
 ### Tests for User Story 4 (REQUIRED)
 
-- [ ] T043 [US4] Write embedding tests in `tests/ai/test_ai_embeddings.py`
-- [ ] T044 [US4] Run red checkpoint for `tests/ai/test_ai_embeddings.py` and record failing output in `tests/ai/test_ai_embeddings.py`
-- [ ] T045 [US4] User approval checkpoint: confirm US4 red-phase failures are reviewed and approved before implementation
+- [X] T043 [US4] Write embedding tests in `tests/ai/test_ai_embeddings.py`
+- [X] T044 [US4] Run red checkpoint for `tests/ai/test_ai_embeddings.py` and record failing output in `tests/ai/test_ai_embeddings.py`
+- [X] T045 [US4] User approval checkpoint: confirm US4 red-phase failures are reviewed and approved before implementation
 
 ### Implementation for User Story 4
 
-- [ ] T046 [US4] Implement section-based chunking and overlap logic in `src/tdoc_crawler/ai/operations/embed.py`
-- [ ] T047 [US4] Implement embedding generation and model-version metadata in `src/tdoc_crawler/ai/operations/embed.py`
-- [ ] T048 [US4] Implement `query_embeddings()` API and pipeline registration in `src/tdoc_crawler/ai/__init__.py` and `src/tdoc_crawler/ai/operations/pipeline.py`
+- [X] T046 [US4] Implement section-based chunking and overlap logic in `src/tdoc_crawler/ai/operations/embed.py`
+- [X] T047 [US4] Implement embedding generation and model-version metadata in `src/tdoc_crawler/ai/operations/embed.py`
+- [X] T048 [US4] Implement `query_embeddings()` API and pipeline registration in `src/tdoc_crawler/ai/__init__.py` and `src/tdoc_crawler/ai/operations/pipeline.py`
 
 **Checkpoint**: Semantic chunk retrieval is operational.
 

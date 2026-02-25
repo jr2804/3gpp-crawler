@@ -494,3 +494,41 @@ Most eager imports in all __init__.py files are unnecessary, as these are just t
 Eager imports may only make sense for:
 - *very* relevant types that are also used by consumers of this API.
 - for constants and very simple types (like enums or types without additional dependencies)
+
+<skills_system priority="1">
+
+## Available Skills
+
+<!-- SKILLS_TABLE_START -->
+<usage>
+When users ask you to perform tasks, check if any of the available skills
+below can help complete the task more effectively.
+
+How to use skills:
+- Invoke: Bash("skilz read <skill-name> --agent universal")
+- The skill content will load with detailed instructions
+- Base directory provided in output for resolving bundled resources
+
+Step-by-step process:
+1. Identify a skill from <available_skills> that matches the user's request
+2. Run the command above to load the skill's SKILL.md content
+3. Follow the instructions in the loaded skill content
+4. Skills may include bundled scripts, templates, and references
+
+Usage notes:
+- Only use skills listed in <available_skills> below
+- Do not invoke a skill that is already loaded in your context
+</usage>
+
+<available_skills>
+
+<skill>
+<name>visual-explainer</name>
+<description>Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Use when the user asks for a diagram, architecture overview, diff review, plan review, project recap, comparison table, or any visual explanation of technical concepts. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead.</description>
+<location>.skilz\skills\visual-explainer/SKILL.md</location>
+</skill>
+
+</available_skills>
+<!-- SKILLS_TABLE_END -->
+
+</skills_system>
