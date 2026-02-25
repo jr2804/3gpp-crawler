@@ -10,6 +10,10 @@ run = "mise tasks"
 description = "Upgrade all development tools to their latest versions"
 run = "mise up"
 
+[tasks.env-sync]
+description = "Sync the virtual environment with pyproject.toml dependencies"
+run = "uv sync -U --dev --all-extras --all-groups"
+
 [tasks.format]
 description = "Format source code and tests"
 run = [
@@ -20,7 +24,7 @@ run = [
 
 [tasks.format-md]
 description = "Format Markdown files"
-run = "mdformat src/ docs/ tests/ --exclude .config/"
+run = "mdformat src/ docs/ tests/ .specify/ specs/ --exclude .config/"
 
 [tasks.lint]
 description = "Lint source code and tests"
