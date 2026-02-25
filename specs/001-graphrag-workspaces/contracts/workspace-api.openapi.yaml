@@ -4,6 +4,7 @@ info:
   version: 0.1.0
   description: Workspace/project scoping logical contract for AI GraphRAG pipeline JSON payloads.
 x-contract-mode: logical-non-http
+x-contract-frozen-at-foundation: true
 servers:
   - url: /
 paths:

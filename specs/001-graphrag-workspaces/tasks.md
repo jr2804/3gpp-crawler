@@ -9,9 +9,9 @@
 
 **Purpose**: Prepare workspace feature scaffolding and test harness updates.
 
-- [ ] T001 Review and catalog single-scope assumptions in `src/tdoc_crawler/ai/__init__.py`, `src/tdoc_crawler/ai/storage.py`, `src/tdoc_crawler/ai/operations/pipeline.py`, and `src/tdoc_crawler/cli/ai.py`
-- [ ] T002 Create workspace operation module scaffold in `src/tdoc_crawler/ai/operations/workspaces.py`
-- [ ] T003 [P] Add workspace test scaffolding in `tests/ai/test_ai_workspaces.py`
+- [x] T001 Review and catalog single-scope assumptions in `src/tdoc_crawler/ai/__init__.py`, `src/tdoc_crawler/ai/storage.py`, `src/tdoc_crawler/ai/operations/pipeline.py`, and `src/tdoc_crawler/cli/ai.py`
+- [x] T002 Create workspace operation module scaffold in `src/tdoc_crawler/ai/operations/workspaces.py`
+- [x] T003 [P] Add workspace test scaffolding in `tests/ai/test_ai_workspaces.py`
 
 ______________________________________________________________________
 
@@ -21,14 +21,14 @@ ______________________________________________________________________
 
 **⚠️ CRITICAL**: No user story implementation starts until this phase is complete.
 
-- [ ] T004 [P] Add workspace domain models and normalization helpers in `src/tdoc_crawler/ai/models.py`
-- [ ] T005 Add workspace tables/schemas and core CRUD APIs in `src/tdoc_crawler/ai/storage.py`
-- [ ] T006 [P] Implement default workspace resolver/auto-create primitives in `src/tdoc_crawler/ai/operations/workspaces.py`
-- [ ] T007 Wire workspace APIs into public AI package exports in `src/tdoc_crawler/ai/__init__.py`
-- [ ] T008 Remove newly introduced ambiguous naming by using generic `source_item` terminology in `src/tdoc_crawler/ai/operations/workspaces.py` and `src/tdoc_crawler/cli/ai.py`
-- [ ] T009 Implement backward-compatible fallback mapping to `default` for existing unscoped storage reads/writes in `src/tdoc_crawler/ai/storage.py`
-- [ ] T010 Verify no new core-crawler HTTP source calls are introduced and document AI model-provider exemption path in `specs/001-graphrag-workspaces/research.md`
-- [ ] T011 Freeze and align workspace logical JSON contract (non-HTTP implementation for this feature) in `specs/001-graphrag-workspaces/contracts/workspace-api.openapi.yaml`
+- [x] T004 [P] Add workspace domain models and normalization helpers in `src/tdoc_crawler/ai/models.py`
+- [x] T005 Add workspace tables/schemas and core CRUD APIs in `src/tdoc_crawler/ai/storage.py`
+- [x] T006 [P] Implement default workspace resolver/auto-create primitives in `src/tdoc_crawler/ai/operations/workspaces.py`
+- [x] T007 Wire workspace APIs into public AI package exports in `src/tdoc_crawler/ai/__init__.py`
+- [x] T008 Remove newly introduced ambiguous naming by using generic `source_item` terminology in `src/tdoc_crawler/ai/operations/workspaces.py` and `src/tdoc_crawler/cli/ai.py`
+- [x] T009 Implement backward-compatible fallback mapping to `default` for existing unscoped storage reads/writes in `src/tdoc_crawler/ai/storage.py`
+- [x] T010 Verify no new core-crawler HTTP source calls are introduced and document AI model-provider exemption path in `specs/001-graphrag-workspaces/research.md`
+- [x] T011 Freeze and align workspace logical JSON contract (non-HTTP implementation for this feature) in `specs/001-graphrag-workspaces/contracts/workspace-api.openapi.yaml`
 
 **Checkpoint**: Foundation complete; user stories can now proceed.
 
@@ -42,9 +42,9 @@ ______________________________________________________________________
 
 ### Tests for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T012 [P] [US1] Add red tests for workspace create/list/get behavior in `tests/ai/test_ai_workspaces.py`
-- [ ] T013 [P] [US1] Add red tests for workspace membership isolation in `tests/ai/test_ai_storage.py`
-- [ ] T014 [P] [US1] Add red CLI tests for workspace management commands in `tests/ai/test_ai_cli.py`
+- [x] T012 [P] [US1] Add red tests for workspace create/list/get behavior in `tests/ai/test_ai_workspaces.py`
+- [x] T013 [P] [US1] Add red tests for workspace membership isolation in `tests/ai/test_ai_storage.py`
+- [x] T014 [P] [US1] Add red CLI tests for workspace management commands in `tests/ai/test_ai_cli.py`
 - [ ] T015 [US1] Obtain user approval for failing red-test evidence before starting implementation in `tests/ai/test_ai_workspaces.py`, `tests/ai/test_ai_storage.py`, and `tests/ai/test_ai_cli.py`
 - [ ] T016 [US1] Re-run existing-implementation search and record reuse/refactor decisions in `specs/001-graphrag-workspaces/research.md` for `src/tdoc_crawler/ai/storage.py`, `src/tdoc_crawler/ai/operations/pipeline.py`, and `src/tdoc_crawler/cli/ai.py`
 

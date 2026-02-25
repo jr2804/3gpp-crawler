@@ -75,3 +75,9 @@
 ## Resolved Clarifications
 
 All technical unknowns for planning are resolved. No `NEEDS CLARIFICATION` items remain.
+
+## Foundational Verification (Phase 2)
+
+- Verified foundational workspace changes do not introduce new HTTP source calls to 3GPP/WhatTheSpec/portal crawler flows.
+- Workspace scaffolding only updates AI domain models, AI storage tables/CRUD, and AI CLI/library delegation.
+- AI model-provider traffic remains on the approved AI integration path and is intentionally exempt from crawler-source caching rules.
