@@ -61,6 +61,6 @@
 
 ## Relationships
 
-- Specification 1---* SpecificationSourceRecord
-- Specification 1---* SpecificationVersion
+- Specification 1---\* SpecificationSourceRecord
+- Specification 1---\* SpecificationVersion
 - SpecificationVersion 1---0..1 SpecificationDownload

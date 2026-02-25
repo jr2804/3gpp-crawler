@@ -18,10 +18,10 @@ As a data curator, I want to crawl 3GPP specification metadata using both 3GPP.o
 **Acceptance Scenarios**:
 
 1. **Given** a valid spec number, **When** I run a crawl using the 3GPP.org source, **Then** the catalog stores metadata returned from the redirected specification details page.
-2. **Given** a valid spec number, **When** I run a crawl using the whatthespec.net source, **Then** the catalog stores metadata returned by the JSON API.
-3. **Given** a spec available from both sources, **When** I crawl using both sources, **Then** the catalog stores both source records and ties them to the same canonical spec number.
+1. **Given** a valid spec number, **When** I run a crawl using the whatthespec.net source, **Then** the catalog stores metadata returned by the JSON API.
+1. **Given** a spec available from both sources, **When** I crawl using both sources, **Then** the catalog stores both source records and ties them to the same canonical spec number.
 
----
+______________________________________________________________________
 
 ### User Story 2 - Checkout or open spec documents (Priority: P2)
 
@@ -34,14 +34,14 @@ As a maintainer, I want to checkout one or more specs or open a single spec docu
 **Acceptance Scenarios**:
 
 1. **Given** a resolved spec download URL, **When** I checkout the latest version, **Then** the zip contents are extracted to `checkout_dir/Specs/archive/<series>/<spec number>/<file name>/`.
-2. **Given** doc-only mode is enabled, **When** the system locates a matching `.doc` or `.docx` entry in the remote zip, **Then** it downloads only that document and stores it in the expected checkout folder.
-3. **Given** doc-only mode is enabled, **When** document identification fails, **Then** the system warns and downloads/extracts the full zip.
-4. **Given** a spec zip that contains a single document plus attachments, **When** extraction completes, **Then** the document and attachments are stored together under the same checkout folder.
-5. **Given** I run open-spec for a single spec, **When** the checkout completes, **Then** the document opens with the system default application.
-6. **Given** I request a specific release value, **When** the release matches metadata, **Then** the corresponding version is downloaded and extracted.
-7. **Given** I request a release that cannot be determined, **When** the command runs, **Then** it warns, skips that spec, and continues with remaining items if any.
+1. **Given** doc-only mode is enabled, **When** the system locates a matching `.doc` or `.docx` entry in the remote zip, **Then** it downloads only that document and stores it in the expected checkout folder.
+1. **Given** doc-only mode is enabled, **When** document identification fails, **Then** the system warns and downloads/extracts the full zip.
+1. **Given** a spec zip that contains a single document plus attachments, **When** extraction completes, **Then** the document and attachments are stored together under the same checkout folder.
+1. **Given** I run open-spec for a single spec, **When** the checkout completes, **Then** the document opens with the system default application.
+1. **Given** I request a specific release value, **When** the release matches metadata, **Then** the corresponding version is downloaded and extracted.
+1. **Given** I request a release that cannot be determined, **When** the command runs, **Then** it warns, skips that spec, and continues with remaining items if any.
 
----
+______________________________________________________________________
 
 ### User Story 3 - Query spec catalog by key attributes (Priority: P3)
 
@@ -54,10 +54,10 @@ As an analyst, I want to query the spec catalog by number, title keyword, workin
 **Acceptance Scenarios**:
 
 1. **Given** the catalog contains a spec with number 26.260, **When** I query by spec number, **Then** I receive the exact matching spec with its versions and source attribution.
-2. **Given** the catalog contains multiple specs for a working group, **When** I query by working group, **Then** I receive all specs for that group.
-3. **Given** the catalog contains specs with distinct statuses, **When** I query by status, **Then** I receive only the specs in the requested status.
+1. **Given** the catalog contains multiple specs for a working group, **When** I query by working group, **Then** I receive all specs for that group.
+1. **Given** the catalog contains specs with distinct statuses, **When** I query by status, **Then** I receive only the specs in the requested status.
 
----
+______________________________________________________________________
 
 ### User Story 4 - Inspect source discrepancies (Priority: P4)
 
@@ -70,9 +70,9 @@ As a maintainer, I want to see when metadata differs between 3GPP.org and whatth
 **Acceptance Scenarios**:
 
 1. **Given** both sources report different version lists for a spec, **When** I query the spec, **Then** I can see the version lists per source.
-2. **Given** both sources report different titles, **When** I query the spec, **Then** I can see the title per source.
+1. **Given** both sources report different titles, **When** I query the spec, **Then** I can see the title per source.
 
----
+______________________________________________________________________
 
 ### Edge Cases
 

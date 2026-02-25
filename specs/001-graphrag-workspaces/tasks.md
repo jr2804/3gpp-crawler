@@ -53,8 +53,9 @@ ______________________________________________________________________
 - [ ] T017 [US1] Implement create/list/get workspace operations in `src/tdoc_crawler/ai/operations/workspaces.py`
 - [ ] T018 [US1] Implement add/remove/list workspace members in `src/tdoc_crawler/ai/operations/workspaces.py`
 - [ ] T019 [US1] Persist and query workspace/member data in `src/tdoc_crawler/ai/storage.py`
-- [ ] T020 [US1] Add `ai workspace` command group and member management delegation in `src/tdoc_crawler/cli/ai.py`
+- [ ] T020 [US1] Add `ai workspace` command group and member management delegation in `src/tdoc_crawler/cli/ai.py`, including `--json` output mode per FR-009
 - [ ] T021 [US1] Export workspace management API in `src/tdoc_crawler/ai/__init__.py`
+- [ ] T021a [US1] Implement workspace deletion with artifact preservation (deleting workspace X must not remove artifacts from workspace Y) in `src/tdoc_crawler/ai/operations/workspaces.py` and `src/tdoc_crawler/ai/storage.py`
 
 **Checkpoint**: User Story 1 is independently functional and testable.
 
@@ -120,6 +121,7 @@ ______________________________________________________________________
 - [ ] T043 [P] Sync finalized contract examples and non-functional descriptions in `specs/001-graphrag-workspaces/contracts/workspace-api.openapi.yaml`
 - [ ] T044 Run Ruff/Ty fixes for touched modules in `src/tdoc_crawler/ai/models.py`, `src/tdoc_crawler/ai/storage.py`, `src/tdoc_crawler/ai/operations/pipeline.py`, `src/tdoc_crawler/ai/operations/workspaces.py`, and `src/tdoc_crawler/cli/ai.py`
 - [ ] T045 [P] Execute and stabilize focused AI tests in `tests/ai/test_ai_workspaces.py`, `tests/ai/test_ai_workspace_contract.py`, `tests/ai/test_ai_pipeline.py`, `tests/ai/test_ai_storage.py`, and `tests/ai/test_ai_cli.py`
+- [ ] T046 [P] Validate SC-003 performance and scale: generate test dataset (30+ source items across 3+ workspaces, 8+ items per workspace, mixed docx/pdf/md/txt), measure workspace creation + corpus registration time, verify completion under 2 minutes per SC-003
 
 ______________________________________________________________________
 
@@ -179,15 +181,15 @@ ______________________________________________________________________
 ### MVP First (US1 only)
 
 1. Complete Phase 1 and Phase 2.
-2. Deliver Phase 3 (US1) end-to-end.
-3. Validate workspace isolation independently before moving on.
+1. Deliver Phase 3 (US1) end-to-end.
+1. Validate workspace isolation independently before moving on.
 
 ### Incremental Delivery
 
 1. Add US1 (workspace isolation).
-2. Add US2 (`default` fallback).
-3. Add US3 (workspace-scoped knowledge-base construction).
-4. Finish with Phase 6 polish and quality gates.
+1. Add US2 (`default` fallback).
+1. Add US3 (workspace-scoped knowledge-base construction).
+1. Finish with Phase 6 polish and quality gates.
 
 ### Existing Code Consideration
 

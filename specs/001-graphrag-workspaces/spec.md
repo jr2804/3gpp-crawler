@@ -33,6 +33,19 @@ As a user building GraphRAG knowledge bases, I want to create named workspaces t
 1. **Given** a repository containing multiple TDocs/specs/files, **When** a workspace is created with a selected subset, **Then** only that subset is registered in the workspace corpus.
 1. **Given** two workspaces with different file selections, **When** each workspace is queried for its corpus members, **Then** no file appears in a workspace unless it was selected for that workspace.
 
+### User Story 1.1 - Workspace Name Normalization (Priority: P1)
+
+As a user, I want workspace names to be normalized consistently regardless of casing, so I can reliably reference workspaces without worrying about exact capitalization.
+
+**Normalization Rule**: All workspace names MUST be converted to lowercase before storage and comparison. For example, "MyProject", "myproject", and "MYPROJECT" all refer to the same workspace.
+
+**Independent Test**: Can be tested by creating workspaces with different casing variants and verifying they resolve to the same lowercase identifier.
+
+**Acceptance Scenarios**:
+
+1. **Given** a workspace name with mixed-case characters (e.g., "MyWorkspace"), **When** the workspace is created, **Then** it is stored as "myworkspace".
+1. **Given** a request for workspace "MyWorkspace", **When** querying for workspace "myworkspace", **Then** both resolve to the same normalized identifier.
+
 ______________________________________________________________________
 
 ### User Story 2 - Use Default Workspace Automatically (Priority: P2)

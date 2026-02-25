@@ -19,7 +19,7 @@ pipeline stages and removing/adjusting single-workspace assumptions already pres
 **Testing**: pytest (`uv run pytest`), focused AI tests under `tests/ai/`
 **Target Platform**: Cross-platform CLI (Windows/Linux/macOS)
 **Project Type**: Single Python repository (library + CLI)
-**Performance Goals**: Workspace resolution and membership filtering add negligible overhead (target <10% vs current single-scope flow)
+**Performance Goals**: Workspace resolution and membership filtering add negligible overhead (target \<10% vs current single-scope flow)
 **Constraints**: Maintain backward-compatible default behavior via `default` workspace; avoid breaking completed AI pipeline stages
 **Scale/Scope**: Multiple workspaces per repository, each with selected subsets of TDocs/specs/other files
 

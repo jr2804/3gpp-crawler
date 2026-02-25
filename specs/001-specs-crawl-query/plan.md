@@ -22,7 +22,7 @@ beautifulsoup4, lxml, pandas, python-calamine, xlsxwriter, zipinspect, hishel
 **Testing**: pytest, pytest-asyncio
 **Target Platform**: Cross-platform CLI (Windows, macOS, Linux)
 **Project Type**: single
-**Performance Goals**: Query known spec in <2s; crawl success >=95% for known specs
+**Performance Goals**: Query known spec in \<2s; crawl success >=95% for known specs
 **Constraints**: Text output only for spec commands; no `print`; use `pathlib` and
 logging; Ruff and Ty clean; doc-only fallback to full zip on mismatch
 **Scale/Scope**: 10k+ specs, four new commands, two metadata sources

@@ -1,7 +1,6 @@
----
+______________________________________________________________________
 
-description: "Task list for crawl and query specs feature"
----
+## description: "Task list for crawl and query specs feature"
 
 # Tasks: Crawl and Query Specs
 
@@ -18,7 +17,7 @@ description: "Task list for crawl and query specs feature"
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
 
----
+______________________________________________________________________
 
 ## Phase 1: Setup (Shared Infrastructure)
 
@@ -29,7 +28,7 @@ description: "Task list for crawl and query specs feature"
 - [x] T003 [P] Add specs database helpers stub in src/tdoc_crawler/database/connection.py
 - [x] T004 [P] Add CLI args stubs for specs commands in src/tdoc_crawler/cli/args.py
 
----
+______________________________________________________________________
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
@@ -40,21 +39,30 @@ description: "Task list for crawl and query specs feature"
 ### Foundational Tests (REQUIRED) ⚠️
 
 - [x] T012 [P] [US1] Add normalization tests in tests/test_specs_normalization.py
+
 - [x] T013 [P] [US1] Add source parsing tests in tests/test_specs_sources.py
+
 - [x] T014 [P] [US1] Add database upsert/query tests in tests/test_specs_database.py
 
 - [x] T005 Implement spec number normalization utilities in src/tdoc_crawler/specs/normalization.py
+
 - [x] T006 Implement spec Pydantic models and enums in src/tdoc_crawler/models/specs.py
+
 - [x] T007 Implement specs database tables and upsert/query helpers in src/tdoc_crawler/database/connection.py
+
 - [x] T007a Implement crawl/download outcome logging for specs in src/tdoc_crawler/database/connection.py
+
 - [x] T008 Implement spec source fetchers (3GPP + whatthespec) in src/tdoc_crawler/specs/sources/
+
 - [x] T009 Implement SpecCatalog facade in src/tdoc_crawler/specs/catalog.py
+
 - [x] T010 Implement specs query filters and result shaping in src/tdoc_crawler/specs/query.py
+
 - [x] T011 Implement specs download helpers (doc-only, fallback) in src/tdoc_crawler/specs/downloads.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
----
+______________________________________________________________________
 
 ## Phase 3: User Story 1 - Crawl spec metadata from both sources (Priority: P1)
 
@@ -70,7 +78,7 @@ description: "Task list for crawl and query specs feature"
 
 **Checkpoint**: User Story 1 should be fully functional and independently testable
 
----
+______________________________________________________________________
 
 ## Phase 4: User Story 2 - Checkout or open spec documents (Priority: P2)
 
@@ -92,7 +100,7 @@ description: "Task list for crawl and query specs feature"
 
 **Checkpoint**: User Story 2 should be fully functional and independently testable
 
----
+______________________________________________________________________
 
 ## Phase 5: User Story 3 - Query spec catalog by key attributes (Priority: P3)
 
@@ -113,7 +121,7 @@ description: "Task list for crawl and query specs feature"
 
 **Checkpoint**: User Story 3 should be fully functional and independently testable
 
----
+______________________________________________________________________
 
 ## Phase 6: User Story 4 - Inspect source discrepancies (Priority: P4)
 
@@ -132,7 +140,7 @@ description: "Task list for crawl and query specs feature"
 
 **Checkpoint**: User Story 4 should be fully functional and independently testable
 
----
+______________________________________________________________________
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
@@ -143,7 +151,7 @@ description: "Task list for crawl and query specs feature"
 - [ ] T034 [P] Run Ruff and Ty, fix lint/type errors
 - [ ] T035 Run quickstart.md validation in specs/001-specs-crawl-query/quickstart.md
 
----
+______________________________________________________________________
 
 ## Dependencies & Execution Order
 
@@ -175,7 +183,7 @@ description: "Task list for crawl and query specs feature"
 - Foundational tasks can run in parallel where files do not conflict
 - Tests within each story can be parallelized
 
----
+______________________________________________________________________
 
 ## Parallel Example: User Story 1
 
@@ -191,39 +199,39 @@ Task: "Wire crawl-specs CLI in src/tdoc_crawler/cli/app.py"
 Task: "Add crawl-specs output formatting in src/tdoc_crawler/cli/printing.py"
 ```
 
----
+______________________________________________________________________
 
 ## Implementation Strategy
 
 ### MVP First (User Story 1 Only)
 
 1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational
-3. Complete Phase 3: User Story 1
-4. **STOP and VALIDATE**: Test User Story 1 independently
-5. Deploy/demo if ready
+1. Complete Phase 2: Foundational
+1. Complete Phase 3: User Story 1
+1. **STOP and VALIDATE**: Test User Story 1 independently
+1. Deploy/demo if ready
 
 ### Incremental Delivery
 
 1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
-3. Add User Story 2 → Test independently → Deploy/Demo
-4. Add User Story 3 → Test independently → Deploy/Demo
-5. Add User Story 4 → Test independently → Deploy/Demo
+1. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
+1. Add User Story 2 → Test independently → Deploy/Demo
+1. Add User Story 3 → Test independently → Deploy/Demo
+1. Add User Story 4 → Test independently → Deploy/Demo
 
 ### Parallel Team Strategy
 
 With multiple developers:
 
 1. Team completes Setup + Foundational together
-2. Once Foundational is done:
+1. Once Foundational is done:
    - Developer A: User Story 1
    - Developer B: User Story 2
    - Developer C: User Story 3
    - Developer D: User Story 4
-3. Stories complete and integrate independently
+1. Stories complete and integrate independently
 
----
+______________________________________________________________________
 
 ## Notes
 
