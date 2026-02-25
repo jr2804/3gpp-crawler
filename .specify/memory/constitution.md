@@ -1,15 +1,14 @@
 <!--
 Sync Impact Report:
-- Version change: 1.3.0 -> 2.0.0
-- Modified principles: VII Responsible Network Access -> VII Responsible Network Access (Core Crawler Scope)
+- Version change: 2.0.0 -> 2.1.0
+- Modified principles: V Domain-Oriented Architecture (added ai/ domain)
 - Added sections: None
 - Removed sections: None
 - Templates requiring updates:
-  - ✅ updated: .specify/templates/plan-template.md
-  - ✅ updated: .specify/templates/spec-template.md
-  - ✅ updated: .specify/templates/tasks-template.md
-  - N/A: .specify/templates/commands/*.md (directory not present)
-  - ✅ updated: AGENTS.md
+  - ✅ .specify/templates/plan-template.md (already reflects ai/ usage)
+  - ✅ .specify/templates/spec-template.md (already reflects ai/ usage)
+  - ✅ .specify/templates/tasks-template.md (already reflects ai/ usage)
+  - ⚠ Review AGENTS.md for ai/ domain references
 - Follow-up TODOs: None
 -->
 
@@ -57,18 +56,19 @@ across the toolchain.
 ### V. Domain-Oriented Architecture
 
 All new features and code MUST be placed in the correct domain package. The project is
-organized into `tdocs/`, `meetings/`, and `specs/` domains, each with dedicated
-`operations/`, `sources/`, and `models` sub-packages. Domain logic MUST NOT be
-implemented in `cli/`, `parsers/`, or `utils/`. The legacy `crawlers/` package MUST
-never be referenced or recreated.
+organized into `tdocs/`, `meetings/`, `specs/`, and `ai/` domains, each with dedicated
+`operations/`, `sources/`, and `models` sub-packages where applicable. Domain logic
+MUST NOT be implemented in `cli/`, `parsers/`, or `utils/`. The legacy `crawlers/`
+package MUST never be referenced or recreated.
 
 Circular imports are a structural problem and MUST be resolved by refactoring module
 organization. `TYPE_CHECKING` guards and import hoisting are prohibited as permanent
 solutions.
 
 Rationale: a clean domain-oriented structure was the product of a major refactoring to
-eliminate duplication and improve testability. Violating domain boundaries reintroduces
-the coupling and duplication problems that originally motivated it.
+eliminate duplication and improve testability. The `ai/` domain was added to support
+GraphRAG and knowledge-base construction features. Violating domain boundaries
+reintroduces the coupling and duplication problems that originally motivated it.
 
 ### VI. No Duplication (DRY)
 
@@ -130,4 +130,4 @@ requires a separate integration policy.
 - Compliance is verified in specs, plans, task lists, and code reviews; non-compliant
   changes must be blocked or accompanied by an approved amendment.
 
-**Version**: 2.0.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-24
+**Version**: 2.1.0 | **Ratified**: 2026-02-05 | **Last Amended**: 2026-02-25
