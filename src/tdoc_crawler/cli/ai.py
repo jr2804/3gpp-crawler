@@ -11,6 +11,8 @@ from rich.console import Console
 from rich.table import Table
 
 from tdoc_crawler.ai import (
+    AiStorage,
+    create_workspace,
     delete_workspace,
     get_status,
     list_workspaces,
@@ -219,7 +221,6 @@ def workspace_create(
 ) -> None:
     """Create a new workspace."""
     manager = CacheManager().register()
-    from tdoc_crawler.ai.storage import AiStorage
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
     workspace = create_workspace(storage, name)
@@ -236,7 +237,6 @@ def workspace_list(
 ) -> None:
     """List all workspaces."""
     manager = CacheManager().register()
-    from tdoc_crawler.ai.storage import AiStorage
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
     workspaces = list_workspaces(storage)
@@ -266,7 +266,6 @@ def workspace_get(
 ) -> None:
     """Get workspace details."""
     manager = CacheManager().register()
-    from tdoc_crawler.ai.storage import AiStorage
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
     workspace = storage.get_workspace(name)
@@ -301,7 +300,6 @@ def workspace_add_members(
 ) -> None:
     """Add source items to a workspace."""
     manager = CacheManager().register()
-    from tdoc_crawler.ai.storage import AiStorage
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
 
@@ -323,7 +321,6 @@ def workspace_list_members(
 ) -> None:
     """List members of a workspace."""
     manager = CacheManager().register()
-    from tdoc_crawler.ai.storage import AiStorage
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
     members = storage.list_workspace_members(workspace, include_inactive=include_inactive)
@@ -352,7 +349,6 @@ def workspace_delete(
 ) -> None:
     """Delete a workspace (default workspace cannot be deleted)."""
     manager = CacheManager().register()
-    from tdoc_crawler.ai.storage import AiStorage
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
     result = delete_workspace(storage, name, preserve_artifacts=preserve_artifacts)
