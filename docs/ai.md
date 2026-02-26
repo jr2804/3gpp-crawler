@@ -96,7 +96,8 @@ The AI module follows a workspace-based workflow for organizing and querying you
 ### 1. Create Workspace
 
 ```bash
-# Create a new workspace for your project
+#Create a new workspace for your project
+tdoc-crawler ai workspace create my-project --auto-build
 tdoc-crawler ai workspace create my-project
 ```
 
@@ -126,26 +127,16 @@ tdoc-crawler ai process --tdoc-id SP-240001 --checkout-path /path/to/checkout
 
 ### 4. Query Your Knowledge Base
 
-Once processed, query your documents using semantic search or graph queries:
+Once processed, query your documents using semantic search and knowledge graph (RAG + GraphRAG):
 
 ```bash
-# Semantic search
-tdoc-crawler ai query --workspace my-project --query "5G NR architecture" --top-k 5
-
-# Knowledge graph query
-tdoc-crawler ai graph --workspace my-project --query "evolution of 5G standards"
+tdoc-crawler ai query --workspace my-project "your query here"
 ```
 
-### 5. Check Status
-
-Monitor processing status:
+Once processed, query your documents using semantic search and knowledge graph (RAG + GraphRAG):
 
 ```bash
-# Check status of specific TDoc
-tdoc-crawler ai status --tdoc-id SP-240001
-
-# List all processed documents
-tdoc-crawler ai status --workspace my-project
+tdoc-crawler ai query --workspace my-project "your query here"
 ```
 
 ______________________________________________________________________
@@ -156,7 +147,11 @@ ______________________________________________________________________
 
 ```bash
 # Create a new workspace
-tdoc-crawler ai workspace create <name>
+tdoc-crawler ai workspace create <name> [--auto-build]
+
+Options:
+- `name`: Workspace name
+- `--auto-build`: Automatically process documents when added to workspace
 
 # List all workspaces
 tdoc-crawler ai workspace list
@@ -168,41 +163,46 @@ tdoc-crawler ai workspace get <name>
 tdoc-crawler ai workspace delete <name>
 ```
 
-### Document Processing
-
-```bash
-# Process single TDoc
-tdoc-crawler ai process --tdoc-id <TDOC_ID> --checkout-path <PATH>
-
-# Process all TDocs in workspace
-tdoc-crawler ai process-all --workspace <NAME>
-
-# Force re-processing
-tdoc-crawler ai process --tdoc-id <TDOC_ID> --checkout-path <PATH> --force
-```
-
 ### Querying
 
-```bash
-# Semantic search
-tdoc-crawler ai query --workspace <NAME> --query "<SEARCH_QUERY>" --top-k 5
-
-# Knowledge graph query
-tdoc-crawler ai graph --workspace <NAME> --query "<GRAPH_QUERY>"
-```
-
-### Status
+Query the knowledge graph using semantic embeddings and knowledge graph (RAG + GraphRAG).
 
 ```bash
-# Check processing status
-tdoc-crawler ai status --tdoc-id <TDOC_ID>
-
-# List all statuses in workspace
-tdoc-crawler ai status --workspace <NAME>
-
-# Output as JSON
-tdoc-crawler ai status --tdoc-id <TDOC_ID> --json
+tdoc-crawler ai query --workspace <workspace_name> "your query here"
 ```
+
+Note: `--workspace` is required. This command uses both vector embeddings (RAG) and the knowledge graph (GraphRAG) to provide comprehensive results.
+
+### Single TDoc Operations
+
+#### Summarize a TDoc
+
+Summarize a single TDoc with specified word count.
+
+```bash
+tdoc-crawler ai summarize <tdoc_id> [--words N] [--format markdown|json|yaml] [--json-output]
+```
+
+Options:
+
+- `tdoc_id`: TDoc identifier (e.g., "RP-240001")
+- `--words N`: Target word count for summary (default: 200)
+- `--format`: Output format - markdown (default), json, or yaml
+- `--json-output`: Output raw JSON
+
+#### Convert a TDoc
+
+Convert a single TDoc to markdown format.
+
+```bash
+tdoc-crawler ai convert <tdoc_id> [--output FILE.md] [--json-output]
+```
+
+Options:
+
+- `tdoc_id`: TDoc identifier
+- `--output FILE.md`: Write output to file (prints to stdout if not specified)
+- `--json-output`: Output raw JSON
 
 ______________________________________________________________________
 
