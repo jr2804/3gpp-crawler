@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from tdoc_crawler.ai.models import WorkspaceMember
+from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
+from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 
 DEFAULT_WORKSPACE = "default"
 
@@ -128,16 +130,108 @@ def make_workspace_member(
     )
 
 
+def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None:
+    """Resolve a TDoc ID to its checkout path.
+
+    The checkout path follows the 3GPP FTP structure:
+    <checkout_base>/<group>/<meeting>/Docs/<tdoc_id>/
+
+    Args:
+        tdoc_id: TDoc identifier (e.g., "S4-251971")
+        checkout_base: Base checkout directory
+
+    Returns:
+        Path to the TDoc checkout folder if found, None otherwise
+    """
+    # Search for the TDoc in the checkout directory
+    # The structure is: <checkout_base>/*/*/Docs/<tdoc_id>/
+    for docs_dir in checkout_base.rglob("Docs"):
+        tdoc_path = docs_dir / tdoc_id
+        if tdoc_path.exists() and tdoc_path.is_dir():
+            return tdoc_path
+    return None
+
+
+def checkout_tdoc_to_workspace(
+    tdoc_id: str,
+    checkout_base: Path,
+    storage: Any,
+    workspace: str | None,
+) -> Path | None:
+    """Checkout a TDoc and add it to a workspace.
+
+    Args:
+        tdoc_id: TDoc identifier
+        checkout_base: Base checkout directory
+        storage: AiStorage instance
+        workspace: Workspace name
+
+    Returns:
+        Path to the checked out TDoc folder, or None if checkout failed
+    """
+    # First check if already checked out
+    existing_path = resolve_tdoc_checkout_path(tdoc_id, checkout_base)
+    if existing_path:
+        _logger.debug(f"TDoc {tdoc_id} already checked out at {existing_path}")
+        return existing_path
+
+    # Need to checkout the TDoc
+    try:
+
+        # Resolve TDoc metadata
+        metadata = resolve_via_whatthespec(tdoc_id)
+        if not metadata:
+            _logger.warning(f"Could not resolve TDoc {tdoc_id}")
+            return None
+
+        # Checkout the TDoc
+        result = checkout_tdoc(metadata, checkout_base)
+        if result.error:
+            _logger.warning(f"Failed to checkout TDoc {tdoc_id}: {result.error}")
+            return None
+
+        # Get the checkout path
+        checkout_path = result.checkout_path
+        if checkout_path and checkout_path.exists():
+            _logger.info(f"Checked out TDoc {tdoc_id} to {checkout_path}")
+            return checkout_path
+
+        # Try to find the path if not returned
+        return resolve_tdoc_checkout_path(tdoc_id, checkout_base)
+
+    except Exception as e:
+        _logger.warning(f"Error checking out TDoc {tdoc_id}: {e}")
+        return None
+
+
+def ensure_ai_subfolder(checkout_path: Path) -> Path:
+    """Ensure the .ai subfolder exists for processed outputs.
+
+    Args:
+        checkout_path: Path to the checked out document folder
+
+    Returns:
+        Path to the .ai subfolder
+    """
+    ai_folder = checkout_path / ".ai"
+    ai_folder.mkdir(parents=True, exist_ok=True)
+    return ai_folder
+
+
+
 __all__ = [
     "DEFAULT_WORKSPACE",
     "add_workspace_members",
+    "checkout_tdoc_to_workspace",
     "create_workspace",
     "delete_workspace",
+    "ensure_ai_subfolder",
     "ensure_default_workspace",
     "get_workspace",
     "is_default_workspace",
     "list_workspaces",
     "make_workspace_member",
     "normalize_workspace_name",
+    "resolve_tdoc_checkout_path",
     "resolve_workspace",
 ]

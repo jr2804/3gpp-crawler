@@ -25,14 +25,17 @@ from tdoc_crawler.ai.operations.summarize import SummarizeResult, summarize_tdoc
 from tdoc_crawler.ai.operations.workspaces import (
     DEFAULT_WORKSPACE,
     add_workspace_members,
+    checkout_tdoc_to_workspace,
     create_workspace,
     delete_workspace,
+    ensure_ai_subfolder,
     ensure_default_workspace,
     get_workspace,
     is_default_workspace,
     list_workspaces,
     make_workspace_member,
     normalize_workspace_name,
+    resolve_tdoc_checkout_path,
     resolve_workspace,
 )
 from tdoc_crawler.ai.storage import AiStorage
@@ -100,9 +103,11 @@ __all__ = [
     "ProcessingStatus",
     "SummarizeResult",
     "add_workspace_members",
+    "checkout_tdoc_to_workspace",
     "convert_tdoc",
     "create_workspace",
     "delete_workspace",
+    "ensure_ai_subfolder",
     "ensure_default_workspace",
     "get_workspace",
     "is_default_workspace",
@@ -111,6 +116,7 @@ __all__ = [
     "normalize_workspace_name",
     "query_embeddings",
     "query_graph",
+    "resolve_tdoc_checkout_path",
     "resolve_workspace",
     "summarize_tdoc",
 ]

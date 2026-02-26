@@ -6,6 +6,7 @@ import logging
 import re
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from tdoc_crawler.ai.models import (
     DocumentClassification,
@@ -363,10 +364,12 @@ def process_all(
     storage = AiStorage(checkout_base / ".ai" / "lancedb")
     normalized_workspace = normalize_workspace_name(workspace)
 
-    # Filter tdoc_ids by workspace members if applicable
+    # Get workspace members and build a lookup map
+    members_map: dict[str, Any] = {}
     if normalized_workspace != "default":
         members = storage.list_workspace_members(normalized_workspace)
         member_ids = {m.source_item_id for m in members if m.is_active and m.source_kind == "tdoc"}
+        members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind == "tdoc"}
         tdoc_ids = [tid for tid in tdoc_ids if tid in member_ids]
 
     results: dict[str, ProcessingStatus] = {}
@@ -377,11 +380,17 @@ def process_all(
                 logger.info(f"Skipping {tdoc_id} in new_only mode - already completed")
                 continue
 
-        folder_path = checkout_base / tdoc_id
+        # Use source_path from workspace member if available, otherwise fallback to default
+        member = members_map.get(tdoc_id)
+        folder_path = (
+            Path(member.source_path)
+            if member and member.source_path and Path(member.source_path).exists()
+            else checkout_base / tdoc_id
+        )
+
         if not folder_path.exists():
             logger.warning(f"Checkout folder not found: {folder_path}")
             continue
-
         try:
             status = run_pipeline(
                 tdoc_id,

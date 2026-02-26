@@ -12,9 +12,11 @@ from rich.table import Table
 
 from tdoc_crawler.ai import (
     AiStorage,
+    checkout_tdoc_to_workspace,
     convert_tdoc,
     create_workspace,
     delete_workspace,
+    ensure_ai_subfolder,
     list_workspaces,
     make_workspace_member,
     normalize_workspace_name,
@@ -310,7 +312,8 @@ def workspace_deactivate(
 def workspace_add_members(
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     items: Annotated[list[str], typer.Argument(..., help="Source item IDs to add")] = None,  # type: ignore[assignment]
-    kind: Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)")] = "tdoc",
+    kind: Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)"),] = "tdoc",
+    checkout: Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download TDocs if not present")] = True,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Add source items to a workspace."""
@@ -320,14 +323,30 @@ def workspace_add_members(
     storage = AiStorage(manager.root / ".ai" / "lancedb")
 
     source_kind = SourceKind(kind.lower()) if kind.lower() in [e.value for e in SourceKind] else SourceKind.OTHER
-    members = [make_workspace_member(workspace, item, item, source_kind) for item in items]
+
+    # Build members with actual paths
+    members = []
+    checkout_base = manager.root / "checkout"
+
+    for item in items:
+        source_path = item
+
+        # For TDocs/specs, try to resolve/checkout to get actual path
+        if checkout and source_kind in (SourceKind.TDOC, SourceKind.SPEC):
+            checkout_path = checkout_tdoc_to_workspace(item, checkout_base, storage, workspace)
+            if checkout_path:
+                source_path = str(checkout_path)
+                # Ensure .ai subfolder exists
+                ensure_ai_subfolder(checkout_path)
+
+        members.append(make_workspace_member(workspace, item, source_path, source_kind))
+
     count = storage.add_workspace_members(workspace, members)
 
     if json_output:
         typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "added": count}))
     else:
         console.print(f"[green]Added {count} member(s) to workspace '{normalize_workspace_name(workspace)}'[/green]")
-
 
 @_workspace_app.command("list-members")
 def workspace_list_members(
