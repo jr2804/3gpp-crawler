@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tdoc_crawler.utils.misc import utc_now
@@ -98,6 +100,7 @@ class Workspace(BaseModel):
     created_at: datetime = Field(default_factory=utc_now, description="Creation timestamp")
     updated_at: datetime = Field(default_factory=utc_now, description="Last update timestamp")
     is_default: bool = Field(False, description="Whether this workspace is the default workspace")
+    auto_build: bool | None = Field(default=False, description="Whether to auto-build embeddings on TDoc add")
     status: WorkspaceStatus = Field(WorkspaceStatus.ACTIVE, description="Workspace lifecycle status")
 
     @field_validator("workspace_name")
@@ -307,6 +310,46 @@ class GraphEdge(BaseModel):
         return self
 
 
+class SummarizeResult(BaseModel):
+    """Result of TDoc summarization operation."""
+
+    summary: str = Field(..., description="Generated summary text")
+    keywords: list[str] = Field(default_factory=list, description="Extracted keywords")
+    metadata: dict = Field(
+        default_factory=dict,
+        description="Metadata including meeting_id, source, word_count",
+    )
+    word_count: int = Field(..., ge=0, description="Actual word count of summary")
+
+    def to_markdown(self) -> str:
+        """Format result as markdown."""
+        lines = [f"## Summary\n\n{self.summary}\n"]
+        if self.keywords:
+            lines.append(f"## Keywords\n\n{', '.join(self.keywords)}\n")
+        if self.metadata:
+            lines.append("## Metadata\n")
+            for key, value in self.metadata.items():
+                lines.append(f"- **{key}**: {value}\n")
+        lines.append(f"\n*Word count: {self.word_count}*\n")
+        return "".join(lines)
+
+    def to_json(self) -> str:
+        """Format result as JSON."""
+        return json.dumps(self.model_dump(), indent=2)
+
+    def to_yaml(self) -> str:
+        """Format result as YAML."""
+        return yaml.dump(self.model_dump(), default_flow_style=False)
+
+    @field_validator("keywords", mode="before")
+    @classmethod
+    def _normalize_keywords(cls, value: list[str] | None) -> list[str]:
+        """Normalize keywords to a list of strings."""
+        if value is None:
+            return []
+        return [str(kw).strip() for kw in value if str(kw).strip()]
+
+
 class GraphQueryResult(BaseModel):
     """Knowledge graph query result."""
 
@@ -333,6 +376,7 @@ __all__ = [
     "ProcessingStatus",
     "QueryResult",
     "SourceKind",
+    "SummarizeResult",
     "TDocNotFoundError",
     "Workspace",
     "WorkspaceMember",

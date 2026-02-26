@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 
 from tdoc_crawler.ai.config import AiConfig
+from tdoc_crawler.ai.models import DocumentSummary
 from tdoc_crawler.config import CacheManager
 
 
@@ -60,3 +62,46 @@ def test_default_store_path_resolves_under_cache_dir(tmp_path: Path) -> None:
     config = AiConfig(cache_manager_name="test-ai-config")
 
     assert str(config.ai_store_path).endswith(".ai\\lancedb") or str(config.ai_store_path).endswith(".ai/lancedb")
+
+
+def test_no_hardcoded_models_in_ai_package() -> None:
+    """T001 [US3]: Scan ai/ package for hardcoded model identifiers.
+
+    Assert zero matches for model patterns (gpt-4o, llama3, ollama/llama, gpt-4o-mini)
+    outside of config.py where defaults are defined.
+    """
+    ai_package = Path(__file__).resolve().parents[2] / "src" / "tdoc_crawler" / "ai"
+    hardcoded_patterns = re.compile(r'["\']((?:gpt-4o[^"\']|llama3[^"\']|ollama/llama[^"\']|gpt-4o-mini))["\']', re.IGNORECASE)
+    config_file = ai_package / "config.py"
+
+    violations = []
+    for py_file in ai_package.rglob("*.py"):
+        if py_file == config_file:
+            continue  # Skip config.py where defaults are defined
+
+        content = py_file.read_text(encoding="utf-8")
+        matches = hardcoded_patterns.findall(content)
+        if matches:
+            violations.append(f"{py_file.relative_to(ai_package)}: {matches}")
+
+    assert not violations, f"Found hardcoded model identifiers in: {'\n  '.join(violations)}"
+
+
+def test_model_config_propagation_to_litellm_client() -> None:
+    """T002 [US3]: Verify LiteLLMClient uses AiConfig().llm_model when no explicit model passed.
+
+    This test verifies the bug fix where DocumentSummary.llm_model should use
+    default_factory=lambda: AiConfig().llm_model instead of hardcoded default.
+    """
+    # Initialize cache manager (required by AiConfig)
+    CacheManager(name="test-config-prop").register(force=True)
+
+    # Get the config default
+    config = AiConfig(cache_manager_name="test-config-prop")
+    config_default = config.llm_model
+
+    # Get the DocumentSummary default
+    summary_default = DocumentSummary.model_fields["llm_model"].default_factory()
+
+    # They should match
+    assert summary_default == config_default, f"DocumentSummary.llm_model default ({summary_default}) does not match AiConfig().llm_model ({config_default})"

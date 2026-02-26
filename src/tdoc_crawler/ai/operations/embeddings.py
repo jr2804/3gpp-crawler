@@ -357,15 +357,15 @@ def generate_embeddings(
 
 def query_embeddings(
     query: str,
+    workspace: str,
     top_k: int = 5,
-    workspace: str | None = None,
 ) -> list[tuple[DocumentChunk, float]]:
     """Query embeddings using semantic search.
 
     Args:
         query: Search query.
+        workspace: Workspace scope (required).
         top_k: Number of results to return.
-        workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         List of (DocumentChunk, score) tuples.
@@ -379,7 +379,6 @@ def query_embeddings(
 
     # Encode query
     query_embedding = cast(Any, model.encode([query])[0])
-    query_vector = query_embedding.tolist() if hasattr(query_embedding, "tolist") else list(query_embedding)
     query_vector = [float(value) for value in query_embedding.tolist()] if hasattr(query_embedding, "tolist") else [float(value) for value in query_embedding]
 
     # Search in storage

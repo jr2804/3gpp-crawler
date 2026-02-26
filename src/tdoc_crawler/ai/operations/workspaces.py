@@ -60,10 +60,19 @@ def get_workspace(storage: Any, workspace: str | None) -> Any | None:
     return storage.get_workspace(normalized_workspace)
 
 
-def create_workspace(storage: Any, workspace: str | None) -> Any:
-    """Create a workspace entry after canonical normalization."""
+def create_workspace(storage: Any, workspace: str | None, auto_build: bool = False) -> Any:
+    """Create a workspace entry after canonical normalization.
+
+    Args:
+        storage: AiStorage instance.
+        workspace: Workspace name to create.
+        auto_build: When True, newly added members are automatically processed.
+
+    Returns:
+        Created workspace object.
+    """
     normalized_workspace = normalize_workspace_name(workspace)
-    return storage.create_workspace(normalized_workspace)
+    return storage.create_workspace(normalized_workspace, auto_build=auto_build)
 
 
 def list_workspaces(storage: Any) -> list[Any]:

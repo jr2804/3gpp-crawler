@@ -12,16 +12,15 @@ from rich.table import Table
 
 from tdoc_crawler.ai import (
     AiStorage,
+    convert_tdoc,
     create_workspace,
     delete_workspace,
-    get_status,
     list_workspaces,
     make_workspace_member,
     normalize_workspace_name,
-    process_all,
-    process_tdoc,
     query_embeddings,
     query_graph,
+    summarize_tdoc,
 )
 from tdoc_crawler.ai.models import SourceKind
 from tdoc_crawler.config import CacheManager
@@ -32,66 +31,24 @@ ai_app = typer.Typer(help="AI document processing commands")
 console = Console()
 
 
-@ai_app.command("process")
-def ai_process(
-    tdoc_id: Annotated[str | None, typer.Option("--tdoc-id", help="TDoc ID to process")] = None,
-    checkout_path: Annotated[Path | None, typer.Option("--checkout-path", help="Path to TDoc checkout folder")] = None,
-    all_tdocs: Annotated[bool, typer.Option("--all", help="Process all provided TDocs")] = False,
-    checkout_base: Annotated[Path | None, typer.Option("--checkout-base", help="Base directory containing TDoc checkout folders")] = None,
-    new_only: Annotated[bool, typer.Option("--new-only", help="Process only new/non-completed TDocs")] = False,
-    force: Annotated[bool, typer.Option("--force", help="Force re-processing even if completed")] = False,
-    workspace: Annotated[str | None, typer.Option("--workspace", help="Workspace name (defaults to 'default')")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+@ai_app.command("summarize")
+def ai_summarize(
+    tdoc_id: Annotated[str, typer.Argument(..., help="TDoc ID to summarize")],
+    words: Annotated[int, typer.Option("--words", "-w", help="Target word count (default: 200)")] = 200,
+    output_format: Annotated[str, typer.Option("--format", "-f", help="Output format (markdown, json, yaml)")] = "markdown",
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON (overrides --format)")] = False,
 ) -> None:
-    """Process a TDoc through the AI pipeline (classify + extract)."""
+    """Summarize a single TDoc with specified word count."""
     try:
-        if all_tdocs:
-            if checkout_base is None:
-                msg = "--checkout-base is required when using --all"
-                raise typer.BadParameter(msg)
+        result = summarize_tdoc(tdoc_id=tdoc_id, words=words, fetch_remote=True)
 
-            tdoc_ids = [entry.name for entry in checkout_base.iterdir() if entry.is_dir() and not entry.name.startswith(".")]
-            statuses = process_all(
-                new_only=new_only,
-                tdoc_ids=tdoc_ids,
-                checkout_base=Path(checkout_base),
-                force_rerun=force,
-                workspace=workspace,
-            )
-            if json_output:
-                typer.echo(json.dumps([status.model_dump(mode="json") for status in statuses]))
-                return
-
-            console.print(f"[green]Processed {len(statuses)} TDoc(s)[/green]")
-            return
-
-        if not tdoc_id or not checkout_path:
-            msg = "--tdoc-id and --checkout-path are required unless --all is provided"
-            raise typer.BadParameter(msg)
-
-        status = process_tdoc(
-            tdoc_id,
-            checkout_path=Path(checkout_path),
-            force_rerun=force,
-            workspace=workspace,
-        )
-
-        if json_output:
-            if status is None:
-                typer.echo(json.dumps({"tdoc_id": tdoc_id, "status": "processed"}))
-            else:
-                typer.echo(status.model_dump_json())
-            return
-
-        console.print(f"[green]Processed {tdoc_id}[/green]")
-        if status is None:
-            return
-        console.print(f"Stage: {status.current_stage}")
-        if status.completed_at:
-            console.print(f"Completed: {status.completed_at}")
-        if status.error_message:
-            console.print(f"[red]Error: {status.error_message}[/red]")
-
+        if json_output or output_format == "json":
+            typer.echo(result.to_json())
+        elif output_format == "yaml":
+            typer.echo(result.to_yaml())
+        else:
+            console.print(f"## Summary for {tdoc_id}")
+            console.print(result.summary)
     except Exception as exc:
         if json_output:
             typer.echo(json.dumps({"error": str(exc)}), err=True)
@@ -100,114 +57,80 @@ def ai_process(
         raise typer.Exit(1) from exc
 
 
-@ai_app.command("status")
-def ai_status(
-    tdoc_id: Annotated[str | None, typer.Option("--tdoc-id", help="TDoc ID to query")] = None,
-    workspace: Annotated[str | None, typer.Option("--workspace", help="Workspace name (defaults to 'default')")] = None,
+@ai_app.command("convert")
+def ai_convert(
+    tdoc_id: Annotated[str, typer.Argument(..., help="TDoc ID to convert")],
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Get processing status for a TDoc."""
-    status = get_status(tdoc_id or None, workspace=workspace)
+    """Convert a single TDoc to markdown format."""
+    try:
+        output_path = Path(output) if output else None
+        markdown_content = convert_tdoc(tdoc_id=tdoc_id, output_path=output_path)
 
-    if isinstance(status, list):
-        if json_output:
-            typer.echo(json.dumps([item.model_dump(mode="json") for item in status]))
-            return
-
-        table = Table(title="AI Processing Status")
-        table.add_column("TDoc", style="cyan")
-        table.add_column("Stage", style="green")
-        table.add_column("Completed", style="magenta")
-        for item in status:
-            table.add_row(item.tdoc_id, str(item.current_stage), str(item.completed_at) if item.completed_at else "")
-        console.print(table)
-        return
-
-    if status is None:
-        query_target = tdoc_id or "all TDocs"
-        if json_output:
-            typer.echo(json.dumps({"tdoc_id": query_target, "status": "not_found"}))
+        if output_path:
+            if json_output:
+                typer.echo(json.dumps({"output": str(output_path)}))
+            else:
+                console.print(f"[green]Converted {tdoc_id} to {output_path}[/green]")
+        elif json_output:
+            typer.echo(json.dumps({"markdown": markdown_content}))
         else:
-            console.print(f"[yellow]No status found for {query_target}[/yellow]")
-        return
-
-    if json_output:
-        typer.echo(status.model_dump_json())
-    else:
-        table = Table(title=f"Status for {tdoc_id}")
-        table.add_column("Field", style="cyan")
-        table.add_column("Value", style="green")
-
-        table.add_row("Stage", str(status.current_stage))
-        if status.classified_at:
-            table.add_row("Classified", str(status.classified_at))
-        if status.extracted_at:
-            table.add_row("Extracted", str(status.extracted_at))
-        if status.embedded_at:
-            table.add_row("Embedded", str(status.embedded_at))
-        if status.summarized_at:
-            table.add_row("Summarized", str(status.summarized_at))
-        if status.completed_at:
-            table.add_row("Completed", str(status.completed_at))
-        if status.error_message:
-            table.add_row("Error", f"[red]{status.error_message}[/red]")
-
-        console.print(table)
+            typer.echo(markdown_content)
+    except Exception as exc:
+        if json_output:
+            typer.echo(json.dumps({"error": str(exc)}), err=True)
+        else:
+            console.print(f"[red]Error: {exc}[/red]")
+        raise typer.Exit(1) from exc
 
 
 @ai_app.command("query")
 def ai_query(
     query: Annotated[str, typer.Option(..., "--query", help="Semantic search query")],
-    top_k: Annotated[int, typer.Option("--top-k", help="Number of results to return")] = 5,
-    workspace: Annotated[str | None, typer.Option("--workspace", help="Workspace name (defaults to 'default')")] = None,
+    workspace: Annotated[str, typer.Option(..., "--workspace", help="Workspace name")],
+    top_k: Annotated[int, typer.Option("--top-k", help="Number of embedding results to return")] = 5,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Search TDocs using semantic embeddings."""
-    results = query_embeddings(query, top_k=top_k, workspace=workspace)
+    """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG)."""
+    embedding_results = query_embeddings(query, top_k=top_k, workspace=workspace)
+    graph_result = query_graph(query)
+
     payload = {
         "query": query,
-        "results": [
+        "workspace": workspace,
+        "embedding_results": [
             {
                 "tdoc_id": chunk.tdoc_id,
                 "section": chunk.section,
                 "text": chunk.content,
                 "score": score,
             }
-            for chunk, score in results
+            for chunk, score in embedding_results
         ],
+        "graph_result": graph_result,
     }
 
     if json_output:
         typer.echo(json.dumps(payload))
     else:
-        if not results:
-            console.print("[yellow]No query results found.[/yellow]")
-            return
-        table = Table(title=f"Query results for '{query}'")
-        table.add_column("TDoc", style="cyan")
-        table.add_column("Section", style="green")
-        table.add_column("Score", style="magenta")
-        table.add_column("Snippet", style="white")
-        for chunk, score in results:
-            snippet = chunk.content[:120].replace("\n", " ")
-            table.add_row(chunk.tdoc_id, str(chunk.section or ""), f"{score:.3f}", snippet)
-        console.print(table)
+        if embedding_results:
+            table = Table(title=f"Embedding results for '{query}' (workspace: {workspace})")
+            table.add_column("TDoc", style="cyan")
+            table.add_column("Section", style="green")
+            table.add_column("Score", style="magenta")
+            table.add_column("Snippet", style="white")
+            for chunk, score in embedding_results:
+                snippet = chunk.content[:120].replace("\n", " ")
+                table.add_row(chunk.tdoc_id, str(chunk.section or ""), f"{score:.3f}", snippet)
+            console.print(table)
+        else:
+            console.print("[yellow]No embedding results found.[/yellow]")
 
-
-@ai_app.command("graph")
-def ai_graph(
-    query: Annotated[str, typer.Option(..., "--query", help="Knowledge graph query")],
-    workspace: Annotated[str | None, typer.Option("--workspace", help="Workspace name (defaults to 'default')")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
-) -> None:
-    """Query the knowledge graph."""
-    graph_result = query_graph(query, workspace=workspace)
-
-    if json_output:
-        typer.echo(json.dumps(graph_result))
-    else:
-        console.print(f"[green]{graph_result.get('answer', 'Query complete')}[/green]")
-        console.print(f"Nodes: {len(graph_result.get('nodes', []))}, Edges: {len(graph_result.get('edges', []))}")
+        answer = graph_result.get("answer", "")
+        node_count = len(graph_result.get("nodes", []))
+        edge_count = len(graph_result.get("edges", []))
+        console.print(f"[bold]Graph:[/bold] {answer} (nodes: {node_count}, edges: {edge_count})")
 
 
 # Workspace management subcommands
@@ -217,18 +140,21 @@ _workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
 @_workspace_app.command("create")
 def workspace_create(
     name: Annotated[str, typer.Argument(..., help="Workspace name")],
+    auto_build: Annotated[bool, typer.Option("--auto-build", help="Automatically process documents added to this workspace")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Create a new workspace."""
     manager = CacheManager().register()
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
-    workspace = create_workspace(storage, name)
+    workspace = create_workspace(storage, name, auto_build=auto_build)
 
     if json_output:
         typer.echo(workspace.model_dump_json())
     else:
         console.print(f"[green]Created workspace: {workspace.workspace_name}[/green]")
+        if auto_build:
+            console.print("[cyan]Auto-build: Enabled[/cyan]")
 
 
 @_workspace_app.command("list")
@@ -370,4 +296,4 @@ def workspace_delete(
 ai_app.add_typer(_workspace_app, name="workspace")
 
 
-__all__ = ["ai_app", "ai_graph", "ai_process", "ai_query", "ai_status"]
+__all__ = ["ai_app", "ai_query"]

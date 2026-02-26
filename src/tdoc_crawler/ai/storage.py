@@ -250,14 +250,20 @@ class AiStorage:
                 return DocumentSummary(**unscoped_record)
         return None
 
-    def create_workspace(self, workspace_name: str | None) -> Workspace:
-        """Create or update a workspace entry."""
+    def create_workspace(self, workspace_name: str | None, auto_build: bool = False) -> Workspace:
+        """Create or update a workspace entry.
+
+        Args:
+            workspace_name: Workspace name to create.
+            auto_build: When True, newly added members are automatically processed.
+        """
         normalized_workspace = _normalize_workspace_name(workspace_name)
         existing = self.get_workspace(normalized_workspace)
         now_record = Workspace(
             workspace_name=normalized_workspace,
             is_default=normalized_workspace == DEFAULT_WORKSPACE,
             status=WorkspaceStatus.ACTIVE,
+            auto_build=auto_build,
         )
         if existing is not None:
             now_record.created_at = existing.created_at
@@ -276,13 +282,13 @@ class AiStorage:
                 return Workspace(**record)
         return None
 
-    def ensure_workspace(self, workspace_name: str | None) -> Workspace:
+    def ensure_workspace(self, workspace_name: str | None, auto_build: bool = False) -> Workspace:
         """Ensure a workspace exists and return it."""
         normalized_workspace = _normalize_workspace_name(workspace_name)
         existing = self.get_workspace(normalized_workspace)
         if existing is not None:
             return existing
-        return self.create_workspace(normalized_workspace)
+        return self.create_workspace(normalized_workspace, auto_build=auto_build)
 
     def list_workspaces(self) -> list[Workspace]:
         """Return all configured workspaces."""
@@ -508,7 +514,18 @@ class AiStorage:
 
     def _ensure_table(self, name: str, schema: pa.Schema) -> None:
         if name in self._db.table_names():
-            self._tables[name] = self._db.open_table(name)
+            # Check if schema matches, drop and recreate if not
+            existing_table = self._db.open_table(name)
+            existing_schema = existing_table.schema
+            # Compare field names (simple check)
+            existing_fields = {f.name for f in existing_schema}
+            new_fields = {f.name for f in schema}
+            if existing_fields != new_fields:
+                # Schema mismatch - drop and recreate
+                self._db.drop_table(name)
+                self._tables[name] = self._db.create_table(name, schema=schema)
+            else:
+                self._tables[name] = existing_table
             return
         self._tables[name] = self._db.create_table(name, schema=schema)
 
@@ -615,6 +632,7 @@ def _workspace_schema() -> pa.Schema:
             pa.field("updated_at", pa.timestamp("us")),
             pa.field("is_default", pa.bool_()),
             pa.field("status", pa.string()),
+            pa.field("auto_build", pa.bool_()),
         ]
     )
 

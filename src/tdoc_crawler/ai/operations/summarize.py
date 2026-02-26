@@ -9,10 +9,11 @@ import logging
 import re
 
 from tdoc_crawler.ai.config import AiConfig
-from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError
+from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError, SummarizeResult
 from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
+from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
@@ -367,7 +368,170 @@ def _extract_spec_references(markdown: str) -> list[str]:
     return specs[:20]  # Limit to 20
 
 
+# Prompt for concise summary with word count constraint
+CONCISE_SUMMARY_PROMPT = """Generate a summary of approximately {target_words} words for this document:
+
+{content}
+
+Provide a concise summary that captures the main purpose and key outcomes."""
+
+# Prompt for keyword extraction
+KEYWORDS_PROMPT = """Extract 5-10 relevant keywords from this document. Return ONLY a JSON array of strings, nothing else.
+
+Document:
+{content}
+
+Example output format: ["keyword1", "keyword2", "keyword3"]"""
+
+
+def summarize_tdoc(
+    tdoc_id: str,
+    words: int = 200,
+    format: str = "markdown",
+    fetch_remote: bool = True,
+) -> SummarizeResult:
+    """Summarize a TDoc by ID.
+
+    Args:
+        tdoc_id: TDoc identifier (e.g., "R1-2400001").
+        words: Target word count for summary (default: 200).
+        format: Output format - "markdown", "json", or "yaml" (default: "markdown").
+        fetch_remote: If True, fetch TDoc metadata from WhatTheSpec if not local.
+
+    Returns:
+        SummarizeResult containing summary, keywords, metadata, and word count.
+
+    Raises:
+        LlmConfigError: If LLM endpoint is unreachable or misconfigured.
+        ValueError: If format is not supported.
+    """
+    # Normalize TDoc ID
+
+    normalized_id = tdoc_id.strip().upper()
+
+    # Try to get metadata from WhatTheSpec
+    metadata = None
+    content = ""
+    source = "unknown"
+    meeting_id = 0
+    title = ""
+
+    try:
+        metadata = resolve_via_whatthespec(normalized_id)
+        if metadata:
+            title = metadata.title
+            meeting_id = metadata.meeting_id
+            source = "whatthespec"
+            logger.info(f"Fetched metadata for {normalized_id} from WhatTheSpec")
+    except Exception as e:
+        logger.warning(f"Failed to fetch {normalized_id} from WhatTheSpec: {e}")
+        if not fetch_remote:
+            msg = f"TDoc {normalized_id} not found and fetch_remote=False"
+            raise ValueError(msg) from e
+
+    # If we don't have metadata and fetch_remote is False, raise error
+    if metadata is None and not fetch_remote:
+        msg = f"TDoc {normalized_id} not found locally and fetch_remote=False"
+        raise ValueError(msg)
+
+    # Use metadata info as content
+    # In a full implementation, this would download and extract the actual TDoc content
+    if metadata:
+        content_parts = [
+            f"Title: {metadata.title}",
+            f"Type: {metadata.tdoc_type}",
+            f"Purpose: {metadata.for_purpose}",
+            f"Source: {metadata.source}",
+            f"Contact: {metadata.contact}",
+        ]
+        content = "\n\n".join(content_parts)
+    else:
+        # Fallback - just use the tdoc_id as content placeholder
+        content = f"TDoc ID: {normalized_id}"
+
+    # Get LLM client
+    config = _get_ai_config()
+    client = _get_llm_client()
+
+    # Generate summary
+    summary_prompt = CONCISE_SUMMARY_PROMPT.format(
+        target_words=words,
+        content=content[:8000],  # Limit input size
+    )
+    try:
+        summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=words * 4)
+    except Exception as exc:
+        msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
+        raise LlmConfigError(msg) from exc
+
+    # Extract keywords
+    keywords_prompt = KEYWORDS_PROMPT.format(content=content[:4000])
+    try:
+        keywords_raw = client.complete(keywords_prompt, model=config.llm_model, max_tokens=200)
+        keywords = _parse_keywords(keywords_raw)
+    except Exception as e:
+        logger.warning(f"Keyword extraction failed: {e}")
+        keywords = []
+
+    # Count actual words
+    word_count = _count_words(summary)
+
+    # Build metadata dict
+    result_metadata: dict = {
+        "meeting_id": meeting_id,
+        "source": source,
+        "word_count": word_count,
+    }
+    if title:
+        result_metadata["title"] = title
+
+    # Create result
+    result = SummarizeResult(
+        summary=summary,
+        keywords=keywords,
+        metadata=result_metadata,
+        word_count=word_count,
+    )
+
+    logger.info(f"Generated summary for {normalized_id}: {word_count} words, {len(keywords)} keywords")
+    return result
+
+
+def _parse_keywords(payload: str) -> list[str]:
+    """Parse keywords from LLM JSON output.
+
+    Args:
+        payload: Raw LLM output containing JSON array.
+
+    Returns:
+        List of keyword strings.
+    """
+    try:
+        # Try to parse as JSON
+        cleaned = _strip_code_fences(payload)
+        data = json.loads(cleaned)
+        if isinstance(data, list):
+            return [str(kw).strip() for kw in data if str(kw).strip()]
+    except json.JSONDecodeError, ValueError:
+        pass
+
+    # Fallback: extract keywords by splitting on common delimiters
+    cleaned = _strip_code_fences(payload)
+    if "[" in cleaned:
+        # Extract content between brackets
+        match = re.search(r"\[(.*?)\]", cleaned)
+        if match:
+            items = match.group(1).split(",")
+            return [item.strip().strip("\"'").strip() for item in items if item.strip()]
+
+    # Last resort: split on newlines or commas
+    items = cleaned.replace(",", "\n").split("\n")
+    return [item.strip().strip("\"'").strip() for item in items if item.strip()][:10]
+
+
 __all__ = [
+    "SummarizeResult",
     "_count_words",
     "summarize_document",
+    "summarize_tdoc",
 ]

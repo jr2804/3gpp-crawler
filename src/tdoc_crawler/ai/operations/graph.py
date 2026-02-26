@@ -8,6 +8,7 @@ from datetime import datetime
 
 from tdoc_crawler.ai.config import AiConfig
 from tdoc_crawler.ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, GraphQueryResult
+from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
 
 logger = logging.getLogger(__name__)
@@ -157,13 +158,27 @@ def build_graph(
 
 def query_graph(
     query: str,
+    workspace: str,
     node_types: list[GraphNodeType] | None = None,
     top_k: int = 10,
     meeting_ids: list[str] | None = None,
     date_range: tuple[datetime, datetime] | None = None,
     storage: AiStorage | None = None,
-) -> list[GraphQueryResult]:
-    """Query the knowledge graph with temporal filtering and chronological sorting."""
+) -> dict[str, list[GraphQueryResult]]:
+    """Query the knowledge graph with temporal filtering and chronological sorting.
+
+    Args:
+        query: Search query string.
+        workspace: Workspace scope (required).
+        node_types: Filter by node types.
+        top_k: Number of results to return.
+        meeting_ids: Filter by meeting IDs.
+        date_range: Filter by date range.
+        storage: Optional storage instance.
+
+    Returns:
+        Dict with 'results' key containing list of GraphQueryResult objects.
+    """
     if storage is None:
         config = AiConfig.from_env(cache_manager_name="default")
         store_path = config.ai_store_path
@@ -172,8 +187,10 @@ def query_graph(
             raise ValueError(msg)
         storage = AiStorage(store_path)
 
-    nodes = storage.get_all_graph_nodes()
-    edges = storage.get_all_graph_edges()
+    normalized_workspace = normalize_workspace_name(workspace)
+
+    nodes = storage.get_all_graph_nodes(workspace=normalized_workspace)
+    edges = storage.get_all_graph_edges(workspace=normalized_workspace)
 
     matching_nodes = [n for n in nodes if not node_types or n.node_type in node_types]
 
@@ -198,7 +215,7 @@ def query_graph(
         results.append(GraphQueryResult(node=node, connected_edges=node_edges))
 
     logger.info(f"Graph query '{query}' returned {len(results)} results")
-    return results
+    return {"results": results}
 
 
 def get_tdoc_evolution(tdoc_id: str, storage: AiStorage | None = None) -> list[GraphNode]:

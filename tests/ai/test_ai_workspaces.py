@@ -90,3 +90,29 @@ def test_ensure_default_workspace_noop_if_exists(tmp_path: Path) -> None:
     workspace_ops.ensure_default_workspace(storage)
     ws = storage.get_workspace("default")
     assert ws is not None
+
+
+def test_workspace_auto_build_flag(tmp_path: Path) -> None:
+    """T003 [US2]: Create workspace with auto_build=True, verify flag persists.
+
+    Expected: FAIL - auto_build field doesn't exist yet.
+    """
+    storage = AiStorage(tmp_path / "lancedb")
+    workspace_ops.create_workspace(storage, "auto-ws", auto_build=True)
+
+    fetched = workspace_ops.get_workspace(storage, "auto-ws")
+    assert fetched is not None
+    assert fetched.auto_build is True
+
+
+def test_workspace_auto_build_default_off(tmp_path: Path) -> None:
+    """T004 [US2]: Create workspace without auto_build, verify default is False.
+
+    Expected: FAIL - auto_build field doesn't exist yet.
+    """
+    storage = AiStorage(tmp_path / "lancedb")
+    workspace_ops.create_workspace(storage, "manual-ws")
+
+    fetched = workspace_ops.get_workspace(storage, "manual-ws")
+    assert fetched is not None
+    assert fetched.auto_build is False
