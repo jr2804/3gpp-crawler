@@ -3,7 +3,7 @@
 **Feature Branch**: `002-ai-document-processing`
 **Created**: 2026-02-24
 **Status**: Implementation Ready
-**Input**: User description: "AI-based processing of downloaded files: document classification, DOCX-to-Markdown extraction, embeddings generation, LLM summarization, and temporal graph-RAG construction for 3GPP TDocs"
+**Input**: User description: "AI-based processing of downloaded files: document classification, DOCX-to-Markdown extraction, embeddings generation, LLM summarization, and temporal graph-RAG construction for 3GPP TDocs with measurable performance targets (<30s per TDoc extraction)"
 **Epic**: tdc-b9w
 
 ## Clarifications
@@ -15,7 +15,10 @@
 - Q: How must LLM and embedding models be specified? → A: They must always use `<provider>/<model_name>` format, where `<provider>` is a LiteLLM-supported provider (and `<model_name>` may contain `/` characters).
 - Q: Does Constitution Principle VII require cached-session HTTP for AI model-provider traffic? → A: No. Principle VII applies to core crawler source-fetching traffic (3GPP/WhatTheSpec/portal). AI model-provider traffic is exempt and must use approved provider/client integrations.
 - Q: Which provider/client integrations are approved for this feature? → A: LiteLLM is the approved integration path for LLM providers and sentence-transformers is the approved integration path for local embeddings. Direct ad-hoc HTTP clients for AI provider endpoints are not permitted.
-
+- Q: Which provider/client integrations are approved for this feature? → A: LiteLLM is the approved integration path for LLM providers and sentence-transformers is the approved integration path for local embeddings. Direct ad-hoc HTTP clients for AI provider endpoints are not permitted.
+- Q: Should the migration from Docling to Kreuzberg in Phase 9 maintain backward compatibility with the existing extraction API? → A: No. Full refactor is authorized: change extraction interface to better match Kreuzberg's design patterns. Breaking changes to `extract_from_folder()` signature and internal implementation are expected and encouraged.
+- Q: For temporal knowledge graph construction, should node/edge extraction be rule-based or LLM-powered? → A: Hybrid approach: Use rules (regex patterns) for structured data (TDoc IDs, meeting codes, spec references) and LLM for semantic relationships (concepts, implicit connections).
+- Q: Should the migration from Docling to Kreuzberg in Phase 9 maintain backward compatibility with the existing extraction API? → A: No. Full refactor is authorized: change extraction interface to better match Kreuzberg's design patterns. Breaking changes to `extract_from_folder()` signature and internal implementation are expected and encouraged.
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - DOCX-to-Markdown Extraction (Priority: P1)
@@ -77,7 +80,11 @@ case.
    classification runs, **Then** the `final` variant is marked as main.
 1. **Given** a TDoc with the `is_revision_of` field populated, **When** classification
    runs, **Then** the latest revision is preferred as whole.
-
+1. **Given** a TDoc with the `is_revision_of` field populated, **When** classification
+   runs, **Then** the latest revision is preferred as whole.
+1. **Given** a multi-file TDoc folder where heuristic confidence is below 0.7, **When**
+   classification runs, **Then** a warning is logged and all files are marked for manual
+   review.
 ______________________________________________________________________
 
 ### User Story 3 - AI Processing Pipeline Orchestration (Priority: P3)
@@ -238,7 +245,16 @@ ______________________________________________________________________
 - What happens when the same TDoc is downloaded to multiple meeting folders (duplicate)?
   The system should use TDoc ID normalization (`.upper()`) and process each unique TDoc
   ID only once.
-
+- What happens when storage is full and LanceDB write fails? The system should log an
+  error, mark the TDoc as `failed_storage`, and continue processing other TDocs without
+  crashing.
+- What happens when the LLM returns malformed output (invalid JSON, word count outside
+  150-250 bounds)? The system should retry once, then mark as `summarization_failed` with
+  the raw response logged for debugging.
+  crashing.
+- What happens when the LLM returns malformed output (invalid JSON, word count outside
+  150-250 bounds)? The system should retry once, then mark as `summarization_failed` with
+  the raw response logged for debugging.
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -296,6 +312,7 @@ ______________________________________________________________________
   database. No additional server infrastructure is required. The tdoc-crawler core
   package remains a standalone program; the AI addon reads TDoc metadata from
   tdoc-crawler's database but writes all AI artifacts to its own store.
+- **FR-019**: Failed TDocs MAY be retried via `ai process --tdoc-id <id>`. Transient LLM or embedding failures SHOULD retry up to 3 times with exponential backoff (1s, 2s, 4s delays). Permanent failures (corrupt file, missing config) MUST NOT retry and MUST mark stage as failed immediately.
 
 ### Key Entities
 

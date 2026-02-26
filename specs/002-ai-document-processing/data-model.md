@@ -37,7 +37,8 @@ class AiConfig(BaseModel):
     ai_store_path: Path  # Default: <cache_dir>/.ai/lancedb/
 
     # Extraction
-    # (No configurable params for Docling in v1 — uses defaults)
+    # Extraction
+    # (No configurable params for extraction in v1 — uses defaults. Note: Docling used in Phases 1-8, replaced by Kreuzberg in Phase 9 with full refactoring)
 
     # Embeddings
     embedding_model: str = "BAAI/bge-small-en-v1.5"

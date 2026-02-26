@@ -19,7 +19,7 @@
 
 ```bash
 # Extract DOCX to Markdown and classify files
-tdoc-crawler ai process --tdoc-id SP-123456
+tdoc-crawler ai process --tdoc-id SP-123456 --checkout-path /path/to/SP-123456
 ```
 
 Output:
@@ -38,10 +38,10 @@ Completed SP-123456 in 8.4s
 
 ```bash
 # Process all downloaded TDocs
-tdoc-crawler ai process --all
+tdoc-crawler ai process --all --checkout-base /path/to/checkout
 
 # Process only new (unprocessed) TDocs
-tdoc-crawler ai process --all --new-only
+tdoc-crawler ai process --all --checkout-base /path/to/checkout --new-only
 ```
 
 ## Check Status
@@ -58,7 +58,7 @@ tdoc-crawler ai status
 
 ```bash
 # Search across all processed TDocs
-tdoc-crawler ai query "uplink power control enhancements"
+tdoc-crawler ai query --query "uplink power control enhancements"
 
 # Get results as JSON
 tdoc-crawler ai query "uplink power control" --json --top-k 10

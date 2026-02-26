@@ -69,14 +69,20 @@ ______________________________________________________________________
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T022 [P] [US2] Add red library tests for omitted/blank workspace fallback in `tests/ai/test_ai_workspaces.py`
+- [x] T022 [P] [US2] Add red library tests for omitted/blank workspace fallback in `tests/ai/test_ai_workspaces.py`
+- [x] T023 [P] [US2] Add red CLI tests for implicit `default` resolution in `tests/ai/test_ai_cli.py`
+- [x] T024 [US2] Obtain user approval for failing red-test evidence before starting implementation in `tests/ai/test_ai_workspaces.py` and `tests/ai/test_ai_cli.py`
+- [x] T025 [US2] Re-run existing-implementation search and record reuse/refactor decisions in `specs/001-graphrag-workspaces/research.md` for `src/tdoc_crawler/ai/__init__.py`, `src/tdoc_crawler/ai/storage.py`, and `src/tdoc_crawler/cli/ai.py`
 - [ ] T023 [P] [US2] Add red CLI tests for implicit `default` resolution in `tests/ai/test_ai_cli.py`
 - [ ] T024 [US2] Obtain user approval for failing red-test evidence before starting implementation in `tests/ai/test_ai_workspaces.py` and `tests/ai/test_ai_cli.py`
 - [ ] T025 [US2] Re-run existing-implementation search and record reuse/refactor decisions in `specs/001-graphrag-workspaces/research.md` for `src/tdoc_crawler/ai/__init__.py`, `src/tdoc_crawler/ai/storage.py`, and `src/tdoc_crawler/cli/ai.py`
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Implement `default` auto-create and normalization logic in `src/tdoc_crawler/ai/operations/workspaces.py`
+- [x] T026 [US2] Implement `default` auto-create and normalization logic in `src/tdoc_crawler/ai/operations/workspaces.py`
+- [x] T027 [US2] Apply fallback behavior in public AI APIs (`process_tdoc`, `process_all`, `get_status`) in `src/tdoc_crawler/ai/__init__.py`
+- [x] T028 [US2] Apply fallback behavior in CLI entrypoints (`process`, `status`, `workspace` commands) in `src/tdoc_crawler/cli/ai.py`
+- [x] T029 [US2] Enforce default fallback for blank/unset workspace values in `src/tdoc_crawler/ai/storage.py`
 - [ ] T027 [US2] Apply fallback behavior in public AI APIs (`process_tdoc`, `process_all`, `get_status`) in `src/tdoc_crawler/ai/__init__.py`
 - [ ] T028 [US2] Apply fallback behavior in CLI entrypoints (`process`, `status`, `workspace` commands) in `src/tdoc_crawler/cli/ai.py`
 - [ ] T029 [US2] Enforce default fallback for blank/unset workspace values in `src/tdoc_crawler/ai/storage.py`
@@ -93,35 +99,32 @@ ______________________________________________________________________
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T030 [P] [US3] Add red pipeline isolation tests for workspace-scoped processing in `tests/ai/test_ai_pipeline.py`
-- [ ] T031 [P] [US3] Add red contract tests for workspace-scoped process/status behaviors in `tests/ai/test_ai_workspace_contract.py`
-- [ ] T032 [P] [US3] Add red storage scope tests for status/chunk/summary retrieval in `tests/ai/test_ai_storage.py`
-- [ ] T033 [US3] Obtain user approval for failing red-test evidence before starting implementation in `tests/ai/test_ai_pipeline.py`, `tests/ai/test_ai_workspace_contract.py`, and `tests/ai/test_ai_storage.py`
-- [ ] T034 [US3] Re-run existing-implementation search and record reuse/refactor decisions in `specs/001-graphrag-workspaces/research.md` for `src/tdoc_crawler/ai/operations/pipeline.py`, `src/tdoc_crawler/ai/storage.py`, and `src/tdoc_crawler/cli/ai.py`
+- [x] T030 [P] [US3] Add red pipeline isolation tests for workspace-scoped processing in `tests/ai/test_ai_pipeline.py`
+- [x] T031 [P] [US3] Add red contract tests for workspace-scoped process/status behaviors in `tests/ai/test_ai_workspace_contract.py`
+- [x] T032 [P] [US3] Add red storage scope tests for status/chunk/summary retrieval in `tests/ai/test_ai_storage.py`
+- [x] T033 [US3] Obtain user approval for failing red-test evidence before starting implementation in `tests/ai/test_ai_pipeline.py`, `tests/ai/test_ai_workspace_contract.py`, and `tests/ai/test_ai_storage.py`
+- [x] T034 [US3] Re-run existing-implementation search and record reuse/refactor decisions in `specs/001-graphrag-workspaces/research.md` for `src/tdoc_crawler/ai/operations/pipeline.py`, `src/tdoc_crawler/ai/storage.py`, and `src/tdoc_crawler/cli/ai.py`
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] Add workspace parameter support to orchestration APIs in `src/tdoc_crawler/ai/operations/pipeline.py`
-- [ ] T036 [US3] Scope process-all input resolution to workspace member corpus in `src/tdoc_crawler/ai/operations/pipeline.py` and `src/tdoc_crawler/ai/operations/workspaces.py`
-- [ ] T037 [US3] Add workspace association fields/validation to artifact models in `src/tdoc_crawler/ai/models.py`
-- [ ] T038 [US3] Persist and filter artifact tables by workspace in `src/tdoc_crawler/ai/storage.py`
-- [ ] T039 [US3] Pass workspace scope from CLI process/status/query commands to library in `src/tdoc_crawler/cli/ai.py`
-- [ ] T040 [US3] Remove or retire legacy unscoped artifact access paths in `src/tdoc_crawler/ai/storage.py` and `src/tdoc_crawler/ai/operations/pipeline.py`
-
-**Checkpoint**: All user stories are independently functional.
+- [x] T035 [US3] Add workspace parameter support to orchestration APIs in `src/tdoc_crawler/ai/operations/pipeline.py`
+- [x] T036 [US3] Scope process-all input resolution to workspace member corpus in `src/tdoc_crawler/ai/operations/pipeline.py` and `src/tdoc_crawler/ai/operations/workspaces.py`
+- [x] T037 [US3] Add workspace association fields/validation to artifact models in `src/tdoc_crawler/ai/models.py`
+- [x] T038 [US3] Persist and filter artifact tables by workspace in `src/tdoc_crawler/ai/storage.py`
+- [x] T039 [US3] Pass workspace scope from CLI process/status/query commands to library in `src/tdoc_crawler/cli/ai.py`
+- [x] T040 [US3] Remove or retire legacy unscoped artifact access paths in `src/tdoc_crawler/ai/storage.py` and `src/tdoc_crawler/ai/operations/pipeline.py`
+  **Checkpoint**: All user stories are independently functional.
 
 ______________________________________________________________________
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Final consistency checks, documentation sync, and quality gates.
-
-- [ ] T041 [P] Update workspace quickstart and command examples in `specs/001-graphrag-workspaces/quickstart.md`
-- [ ] T042 [P] Update design notes for final naming and compatibility decisions in `specs/001-graphrag-workspaces/research.md`
-- [ ] T043 [P] Sync finalized contract examples and non-functional descriptions in `specs/001-graphrag-workspaces/contracts/workspace-api.openapi.yaml`
-- [ ] T044 Run Ruff/Ty fixes for touched modules in `src/tdoc_crawler/ai/models.py`, `src/tdoc_crawler/ai/storage.py`, `src/tdoc_crawler/ai/operations/pipeline.py`, `src/tdoc_crawler/ai/operations/workspaces.py`, and `src/tdoc_crawler/cli/ai.py`
-- [ ] T045 [P] Execute and stabilize focused AI tests in `tests/ai/test_ai_workspaces.py`, `tests/ai/test_ai_workspace_contract.py`, `tests/ai/test_ai_pipeline.py`, `tests/ai/test_ai_storage.py`, and `tests/ai/test_ai_cli.py`
-- [ ] T046 [P] Validate SC-003 performance and scale: generate test dataset (30+ source items across 3+ workspaces, 8+ items per workspace, mixed docx/pdf/md/txt), measure workspace creation + corpus registration time, verify completion under 2 minutes per SC-003
+- [x] T041 [P] Update workspace quickstart and command examples in `specs/001-graphrag-workspaces/quickstart.md`
+- [x] T042 [P] Update design notes for final naming and compatibility decisions in `specs/001-graphrag-workspaces/research.md`
+- [x] T043 [P] Sync finalized contract examples and non-functional descriptions in `specs/001-graphrag-workspaces/contracts/workspace-api.openapi.yaml`
+- [x] T044 Run Ruff/Ty fixes for touched modules in `src/tdoc_crawler/ai/models.py`, `src/tdoc_crawler/ai/storage.py`, `src/tdoc_crawler/ai/operations/pipeline.py`, `src/tdoc_crawler/ai/operations/workspaces.py`, and `src/tdoc_crawler/cli/ai.py`
+- [x] T045 [P] Execute and stabilize focused AI tests in `tests/ai/test_ai_workspaces.py`, `tests/ai/test_ai_workspace_contract.py`, `tests/ai/test_ai_pipeline.py`, `tests/ai/test_ai_storage.py`, and `tests/ai/test_ai_cli.py`
+- [x] T046 [P] Validate SC-003 performance and scale
 
 ______________________________________________________________________
 

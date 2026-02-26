@@ -1,94 +1,64 @@
-# Implementation Plan: GraphRAG Workspace Scoping
+# Implementation Plan: [FEATURE]
 
-**Branch**: `001-graphrag-workspaces` | **Date**: 2026-02-25 | **Spec**: `specs/001-graphrag-workspaces/spec.md`
-**Input**: Feature specification from `specs/001-graphrag-workspaces/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+
+**Note**: This template is filled in by the planning workflow.
 
 ## Summary
 
-Add workspace/project scoping to AI/GraphRAG processing with mandatory `default` fallback.
-The implementation extends existing AI pipeline/storage/CLI code to support isolated
-workspace corpora and workspace-scoped artifact generation, while reusing current
-pipeline stages and removing/adjusting single-workspace assumptions already present in
-`src/tdoc_crawler/ai` and `src/tdoc_crawler/cli/ai.py`.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
 
-**Language/Version**: Python 3.14
-**Primary Dependencies**: typer, rich, pydantic, lancedb, pyarrow, sentence-transformers
-**Storage**: LanceDB tables under `.ai/lancedb` + workspace file references
-**Testing**: pytest (`uv run pytest`), focused AI tests under `tests/ai/`
-**Target Platform**: Cross-platform CLI (Windows/Linux/macOS)
-**Project Type**: Single Python repository (library + CLI)
-**Performance Goals**: Workspace resolution and membership filtering add negligible overhead (target \<10% vs current single-scope flow)
-**Constraints**: Maintain backward-compatible default behavior via `default` workspace; avoid breaking completed AI pipeline stages
-**Scale/Scope**: Multiple workspaces per repository, each with selected subsets of TDocs/specs/other files
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [single/web/mobile - determines source structure]
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+**Constraints**: [domain-specific, e.g., \<200ms p95, \<100MB memory, offline-capable or NEEDS CLARIFICATION]
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- [x] Library-first boundary documented (standalone library + integration points).
-- [x] CLI contract defined (text input/output + JSON mode).
-- [x] TDD evidence planned (tests written/approved + red phase before implementation).
-- [x] Python standards planned (type hints, logging, uv/pyproject, Ruff, Ty, pathlib,
+- [ ] Library-first boundary documented (standalone library + integration points).
+- [ ] CLI contract defined (text input/output + JSON mode).
+- [ ] TDD evidence planned (tests written/approved + red phase before implementation).
+- [ ] Python standards planned (type hints, logging, uv/pyproject, Ruff, Ty, pathlib,
   dataclasses where appropriate, Typer CLI).
-- [x] Domain placement confirmed (correct domain package; no logic in cli/ or utils/;
+- [ ] Domain placement confirmed (correct domain package; no logic in cli/ or utils/;
   no legacy crawlers/ reference).
-- [x] DRY validation done (existing code searched; no duplicated logic introduced).
-- [x] Network access plan documented (core crawler source traffic via
+- [ ] DRY validation done (existing code searched; no duplicated logic introduced).
+- [ ] Network access plan documented (core crawler source traffic via
   create_cached_session(); any AI model-provider traffic explicitly documented as
   exempt with approved provider/client integration).
 
 ## Library Boundary & CLI Contract
 
-**Library boundary (new/extended in `src/tdoc_crawler/ai/`)**
-
-- Extend AI domain APIs to include explicit `workspace` context with default fallback.
-- Reuse existing orchestration (`process_tdoc`, `process_all`, `run_pipeline`) and
-  extend signatures to accept workspace/project scoping.
-- Add workspace management library operations (create/list/get/add-members/remove-members)
-  in AI domain package.
-- Keep domain logic in `src/tdoc_crawler/ai/`; CLI remains delegation-only.
-
-**CLI contract (`src/tdoc_crawler/cli/ai.py`)**
-
-- Workspace-aware options on relevant commands: `--workspace` (optional, default resolves to `default`).
-- Add workspace management command group (text output via rich; JSON via `--json`).
-- Preserve existing text output for human use and JSON mode for automation.
-- The OpenAPI document in `contracts/` is a logical payload contract for CLI JSON
-  request/response semantics in this feature; it does NOT require implementing an
-  HTTP server in this increment.
-
-**Existing-code consideration/removal scope**
-
-- Keep existing single-scope flows functionally equivalent by mapping them to `default`.
-- Remove implicit assumptions that a global `.ai/lancedb` is unscoped by introducing
-  workspace-aware filtering/keys.
-- Rename newly introduced generic interfaces to `source_item`/`workspace member` where
-  semantics include non-TDoc files; keep legacy `tdoc_id` fields only where tied to existing
-  pipeline identity and backward compatibility.
+\[Describe the standalone library module, its public API, and the CLI entrypoints.
+Include text input/output channels and JSON output mode.\]
 
 ## TDD Evidence
 
-For each user story, tests are written and approved first, then run red before code changes:
-
-- **US1 (workspace isolation)**: tests for workspace creation, membership registration,
-  and isolation across two workspaces.
-- **US2 (`default` fallback)**: tests for omitted workspace argument resolving to
-  auto-created `default` in library + CLI paths.
-- **US3 (workspace-scoped KB build)**: tests that process/build operations only use
-  selected members from target workspace and never cross-contaminate artifacts.
-
-Red evidence is captured by running focused tests (e.g., `tests/ai/test_ai_workspaces*.py`,
-updated `tests/ai/test_ai_cli.py`, `tests/ai/test_ai_pipeline.py`) before implementation,
-then green after implementation.
+\[Describe the unit tests to be written first and how failing tests (red phase) will be
+validated before implementation begins.\]
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/001-graphrag-workspaces/
+specs/[###-feature]/
 ├── plan.md              # This file (/speckit.plan command output)
 ├── research.md          # Phase 0 output (/speckit.plan command)
 ├── data-model.md        # Phase 1 output (/speckit.plan command)
@@ -99,42 +69,57 @@ specs/001-graphrag-workspaces/
 
 ### Source Code (repository root)
 
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
+
 ```text
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── tdoc_crawler/
-│   ├── ai/
-│   │   ├── __init__.py
-│   │   ├── models.py
-│   │   ├── storage.py
-│   │   └── operations/
-│   │       ├── pipeline.py
-│   │       ├── extract.py
-│   │       └── ...
-│   └── cli/
-│       ├── ai.py
-│       └── app.py
+├── models/
+├── services/
+├── cli/
+└── lib/
 
 tests/
-└── ai/
-    ├── test_ai_cli.py
-    ├── test_ai_pipeline.py
-    ├── test_ai_storage.py
-    └── (new) test_ai_workspaces.py
+├── contract/
+├── integration/
+└── unit/
+
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**: Extend existing AI domain and AI CLI modules in-place; add
-workspace-specific models/operations without creating parallel subsystems.
+**Structure Decision**: \[Document the selected structure and reference the real
+directories captured above\]
 
 ## Complexity Tracking
 
-No constitution violations identified.
+> **Fill ONLY if Constitution Check has violations that must be justified**
 
-## Post-Design Constitution Re-Check
-
-- [x] Library-first boundary remains intact after design artifacts.
-- [x] CLI text/JSON contract is preserved in contract and quickstart artifacts.
-- [x] TDD-first flow remains mandatory in quickstart/test plan.
-- [x] Python standards/tooling expectations remain unchanged.
-- [x] Domain placement keeps logic in AI domain and CLI delegation-only.
-- [x] DRY strategy is explicit (reuse existing pipeline/storage/CLI; avoid parallel systems).
-- [x] Network policy remains compliant (no new core-crawler HTTP sources introduced).
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

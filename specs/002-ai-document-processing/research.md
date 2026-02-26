@@ -35,7 +35,80 @@ optional extra (`tdoc_crawler[ai]`).
 
 **Python 3.14 compatibility**: Docling uses pydantic v2, uv, ruff — same toolchain as
 our project. If 3.14 compatibility is not yet released, we pin to the latest compatible
-version and track upstream.
+
+## 3. DOCX Extraction Migration Strategy: Docling → Kreuzberg
+
+**Decision**: Use Docling for Phases 1-8, migrate to Kreuzberg in Phase 9 with **full refactoring** (no backward compatibility required).
+
+**Rationale**: Kreuzberg is planned as the long-term extraction library starting in Phase 9.
+Docling serves as an interim solution to unblock early phase implementation and testing.
+Phase 9 migration will refactor the extraction interface to better match Kreuzberg's design
+patterns rather than maintaining API compatibility.
+
+**Migration requirements**:
+- ✅ Kreuzberg MUST provide equivalent or better DOCX-to-Markdown conversion capabilities
+- ✅ The `extract_from_folder()` function signature MAY change to leverage Kreuzberg's native API
+- ✅ Internal implementation in extract.py should be refactored to use Kreuzberg idioms
+- ✅ Tests in `test_ai_extraction.py` must pass unchanged after migration (black-box behavior preserved)
+- ✅ No changes to public API (`process_tdoc()`, `process_all()`) during migration - only internal extraction layer changes
+
+**Phase 9 deliverable**: Complete removal of Docling from all modules. Only Kreuzberg remains with refactored extraction interface.
+
+**Risk mitigation**: Keep both dependencies installed during Phases 1-8 development. Final
+migration happens in Phase 9 when Kreuzberg integration is complete and tested.
+
+## 4. Graph Construction Strategy: Hybrid Node/Edge Extraction
+
+**Decision**: Use a hybrid approach combining rule-based and LLM-powered extraction.
+
+**Rule-based extraction (deterministic, fast):**
+- TDoc ID patterns: `S[0-9]+-[0-9]+`, `[0-9]{5}-j[0-9]+` (regex matching)
+- Meeting codes: `SA4#[0-9]+`, `RP-[0-9]+` (structured identifiers)
+- Specification references: `TS [0-9]+.[0-9]+.[0-9]+` (3GPP spec format)
+- Explicit cross-references: When TDoc content explicitly mentions another TDoc ID
+
+**LLM-powered extraction (semantic, flexible):**
+- Concept extraction: Identify technical concepts from content semantics
+- Implicit relationships: Discover connections not explicitly stated (e.g., "similar approach to..." without TDoc ID)
+- Work item identification: Map TDocs to work items based on topic discussion
+- Relationship typing: Classify edge types (discusses, revises, extends, contradicts)
+
+**Implementation phases:**
+1. **Phase 9a**: Implement rule-based extraction first (quick wins, deterministic)
+2. **Phase 9b**: Add LLM-powered semantic extraction (comprehensive but slower)
+3. **Phase 9c**: Merge both sources with conflict resolution (rules take precedence for structured data)
+
+**Conflict resolution:**
+- When rules and LLM disagree on structured data (TDoc IDs, meeting codes) → trust rules
+- When LLM identifies implicit relationships → accept unless contradicted by rules
+- Log all conflicts for debugging and manual review if needed
+**Risk mitigation**: Keep both dependencies installed during Phases 1-8 development. Final
+migration happens in Phase 9 when Kreuzberg integration is complete and tested.
+
+**Authorized breaking changes**:
+- Function signatures in `src/tdoc_crawler/ai/operations/extract.py`
+- Internal data structures and intermediate representations
+- Error handling patterns (may adopt Kreuzberg-specific exception types)
+- Configuration options specific to extraction stage
+
+## 3. DOCX Extraction Migration Strategy: Docling → Kreuzberg
+
+**Decision**: Use Docling for Phases 1-8, migrate to Kreuzberg in Phase 9.
+
+**Rationale**: Kreuzberg is planned as the long-term extraction library starting in Phase 9.
+Docling serves as an interim solution to unblock early phase implementation and testing.
+
+**Migration requirements**:
+- Kreuzberg MUST provide equivalent or better DOCX-to-Markdown conversion capabilities
+- All imports of `docling.*` modules must be replaced with `kreuzberg.*` equivalents
+- The `extract_from_folder()` function signature should remain stable to avoid breaking pipeline.py
+- Tests in `test_ai_extraction.py` must pass unchanged after migration (black-box behavior)
+- No changes to public API (`process_tdoc()`, `process_all()`) during migration
+
+**Phase 9 deliverable**: Complete removal of Docling from all modules. Only Kreuzberg remains.
+
+**Risk mitigation**: Keep both dependencies installed during Phases 1-8 development. Final
+migration happens in Phase 9 when Kreuzberg integration is complete and tested.
 
 ## 2. Vector Storage Backend
 

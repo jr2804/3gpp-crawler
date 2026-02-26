@@ -122,7 +122,10 @@ def extract_docx_to_markdown(
     docx_path: Path,
     output_dir: Path,
 ) -> Path:
-    """Convert a DOCX file to Markdown using Docling.
+    """Convert a DOCX file to Markdown using extraction library.
+
+    Note: Uses Docling in Phases 1-8. Replaced by Kreuzberg in Phase 9 with full refactoring (no backward compatibility).
+
 
     Args:
         docx_path: Path to the source DOCX file.
