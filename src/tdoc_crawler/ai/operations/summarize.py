@@ -6,6 +6,7 @@ import hashlib
 import importlib
 import json
 import logging
+import os
 import re
 
 from tdoc_crawler.ai.config import AiConfig
@@ -117,6 +118,9 @@ class LiteLLMClient:
             raise RuntimeError(msg)
 
         try:
+            # Check for TDC_AI_LLM_API_KEY - takes precedence over provider-specific keys
+            api_key = os.environ.get("TDC_AI_LLM_API_KEY")
+
             response = self._client.completion(
                 model=model or AiConfig().llm_model,
                 messages=[
@@ -124,6 +128,7 @@ class LiteLLMClient:
                     {"role": "user", "content": prompt},
                 ],
                 max_tokens=max_tokens,
+                api_key=api_key,  # Pass TDC_AI_LLM_API_KEY if set, otherwise None (LiteLLM uses provider-specific env vars)
             )
             return response.choices[0].message.content
         except Exception as e:

@@ -52,7 +52,7 @@ Configure AI processing via environment variables (see `.env.example`):
 ```bash
 # LLM Configuration
 TDC_AI_LLM_MODEL=openrouter/openrouter/free    # Default: free tier via OpenRouter
-TDC_AI_LLM_API_KEY=your-api-key                # Required for cloud providers
+TDC_AI_LLM_API_KEY=your-api-key                # Optional: takes precedence over provider-specific keys
 TDC_AI_LLM_API_BASE=                           # Optional: custom endpoint
 
 # Embedding Model
@@ -446,6 +446,14 @@ echo $OPENAI_API_KEY
 **Problem:** `Missing API key for provider 'openai'`
 
 **Solution:** LiteLLM expects the API key in a standard environment variable named `<PROVIDER>_API_KEY`. See the [Model Providers](#model-providers) table for the correct variable name for each provider.
+
+**Alternative:** You can use `TDC_AI_LLM_API_KEY` as a universal API key that takes precedence over provider-specific keys. This is useful when you want to use a single API key across different providers (e.g., via OpenRouter or a proxy service):
+
+```bash
+export TDC_AI_LLM_API_KEY=your-key-here
+```
+
+If `TDC_AI_LLM_API_KEY` is set, it will be used instead of the provider-specific key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.).
 
 ### Embedding Model Issues
 
