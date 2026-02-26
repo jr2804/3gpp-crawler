@@ -52,6 +52,21 @@ class GraphEdgeType(StrEnum):
     PRESENTED_AT = "presented_at"
 
 
+class WorkspaceStatus(StrEnum):
+    """Lifecycle state of a workspace."""
+
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class SourceKind(StrEnum):
+    """Kinds of source items that can be part of a workspace corpus."""
+
+    TDOC = "tdoc"
+    SPEC = "spec"
+    OTHER = "other"
+
+
 class AiError(Exception):
     """Base exception for AI processing errors."""
 
@@ -76,6 +91,74 @@ class EmbeddingDimensionError(AiError):
     """Embedding model dimension mismatch with stored vectors."""
 
 
+class Workspace(BaseModel):
+    """Logical workspace boundary for AI processing."""
+
+    workspace_name: str = Field(..., description="Normalized workspace identifier")
+    created_at: datetime = Field(default_factory=utc_now, description="Creation timestamp")
+    updated_at: datetime = Field(default_factory=utc_now, description="Last update timestamp")
+    is_default: bool = Field(False, description="Whether this workspace is the default workspace")
+    status: WorkspaceStatus = Field(WorkspaceStatus.ACTIVE, description="Workspace lifecycle status")
+
+    @field_validator("workspace_name")
+    @classmethod
+    def _normalize_workspace_name(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            msg = "workspace_name must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+
+class WorkspaceMember(BaseModel):
+    """Source item assigned to one workspace corpus."""
+
+    workspace_name: str = Field(..., description="Workspace identifier")
+    source_item_id: str = Field(..., description="Stable source item identifier")
+    source_path: str = Field(..., description="Path or locator of the source item")
+    source_kind: SourceKind = Field(..., description="Type of source item")
+    added_at: datetime = Field(default_factory=utc_now, description="Registration timestamp")
+    added_by: str | None = Field(None, description="Actor that registered the source")
+    is_active: bool = Field(True, description="Membership active flag")
+
+    @field_validator("workspace_name")
+    @classmethod
+    def _normalize_workspace_name(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            msg = "workspace_name must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+    @field_validator("source_item_id")
+    @classmethod
+    def _normalize_source_item_id(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            msg = "source_item_id must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+
+class ArtifactScope(BaseModel):
+    """Workspace association metadata for generated artifacts."""
+
+    workspace_name: str = Field(..., description="Workspace identifier")
+    artifact_type: str = Field(..., description="Artifact type")
+    artifact_id: str = Field(..., description="Artifact identifier")
+    source_item_id: str | None = Field(None, description="Optional source item identifier")
+    created_at: datetime = Field(default_factory=utc_now, description="Association timestamp")
+
+    @field_validator("workspace_name")
+    @classmethod
+    def _normalize_workspace_name(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            msg = "workspace_name must not be empty"
+            raise ValueError(msg)
+        return normalized
+
+
 class ProcessingStatus(BaseModel):
     """Processing state for a single TDoc."""
 
@@ -89,6 +172,8 @@ class ProcessingStatus(BaseModel):
     completed_at: datetime | None = Field(None, description="Timestamp when pipeline completed")
     error_message: str | None = Field(None, description="Error details for failed stage")
     source_hash: str | None = Field(None, description="Hash of source DOCX for change detection")
+    keywords: list[str] | None = Field(None, description="Keywords extracted from document content")
+    detected_language: str | None = Field(None, description="Primary language detected in document")
 
     @field_validator("tdoc_id")
     @classmethod
@@ -135,6 +220,36 @@ class DocumentChunk(BaseModel):
     embedding_model: str = Field(..., description="Embedding model identifier")
     created_at: datetime = Field(default_factory=utc_now, description="Embedding creation timestamp")
 
+    @property
+    def section(self) -> str | None:
+        return self.section_heading
+
+    @property
+    def content(self) -> str:
+        return self.text
+
+    @property
+    def embedding(self) -> list[float]:
+        return self.vector
+
+    @embedding.setter
+    def embedding(self, value: list[float]) -> None:
+        self.vector = value
+
+    @field_validator("tdoc_id")
+    @classmethod
+    def _normalize_tdoc_id(cls, value: str) -> str:
+        return _normalize_tdoc_id(value)
+
+
+class QueryResult(BaseModel):
+    """Result from embedding similarity query."""
+
+    tdoc_id: str = Field(..., description="TDoc identifier (normalized via .upper())")
+    section: str = Field("", description="Section heading or empty string")
+    content: str = Field(..., description="Text content that matched the query")
+    score: float = Field(..., ge=0.0, le=1.0, description="Similarity score (0.0-1.0)")
+
     @field_validator("tdoc_id")
     @classmethod
     def _normalize_tdoc_id(cls, value: str) -> str:
@@ -150,8 +265,8 @@ class DocumentSummary(BaseModel):
     action_items: list[str] = Field(default_factory=list, description="Action items")
     decisions: list[str] = Field(default_factory=list, description="Decisions recorded")
     affected_specs: list[str] = Field(default_factory=list, description="Affected specification IDs")
-    llm_model: str = Field(..., description="Model used for generation")
-    prompt_version: str = Field(..., description="Prompt template version")
+    llm_model: str = Field("ollama/llama3.2", description="Model used for generation")
+    prompt_version: str = Field("v1", description="Prompt template version")
     generated_at: datetime = Field(default_factory=utc_now, description="Generation timestamp")
 
     @field_validator("tdoc_id")
@@ -192,9 +307,17 @@ class GraphEdge(BaseModel):
         return self
 
 
+class GraphQueryResult(BaseModel):
+    """Knowledge graph query result."""
+
+    node: GraphNode = Field(..., description="Matched graph node")
+    connected_edges: list[GraphEdge] = Field(default_factory=list, description="Connected edges for context")
+
+
 __all__ = [
     "AiConfigError",
     "AiError",
+    "ArtifactScope",
     "DocumentChunk",
     "DocumentClassification",
     "DocumentSummary",
@@ -204,8 +327,14 @@ __all__ = [
     "GraphEdgeType",
     "GraphNode",
     "GraphNodeType",
+    "GraphQueryResult",
     "LlmConfigError",
     "PipelineStage",
     "ProcessingStatus",
+    "QueryResult",
+    "SourceKind",
     "TDocNotFoundError",
+    "Workspace",
+    "WorkspaceMember",
+    "WorkspaceStatus",
 ]

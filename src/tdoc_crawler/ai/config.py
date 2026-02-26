@@ -5,9 +5,28 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from tdoc_crawler.models.base import BaseConfigModel
+from tdoc_crawler.models import BaseConfigModel
+
+DEFAULT_EMBEDDING_MODEL = "huggingface/BAAI/bge-small-en-v1.5"
+DEFAULT_LLM_MODEL = "ollama/llama3.2"
+
+LITELLM_PROVIDER_ALLOWLIST = {
+    "openai",
+    "anthropic",
+    "azure",
+    "google",
+    "vertex_ai",
+    "cohere",
+    "huggingface",
+    "ollama",
+    "groq",
+    "mistral",
+    "bedrock",
+    "replicate",
+    "together_ai",
+}
 
 
 def _env_int(name: str) -> int | None:
@@ -17,30 +36,54 @@ def _env_int(name: str) -> int | None:
     return int(value)
 
 
+def _validate_model_identifier(value: str, field_name: str) -> str:
+    if "/" not in value:
+        msg = f"{field_name} must be in '<provider>/<model_name>' format"
+        raise ValueError(msg)
+
+    provider, model_name = value.split("/", 1)
+    provider_normalized = provider.strip().lower()
+    model_name_normalized = model_name.strip()
+
+    if not provider_normalized:
+        msg = f"{field_name} provider segment cannot be empty"
+        raise ValueError(msg)
+    if not model_name_normalized:
+        msg = f"{field_name} model_name segment cannot be empty"
+        raise ValueError(msg)
+    if provider_normalized not in LITELLM_PROVIDER_ALLOWLIST:
+        msg = f"{field_name} provider '{provider}' is not in supported provider allowlist: {sorted(LITELLM_PROVIDER_ALLOWLIST)}"
+        raise ValueError(msg)
+
+    return f"{provider_normalized}/{model_name_normalized}"
+
+
 class AiConfig(BaseConfigModel):
     """Configuration for the AI processing pipeline."""
 
     ai_store_path: Path | None = Field(None, description="Path to AI LanceDB store")
-    embedding_model: str = Field("BAAI/bge-small-en-v1.5", description="Embedding model name")
+
+    embedding_model: str = Field(
+        DEFAULT_EMBEDDING_MODEL,
+        description="Embedding model in <provider>/<model_name> format",
+    )
     max_chunk_size: int = Field(1000, ge=1, description="Max tokens per chunk")
     chunk_overlap: int = Field(100, ge=0, description="Token overlap between chunks")
-    llm_model: str = Field("ollama/llama3.2", description="LLM model identifier")
+
+    llm_model: str = Field(
+        DEFAULT_LLM_MODEL,
+        description="LLM model in <provider>/<model_name> format",
+    )
     llm_api_base: str | None = Field(None, description="Override LLM API base URL")
+
     abstract_min_words: int = Field(150, ge=1, description="Minimum abstract word count")
     abstract_max_words: int = Field(250, ge=1, description="Maximum abstract word count")
     parallelism: int = Field(4, ge=1, le=32, description="Concurrent TDoc processing")
 
     @classmethod
-    def from_env(cls, **overrides: object) -> AiConfig:
-        """Create config from environment variables.
-
-        Args:
-            **overrides: Explicit values that take precedence over env vars.
-
-        Returns:
-            AiConfig instance populated from environment variables.
-        """
-        data: dict[str, object] = {}
+    def from_env(cls, **overrides: str | int | Path | None) -> AiConfig:
+        """Create config from environment variables."""
+        data: dict[str, str | int | Path | None] = {}
 
         if store_path := os.getenv("TDC_AI_STORE_PATH"):
             data["ai_store_path"] = Path(store_path)
@@ -54,21 +97,27 @@ class AiConfig(BaseConfigModel):
         max_chunk_size = _env_int("TDC_AI_MAX_CHUNK_SIZE")
         if max_chunk_size is not None:
             data["max_chunk_size"] = max_chunk_size
+
         chunk_overlap = _env_int("TDC_AI_CHUNK_OVERLAP")
         if chunk_overlap is not None:
             data["chunk_overlap"] = chunk_overlap
+
         abstract_min_words = _env_int("TDC_AI_ABSTRACT_MIN_WORDS")
         if abstract_min_words is not None:
             data["abstract_min_words"] = abstract_min_words
+
         abstract_max_words = _env_int("TDC_AI_ABSTRACT_MAX_WORDS")
         if abstract_max_words is not None:
             data["abstract_max_words"] = abstract_max_words
+
         parallelism = _env_int("TDC_AI_PARALLELISM")
         if parallelism is not None:
             data["parallelism"] = parallelism
 
         data.update(overrides)
-        return cls(**data)
+        # Filter out None values to let defaults apply
+        filtered_data = {k: v for k, v in data.items() if v is not None}
+        return cls(**filtered_data)  # type: ignore[arg-type]
 
     @model_validator(mode="after")
     def _resolve_paths(self) -> AiConfig:
@@ -86,5 +135,15 @@ class AiConfig(BaseConfigModel):
             raise ValueError(msg)
         return self
 
+    @field_validator("embedding_model")
+    @classmethod
+    def _validate_embedding_model(cls, value: str) -> str:
+        return _validate_model_identifier(value, "embedding_model")
 
-__all__ = ["AiConfig"]
+    @field_validator("llm_model")
+    @classmethod
+    def _validate_llm_model(cls, value: str) -> str:
+        return _validate_model_identifier(value, "llm_model")
+
+
+__all__ = ["LITELLM_PROVIDER_ALLOWLIST", "AiConfig"]

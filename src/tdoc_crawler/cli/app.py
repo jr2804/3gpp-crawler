@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from rich.table import Table
 
 from tdoc_crawler.cli._shared import console, create_progress_bar
+from tdoc_crawler.cli.ai import ai_app
 from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutTDocIdsArgument,
@@ -212,3 +213,6 @@ app.command("qm", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_meetings)
 
 
 __all__ = ["app"]
+
+# Register AI commands
+app.add_typer(ai_app, name="ai", help="AI document processing")
