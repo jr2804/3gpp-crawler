@@ -101,7 +101,21 @@ tdoc-crawler ai workspace create my-project --auto-build
 tdoc-crawler ai workspace create my-project
 ```
 
-### 2. Query Your Knowledge Base
+### 2. Process Documents (Generate Embeddings)
+
+After adding TDocs to your workspace, process them to generate RAG/GraphRAG embeddings:
+
+```bash
+# Process all TDocs in workspace (only new ones)
+tdoc-crawler ai workspace process -w my-project
+
+# Force reprocess all TDocs
+tdoc-crawler ai workspace process -w my-project --force
+```
+
+Note: If you created the workspace with `--auto-build`, documents are processed automatically when added.
+
+### 3. Query Your Knowledge Base
 
 Once you have a workspace with documents, query using semantic search and knowledge graph (RAG + GraphRAG):
 

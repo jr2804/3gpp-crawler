@@ -23,6 +23,7 @@ from tdoc_crawler.ai import (
     summarize_tdoc,
 )
 from tdoc_crawler.ai.models import SourceKind
+from tdoc_crawler.ai.operations.pipeline import process_all
 from tdoc_crawler.config import CacheManager
 
 HELP_PANEL = "AI Commands"
@@ -265,6 +266,49 @@ def workspace_list_members(
         for m in members:
             table.add_row(m.source_item_id, m.source_kind.value, m.source_path, "Yes" if m.is_active else "No")
         console.print(table)
+
+
+@_workspace_app.command("process")
+def workspace_process(
+    workspace: Annotated[str, typer.Option("--workspace", "-w", help="Workspace name")],
+    new_only: Annotated[bool, typer.Option("--new-only", help="Process only TDocs not already completed")] = True,
+    force_rerun: Annotated[bool, typer.Option("--force", help="Force reprocessing of all TDocs")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Process all TDoc members in a workspace through the AI pipeline."""
+    manager = CacheManager().register()
+    storage = AiStorage(manager.root / ".ai" / "lancedb")
+
+    # Get workspace members
+    members = storage.list_workspace_members(workspace, include_inactive=False)
+    tdoc_ids = [m.source_item_id for m in members if m.is_active and m.source_kind.value == "tdoc"]
+
+    if not tdoc_ids:
+        if json_output:
+            typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "processed": 0, "message": "No TDoc members found"}))
+        else:
+            console.print(f"[yellow]No TDoc members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
+        return
+
+    # Process TDocs
+    results = process_all(
+        tdoc_ids=tdoc_ids,
+        checkout_base=manager.root,
+        new_only=new_only,
+        force_rerun=force_rerun,
+        workspace=workspace,
+    )
+
+    if json_output:
+        typer.echo(json.dumps({
+            "workspace": normalize_workspace_name(workspace),
+            "processed": len(results),
+            "total_members": len(tdoc_ids),
+            "tdoc_ids": list(results.keys()),
+        }))
+    else:
+        console.print(f"[green]Processed {len(results)}/{len(tdoc_ids)} TDoc(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
+
 
 
 @_workspace_app.command("delete")
