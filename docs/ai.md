@@ -101,43 +101,29 @@ tdoc-crawler ai workspace create my-project --auto-build
 tdoc-crawler ai workspace create my-project
 ```
 
-### 2. Add Documents to Workspace
+### 2. Query Your Knowledge Base
 
-Use the existing `checkout` and `checkout-spec` commands to download documents:
-
-```bash
-# Add TDocs to workspace
-tdoc-crawler checkout --workspace my-project SP-240001 SP-240002
-
-# Add specifications
-tdoc-crawler checkout-spec --workspace my-project 23.501 23.502
-```
-
-### 3. Process Documents (Build Knowledge Base)
-
-Process documents to extract content, generate embeddings, and create summaries:
-
-```bash
-# Process all documents in workspace
-tdoc-crawler ai process-all --workspace my-project
-
-# Or process individual TDoc
-tdoc-crawler ai process --tdoc-id SP-240001 --checkout-path /path/to/checkout
-```
-
-### 4. Query Your Knowledge Base
-
-Once processed, query your documents using semantic search and knowledge graph (RAG + GraphRAG):
+Once you have a workspace with documents, query using semantic search and knowledge graph (RAG + GraphRAG):
 
 ```bash
 tdoc-crawler ai query --workspace my-project "your query here"
 ```
 
-Once processed, query your documents using semantic search and knowledge graph (RAG + GraphRAG):
+Note: `--workspace` is required. This command uses both vector embeddings (RAG) and the knowledge graph (GraphRAG) to provide comprehensive results.
+
+### 3. Single TDoc Operations
+
+For individual TDocs, use the `summarize` and `convert` commands:
 
 ```bash
-tdoc-crawler ai query --workspace my-project "your query here"
+# Summarize a TDoc
+tdoc-crawler ai summarize S4-251971 --words 200 --format markdown
+
+# Convert a TDoc to markdown
+tdoc-crawler ai convert S4-251971 --output S4-251971.md
 ```
+
+Note: These commands work directly on TDoc IDs and do not require a workspace. They fetch metadata and content from configured sources.
 
 ______________________________________________________________________
 
@@ -434,24 +420,21 @@ ollama pull embeddinggemma
 tdoc-crawler ai workspace create my-project
 ```
 
-**Problem:** `No documents found in workspace`
-
-**Solution:** Add documents to the workspace using `checkout` or `checkout-spec` commands, then process them:
+**Solution:** Use `ai summarize` or `ai convert` to work with individual TDocs directly. These commands fetch content from configured sources:
 
 ```bash
-tdoc-crawler checkout --workspace my-project SP-240001
-tdoc-crawler ai process-all --workspace my-project
+tdoc-crawler ai summarize SP-240001
+tdoc-crawler ai convert SP-240001 --output SP-240001.md
 ```
 
-### Processing Errors
+### Query Errors
 
-**Problem:** `TDoc 'SP-240001' not found in checkout path`
+**Problem:** `TDoc 'SP-240001' not found`
 
-**Solution:** Ensure the TDoc has been downloaded to the specified path:
+**Solution:** Ensure the TDoc exists in your workspace or use `ai summarize`/`ai convert` which fetch from external sources:
 
 ```bash
-tdoc-crawler checkout SP-240001
-tdoc-crawler ai process --tdoc-id SP-240001 --checkout-path ~/.tdoc-crawler/checkout
+tdoc-crawler ai summarize SP-240001 --format markdown
 ```
 
 **Problem:** `LLM API timeout`
