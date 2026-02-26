@@ -93,15 +93,19 @@ ______________________________________________________________________
 
 The AI module follows a workspace-based workflow for organizing and querying your document collection:
 
-### 1. Create Workspace
+### 1. Create and Activate Workspace
 
 ```bash
-#Create a new workspace for your project
-tdoc-crawler ai workspace create my-project --auto-build
+# Create a new workspace for your project
 tdoc-crawler ai workspace create my-project
+
+# Activate it so you don't need --workspace for other commands
+tdoc-crawler ai workspace activate my-project
 ```
 
-### 2. Process Documents (Generate Embeddings)
+Once activated, all workspace commands use the active workspace by default. No need to pass `-w` every time.
+
+### 2. Add TDocs and Process
 
 After adding TDocs to your workspace, process them to generate RAG/GraphRAG embeddings:
 
@@ -120,11 +124,16 @@ Note: If you created the workspace with `--auto-build`, documents are processed 
 Once you have a workspace with documents, query using semantic search and knowledge graph (RAG + GraphRAG):
 
 ```bash
-tdoc-crawler ai query --workspace my-project "your query here"
+# Query the active workspace
+tdoc-crawler ai query "your query here"
+
+# Or specify a workspace explicitly
+tdoc-crawler ai query -w my-project "your query here"
 ```
 
-Note: `--workspace` is required. This command uses both vector embeddings (RAG) and the knowledge graph (GraphRAG) to provide comprehensive results.
+Note: Uses active workspace if `-w` is not provided. Results combine vector embeddings (RAG) and knowledge graph (GraphRAG).
 
+### 4. Single TDoc Operations
 ### 3. Single TDoc Operations
 
 For individual TDocs, use the `summarize` and `convert` commands:
@@ -154,7 +163,14 @@ Options:
 - `--auto-build`: Automatically process documents when added to workspace
 
 # List all workspaces
+# Shows (*) next to the active workspace
 tdoc-crawler ai workspace list
+
+# Activate a workspace (sets as default for workspace commands)
+tdoc-crawler ai workspace activate <name>
+
+# Deactivate the active workspace
+tdoc-crawler ai workspace deactivate
 
 # Get workspace details
 tdoc-crawler ai workspace get <name>
@@ -162,17 +178,19 @@ tdoc-crawler ai workspace get <name>
 # Delete a workspace
 tdoc-crawler ai workspace delete <name>
 ```
-
 ### Querying
 
-Query the knowledge graph using semantic embeddings and knowledge graph (RAG + GraphRAG).
+Query the knowledge base using semantic embeddings and knowledge graph (RAG + GraphRAG).
 
 ```bash
+# Query the active workspace
+tdoc-crawler ai query "your query here"
+
+# Query a specific workspace
 tdoc-crawler ai query --workspace <workspace_name> "your query here"
 ```
 
-Note: `--workspace` is required. This command uses both vector embeddings (RAG) and the knowledge graph (GraphRAG) to provide comprehensive results.
-
+Note: Uses active workspace if `-w` is not provided. Combines vector embeddings (RAG) and knowledge graph (GraphRAG).
 ### Single TDoc Operations
 
 #### Summarize a TDoc
@@ -204,7 +222,30 @@ Options:
 - `--output FILE.md`: Write output to file (prints to stdout if not specified)
 - `--json-output`: Output raw JSON
 
+### Workspace Members and Processing
+
+Add TDocs to workspaces and process them to generate embeddings and knowledge graph.
+
+```bash
+# Add members to the active workspace
+tdoc-crawler ai workspace add-members S4-251971 S4-251972
+
+# Add members to a specific workspace
+tdoc-crawler ai workspace add-members -w my-project S4-251971 S4-251972
+
+# List members in the active workspace
+tdoc-crawler ai workspace list-members
+
+# Process all TDocs in the active workspace
+tdoc-crawler ai workspace process
+
+# Process with options
+tdoc-crawler ai workspace process -w my-project --force
+```
+
 ______________________________________________________________________
+
+## Model Providers
 
 ## Model Providers
 

@@ -32,6 +32,49 @@ ai_app = typer.Typer(help="AI document processing commands")
 console = Console()
 
 
+def _get_ai_dir() -> Path:
+    """Get the .ai directory path."""
+    manager = CacheManager().register()
+    ai_dir = manager.root / ".ai"
+    ai_dir.mkdir(parents=True, exist_ok=True)
+    return ai_dir
+
+
+def get_active_workspace() -> str | None:
+    """Get the currently active workspace name, or None if not set."""
+    active_file = _get_ai_dir() / "active_workspace"
+    if active_file.exists():
+        return active_file.read_text().strip() or None
+    return None
+
+
+def set_active_workspace(name: str) -> None:
+    """Set the active workspace."""
+    active_file = _get_ai_dir() / "active_workspace"
+    active_file.write_text(normalize_workspace_name(name))
+
+
+def clear_active_workspace() -> None:
+    """Clear the active workspace."""
+    active_file = _get_ai_dir() / "active_workspace"
+    if active_file.exists():
+        active_file.unlink()
+
+
+def resolve_workspace(workspace: str | None) -> str:
+    """Resolve workspace name from option or active workspace."""
+    if workspace:
+        return normalize_workspace_name(workspace)
+    active = get_active_workspace()
+    if active:
+        return active
+    console.print("[red]No workspace specified and no active workspace set. Use -w <name> or 'ai workspace activate <name>'[/red]")
+    raise typer.Exit(1)
+
+ai_app = typer.Typer(help="AI document processing commands")
+console = Console()
+
+
 @ai_app.command("summarize")
 def ai_summarize(
     tdoc_id: Annotated[str, typer.Argument(..., help="TDoc ID to summarize")],
@@ -89,14 +132,14 @@ def ai_convert(
 @ai_app.command("query")
 def ai_query(
     query: Annotated[str, typer.Option(..., "--query", help="Semantic search query")],
-    workspace: Annotated[str, typer.Option(..., "--workspace", help="Workspace name")],
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     top_k: Annotated[int, typer.Option("--top-k", help="Number of embedding results to return")] = 5,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG)."""
+    workspace = resolve_workspace(workspace)
     embedding_results = query_embeddings(query, top_k=top_k, workspace=workspace)
     graph_result = query_graph(query)
-
     payload = {
         "query": query,
         "workspace": workspace,
@@ -173,13 +216,15 @@ def workspace_list(
     else:
         table = Table(title="Workspaces")
         table.add_column("Name", style="cyan")
-        table.add_column("Default", style="green")
+        table.add_column("Active", style="green")
         table.add_column("Status", style="yellow")
         table.add_column("Created", style="magenta")
+        active_workspace = get_active_workspace()
         for ws in workspaces:
+            is_active = ws.workspace_name == active_workspace
             table.add_row(
                 ws.workspace_name,
-                "Yes" if ws.is_default else "No",
+                "*" if is_active else "",
                 ws.status.value,
                 ws.created_at.isoformat() if ws.created_at else "",
             )
@@ -218,14 +263,58 @@ def workspace_get(
         console.print(table)
 
 
+
+@_workspace_app.command("activate")
+def workspace_activate(
+    name: Annotated[str, typer.Argument(..., help="Workspace name to activate")],
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Set a workspace as the active workspace."""
+    manager = CacheManager().register()
+    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    workspace = storage.get_workspace(name)
+    if workspace is None:
+        if json_output:
+            typer.echo(json.dumps({"error": f"Workspace '{name}' not found"}))
+        else:
+            console.print(f"[red]Workspace '{name}' not found[/red]")
+        raise typer.Exit(1)
+    set_active_workspace(name)
+    if json_output:
+        typer.echo(json.dumps({"active_workspace": normalize_workspace_name(name)}))
+    else:
+        console.print(f"[green]Activated workspace: {normalize_workspace_name(name)}[/green]")
+
+
+@_workspace_app.command("deactivate")
+def workspace_deactivate(
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Clear the active workspace."""
+    active = get_active_workspace()
+    if active is None:
+        if json_output:
+            typer.echo(json.dumps({"active_workspace": None, "message": "No active workspace set"}))
+        else:
+            console.print("[yellow]No active workspace set[/yellow]")
+        return
+    clear_active_workspace()
+    if json_output:
+        typer.echo(json.dumps({"active_workspace": None, "deactivated": active}))
+    else:
+        console.print(f"[green]Deactivated workspace: {active}[/green]")
+
+
+
 @_workspace_app.command("add-members")
 def workspace_add_members(
-    workspace: Annotated[str, typer.Option("--workspace", "-w", help="Workspace name")],
-    items: Annotated[list[str], typer.Argument(..., help="Source item IDs to add")],
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
+    items: Annotated[list[str], typer.Argument(..., help="Source item IDs to add")] = None,  # type: ignore[assignment]
     kind: Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)")] = "tdoc",
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Add source items to a workspace."""
+    workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
@@ -242,11 +331,12 @@ def workspace_add_members(
 
 @_workspace_app.command("list-members")
 def workspace_list_members(
-    workspace: Annotated[str, typer.Option("--workspace", "-w", help="Workspace name")],
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     include_inactive: Annotated[bool, typer.Option("--include-inactive", help="Include inactive members")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """List members of a workspace."""
+    workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
 
     storage = AiStorage(manager.root / ".ai" / "lancedb")
@@ -270,12 +360,15 @@ def workspace_list_members(
 
 @_workspace_app.command("process")
 def workspace_process(
-    workspace: Annotated[str, typer.Option("--workspace", "-w", help="Workspace name")],
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     new_only: Annotated[bool, typer.Option("--new-only", help="Process only TDocs not already completed")] = True,
     force_rerun: Annotated[bool, typer.Option("--force", help="Force reprocessing of all TDocs")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Process all TDoc members in a workspace through the AI pipeline."""
+    workspace = resolve_workspace(workspace)
+    manager = CacheManager().register()
+    storage = AiStorage(manager.root / ".ai" / "lancedb")
     manager = CacheManager().register()
     storage = AiStorage(manager.root / ".ai" / "lancedb")
 
