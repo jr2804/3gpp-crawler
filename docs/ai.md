@@ -3,7 +3,7 @@
 The AI module provides intelligent document processing capabilities for TDoc data, including:
 
 - **Classification** - Identify main documents in multi-file TDoc folders
-- **Extraction** - Convert DOCX to Markdown for easier analysis
+- **Extraction** - Convert DOCX to Markdown with keyword extraction and language detection
 - **Embeddings** - Generate semantic vector representations
 - **Summarization** - Create AI-powered summaries
 - **Knowledge Graph** - Build relationships between TDocs
@@ -22,7 +22,7 @@ Install required dependencies:
 
 ```bash
 # Core AI dependencies
-uv add docling sentence-transformers litellm
+uv add kreuzberg[all] sentence-transformers litellm
 
 # Optional: for vector storage
 uv add lancedb
@@ -70,7 +70,9 @@ Both LLM and embedding models use the `<provider>/<model_name>` format:
 
 ## CLI Commands
 
-### Process a TDoc
+## AI Commands
+
+### Process a TDoc {#ai-process}
 
 ```bash
 tdoc-crawler ai process --tdoc-id SP-123456 --checkout-path /path/to/checkout
@@ -84,7 +86,7 @@ Options:
 - `--json`: Output as JSON
 
 ### Get Status
-
+### Get Status {#ai-status}
 ```bash
 tdoc-crawler ai status --tdoc-id SP-123456
 ```
@@ -115,7 +117,41 @@ tdoc-crawler ai graph --query "evolution of 5G NR"
 Options:
 
 - `--query`: Graph query
+SJ|- `--json`: Output as JSON
+
+### AI Workspace Management
+
+```bash
+# Create a new workspace
+tdoc-crawler ai workspace create my-workspace
+
+# List all workspaces
+tdoc-crawler ai workspace list
+
+# Get workspace details
+tdoc-crawler ai workspace get my-workspace
+
+# Add members to a workspace
+tdoc-crawler ai workspace add-members --workspace my-workspace SP-123456 SP-123457 --kind tdoc
+
+# List members of a workspace
+tdoc-crawler ai workspace list-members --workspace my-workspace
+
+# Delete a workspace
+tdoc-crawler ai workspace delete my-workspace
+```
+
+Workspace Options:
+
+- `--workspace`: Workspace name (defaults to 'default')
 - `--json`: Output as JSON
+- `create <name>`: Create a new workspace
+- `list`: List all workspaces
+- `get <name>`: Get workspace details
+- `add-members <items...>`: Add source items to a workspace
+- `list-members`: List members of a workspace
+- `delete <name>`: Delete a workspace
+
 
 ## Python API
 
@@ -171,10 +207,10 @@ The AI processing pipeline consists of these stages:
 
 ## Supported File Types
 
-- **DOCX** - Primary format for extraction (via Docling)
+- **DOCX** - Primary format for extraction (via Kreuzberg)
 - **XLSX** - Handled as secondary files
 - **PPTX** - Handled as secondary files
-- **PDF** - Supported via Docling
+- **PDF** - Supported via Kreuzberg
 
 ## Testing
 
@@ -192,10 +228,10 @@ Test data is located in `tests/ai/data/`.
 
 ## Troubleshooting
 
-### Docling not available
+### Kreuzberg not available
 
 ```bash
-uv add docling
+uv add kreuzberg[all]
 ```
 
 ### Embedding model issues
