@@ -1,7 +1,5 @@
 [tools]
 "aqua:steveyegge/beads" = "0.49.6"
-ruff = "latest"
-ty = "latest"
 
 [tasks.default]
 run = "mise tasks"
@@ -58,12 +56,6 @@ arg "[script]" help="Script variant to use: sh (bash/zsh) or ps (PowerShell)" de
 '''
 run = ["cls", "uv run specify init --here --ai {{usage.ai_agent}} --script {{usage.script}}", "uv run specify check"]
 
-[tasks.convert-mcp-cfg]
-description = "Obsolete - use npx add-mcp ... -a <agent> instead!"
-run = ["cls",
-    "uvx --from https://github.com/jr2804/mcp-config-converter.git mcp-config-converter convert .vscode/mcp.json --provider{% if args %} {{ args }}{% endif %}"
-]
-
 [tasks.add-mcp-servers]
 usage = '''
 arg "[ai_agent]" help="AI assistant to use (default: universal): claude, gemini, copilot, opencode, ... see: https://github.com/vercel-labs/skills?tab=readme-ov-file#supported-agents" default="universal"
@@ -76,9 +68,7 @@ run = ["@echo off", "cls",
 run = [
     "@echo off",
     "cls",
-    "bunx skills add https://github.com/nicobailon/visual-explainer -a universal",
-]
+    "bunx skills add https://github.com/nicobailon/visual-explainer -a universal -y",
+    "bunx skills add https://github.com/alinaqi/claude-bootstrap -s 'code-deduplication' -a universal -y",
 
-[tasks.beads-up]
-description = "Installs beads (bd.exe) to virtual environment's scripts directory"
-run = ["taskkill /f /im bd.exe", "bin install https://github.com/steveyegge/beads {{env.VIRTUAL_ENV}}/scripts/", "bd daemon start"]
+]
