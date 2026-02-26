@@ -69,6 +69,6 @@ run = [
     "@echo off",
     "cls",
     "bunx skills add https://github.com/nicobailon/visual-explainer -a universal -y",
-    "bunx skills add https://github.com/alinaqi/claude-bootstrap -s 'code-deduplication' -a universal -y",
+    "bunx skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
 
 ]
