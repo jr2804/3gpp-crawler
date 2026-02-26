@@ -98,6 +98,7 @@ class LiteLLMClient:
         prompt: str,
         system_prompt: str = SUMMARY_SYSTEM_PROMPT,
         max_tokens: int = 2000,
+        model: str | None = None,
     ) -> str:
         """Generate completion from prompt.
 
@@ -105,6 +106,7 @@ class LiteLLMClient:
             prompt: User prompt.
             system_prompt: System prompt.
             max_tokens: Maximum tokens in response.
+            model: Model identifier (e.g., 'openai/gpt-4o-mini'). Defaults to config.llm_model.
 
         Returns:
             Generated text.
@@ -115,7 +117,7 @@ class LiteLLMClient:
 
         try:
             response = self._client.completion(
-                model="gpt-4o-mini",
+                model=model or AiConfig().llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
@@ -244,7 +246,7 @@ def summarize_document(
     # Generate abstract
     abstract_prompt = ABSTRACT_PROMPT.format(content=markdown[:5000])  # Limit input
     try:
-        abstract = client.complete(abstract_prompt)
+        abstract = client.complete(abstract_prompt, model=config.llm_model)
     except Exception as exc:
         msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
         raise LlmConfigError(msg) from exc

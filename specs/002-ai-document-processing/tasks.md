@@ -210,12 +210,13 @@ ______________________________________________________________________
 
 #HQ|- [X] T061 [P] Run full lint/type verification (`ruff`, `ty`) and resolve remaining issues in `src/tdoc_crawler/ai/` and `tests/test_ai_*.py`
 BV|- [X] T062 [P] Update AI command docs and index references in `docs/index.md` and `docs/query.md`
+
 - [X] T062 [P] Update AI command docs and index references in `docs/index.md` and `docs/query.md`
 - [X] T063 [P] Validate all quickstart commands and update examples in `specs/002-ai-document-processing/quickstart.md`
-#BB|- [X] T064 [P] Add/verify integration markers for model-dependent tests in `tests/test_ai_*.py`
-WK|- [X] T065 [P] Run success-criteria validation and record results in `docs/history/2026-02-26_SUMMARY_AI_FEATURE_VALIDATION.md`
+  #BB|- [X] T064 [P] Add/verify integration markers for model-dependent tests in `tests/test_ai_*.py`
+  WK|- [X] T065 [P] Run success-criteria validation and record results in `docs/history/2026-02-26_SUMMARY_AI_FEATURE_VALIDATION.md`
 - [X] T065 [P] Run success-criteria validation and record results in `docs/history/2026-02-24_SUMMARY_AI_FEATURE_VALIDATION.md`
-#WH|- [X] T066 Run full test suite in `tests/` and confirm green baseline (372/377 passed)
+  #WH|- [X] T066 Run full test suite in `tests/` and confirm green baseline (372/377 passed)
 
 ______________________________________________________________________
 

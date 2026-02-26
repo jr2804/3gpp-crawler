@@ -13,6 +13,7 @@ A command-line tool for crawling the 3GPP FTP server, caching TDoc metadata in a
 - **Case-Insensitive Queries**: Search for TDocs regardless of case
 - **Multiple Output Formats**: Export results as table, JSON, or YAML
 - **Incremental Updates**: Only fetch new data on subsequent crawls
+- **AI Document Processing** - Semantic search, knowledge graphs, and AI-powered summarization (optional, install with `tdoc-crawler[ai]`)
 - **Rich CLI**: Beautiful terminal output with progress indicators
 
 ## Installation
@@ -29,6 +30,9 @@ uvx tdoc-crawler --help
 ```bash
 # Install from PyPI (publication pending)
 uv add tdoc-crawler
+
+# Install with AI features (optional)
+uv add tdoc-crawler[ai]
 
 # Or install from source
 git clone https://forge.3gpp.org/rep/reimes/tdoc-crawler.git

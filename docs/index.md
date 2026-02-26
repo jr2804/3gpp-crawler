@@ -21,13 +21,13 @@ PQ|- [**Query Documentation**](query.md) – How to search and display stored me
 - [**Crawl-TDocs**](crawl.md#crawl-tdocs) (`ct`)
 - [**Query-TDocs**](query.md#query-tdocs) (`qt`)
 - [**Open TDoc**](utils.md#open)
-#KK|- [**Checkout Specs**](utils.md#checkout-spec)
-#TQ|- **AI Commands**
-#KM|- [**AI Process**](ai.md#ai-process) - Process TDocs through AI pipeline
-#NH|- [**AI Status**](ai.md#ai-status) - Check processing status
-#RD|- [**AI Query**](ai.md#ai-query) - Semantic search over TDocs
-#YM|- [**AI Graph**](ai.md#ai-graph) - Query knowledge graph
-#YQ|- [**AI Workspace**](ai.md#ai-workspace) - Manage workspaces
+  #KK|- [**Checkout Specs**](utils.md#checkout-spec)
+  #TQ|- **AI Commands**
+  #KM|- [**AI Process**](ai.md#ai-process) - Process TDocs through AI pipeline
+  #NH|- [**AI Status**](ai.md#ai-status) - Check processing status
+  #RD|- [**AI Query**](ai.md#ai-query) - Semantic search over TDocs
+  #YM|- [**AI Graph**](ai.md#ai-graph) - Query knowledge graph
+  #YQ|- [**AI Workspace**](ai.md#ai-workspace) - Manage workspaces
 
 BJ|For a brief overview of all commands, see the [README.md](../README.md).
 

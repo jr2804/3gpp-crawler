@@ -42,7 +42,6 @@ Assume `cli/` could be separated as an optional package. If a function would be 
 | `utils.py` | Helper functions - check classification rules above |
 | `printing.py` | Table and output formatting for CLI |
 
-
 ## Lessons Learned
 
 ### Circular Import Resolution

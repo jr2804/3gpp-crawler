@@ -3,7 +3,7 @@
 **Feature Branch**: `002-ai-document-processing`
 **Created**: 2026-02-24
 **Status**: Implementation Ready
-**Input**: User description: "AI-based processing of downloaded files: document classification, DOCX-to-Markdown extraction, embeddings generation, LLM summarization, and temporal graph-RAG construction for 3GPP TDocs with measurable performance targets (<30s per TDoc extraction)"
+**Input**: User description: "AI-based processing of downloaded files: document classification, DOCX-to-Markdown extraction, embeddings generation, LLM summarization, and temporal graph-RAG construction for 3GPP TDocs with measurable performance targets (\<30s per TDoc extraction)"
 **Epic**: tdc-b9w
 
 ## Clarifications
@@ -19,6 +19,7 @@
 - Q: Should the migration from Docling to Kreuzberg in Phase 9 maintain backward compatibility with the existing extraction API? → A: No. Full refactor is authorized: change extraction interface to better match Kreuzberg's design patterns. Breaking changes to `extract_from_folder()` signature and internal implementation are expected and encouraged.
 - Q: For temporal knowledge graph construction, should node/edge extraction be rule-based or LLM-powered? → A: Hybrid approach: Use rules (regex patterns) for structured data (TDoc IDs, meeting codes, spec references) and LLM for semantic relationships (concepts, implicit connections).
 - Q: Should the migration from Docling to Kreuzberg in Phase 9 maintain backward compatibility with the existing extraction API? → A: No. Full refactor is authorized: change extraction interface to better match Kreuzberg's design patterns. Breaking changes to `extract_from_folder()` signature and internal implementation are expected and encouraged.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - DOCX-to-Markdown Extraction (Priority: P1)
@@ -85,6 +86,7 @@ case.
 1. **Given** a multi-file TDoc folder where heuristic confidence is below 0.7, **When**
    classification runs, **Then** a warning is logged and all files are marked for manual
    review.
+
 ______________________________________________________________________
 
 ### User Story 3 - AI Processing Pipeline Orchestration (Priority: P3)
@@ -255,6 +257,7 @@ ______________________________________________________________________
 - What happens when the LLM returns malformed output (invalid JSON, word count outside
   150-250 bounds)? The system should retry once, then mark as `summarization_failed` with
   the raw response logged for debugging.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements

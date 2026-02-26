@@ -9,8 +9,8 @@ from pydantic import Field, field_validator, model_validator
 
 from tdoc_crawler.models import BaseConfigModel
 
-DEFAULT_EMBEDDING_MODEL = "huggingface/BAAI/bge-small-en-v1.5"
-DEFAULT_LLM_MODEL = "ollama/llama3.2"
+DEFAULT_EMBEDDING_MODEL = "ollama/embeddinggemma"
+DEFAULT_LLM_MODEL = "openrouter/openrouter/free"
 
 LITELLM_PROVIDER_ALLOWLIST = {
     "openai",
@@ -26,6 +26,15 @@ LITELLM_PROVIDER_ALLOWLIST = {
     "bedrock",
     "replicate",
     "together_ai",
+    # Cloud platforms and aggregators
+    "openrouter",  # Multi-provider aggregator
+    "github_copilot",  # GitHub Copilot (Azure-based)
+    "nvidia",  # NVIDIA NIM
+    "sambanova",  # SambaNova Cloud
+    "fireworks_ai",  # Fireworks AI
+    "anyscale",  # Anyscale Endpoints
+    "perplexity",  # Perplexity API
+    "deepinfra",  # DeepInfra
 }
 
 

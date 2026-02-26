@@ -5,6 +5,7 @@
 ## Test Results Summary
 
 **Total Tests**: 377
+
 - **Passed**: 372
 - **Failed**: 1 (pre-existing)
 - **Skipped**: 5 (model-dependent tests)
@@ -15,11 +16,11 @@
 
 | ID | Criterion | Status | Notes |
 |----|-----------|--------|-------|
-| SC-001 | Single TDoc extraction <30s | ✅ PASS | Unit tests verify extraction logic; actual performance depends on hardware |
+| SC-001 | Single TDoc extraction \<30s | ✅ PASS | Unit tests verify extraction logic; actual performance depends on hardware |
 | SC-002 | Main doc identification >90% | ✅ PASS | Heuristic-based classification with confidence scoring |
 | SC-003 | Semantic search top-5 >80% | ⚠️ DEFERRED | Requires actual embedding model; test infrastructure in place |
 | SC-004 | LLM abstracts 150-250 words | ✅ PASS | Word count validation in tests; requires LLM for E2E |
-| SC-005 | Idempotent re-processing <10% | ✅ PASS | Hash-based skip logic implemented |
+| SC-005 | Idempotent re-processing \<10% | ✅ PASS | Hash-based skip logic implemented |
 | SC-006 | Resume after crash | ✅ PASS | Pipeline status tracking enables resume |
 | SC-007 | Temporal graph ordering | ✅ PASS | Chronological sorting in query_graph |
 
@@ -45,10 +46,10 @@
 ## Known Issues
 
 1. **Type Checking**: Pre-existing type errors in embeddings.py, graph.py, summarize.py - requires model validation pattern fixes
-2. **One Test Failure**: `test_no_whatthespec_when_credentials_available` - pre-existing failure unrelated to AI features
+1. **One Test Failure**: `test_no_whatthespec_when_credentials_available` - pre-existing failure unrelated to AI features
 
 ## Recommendations
 
 1. Address type checking errors in follow-up PR
-2. Add integration test markers for E2E tests requiring actual models
-3. Consider adding SC-003 validation with actual embedding model
+1. Add integration test markers for E2E tests requiring actual models
+1. Consider adding SC-003 validation with actual embedding model
