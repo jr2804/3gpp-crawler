@@ -10,8 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from validation import (DOCXSchemaValidator, PPTXSchemaValidator,
-                        RedliningValidator)
+from validation import DOCXSchemaValidator, PPTXSchemaValidator, RedliningValidator
 
 
 def main():
