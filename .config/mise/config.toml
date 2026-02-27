@@ -1,5 +1,11 @@
 [tools]
 "aqua:steveyegge/beads" = "0.49.6"
+"github:yoanbernabeu/grepai" = "latest"
+node = "latest"
+bun = "latest"
+
+[settings.npm]
+package_manager = "bun"
 
 [tasks.default]
 run = "mise tasks"
@@ -58,11 +64,10 @@ run = ["cls", "uv run specify init --here --ai {{usage.ai_agent}} --script {{usa
 
 [tasks.add-mcp-servers]
 usage = '''
-arg "[ai_agent]" help="AI assistant to use (default: universal): claude, gemini, copilot, opencode, ... see: https://github.com/vercel-labs/skills?tab=readme-ov-file#supported-agents" default="universal"
+arg "<ai_agent>" help="AI assistant to use: claude, gemini, copilot, opencode, ... see: https://github.com/neondatabase/add-mcp"
 '''
-run = ["@echo off", "cls",
-    "npx add-mcp  --from"
-]
+shell = "pwsh -NoProfile -Command"
+run = 'bunx add-mcp  -y -a {{usage.ai_agent}} "grepai mcp-serve"'
 
 [tasks.add-skills]
 run = [
