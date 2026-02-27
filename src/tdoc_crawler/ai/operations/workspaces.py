@@ -177,28 +177,24 @@ def checkout_tdoc_to_workspace(
 
     # Need to checkout the TDoc
     try:
-
         # Resolve TDoc metadata
         metadata = resolve_via_whatthespec(tdoc_id)
         if not metadata:
             _logger.warning(f"Could not resolve TDoc {tdoc_id}")
             return None
 
-        # Checkout the TDoc
-        result = checkout_tdoc(metadata, checkout_base)
-        if result.error:
-            _logger.warning(f"Failed to checkout TDoc {tdoc_id}: {result.error}")
-            return None
-
-        # Get the checkout path
-        checkout_path = result.checkout_path
+        # Checkout the TDoc - returns Path directly or raises exception
+        checkout_path = checkout_tdoc(metadata, checkout_base)
         if checkout_path and checkout_path.exists():
             _logger.info(f"Checked out TDoc {tdoc_id} to {checkout_path}")
             return checkout_path
 
-        # Try to find the path if not returned
-        return resolve_tdoc_checkout_path(tdoc_id, checkout_base)
+        _logger.warning(f"Checkout returned invalid path for TDoc {tdoc_id}")
+        return None
 
+    except FileNotFoundError as e:
+        _logger.warning(f"TDoc {tdoc_id} not found or withdrawn: {e}")
+        return None
     except Exception as e:
         _logger.warning(f"Error checking out TDoc {tdoc_id}: {e}")
         return None
