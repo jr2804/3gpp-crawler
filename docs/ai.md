@@ -55,9 +55,8 @@ TDC_AI_LLM_MODEL=openrouter/openrouter/free    # Default: free tier via OpenRout
 TDC_AI_LLM_API_KEY=your-api-key                # Optional: takes precedence over provider-specific keys
 TDC_AI_LLM_API_BASE=                           # Optional: custom endpoint
 
-# Embedding Model
-TDC_AI_EMBEDDING_MODEL=ollama/embeddinggemma   # Default: local Ollama
-TDC_AI_EMBEDDING_API_KEY=                      # Not needed for local models
+# Embedding Model (HuggingFace sentence-transformers)
+TDC_AI_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2   # Default: popular 384-dim model
 
 # Storage
 TDC_AI_STORE_PATH=                             # Defaults to <cache_dir>/.ai/lancedb
@@ -74,18 +73,22 @@ TDC_AI_PARALLELISM=4                           # Parallel workers
 
 ### Model Identifier Format
 
-Both LLM and embedding models use the `<provider>/<model_name>` format:
+**LLMs** use the `<provider>/<model_name>` format (handled by LiteLLM):
 
 ```bash
-# Simple format: provider/model
 TDC_AI_LLM_MODEL=openai/gpt-4o-mini
-
-# Nested format: provider/model_group/model (also supported)
 TDC_AI_LLM_MODEL=openrouter/anthropic/claude-3-sonnet
-TDC_AI_EMBEDDING_MODEL=huggingface/BAAI/bge-small-en-v1.5
 ```
 
-The provider (first segment) is validated against the supported allowlist. The model name (everything after the first `/`) can contain additional slashes for nested model paths.
+**Embedding models** use **HuggingFace model IDs** (handled by sentence-transformers):
+
+```bash
+TDC_AI_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+TDC_AI_EMBEDDING_MODEL=sentence-transformers/bert-base-nli-mean-tokens
+TDC_AI_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+```
+
+Embedding models are **local-only** (downloaded from HuggingFace) and require the model ID to be a valid HuggingFace model that works with sentence-transformers.
 
 ______________________________________________________________________
 
@@ -110,6 +113,9 @@ Once activated, all workspace commands use the active workspace by default. No n
 After adding TDocs to your workspace, process them to generate RAG/GraphRAG embeddings:
 
 ```bash
+# Add TDocs to the active workspace
+tdoc-crawler ai workspace add-members S4-251971 S4-251972
+
 # Process all TDocs in workspace (only new ones)
 tdoc-crawler ai workspace process -w my-project
 
@@ -133,20 +139,25 @@ tdoc-crawler ai query -w my-project "your query here"
 
 Note: Uses active workspace if `-w` is not provided. Results combine vector embeddings (RAG) and knowledge graph (GraphRAG).
 
-### 4. Single TDoc Operations
-### 3. Single TDoc Operations
+### 4. Workspace Maintenance
 
-For individual TDocs, use the `summarize` and `convert` commands:
+Keep your workspace clean and manage artifacts:
 
 ```bash
-# Summarize a TDoc
-tdoc-crawler ai summarize S4-251971 --words 200 --format markdown
+# Get detailed workspace information (member counts by type)
+tdoc-crawler ai workspace info my-project
 
-# Convert a TDoc to markdown
-tdoc-crawler ai convert S4-251971 --output S4-251971.md
+# Remove invalid/inactive members
+tdoc-crawler ai workspace clear-invalid -w my-project
+
+# Clear all AI artifacts (embeddings, summaries) while preserving members
+tdoc-crawler ai workspace clear -w my-project
+
+# After clearing, re-process to regenerate artifacts
+tdoc-crawler ai workspace process -w my-project --force
 ```
 
-Note: These commands work directly on TDoc IDs and do not require a workspace. They fetch metadata and content from configured sources.
+### 5. Single TDoc Operations
 
 ______________________________________________________________________
 
@@ -154,7 +165,7 @@ ______________________________________________________________________
 
 ### Workspace Management
 
-```bash
+````bash
 # Create a new workspace
 tdoc-crawler ai workspace create <name> [--auto-build]
 
@@ -172,12 +183,17 @@ tdoc-crawler ai workspace activate <name>
 # Deactivate the active workspace
 tdoc-crawler ai workspace deactivate
 
-# Get workspace details
-tdoc-crawler ai workspace get <name>
+# Get workspace details (name, status, member counts)
+tdoc-crawler ai workspace info <name>
+
+# Remove invalid/inactive members from workspace
+tdoc-crawler ai workspace clear-invalid [-w <name>]
+
+# Clear all AI artifacts while preserving members
+tdoc-crawler ai workspace clear [-w <name>]
 
 # Delete a workspace
 tdoc-crawler ai workspace delete <name>
-```
 ### Querying
 
 Query the knowledge base using semantic embeddings and knowledge graph (RAG + GraphRAG).
@@ -187,11 +203,13 @@ Query the knowledge base using semantic embeddings and knowledge graph (RAG + Gr
 tdoc-crawler ai query "your query here"
 
 # Query a specific workspace
-tdoc-crawler ai query --workspace <workspace_name> "your query here"
-```
+tdoc-crawler ai query -w <workspace_name> "your query here"
 
-Note: Uses active workspace if `-w` is not provided. Combines vector embeddings (RAG) and knowledge graph (GraphRAG).
-### Single TDoc Operations
+# Specify number of results
+tdoc-crawler ai query "your query here" -k 10
+````
+
+Note: Uses active workspace if `-w` is not provided. Combines vector embeddings (RAG) and knowledge graph (GraphRAG). The query is a **positional argument** (no `--query` flag needed).
 
 #### Summarize a TDoc
 
@@ -236,11 +254,23 @@ tdoc-crawler ai workspace add-members -w my-project S4-251971 S4-251972
 # List members in the active workspace
 tdoc-crawler ai workspace list-members
 
+# List members including inactive ones
+tdoc-crawler ai workspace list-members --include-inactive
+
 # Process all TDocs in the active workspace
 tdoc-crawler ai workspace process
 
 # Process with options
 tdoc-crawler ai workspace process -w my-project --force
+
+# Get workspace information with member counts
+tdoc-crawler ai workspace info my-project
+
+# Remove invalid members (failed checkouts, etc.)
+tdoc-crawler ai workspace clear-invalid -w my-project
+
+# Clear AI artifacts (keep members, remove embeddings/summaries)
+tdoc-crawler ai workspace clear -w my-project
 ```
 
 ______________________________________________________________________
@@ -274,31 +304,36 @@ ______________________________________________________________________
 
 ### Supported Embedding Providers
 
-| Provider | Example Model | API Key Env Var | Notes |
-|----------|---------------|-----------------|-------|
-| `ollama` | `embeddinggemma`, `nomic-embed-text` | *(none)* | **Recommended** - Local |
-| `huggingface` | `BAAI/bge-small-en-v1.5` | `HF_API_KEY` | BGE embeddings |
-| `openai` | `text-embedding-3-small` | `OPENAI_API_KEY` | OpenAI embeddings |
-| `cohere` | `embed-english-v3.0` | `COHERE_API_KEY` | Cohere embeddings |
-| `google` | `text-embedding-004` | `GOOGLE_API_KEY` | Google embeddings |
+The embedding feature uses **sentence-transformers** (local HuggingFace models). This is the only supported approach for embeddings.
+
+| HuggingFace Model | Dimension | Description |
+|-------------------|-----------|-------------|
+| `sentence-transformers/all-MiniLM-L6-v2` | 384 | **Default** - Fast, good quality |
+| `sentence-transformers/bert-base-nli-mean-tokens` | 768 | High quality NLI model |
+| `BAAI/bge-small-en-v1.5` | 384 | BGE small - strong retriever |
+| `BAAI/bge-base-en-v1.5` | 768 | BGE base - higher quality |
+
+**Recommended Models:**
+
+- Original models: <https://huggingface.co/models?num_parameters=min:0,max:3B&library=sentence-transformers,onnx&sort=trending&author=sentence-transformers>
+- Community models: <https://huggingface.co/models?num_parameters=min:0,max:3B&library=sentence-transformers,onnx&sort=trending>
 
 ### Recommended Configuration
 
-**Free/Local Setup (No Cost):**
+**Free/Local Setup (No API Cost):**
 
 ```bash
 TDC_AI_LLM_MODEL=openrouter/openrouter/free
-TDC_AI_EMBEDDING_MODEL=ollama/embeddinggemma
+TDC_AI_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 OPENROUTER_API_KEY=your-free-api-key
 ```
 
-**Production Setup (High Quality):**
+**Production Setup (Higher Quality):**
 
 ```bash
 TDC_AI_LLM_MODEL=anthropic/claude-3-sonnet
-TDC_AI_EMBEDDING_MODEL=openai/text-embedding-3-small
+TDC_AI_EMBEDDING_MODEL=sentence-transformers/bert-base-nli-mean-tokens
 ANTHROPIC_API_KEY=your-key
-OPENAI_API_KEY=your-key
 ```
 
 ______________________________________________________________________
@@ -463,14 +498,6 @@ If `TDC_AI_LLM_API_KEY` is set, it will be used instead of the provider-specific
 
 ```bash
 uv add sentence-transformers
-```
-
-**Problem:** Ollama embedding model not found
-
-**Solution:** Pull the model in Ollama first:
-
-```bash
-ollama pull embeddinggemma
 ```
 
 ### Workspace Issues
