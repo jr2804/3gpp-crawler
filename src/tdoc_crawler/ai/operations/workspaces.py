@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from tdoc_crawler.ai.models import WorkspaceMember
+from tdoc_crawler.database.specs import SpecDatabase
+from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 
@@ -200,6 +202,57 @@ def checkout_tdoc_to_workspace(
         return None
 
 
+def checkout_spec_to_workspace(
+    spec_number: str,
+    checkout_base: Path,
+    workspace: str | None,
+    release: str = "latest",
+    ) -> Path | None:
+    """Checkout a spec and add it to a workspace.
+
+    Args:
+        spec_number: Spec number (e.g., "26260" for 26.260)
+        checkout_base: Base checkout directory
+        workspace: Workspace name
+        release: Spec release version (e.g., "16.3.0", "17.0.0") or "latest"
+
+    Returns:
+        Path to the checked out spec folder, or None if checkout failed
+    """
+    # First check if already checked out
+    specs_dir = checkout_base / "Specs"
+    if specs_dir.exists():
+        for spec_dir in specs_dir.rglob(f"*{spec_number}*"):
+            if spec_dir.is_dir():
+                _logger.debug(f"Spec {spec_number} already checked out at {spec_dir}")
+                return spec_dir
+
+    # Need to checkout the spec
+    try:
+        # Open the spec database
+        db_path = checkout_base.parent / "specs.db"
+        with SpecDatabase(db_path) as db:
+            # Checkout the spec
+            checkout_paths = checkout_specs(
+                spec_numbers=[spec_number],
+                checkout_dir=checkout_base,
+                database=db,
+                release=release,
+            )
+
+            if checkout_paths and checkout_paths[0] and checkout_paths[0].exists():
+                _logger.info(f"Checked out spec {spec_number} to {checkout_paths[0]}")
+                return checkout_paths[0]
+
+        _logger.warning(f"Failed to checkout spec {spec_number}")
+        return None
+
+    except Exception as e:
+        _logger.warning(f"Error checking out spec {spec_number}: {e}")
+        return None
+
+
+
 def ensure_ai_subfolder(checkout_path: Path) -> Path:
     """Ensure the .ai subfolder exists for processed outputs.
 
@@ -218,6 +271,7 @@ def ensure_ai_subfolder(checkout_path: Path) -> Path:
 __all__ = [
     "DEFAULT_WORKSPACE",
     "add_workspace_members",
+    "checkout_spec_to_workspace",
     "checkout_tdoc_to_workspace",
     "create_workspace",
     "delete_workspace",

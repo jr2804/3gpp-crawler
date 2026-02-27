@@ -25,6 +25,7 @@ from tdoc_crawler.ai.operations.summarize import SummarizeResult, summarize_tdoc
 from tdoc_crawler.ai.operations.workspaces import (
     DEFAULT_WORKSPACE,
     add_workspace_members,
+    checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
     create_workspace,
     delete_workspace,
@@ -103,6 +104,7 @@ __all__ = [
     "ProcessingStatus",
     "SummarizeResult",
     "add_workspace_members",
+    "checkout_spec_to_workspace",
     "checkout_tdoc_to_workspace",
     "convert_tdoc",
     "create_workspace",

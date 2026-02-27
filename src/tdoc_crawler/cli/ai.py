@@ -12,6 +12,7 @@ from rich.table import Table
 
 from tdoc_crawler.ai import (
     AiStorage,
+    checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
     convert_tdoc,
     create_workspace,
@@ -313,7 +314,8 @@ def workspace_add_members(
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     items: Annotated[list[str], typer.Argument(..., help="Source item IDs to add")] = None,  # type: ignore[assignment]
     kind: Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)"),] = "tdoc",
-    checkout: Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download TDocs if not present")] = True,
+    checkout: Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present")] = True,
+    release: Annotated[str | None, typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Add source items to a workspace."""
@@ -331,10 +333,13 @@ def workspace_add_members(
     for item in items:
         source_path = item
 
-        # For TDocs, try to resolve/checkout to get actual path
-        # Specs are handled differently - store the spec number for now
-        if checkout and source_kind == SourceKind.TDOC:
-            checkout_path = checkout_tdoc_to_workspace(item, checkout_base, storage, workspace)
+        # For TDocs and specs, try to resolve/checkout to get actual path
+        if checkout:
+            checkout_path = None
+            if source_kind == SourceKind.TDOC:
+                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, storage, workspace)
+            elif source_kind == SourceKind.SPEC:
+                checkout_path = checkout_spec_to_workspace(item, checkout_base, workspace, release or "latest")
             if checkout_path:
                 source_path = str(checkout_path)
                 # Ensure .ai subfolder exists
