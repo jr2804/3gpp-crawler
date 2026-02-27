@@ -207,7 +207,7 @@ def checkout_spec_to_workspace(
     checkout_base: Path,
     workspace: str | None,
     release: str = "latest",
-    ) -> Path | None:
+) -> Path | None:
     """Checkout a spec and add it to a workspace.
 
     Args:
@@ -252,7 +252,6 @@ def checkout_spec_to_workspace(
         return None
 
 
-
 def ensure_ai_subfolder(checkout_path: Path) -> Path:
     """Ensure the .ai subfolder exists for processed outputs.
 
@@ -265,7 +264,6 @@ def ensure_ai_subfolder(checkout_path: Path) -> Path:
     ai_folder = checkout_path / ".ai"
     ai_folder.mkdir(parents=True, exist_ok=True)
     return ai_folder
-
 
 
 __all__ = [

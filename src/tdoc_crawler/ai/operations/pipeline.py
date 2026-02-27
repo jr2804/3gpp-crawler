@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from tdoc_crawler.ai.config import AiConfig
 from tdoc_crawler.ai.models import (
     DocumentClassification,
     DocumentSummary,
@@ -21,7 +22,6 @@ from tdoc_crawler.ai.operations.extract import extract_from_folder
 from tdoc_crawler.ai.operations.summarize import summarize_document
 from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
-from tdoc_crawler.config import CacheManager
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
@@ -330,7 +330,11 @@ def process_tdoc(
     Raises:
         Exception: Re-raises pipeline exceptions after logging.
     """
-    storage = AiStorage(checkout_path.parent / ".ai" / "lancedb")
+    from tdoc_crawler.ai.operations.embeddings import get_embedding_model
+
+    config = AiConfig.from_env(cache_manager_name="default")
+    model = get_embedding_model()
+    storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
     return run_pipeline(
         tdoc_id,
         checkout_path,
@@ -361,7 +365,11 @@ def process_all(
     Returns:
         Dict mapping tdoc_id to ProcessingStatus.
     """
-    storage = AiStorage(checkout_base / ".ai" / "lancedb")
+    from tdoc_crawler.ai.operations.embeddings import get_embedding_model
+
+    config = AiConfig.from_env(cache_manager_name="default")
+    model = get_embedding_model()
+    storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
     normalized_workspace = normalize_workspace_name(workspace)
 
     # Get workspace members and build a lookup map
@@ -371,7 +379,6 @@ def process_all(
         member_ids = {m.source_item_id for m in members if m.is_active and m.source_kind == "tdoc"}
         members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind == "tdoc"}
         tdoc_ids = [tid for tid in tdoc_ids if tid in member_ids]
-
     results: dict[str, ProcessingStatus] = {}
     for tdoc_id in tdoc_ids:
         if new_only and not force_rerun:
@@ -382,11 +389,7 @@ def process_all(
 
         # Use source_path from workspace member if available, otherwise fallback to default
         member = members_map.get(tdoc_id)
-        folder_path = (
-            Path(member.source_path)
-            if member and member.source_path and Path(member.source_path).exists()
-            else checkout_base / tdoc_id
-        )
+        folder_path = Path(member.source_path) if member and member.source_path and Path(member.source_path).exists() else checkout_base / tdoc_id
 
         if not folder_path.exists():
             logger.warning(f"Checkout folder not found: {folder_path}")
@@ -418,8 +421,11 @@ def get_status(tdoc_id: str, workspace: str | None = None) -> ProcessingStatus |
     Returns:
         ProcessingStatus if found, None otherwise.
     """
-    manager = CacheManager().register()
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    from tdoc_crawler.ai.operations.embeddings import get_embedding_model
+
+    config = AiConfig.from_env(cache_manager_name="default")
+    model = get_embedding_model()
+    storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
     normalized_workspace = normalize_workspace_name(workspace)
     return storage.get_status(tdoc_id, workspace=normalized_workspace)
 

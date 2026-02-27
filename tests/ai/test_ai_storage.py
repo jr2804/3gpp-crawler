@@ -55,7 +55,7 @@ def test_remove_workspace_member_operation_expected(tmp_path: Path) -> None:
 
 def test_storage_artifact_isolation_by_workspace(tmp_path: Path) -> None:
     """US3: artifacts (status, chunks) are isolated by workspace."""
-    storage = AiStorage(tmp_path / "lancedb")
+    storage = AiStorage(tmp_path / "lancedb", embedding_dimension=3)
 
     # Save status for workspace A
     status_a = ProcessingStatus(tdoc_id="DOC-1", current_stage=PipelineStage.COMPLETED)

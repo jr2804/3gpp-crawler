@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from tdoc_crawler.ai import (
+    AiConfig,
     AiStorage,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
@@ -74,6 +75,7 @@ def resolve_workspace(workspace: str | None) -> str:
     console.print("[red]No workspace specified and no active workspace set. Use -w <name> or 'ai workspace activate <name>'[/red]")
     raise typer.Exit(1)
 
+
 ai_app = typer.Typer(help="AI document processing commands")
 console = Console()
 
@@ -134,28 +136,17 @@ def ai_convert(
 
 @ai_app.command("query")
 def ai_query(
-    query: Annotated[str, typer.Option(..., "--query", help="Semantic search query")],
+    query: Annotated[str, typer.Argument(..., help="Semantic search query")],
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    top_k: Annotated[int, typer.Option("--top-k", help="Number of embedding results to return")] = 5,
+    top_k: Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")] = 5,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG)."""
     workspace = resolve_workspace(workspace)
     embedding_results = query_embeddings(query, top_k=top_k, workspace=workspace)
-    graph_result = query_graph(query)
+    graph_result = query_graph(query, workspace=workspace)
     payload = {
         "query": query,
-        "workspace": workspace,
-        "embedding_results": [
-            {
-                "tdoc_id": chunk.tdoc_id,
-                "section": chunk.section,
-                "text": chunk.content,
-                "score": score,
-            }
-            for chunk, score in embedding_results
-        ],
-        "graph_result": graph_result,
     }
 
     if json_output:
@@ -191,9 +182,9 @@ def workspace_create(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Create a new workspace."""
-    manager = CacheManager().register()
+    CacheManager().register()
 
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     workspace = create_workspace(storage, name, auto_build=auto_build)
 
     if json_output:
@@ -209,9 +200,9 @@ def workspace_list(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """List all workspaces."""
-    manager = CacheManager().register()
+    CacheManager().register()
 
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     workspaces = list_workspaces(storage)
 
     if json_output:
@@ -234,15 +225,15 @@ def workspace_list(
         console.print(table)
 
 
-@_workspace_app.command("get")
-def workspace_get(
+@_workspace_app.command("info")
+def workspace_info(
     name: Annotated[str, typer.Argument(..., help="Workspace name")],
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Get workspace details."""
-    manager = CacheManager().register()
+    """Get detailed workspace information including member counts."""
+    CacheManager().register()
 
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     workspace = storage.get_workspace(name)
 
     if workspace is None:
@@ -252,8 +243,13 @@ def workspace_get(
             console.print(f"[red]Workspace '{name}' not found[/red]")
         raise typer.Exit(1)
 
+    # Get member counts
+    counts = storage.get_workspace_member_counts(name)
+
     if json_output:
-        typer.echo(workspace.model_dump_json())
+        data = workspace.model_dump(mode="json")
+        data["member_counts"] = counts
+        typer.echo(json.dumps(data))
     else:
         table = Table(title=f"Workspace: {workspace.workspace_name}")
         table.add_column("Field", style="cyan")
@@ -261,10 +257,15 @@ def workspace_get(
         table.add_row("Name", workspace.workspace_name)
         table.add_row("Default", "Yes" if workspace.is_default else "No")
         table.add_row("Status", workspace.status.value)
+        table.add_row("Auto-build", "Yes" if workspace.auto_build else "No")
         table.add_row("Created", workspace.created_at.isoformat() if workspace.created_at else "")
         table.add_row("Updated", workspace.updated_at.isoformat() if workspace.updated_at else "")
+        table.add_row("", "")  # Empty row for spacing
+        table.add_row("Total Members", str(counts["total"]))
+        table.add_row("  TDocs", str(counts["tdoc"]))
+        table.add_row("  Specs", str(counts["spec"]))
+        table.add_row("  Other", str(counts["other"]))
         console.print(table)
-
 
 
 @_workspace_app.command("activate")
@@ -273,8 +274,8 @@ def workspace_activate(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Set a workspace as the active workspace."""
-    manager = CacheManager().register()
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    CacheManager().register()
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     workspace = storage.get_workspace(name)
     if workspace is None:
         if json_output:
@@ -308,12 +309,53 @@ def workspace_deactivate(
         console.print(f"[green]Deactivated workspace: {active}[/green]")
 
 
+@_workspace_app.command("clear-invalid")
+def workspace_clear_invalid(
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Remove all invalid (inactive) documents from the workspace."""
+    workspace = resolve_workspace(workspace)
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+
+    removed_count = storage.remove_invalid_members(workspace)
+
+    if json_output:
+        typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "removed_invalid_members": removed_count}))
+    elif removed_count > 0:
+        console.print(f"[green]Removed {removed_count} invalid member(s) from workspace '{normalize_workspace_name(workspace)}'[/green]")
+    else:
+        console.print(f"[yellow]No invalid members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
+
+
+@_workspace_app.command("clear")
+def workspace_clear(
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
+    workspace = resolve_workspace(workspace)
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+
+    removed_count = storage.clear_workspace_artifacts(workspace)
+
+    if json_output:
+        typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "cleared_artifacts": removed_count}))
+    elif removed_count > 0:
+        console.print(f"[green]Cleared {removed_count} artifact(s) from workspace '{normalize_workspace_name(workspace)}'[/green]")
+        console.print("[yellow]Note: Workspace members are preserved. Run 'ai workspace process' to regenerate artifacts.[/yellow]")
+    else:
+        console.print(f"[yellow]No artifacts found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
+
 
 @_workspace_app.command("add-members")
 def workspace_add_members(
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     items: Annotated[list[str], typer.Argument(..., help="Source item IDs to add")] = None,  # type: ignore[assignment]
-    kind: Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)"),] = "tdoc",
+    kind: Annotated[
+        str,
+        typer.Option("--kind", help="Source kind (tdoc, spec, other)"),
+    ] = "tdoc",
     checkout: Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present")] = True,
     release: Annotated[str | None, typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
@@ -322,7 +364,7 @@ def workspace_add_members(
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
 
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
 
     source_kind = SourceKind(kind.lower()) if kind.lower() in [e.value for e in SourceKind] else SourceKind.OTHER
 
@@ -333,7 +375,39 @@ def workspace_add_members(
     for item in items:
         source_path = item
 
+    # Build members with actual paths
+    members = []
+    checkout_base = manager.root / "checkout"
+    skipped_items = []
+    for item in items:
+        source_path = item
+
         # For TDocs and specs, try to resolve/checkout to get actual path
+        if checkout:
+            checkout_path = None
+            if source_kind == SourceKind.TDOC:
+                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, storage, workspace)
+                if checkout_path is None:
+                    skipped_items.append((item, "TDoc not found in database or meeting not crawled"))
+                    continue
+            elif source_kind == SourceKind.SPEC:
+                checkout_path = checkout_spec_to_workspace(item, checkout_base, workspace, release or "latest")
+                if checkout_path is None:
+                    skipped_items.append((item, "Spec not found in database"))
+                    continue
+            if checkout_path:
+                source_path = str(checkout_path)
+                # Ensure .ai subfolder exists
+                ensure_ai_subfolder(checkout_path)
+        members.append(make_workspace_member(workspace, item, source_path, source_kind))
+    # Report skipped items
+    if skipped_items:
+        console.print("\n[yellow]Warning: Skipped invalid items:[/yellow]")
+        for item_id, reason in skipped_items:
+            console.print(f"  - {item_id}: {reason}")
+        if source_kind == SourceKind.TDOC:
+            console.print("\n[yellow]Hint: For TDocs, ensure the meeting has been crawled with 'tdoc-crawler crawl-tdocs <meeting-id>'[/yellow]")
+        console.print()
         if checkout:
             checkout_path = None
             if source_kind == SourceKind.TDOC:
@@ -353,6 +427,7 @@ def workspace_add_members(
     else:
         console.print(f"[green]Added {count} member(s) to workspace '{normalize_workspace_name(workspace)}'[/green]")
 
+
 @_workspace_app.command("list-members")
 def workspace_list_members(
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
@@ -361,9 +436,9 @@ def workspace_list_members(
 ) -> None:
     """List members of a workspace."""
     workspace = resolve_workspace(workspace)
-    manager = CacheManager().register()
+    CacheManager().register()
 
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     members = storage.list_workspace_members(workspace, include_inactive=include_inactive)
 
     if json_output:
@@ -392,9 +467,9 @@ def workspace_process(
     """Process all TDoc members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     manager = CacheManager().register()
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
 
     # Get workspace members
     members = storage.list_workspace_members(workspace, include_inactive=False)
@@ -417,15 +492,18 @@ def workspace_process(
     )
 
     if json_output:
-        typer.echo(json.dumps({
-            "workspace": normalize_workspace_name(workspace),
-            "processed": len(results),
-            "total_members": len(tdoc_ids),
-            "tdoc_ids": list(results.keys()),
-        }))
+        typer.echo(
+            json.dumps(
+                {
+                    "workspace": normalize_workspace_name(workspace),
+                    "processed": len(results),
+                    "total_members": len(tdoc_ids),
+                    "tdoc_ids": list(results.keys()),
+                }
+            )
+        )
     else:
         console.print(f"[green]Processed {len(results)}/{len(tdoc_ids)} TDoc(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
-
 
 
 @_workspace_app.command("delete")
@@ -435,9 +513,9 @@ def workspace_delete(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Delete a workspace (default workspace cannot be deleted)."""
-    manager = CacheManager().register()
+    CacheManager().register()
 
-    storage = AiStorage(manager.root / ".ai" / "lancedb")
+    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     result = delete_workspace(storage, name, preserve_artifacts=preserve_artifacts)
 
     if not result:

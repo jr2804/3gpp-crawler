@@ -48,24 +48,35 @@ def _pipeline_get_status(tdoc_id: str, workspace: str) -> ProcessingStatus | Non
     return _pipeline_get_status_impl(tdoc_id, workspace=workspace)
 
 
-def query_embeddings(query: str, workspace: str, top_k: int = 10) -> list:
-    """Query embeddings for a given query string."""
-    return _query_embeddings(query, workspace=workspace, top_k=top_k)
+def get_status(tdoc_id: str, workspace: str | None = None) -> ProcessingStatus | None:
+    """Get processing status for a TDoc."""
+    return _pipeline_get_status_impl(tdoc_id, workspace=workspace)
 
 
-def query_graph(query: str, workspace: str, top_k: int = 10) -> list:
-    """Query the knowledge graph for a given query string."""
-    return _query_graph(query, workspace=workspace, top_k=top_k)
+def process_tdoc(
+    tdoc_id: str,
+    checkout_path: Path,
+    force_rerun: bool = False,
+    workspace: str | None = None,
+) -> ProcessingStatus:
+    """Process a single TDoc through the AI pipeline."""
+    return _pipeline_process_tdoc_impl(
+        tdoc_id,
+        checkout_path,
+        force_rerun=force_rerun,
+        workspace=workspace,
+    )
 
 
-def _pipeline_process_all(
+def process_all(
     tdoc_ids: list[str],
     checkout_base: Path,
-    new_only: bool,
-    force_rerun: bool,
-    progress_callback: Callable[[PipelineStage, str], None] | None,
-    workspace: str,
+    new_only: bool = False,
+    force_rerun: bool = False,
+    progress_callback: Callable[[PipelineStage, str], None] | None = None,
+    workspace: str | None = None,
 ) -> dict[str, ProcessingStatus]:
+    """Process multiple TDocs through the AI pipeline."""
     return _pipeline_process_all_impl(
         tdoc_ids,
         checkout_base,
@@ -76,18 +87,22 @@ def _pipeline_process_all(
     )
 
 
-def _pipeline_process_tdoc(
-    tdoc_id: str,
-    checkout_path: Path,
-    force_rerun: bool,
+def query_embeddings(
+    query: str,
     workspace: str,
-) -> ProcessingStatus:
-    return _pipeline_process_tdoc_impl(
-        tdoc_id,
-        checkout_path,
-        force_rerun=force_rerun,
-        workspace=workspace,
-    )
+    top_k: int = 5,
+) -> list[tuple[DocumentChunk, float]]:
+    """Query embeddings for semantic search."""
+    return _query_embeddings(query, workspace, top_k)
+
+
+def query_graph(
+    query: str,
+    workspace: str,
+    top_k: int = 5,
+) -> list[dict]:
+    """Query knowledge graph."""
+    return _query_graph(query, workspace, top_k)
 
 
 __all__ = [
@@ -111,11 +126,14 @@ __all__ = [
     "delete_workspace",
     "ensure_ai_subfolder",
     "ensure_default_workspace",
+    "get_status",
     "get_workspace",
     "is_default_workspace",
     "list_workspaces",
     "make_workspace_member",
     "normalize_workspace_name",
+    "process_all",
+    "process_tdoc",
     "query_embeddings",
     "query_graph",
     "resolve_tdoc_checkout_path",

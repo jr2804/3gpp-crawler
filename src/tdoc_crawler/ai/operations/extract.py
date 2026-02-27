@@ -116,7 +116,7 @@ def extract_docx_to_markdown(
                 ngram_range=(1, 3),
             ),
             language_detection=LanguageDetectionConfig(
-                confidence_threshold=0.7,
+                min_confidence=0.7,
             ),
             enable_quality_processing=True,
         )

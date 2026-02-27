@@ -32,11 +32,12 @@ _SCOPE_DELIMITER = "::"
 class AiStorage:
     """LanceDB storage layer for all AI-generated data."""
 
-    def __init__(self, store_path: Path) -> None:
+    def __init__(self, store_path: Path, embedding_dimension: int | None = None) -> None:
         """Initialize LanceDB connection at the given path.
 
         Args:
             store_path: Directory containing the LanceDB tables.
+            embedding_dimension: Dimension of the embedding model. If None, defaults to 384.
         """
         self._store_path = store_path
         self._store_path.mkdir(parents=True, exist_ok=True)
@@ -44,6 +45,7 @@ class AiStorage:
         self._tables: dict[str, Any] = {}
         self._embedding_hashes: dict[str, str] = {}
         self._summary_hashes: dict[str, str] = {}
+        self._embedding_dimension = embedding_dimension or 384
         self._ensure_tables()
 
     def save_embedding_hash(self, tdoc_id: str, content_hash: str) -> None:
@@ -394,6 +396,87 @@ class AiStorage:
             members.append(member)
         return sorted(members, key=lambda item: item.source_item_id)
 
+    def get_workspace_member_counts(self, workspace_name: str | None) -> dict[str, int]:
+        """Get counts of workspace members by source kind.
+
+        Args:
+            workspace_name: Name of workspace.
+
+        Returns:
+            Dict with counts for 'tdoc', 'spec', 'other', and 'total'.
+        """
+        normalized_workspace = _normalize_workspace_name(workspace_name)
+        table = self._table("workspace_members")
+        members = _table_to_records(table)
+
+        counts = {"tdoc": 0, "spec": 0, "other": 0, "total": 0}
+        for record in members:
+            if record.get("workspace_name") != normalized_workspace:
+                continue
+            if not record.get("is_active", True):
+                continue
+            kind = record.get("source_kind", "other").lower()
+            if kind in counts:
+                counts[kind] += 1
+            else:
+                counts["other"] += 1
+            counts["total"] += 1
+        return counts
+
+    def remove_invalid_members(self, workspace_name: str | None) -> int:
+        """Remove all inactive/invalid members from a workspace.
+
+        Args:
+            workspace_name: Name of workspace.
+
+        Returns:
+            Number of members removed.
+        """
+        normalized_workspace = _normalize_workspace_name(workspace_name)
+        table = self._table("workspace_members")
+        members = _table_to_records(table)
+
+        removed_count = 0
+        for record in members:
+            if record.get("workspace_name") != normalized_workspace:
+                continue
+            if not record.get("is_active", True):
+                source_item_id = record.get("source_item_id", "")
+                predicate = f"workspace_name = '{normalized_workspace}' and source_item_id = '{source_item_id}'"
+                table.delete(predicate)
+                removed_count += 1
+        return removed_count
+
+    def clear_workspace_artifacts(self, workspace_name: str | None) -> int:
+        """Clear all AI artifacts (embeddings, summaries, etc.) for a workspace while preserving members.
+
+        Args:
+            workspace_name: Name of workspace.
+
+        Returns:
+            Number of artifact records removed.
+        """
+        normalized_workspace = _normalize_workspace_name(workspace_name)
+        removed_count = 0
+
+        artifact_tables = ["processing_status", "classifications", "chunks", "summaries", "graph_nodes", "graph_edges"]
+
+        for table_name in artifact_tables:
+            try:
+                table = self._table(table_name)
+                all_records = _table_to_records(table)
+                for record in all_records:
+                    tdoc_id = record.get("tdoc_id", "")
+                    record_workspace, _ = _from_scoped_tdoc_id(tdoc_id)
+                    if record_workspace == normalized_workspace:
+                        table.delete(f"tdoc_id = '{tdoc_id}'")
+                        removed_count += 1
+            except Exception as exc:
+                _logger.warning(f"Failed to clear artifacts from {table_name}: {exc}")
+
+        _logger.info(f"Cleared {removed_count} artifact(s) for workspace '{normalized_workspace}'")
+        return removed_count
+
     def deactivate_workspace_member(self, workspace_name: str | None, source_item_id: str) -> bool:
         """Deactivate a workspace member if it exists."""
         workspace = self.ensure_workspace(workspace_name)
@@ -507,7 +590,7 @@ class AiStorage:
         self._ensure_table("workspace_members", _workspace_member_schema())
         self._ensure_table("processing_status", _processing_status_schema())
         self._ensure_table("classifications", _classification_schema())
-        self._ensure_table("chunks", _chunk_schema())
+        self._ensure_table("chunks", _chunk_schema(self._embedding_dimension))
         self._ensure_table("summaries", _summary_schema())
         self._ensure_table("graph_nodes", _graph_node_schema())
         self._ensure_table("graph_edges", _graph_edge_schema())
@@ -665,7 +748,29 @@ def _classification_schema() -> pa.Schema:
     )
 
 
-def _chunk_schema() -> pa.Schema:
+def _chunk_schema(embedding_dimension: int) -> pa.Schema:
+    """Create schema for document chunks with fixed-size vector.
+
+    Args:
+        embedding_dimension: Dimension of the embedding model (e.g., 384 for all-MiniLM-L6-v2).
+
+    Returns:
+        PyArrow schema with FixedSizeList vector field.
+    """
+    return pa.schema(
+        [
+            pa.field("chunk_id", pa.string()),
+            pa.field("tdoc_id", pa.string()),
+            pa.field("section_heading", pa.string(), nullable=True),
+            pa.field("chunk_index", pa.int64()),
+            pa.field("text", pa.large_string()),
+            pa.field("char_offset_start", pa.int64()),
+            pa.field("char_offset_end", pa.int64()),
+            pa.field("vector", pa.list_(pa.float32(), embedding_dimension)),
+            pa.field("embedding_model", pa.string()),
+            pa.field("created_at", pa.timestamp("us")),
+        ]
+    )
     return pa.schema(
         [
             pa.field("chunk_id", pa.string()),

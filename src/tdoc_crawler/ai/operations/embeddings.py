@@ -71,7 +71,13 @@ class EmbeddingModelWrapper:
     @property
     def dimension(self) -> int:
         """Return embedding dimension."""
-        return DEFAULT_DIMENSION
+        if self._model is None:
+            return DEFAULT_DIMENSION
+        # Get dimension from the actual model
+        try:
+            return self._model.get_sentence_embedding_dimension()
+        except Exception:
+            return DEFAULT_DIMENSION
 
     @property
     def model_name(self) -> str:
@@ -279,7 +285,8 @@ def _should_skip_embedding(tdoc_id: str, content_hash: str) -> bool:
     """
     try:
         config = AiConfig.from_env(cache_manager_name="default")
-        storage_client = AiStorage(config.ai_store_path)  # type: ignore[arg-type]
+        model = get_embedding_model()
+        storage_client = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
         existing_hash = storage_client.get_embedding_hash(tdoc_id)
         return existing_hash == content_hash
     except Exception:
@@ -305,10 +312,10 @@ def generate_embeddings(
     """
     if storage is None:
         config = AiConfig.from_env(cache_manager_name="default")
-        storage = AiStorage(config.ai_store_path)  # type: ignore[arg-type]
+        model = get_embedding_model()
+        storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
 
     normalized_workspace = normalize_workspace_name(workspace)
-
     markdown_content = markdown.read_text(encoding="utf-8") if isinstance(markdown, Path) else markdown
 
     # Compute content hash for idempotency

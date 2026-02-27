@@ -9,7 +9,7 @@ from pydantic import Field, field_validator, model_validator
 
 from tdoc_crawler.models import BaseConfigModel
 
-DEFAULT_EMBEDDING_MODEL = "ollama/embeddinggemma"
+DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "openrouter/openrouter/free"
 
 LITELLM_PROVIDER_ALLOWLIST = {
@@ -62,6 +62,32 @@ def _validate_model_identifier(value: str, field_name: str) -> str:
         raise ValueError(msg)
     if provider_normalized not in LITELLM_PROVIDER_ALLOWLIST:
         msg = f"{field_name} provider '{provider}' is not in supported provider allowlist: {sorted(LITELLM_PROVIDER_ALLOWLIST)}"
+        raise ValueError(msg)
+
+    return f"{provider_normalized}/{model_name_normalized}"
+
+
+def _validate_embedding_model_format(value: str) -> str:
+    """Validate embedding model - accepts any HuggingFace-style model ID.
+
+    Unlike LLM models, embedding models via sentence-transformers don't require
+    LiteLLM provider validation. Accepts formats like:
+    - sentence-transformers/all-MiniLM-L6-v2
+    - perplexity-ai/pplx-embed-v1-0.6b
+    """
+    if "/" not in value:
+        msg = "embedding_model must be in '<provider>/<model_name>' format"
+        raise ValueError(msg)
+
+    provider, model_name = value.split("/", 1)
+    provider_normalized = provider.strip().lower()
+    model_name_normalized = model_name.strip()
+
+    if not provider_normalized:
+        msg = "embedding_model provider segment cannot be empty"
+        raise ValueError(msg)
+    if not model_name_normalized:
+        msg = "embedding_model model_name segment cannot be empty"
         raise ValueError(msg)
 
     return f"{provider_normalized}/{model_name_normalized}"
@@ -131,7 +157,10 @@ class AiConfig(BaseConfigModel):
     @model_validator(mode="after")
     def _resolve_paths(self) -> AiConfig:
         if self.ai_store_path is None:
-            self.ai_store_path = self.cache_dir / ".ai" / "lancedb"
+            # Include embedding model in path to avoid dimension conflicts
+            # e.g., ~/.tdoc-crawler/.ai/lancedb/sentence-transformers/all-MiniLM-L6-v2
+            # Keep slash to group models by provider
+            self.ai_store_path = self.cache_dir / ".ai" / "lancedb" / self.embedding_model
         return self
 
     @model_validator(mode="after")
@@ -147,7 +176,7 @@ class AiConfig(BaseConfigModel):
     @field_validator("embedding_model")
     @classmethod
     def _validate_embedding_model(cls, value: str) -> str:
-        return _validate_model_identifier(value, "embedding_model")
+        return _validate_embedding_model_format(value)
 
     @field_validator("llm_model")
     @classmethod
