@@ -331,14 +331,14 @@ def workspace_add_members(
     for item in items:
         source_path = item
 
-        # For TDocs/specs, try to resolve/checkout to get actual path
-        if checkout and source_kind in (SourceKind.TDOC, SourceKind.SPEC):
+        # For TDocs, try to resolve/checkout to get actual path
+        # Specs are handled differently - store the spec number for now
+        if checkout and source_kind == SourceKind.TDOC:
             checkout_path = checkout_tdoc_to_workspace(item, checkout_base, storage, workspace)
             if checkout_path:
                 source_path = str(checkout_path)
                 # Ensure .ai subfolder exists
                 ensure_ai_subfolder(checkout_path)
-
         members.append(make_workspace_member(workspace, item, source_path, source_kind))
 
     count = storage.add_workspace_members(workspace, members)
