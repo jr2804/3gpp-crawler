@@ -4,7 +4,7 @@ from pathlib import Path
 
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.models import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion
-from tdoc_crawler.specs.query import SpecQueryFilters
+from tdoc_crawler.specs.models import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion, SpecQueryFilters
 
 
 def test_upsert_specification_roundtrip(tmp_path: Path) -> None:

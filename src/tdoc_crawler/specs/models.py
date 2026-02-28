@@ -79,6 +79,10 @@ class SpecQueryFilters:
     working_group: str | None = None
     status: str | None = None
 
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        _ = (console, options)
+        yield Text(f"SpecQueryFilters(spec_numbers={self.spec_numbers})")
+
 
 @dataclass
 class SpecQueryResult:
@@ -89,6 +93,10 @@ class SpecQueryResult:
     status: str | None = None
     working_group: str | None = None
     source_differences: dict[str, dict[str, str | None]] = field(default_factory=dict)
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        _ = (console, options)
+        yield Text(f"{self.spec_number} - {self.title or 'Unknown'}")
 
 
 __all__ = [
