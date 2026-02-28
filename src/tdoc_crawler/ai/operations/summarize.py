@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-import importlib
 import json
 import logging
 import os
 import re
+
+import litellm
 
 from tdoc_crawler.ai.config import AiConfig
 from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError, SummarizeResult
@@ -92,8 +93,7 @@ class LiteLLMClient:
         return cls._instance
 
     def __init__(self) -> None:
-        self._client = None
-        self._load_client()
+        logger.info("LiteLLM client initialized")
 
     def complete(
         self,
@@ -113,15 +113,11 @@ class LiteLLMClient:
         Returns:
             Generated text.
         """
-        if self._client is None:
-            msg = "litellm not installed"
-            raise RuntimeError(msg)
-
         try:
             # Check for TDC_AI_LLM_API_KEY - takes precedence over provider-specific keys
             api_key = os.environ.get("TDC_AI_LLM_API_KEY")
 
-            response = self._client.completion(
+            response = litellm.completion(
                 model=model or AiConfig().llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -134,15 +130,6 @@ class LiteLLMClient:
         except Exception as e:
             logger.error(f"LLM completion failed: {e}")
             raise
-
-    def _load_client(self) -> None:
-        """Load the litellm client."""
-        try:
-            self._client = importlib.import_module("litellm")
-            logger.info("Loaded litellm client")
-        except ImportError:
-            logger.warning("litellm not installed")
-            self._client = None
 
 
 def _should_skip_summary(

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-import importlib
 import logging
 import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, cast
+
+from sentence_transformers import SentenceTransformer
 
 from tdoc_crawler.ai.config import AiConfig
 from tdoc_crawler.ai.models import DocumentChunk
@@ -61,18 +62,12 @@ class EmbeddingModelWrapper:
         Returns:
             List of embedding vectors.
         """
-        if self._model is None:
-            msg = "sentence-transformers not installed"
-            raise RuntimeError(msg)
-
         embeddings = self._model.encode(texts, normalize_embeddings=True)
         return embeddings.tolist()
 
     @property
     def dimension(self) -> int:
         """Return embedding dimension."""
-        if self._model is None:
-            return DEFAULT_DIMENSION
         # Get dimension from the actual model
         try:
             return self._model.get_sentence_embedding_dimension()
@@ -86,14 +81,8 @@ class EmbeddingModelWrapper:
 
     def _load_model(self) -> None:
         """Load the sentence-transformers model."""
-        try:
-            sentence_transformers = importlib.import_module("sentence_transformers")
-            sentence_transformer_class = sentence_transformers.SentenceTransformer
-            self._model = sentence_transformer_class(DEFAULT_MODEL)
-            logger.info(f"Loaded embedding model: {DEFAULT_MODEL}")
-        except ImportError:
-            logger.warning("sentence-transformers not installed")
-            self._model = None
+        self._model = SentenceTransformer(DEFAULT_MODEL)
+        logger.info(f"Loaded embedding model: {DEFAULT_MODEL}")
 
 
 def _chunk_by_headings(markdown: str) -> list[dict[str, str]]:

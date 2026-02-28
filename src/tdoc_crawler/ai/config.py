@@ -5,37 +5,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import litellm
 from pydantic import Field, field_validator, model_validator
 
 from tdoc_crawler.models import BaseConfigModel
 
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "openrouter/openrouter/free"
-
-LITELLM_PROVIDER_ALLOWLIST = {
-    "openai",
-    "anthropic",
-    "azure",
-    "google",
-    "vertex_ai",
-    "cohere",
-    "huggingface",
-    "ollama",
-    "groq",
-    "mistral",
-    "bedrock",
-    "replicate",
-    "together_ai",
-    # Cloud platforms and aggregators
-    "openrouter",  # Multi-provider aggregator
-    "github_copilot",  # GitHub Copilot (Azure-based)
-    "nvidia",  # NVIDIA NIM
-    "sambanova",  # SambaNova Cloud
-    "fireworks_ai",  # Fireworks AI
-    "anyscale",  # Anyscale Endpoints
-    "perplexity",  # Perplexity API
-    "deepinfra",  # DeepInfra
-}
 
 
 def _env_int(name: str) -> int | None:
@@ -60,8 +36,14 @@ def _validate_model_identifier(value: str, field_name: str) -> str:
     if not model_name_normalized:
         msg = f"{field_name} model_name segment cannot be empty"
         raise ValueError(msg)
-    if provider_normalized not in LITELLM_PROVIDER_ALLOWLIST:
-        msg = f"{field_name} provider '{provider}' is not in supported provider allowlist: {sorted(LITELLM_PROVIDER_ALLOWLIST)}"
+
+    supported_providers = litellm.LITELLM_CHAT_PROVIDERS
+
+    if provider_normalized not in supported_providers:
+        msg = (
+            f"{field_name} provider '{provider}' is not supported by litellm. "
+            f"See https://docs.litellm.ai/docs/providers for the full list of {len(supported_providers)} supported providers."
+        )
         raise ValueError(msg)
 
     return f"{provider_normalized}/{model_name_normalized}"
@@ -184,4 +166,4 @@ class AiConfig(BaseConfigModel):
         return _validate_model_identifier(value, "llm_model")
 
 
-__all__ = ["LITELLM_PROVIDER_ALLOWLIST", "AiConfig"]
+__all__ = ["AiConfig"]
