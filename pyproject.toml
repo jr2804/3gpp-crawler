@@ -34,10 +34,6 @@ dependencies = [
     "typer>=0.19.2",
     "xlsxwriter>=3.2.9",
     "zipinspect>=0.1.2",
-]
-
-[project.optional-dependencies]
-ai = [
     "kreuzberg[all]>=4.0.0",
     "lancedb>=0.29.2",
     "litellm>=1.81.15",
