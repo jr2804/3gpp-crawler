@@ -9,12 +9,11 @@ from typing import Any
 from pool_executors.pool_executors.serial import SerialPoolExecutor
 from pool_executors.pool_executors.types import ExecutorType
 
-# Import InterpreterPoolExecutor for Python 3.14+, handle gracefully for older versions
 try:
     from concurrent.futures import InterpreterPoolExecutor
 
     HAS_INTERPRETER_POOL_EXECUTOR = True
-except ImportError, AttributeError:
+except (ImportError, AttributeError):
     InterpreterPoolExecutor = None  # type: ignore[assignment, misc]
     HAS_INTERPRETER_POOL_EXECUTOR = False
 
