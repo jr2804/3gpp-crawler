@@ -887,8 +887,8 @@ class TestEnvironmentVariables:
 
         # Set multiple limit environment variables
         monkeypatch.setenv("TDC_LIMIT", "5")
-        monkeypatch.setenv("TDC_START_DATE", "2024-01-01T00:00:00Z")
-        monkeypatch.setenv("TDC_END_DATE", "2024-12-31T23:59:59Z")
+        monkeypatch.setenv("TDC_START_DATE", "2024-01-01")
+        monkeypatch.setenv("TDC_END_DATE", "2024-12-31")
 
         result = runner.invoke(app, ["query-tdocs"])
 

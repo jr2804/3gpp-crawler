@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 
 from tdoc_crawler.cli._shared import console, handle_clear_options
 from tdoc_crawler.cli.args import (
+    AgendaPatternExcludeOption,
+    AgendaPatternOption,
     CacheDirOption,
     CheckoutOption,
     ClearSpecsOption,
@@ -21,6 +23,8 @@ from tdoc_crawler.cli.args import (
     NoFetchOption,
     OrderOption,
     OutputFormatOption,
+    SourcePatternExcludeOption,
+    SourcePatternOption,
     SpecArgument,
     SpecFileOption,
     StartDateOption,
@@ -28,6 +32,8 @@ from tdoc_crawler.cli.args import (
     SubgroupOption,
     TDocIdsArgument,
     TitleOption,
+    TitlePatternExcludeOption,
+    TitlePatternOption,
     VerbosityOption,
     WorkingGroupOption,
 )
@@ -52,6 +58,7 @@ from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs, checkout_tdocs
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
+from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
 
 load_dotenv()
@@ -72,6 +79,13 @@ def query_tdocs(
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
     cache_dir: CacheDirOption = None,
+    # Glob pattern filters
+    source: SourcePatternOption = None,
+    source_ex: SourcePatternExcludeOption = None,
+    title: TitlePatternOption = None,
+    title_ex: TitlePatternExcludeOption = None,
+    agenda: AgendaPatternOption = None,
+    agenda_ex: AgendaPatternExcludeOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query TDoc metadata from database."""
@@ -80,12 +94,12 @@ def query_tdocs(
 
     working_groups = parse_working_groups(working_group)
     try:
-        start = datetime.fromisoformat(start_date) if start_date else None
+        start = datetime.combine(parse_partial_date(start_date), datetime.min.time()) if start_date else None
     except ValueError as exc:
         console.print("[red]Invalid start date format; use ISO-8601")
         raise typer.Exit(code=2) from exc
     try:
-        end = datetime.fromisoformat(end_date) if end_date else None
+        end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time()) if end_date else None
     except ValueError as exc:
         console.print("[red]Invalid end date format; use ISO-8601")
         raise typer.Exit(code=2) from exc
@@ -111,6 +125,12 @@ def query_tdocs(
         end_date=end,
         limit=limit,
         order=sort_order,
+        source_pattern=source,
+        source_pattern_exclude=source_ex,
+        title_pattern=title,
+        title_pattern_exclude=title_ex,
+        agenda_pattern=agenda,
+        agenda_pattern_exclude=agenda_ex,
     )
 
     db_file = manager.db_file

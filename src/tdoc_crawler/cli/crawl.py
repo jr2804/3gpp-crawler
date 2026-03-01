@@ -11,11 +11,14 @@ from dotenv import load_dotenv
 
 from tdoc_crawler.cli._shared import console, create_progress_bar, handle_clear_options
 from tdoc_crawler.cli.args import (
+    AgendaPatternExcludeOption,
+    AgendaPatternOption,
     CacheDirOption,
     CheckoutOption,
     ClearDbOption,
     ClearSpecsOption,
     ClearTDocsOption,
+    EndDateOption,
     EolPasswordOption,
     EolUsernameOption,
     HttpCacheOption,
@@ -28,13 +31,17 @@ from tdoc_crawler.cli.args import (
     MaxRetriesOption,
     NoProgressOption,
     OutputFormatOption,
-    OverallTimeoutOption,
     PromptCredentialsOption,
     ReleaseOption,
+    SourcePatternExcludeOption,
+    SourcePatternOption,
     SpecArgument,
     SpecFileOption,
+    StartDateOption,
     SubgroupOption,
     TimeoutOption,
+    TitlePatternExcludeOption,
+    TitlePatternOption,
     VerbosityOption,
     WorkersOption,
     WorkingGroupOption,
@@ -56,6 +63,7 @@ from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, c
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs, checkout_tdocs
+from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
 
 load_dotenv()
@@ -77,8 +85,16 @@ def crawl_tdocs(
     workers: WorkersOption = 4,
     timeout: TimeoutOption = 30,
     max_retries: MaxRetriesOption = 3,
-    overall_timeout: OverallTimeoutOption = None,
+    overall_timeout: int | None = None,
     no_progress: NoProgressOption = False,
+    start_date: StartDateOption = None,
+    end_date: EndDateOption = None,
+    source: SourcePatternOption = None,
+    source_ex: SourcePatternExcludeOption = None,
+    title: TitlePatternOption = None,
+    title_ex: TitlePatternExcludeOption = None,
+    agenda: AgendaPatternOption = None,
+    agenda_ex: AgendaPatternExcludeOption = None,
     cache_dir: CacheDirOption = None,
     http_cache_enabled: HttpCacheOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
@@ -103,8 +119,8 @@ def crawl_tdocs(
         working_groups=working_groups,
         subgroups=subgroups,
         meeting_ids=None,
-        start_date=None,
-        end_date=None,
+        start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
+        end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
         incremental=incremental,
         force_revalidate=False,
         workers=workers,
@@ -128,7 +144,23 @@ def crawl_tdocs(
             limit=None,
             order=SortOrder.ASC,
             include_without_files=False,
+            start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
+            end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
         )
+        meetings = meeting_db.query_meetings(query_config)
+
+    if meetings:
+        # Extract unique subgroups from queried meetings
+        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
+        if unique_subgroups:
+            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
+        else:
+            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
+    # Fallback to input parameters if no meetings found in DB
+    elif subgroups:
+        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
+    else:
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
         meetings = meeting_db.query_meetings(query_config)
 
     if meetings:
@@ -191,6 +223,14 @@ def crawl_tdocs(
                 working_groups=working_groups,
                 limit=checkout_limit,
                 order=SortOrder.DESC,
+                start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
+                end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
+                source_pattern=source,
+                source_pattern_exclude=source_ex,
+                title_pattern=title,
+                title_pattern_exclude=title_ex,
+                agenda_pattern=agenda,
+                agenda_pattern_exclude=agenda_ex,
             )
             results = database.query_tdocs(query_config)
 
@@ -229,6 +269,8 @@ def crawl_meetings(
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
+    start_date: StartDateOption = None,
+    end_date: EndDateOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
@@ -305,6 +347,8 @@ def crawl_meetings(
             limit=limit_meetings if limit_meetings and limit_meetings > 0 else None,
             order=SortOrder.DESC,
             include_without_files=False,
+            start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
+            end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
         )
         with MeetingDatabase(db_file) as database:
             meetings = database.query_meetings(query_config)

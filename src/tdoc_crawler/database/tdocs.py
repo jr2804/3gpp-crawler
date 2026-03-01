@@ -1,5 +1,6 @@
 """TDoc database operations."""
 
+import fnmatch
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -121,6 +122,36 @@ class TDocDatabase(MeetingDatabase):
             records = [record for record in records if record.date_retrieved and record.date_retrieved >= config.start_date]
         if config.end_date is not None:
             records = [record for record in records if record.date_retrieved and record.date_retrieved <= config.end_date]
+
+        # Meeting date filters
+        if config.meeting_start_date is not None:
+            records = [
+                record for record in records if (m := meeting_map.get(record.meeting_id or -1)) and m.start_date and m.start_date >= config.meeting_start_date
+            ]
+        if config.meeting_end_date is not None:
+            records = [record for record in records if (m := meeting_map.get(record.meeting_id or -1)) and m.end_date and m.end_date <= config.meeting_end_date]
+
+        # Glob pattern filters (case-insensitive, OR logic within same field)
+        if config.source_pattern:
+            patterns = [p.lower() for p in config.source_pattern]
+            records = [record for record in records if record.source and any(fnmatch.fnmatch(record.source.lower(), p) for p in patterns)]
+        if config.source_pattern_exclude:
+            patterns = [p.lower() for p in config.source_pattern_exclude]
+            records = [record for record in records if not record.source or not any(fnmatch.fnmatch(record.source.lower(), p) for p in patterns)]
+        if config.title_pattern:
+            patterns = [p.lower() for p in config.title_pattern]
+            records = [record for record in records if record.title and any(fnmatch.fnmatch(record.title.lower(), p) for p in patterns)]
+        if config.title_pattern_exclude:
+            patterns = [p.lower() for p in config.title_pattern_exclude]
+            records = [record for record in records if not record.title or not any(fnmatch.fnmatch(record.title.lower(), p) for p in patterns)]
+        if config.agenda_pattern:
+            patterns = [p.lower() for p in config.agenda_pattern]
+            records = [record for record in records if record.agenda_item_text and any(fnmatch.fnmatch(record.agenda_item_text.lower(), p) for p in patterns)]
+        if config.agenda_pattern_exclude:
+            patterns = [p.lower() for p in config.agenda_pattern_exclude]
+            records = [
+                record for record in records if not record.agenda_item_text or not any(fnmatch.fnmatch(record.agenda_item_text.lower(), p) for p in patterns)
+            ]
 
         descending = config.order.value.lower() == "desc"
         records.sort(

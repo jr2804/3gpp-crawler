@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -28,9 +29,20 @@ from tdoc_crawler.ai import (
 )
 from tdoc_crawler.ai.models import SourceKind
 from tdoc_crawler.ai.operations.pipeline import process_all
+from tdoc_crawler.cli.args import (
+    AgendaPatternExcludeOption,
+    AgendaPatternOption,
+    EndDateOption,
+    SourcePatternExcludeOption,
+    SourcePatternOption,
+    StartDateOption,
+    TitlePatternExcludeOption,
+    TitlePatternOption,
+)
 from tdoc_crawler.config import CacheManager
-
-HELP_PANEL = "AI Commands"
+from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.utils.date_parser import parse_partial_date
 
 ai_app = typer.Typer(help="AI document processing commands")
 console = Console()
@@ -179,6 +191,9 @@ _workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
 def workspace_create(
     name: Annotated[str, typer.Argument(..., help="Workspace name")],
     auto_build: Annotated[bool, typer.Option("--auto-build", help="Automatically process documents added to this workspace")] = False,
+    activate: Annotated[
+        bool, typer.Option("--activate/--no-activate", help="Activate workspace after creation (default: activate)", envvar="TDC_AI_WORKSPACE_ACTIVATE")
+    ] = True,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Create a new workspace."""
@@ -187,10 +202,15 @@ def workspace_create(
     storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     workspace = create_workspace(storage, name, auto_build=auto_build)
 
+    if activate:
+        set_active_workspace(name)
+
     if json_output:
         typer.echo(workspace.model_dump_json())
     else:
         console.print(f"[green]Created workspace: {workspace.workspace_name}[/green]")
+        if activate:
+            console.print("[cyan]Activated as current workspace[/cyan]")
         if auto_build:
             console.print("[cyan]Auto-build: Enabled[/cyan]")
 
@@ -351,16 +371,29 @@ def workspace_clear(
 @_workspace_app.command("add-members")
 def workspace_add_members(
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    items: Annotated[list[str], typer.Argument(..., help="Source item IDs to add")] = None,  # type: ignore[assignment]
+    items: Annotated[list[str] | None, typer.Argument(..., help="Source item IDs to add (optional if filters provided)")] = None,
     kind: Annotated[
         str,
         typer.Option("--kind", help="Source kind (tdoc, spec, other)"),
     ] = "tdoc",
     checkout: Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present")] = True,
     release: Annotated[str | None, typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs.")] = None,
+    # NEW: Add filter options
+    start_date: StartDateOption = None,
+    end_date: EndDateOption = None,
+    source: SourcePatternOption = None,
+    source_ex: SourcePatternExcludeOption = None,
+    title: TitlePatternOption = None,
+    title_ex: TitlePatternExcludeOption = None,
+    agenda: AgendaPatternOption = None,
+    agenda_ex: AgendaPatternExcludeOption = None,
+    limit: Annotated[int | None, typer.Option("--limit", help="Maximum items to add")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Add source items to a workspace."""
+    """Add source items to a workspace.
+
+    If no items are provided, queries the database using the provided filters.
+    """
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
 
@@ -368,12 +401,30 @@ def workspace_add_members(
 
     source_kind = SourceKind(kind.lower()) if kind.lower() in [e.value for e in SourceKind] else SourceKind.OTHER
 
-    # Build members with actual paths
-    members = []
-    checkout_base = manager.root / "checkout"
+    # Query database if no items provided but filters are present
+    if items is None:
+        if source_kind == SourceKind.TDOC:
+            config = TDocQueryConfig(
+                start_date=datetime.combine(parse_partial_date(start_date), datetime.min.time()) if start_date else None,
+                end_date=datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time()) if end_date else None,
+                source_pattern=source,
+                source_pattern_exclude=source_ex,
+                title_pattern=title,
+                title_pattern_exclude=title_ex,
+                agenda_pattern=agenda,
+                agenda_pattern_exclude=agenda_ex,
+                limit=limit,
+            )
+            with TDocDatabase(manager.db_file) as db:
+                results = db.query_tdocs(config)
+                items = [tdoc.tdoc_id for tdoc in results]
+        else:
+            console.print("[red]Error: No items provided and filtering is only supported for TDocs[/red]")
+            raise typer.Exit(1)
 
-    for item in items:
-        source_path = item
+    if not items:
+        console.print("[yellow]No items match the provided filters[/yellow]")
+        return
 
     # Build members with actual paths
     members = []
@@ -400,6 +451,7 @@ def workspace_add_members(
                 # Ensure .ai subfolder exists
                 ensure_ai_subfolder(checkout_path)
         members.append(make_workspace_member(workspace, item, source_path, source_kind))
+
     # Report skipped items
     if skipped_items:
         console.print("\n[yellow]Warning: Skipped invalid items:[/yellow]")
@@ -408,17 +460,6 @@ def workspace_add_members(
         if source_kind == SourceKind.TDOC:
             console.print("\n[yellow]Hint: For TDocs, ensure the meeting has been crawled with 'tdoc-crawler crawl-tdocs <meeting-id>'[/yellow]")
         console.print()
-        if checkout:
-            checkout_path = None
-            if source_kind == SourceKind.TDOC:
-                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, storage, workspace)
-            elif source_kind == SourceKind.SPEC:
-                checkout_path = checkout_spec_to_workspace(item, checkout_base, workspace, release or "latest")
-            if checkout_path:
-                source_path = str(checkout_path)
-                # Ensure .ai subfolder exists
-                ensure_ai_subfolder(checkout_path)
-        members.append(make_workspace_member(workspace, item, source_path, source_kind))
 
     count = storage.add_workspace_members(workspace, members)
 

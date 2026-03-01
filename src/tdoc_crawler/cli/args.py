@@ -68,6 +68,31 @@ IncludeWithoutFilesOption = Annotated[
     typer.Option("--include-without-files", help="Include meetings without files URLs"),
 ]
 FullMetadataOption = Annotated[bool, typer.Option("--full-metadata", help="Fetch full metadata instead of URL only")]
+# Glob pattern filters for TDocs
+SourcePatternOption = Annotated[
+    list[str] | None,
+    typer.Option("--source", help="Glob pattern for source field (e.g., '*huawei*'). Multiple values are OR'd.", envvar="TDC_SOURCE_PATTERN"),
+]
+SourcePatternExcludeOption = Annotated[
+    list[str] | None,
+    typer.Option("--source-ex", help="Glob pattern to exclude source field. Multiple values are OR'd.", envvar="TDC_SOURCE_PATTERN_EXCLUDE"),
+]
+TitlePatternOption = Annotated[
+    list[str] | None,
+    typer.Option("--title", help="Glob pattern for title field (e.g., '*AI*'). Multiple values are OR'd.", envvar="TDC_TITLE_PATTERN"),
+]
+TitlePatternExcludeOption = Annotated[
+    list[str] | None,
+    typer.Option("--title-ex", help="Glob pattern to exclude title field. Multiple values are OR'd.", envvar="TDC_TITLE_PATTERN_EXCLUDE"),
+]
+AgendaPatternOption = Annotated[
+    list[str] | None,
+    typer.Option("--agenda", help="Glob pattern for agenda_item_text field. Multiple values are OR'd.", envvar="TDC_AGENDA_PATTERN"),
+]
+AgendaPatternExcludeOption = Annotated[
+    list[str] | None,
+    typer.Option("--agenda-ex", help="Glob pattern to exclude agenda_item_text field. Multiple values are OR'd.", envvar="TDC_AGENDA_PATTERN_EXCLUDE"),
+]
 
 
 # Options - Specs

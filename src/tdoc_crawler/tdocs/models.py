@@ -6,7 +6,6 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
 
 import requests
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -286,24 +285,19 @@ class TDocQueryConfig(BaseConfigModel):
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
     start_date: datetime | None = Field(None, description="Start date filter")
     end_date: datetime | None = Field(None, description="End date filter")
+    # Meeting date filters (filter by associated meeting's dates)
+    meeting_start_date: date | None = Field(None, description="Filter by meeting start date")
+    meeting_end_date: date | None = Field(None, description="Filter by meeting end date")
+    # Glob-style metadata filters (case-insensitive fnmatch)
+    source_pattern: list[str] | None = Field(None, description="Glob pattern(s) for source field; multiple values are OR'd")
+    source_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude source field; multiple values are OR'd")
+    title_pattern: list[str] | None = Field(None, description="Glob pattern(s) for title field; multiple values are OR'd")
+    title_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude title field; multiple values are OR'd")
+    agenda_pattern: list[str] | None = Field(None, description="Glob pattern(s) for agenda_item_text field; multiple values are OR'd")
+    agenda_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude agenda_item_text field; multiple values are OR'd")
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to date_retrieved")
 
-    def __init__(self, **data: Any) -> None:
-        """Normalize identifiers and accept enum values from strings."""
-        tdoc_ids = data.get("tdoc_ids")
-        if tdoc_ids:
-            if isinstance(tdoc_ids, str):
-                data["tdoc_ids"] = normalize_tdoc_ids([tdoc_ids])
-            elif isinstance(tdoc_ids, Iterable):
-                data["tdoc_ids"] = normalize_tdoc_ids(tdoc_ids)
-
-        output_format = data.get("output_format")
-        if isinstance(output_format, str):
-            data["output_format"] = OutputFormat(output_format.lower())
-        super().__init__(**data)
-
-    @field_validator("working_groups", mode="before")
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup] | None) -> list[WorkingGroup] | None:
         """Ensure the working group list is comprised of enum members."""

@@ -111,6 +111,12 @@ class MeetingDatabase(DocDatabase):
         if not config.include_without_files:
             meetings = [meeting for meeting in meetings if meeting.files_url]
 
+        # Date range filters
+        if config.start_date is not None:
+            meetings = [meeting for meeting in meetings if meeting.start_date and meeting.start_date >= config.start_date]
+        if config.end_date is not None:
+            meetings = [meeting for meeting in meetings if meeting.end_date and meeting.end_date <= config.end_date]
+
         descending = config.order.value.lower() == "desc"
         meetings.sort(
             key=lambda meeting: (

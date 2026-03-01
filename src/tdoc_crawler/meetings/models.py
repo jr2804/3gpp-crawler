@@ -102,6 +102,9 @@ class MeetingQueryConfig(BaseConfigModel):
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to start date")
     include_without_files: bool = Field(False, description="Include meetings without associated files URL")
+    # Date range filters
+    start_date: date | None = Field(None, description="Filter meetings starting from this date")
+    end_date: date | None = Field(None, description="Filter meetings ending before this date")
 
     @field_validator("working_groups", mode="before")
     @classmethod
