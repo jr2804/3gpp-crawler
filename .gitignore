@@ -237,3 +237,7 @@ Thumbs.db
 /.agents/skills/visual-explainer
 skills-lock.json
 /.agents/skills/code-deduplication
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
