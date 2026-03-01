@@ -8,7 +8,7 @@ from functools import partial
 
 try:
     from concurrent.futures import InterpreterPoolExecutor
-except (ImportError, AttributeError):
+except ImportError, AttributeError:
     InterpreterPoolExecutor = None  # type: ignore[misc]
 
 import pytest
