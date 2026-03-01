@@ -94,21 +94,21 @@ console = Console()
 
 @ai_app.command("summarize")
 def ai_summarize(
-    tdoc_id: Annotated[str, typer.Argument(..., help="TDoc ID to summarize")],
+    document_id: Annotated[str, typer.Argument(..., help="Document ID to summarize")],
     words: Annotated[int, typer.Option("--words", "-w", help="Target word count (default: 200)")] = 200,
     output_format: Annotated[str, typer.Option("--format", "-f", help="Output format (markdown, json, yaml)")] = "markdown",
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON (overrides --format)")] = False,
 ) -> None:
-    """Summarize a single TDoc with specified word count."""
+    """Summarize a single document with specified word count."""
     try:
-        result = summarize_tdoc(tdoc_id=tdoc_id, words=words, fetch_remote=True)
+        result = summarize_tdoc(document_id=document_id, words=words, fetch_remote=True)
 
         if json_output or output_format == "json":
             typer.echo(result.to_json())
         elif output_format == "yaml":
             typer.echo(result.to_yaml())
         else:
-            console.print(f"## Summary for {tdoc_id}")
+            console.print(f"## Summary for {document_id}")
             console.print(result.summary)
     except Exception as exc:
         if json_output:
@@ -117,23 +117,22 @@ def ai_summarize(
             console.print(f"[red]Error: {exc}[/red]")
         raise typer.Exit(1) from exc
 
-
 @ai_app.command("convert")
 def ai_convert(
-    tdoc_id: Annotated[str, typer.Argument(..., help="TDoc ID to convert")],
+    document_id: Annotated[str, typer.Argument(..., help="Document ID to convert")],
     output: Annotated[Path | None, typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Convert a single TDoc to markdown format."""
+    """Convert a single document to markdown format."""
     try:
         output_path = Path(output) if output else None
-        markdown_content = convert_tdoc(tdoc_id=tdoc_id, output_path=output_path)
+        markdown_content = convert_tdoc(document_id=document_id, output_path=output_path)
 
         if output_path:
             if json_output:
                 typer.echo(json.dumps({"output": str(output_path)}))
             else:
-                console.print(f"[green]Converted {tdoc_id} to {output_path}[/green]")
+                console.print(f"[green]Converted {document_id} to {output_path}[/green]")
         elif json_output:
             typer.echo(json.dumps({"markdown": markdown_content}))
         else:
@@ -503,33 +502,33 @@ def workspace_process(
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     new_only: Annotated[bool, typer.Option("--new-only", help="Process only TDocs not already completed")] = True,
     force_rerun: Annotated[bool, typer.Option("--force", help="Force reprocessing of all TDocs")] = False,
+    summarize: Annotated[bool, typer.Option("--summarize/--no-summarize", help="Generate LLM summary (requires LLM config)")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Process all TDoc members in a workspace through the AI pipeline."""
+    """Process all active document members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
-    manager = CacheManager().register()
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
     manager = CacheManager().register()
     storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
 
     # Get workspace members
     members = storage.list_workspace_members(workspace, include_inactive=False)
-    tdoc_ids = [m.source_item_id for m in members if m.is_active and m.source_kind.value == "tdoc"]
+    document_ids = [m.source_item_id for m in members if m.is_active]
 
-    if not tdoc_ids:
+    if not document_ids:
         if json_output:
-            typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "processed": 0, "message": "No TDoc members found"}))
+            typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "processed": 0, "message": "No active members found"}))
         else:
-            console.print(f"[yellow]No TDoc members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
+            console.print(f"[yellow]No active members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
         return
 
-    # Process TDocs
+    # Process documents
     results = process_all(
-        tdoc_ids=tdoc_ids,
+        tdoc_ids=document_ids,
         checkout_base=manager.root,
         new_only=new_only,
         force_rerun=force_rerun,
         workspace=workspace,
+        summarize_last=summarize,
     )
 
     if json_output:
@@ -538,15 +537,14 @@ def workspace_process(
                 {
                     "workspace": normalize_workspace_name(workspace),
                     "processed": len(results),
-                    "total_members": len(tdoc_ids),
-                    "tdoc_ids": list(results.keys()),
+                    "total_members": len(document_ids),
+                    "document_ids": list(results.keys()),
                 }
             )
         )
     else:
-        console.print(f"[green]Processed {len(results)}/{len(tdoc_ids)} TDoc(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
-
-
+        console.print(f"[green]Processed {len(results)}/{len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
+        console.print(f"[green]Processed {len(results)}/{len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
 @_workspace_app.command("delete")
 def workspace_delete(
     name: Annotated[str, typer.Argument(..., help="Workspace name")],

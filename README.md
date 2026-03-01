@@ -163,6 +163,13 @@ tdoc-crawler stats
 
 For detailed documentation, including command deep-dives, configuration, and architecture, see the [Documentation Index](docs/index.md).
 
+## Outlook
+
+Future enhancements may include:
+
+- Improved RAG with PageIndex, see: <https://github.com/VectifyAI/PageIndex.git>, <https://github.com/VectifyAI/pageindex-mcp>
+- Web-based UI for interactive querying and document exploration
+
 ## Development
 
 For information on setting up the development environment, running tests, and code quality standards, please refer to the [Development Guide](docs/development.md).
