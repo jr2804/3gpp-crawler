@@ -37,7 +37,7 @@ def _validate_model_identifier(value: str, field_name: str) -> str:
         msg = f"{field_name} model_name segment cannot be empty"
         raise ValueError(msg)
 
-    supported_providers = litellm.LITELLM_CHAT_PROVIDERS
+    supported_providers = set(litellm.LITELLM_CHAT_PROVIDERS + litellm.openai_compatible_providers)
 
     if provider_normalized not in supported_providers:
         msg = (
