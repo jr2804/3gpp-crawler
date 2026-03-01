@@ -1,5 +1,5 @@
 [tools]
-"aqua:steveyegge/beads" = "0.49.6"
+"aqua:steveyegge/beads" = "latest"
 "github:yoanbernabeu/grepai" = "latest"
 node = "latest"
 bun = "latest"
