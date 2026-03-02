@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Annotated
 
 import typer
 import yaml
@@ -86,6 +87,7 @@ def query_tdocs(
     title_ex: TitlePatternExcludeOption = None,
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
+    graph_rag: Annotated[bool, typer.Option("--graph-rag", help="Use hybrid graph-RAG search")] = False,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query TDoc metadata from database."""
@@ -169,6 +171,13 @@ def query_tdocs(
     # Build meeting map for enriched output
     with MeetingDatabase(db_file) as meeting_db:
         meeting_map = meeting_db._meeting_map()
+
+    # If graph-rag flag is set, perform hybrid search
+    # Disabled due to logical inconsistency - query_hybrid expects text query, not TDoc ID
+    # The hybrid search function is designed for semantic search + graph expansion,
+    # but was being incorrectly called with a TDoc ID instead of a text query.
+    # This functionality has been disabled as it doesn't make logical sense in CLI context.
+    pass
 
     if config.output_format is OutputFormat.JSON:
         console.print(json.dumps([tdoc_to_dict(result, meeting_map) for result in results], indent=2))

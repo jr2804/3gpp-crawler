@@ -1,7 +1,5 @@
 """Embeddings generation and storage using sentence-transformers."""
 
-from __future__ import annotations
-
 import hashlib
 import logging
 import re
@@ -19,39 +17,49 @@ from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
 
-# Default embedding model
-DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
-DEFAULT_DIMENSION = 384
-
 # Chunk size settings
 DEFAULT_MAX_CHARS = 500
 DEFAULT_OVERLAP = 50
 
 
-def get_embedding_model() -> EmbeddingModelWrapper:
-    """Get the embedding model, initializing if needed.
+class EmbeddingsManager:
+    """Manages embedding model and storage for document embedding and retrieval."""
 
-    Returns:
-        EmbeddingModelWrapper instance.
-    """
-    return EmbeddingModelWrapper()
+    def __init__(self, config: AiConfig | None = None, storage: AiStorage | None = None) -> None:
+        """Initialize the embeddings manager.
 
+        Args:
+            config: AI configuration. If None, resolved from environment via AiConfig.from_env().
+            storage: AI storage instance. If None, created lazily in generate_embeddings.
+        """
+        if config is None:
+            config = AiConfig.from_env()
+        self._config = config
+        self._storage = storage
+        # Use the full embedding_model identifier (e.g., 'perplexity-ai/pplx-embed-v1-0.6B')
+        self._model_name: str = config.embedding_model
+        self._model: SentenceTransformer | None = None
 
-class EmbeddingModelWrapper:
-    """Wrapper for sentence-transformers model."""
-
-    _instance: EmbeddingModelWrapper | None = None
-    _model: Any = None
-    _model_name = DEFAULT_MODEL
-
-    def __new__(cls) -> EmbeddingModelWrapper:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(self) -> None:
+    @property
+    def model(self) -> SentenceTransformer:
+        """Return the sentence-transformers model, loading it lazily on first access."""
         if self._model is None:
-            self._load_model()
+            self._model = SentenceTransformer(self._model_name, trust_remote_code=True)
+            logger.info(f"Loaded embedding model: {self._model_name}")
+        return self._model
+
+    @property
+    def dimension(self) -> int:
+        """Return embedding dimension."""
+        dim = self.model.get_sentence_embedding_dimension()
+        if dim is None:
+            raise RuntimeError(f"Model '{self._model_name}' did not report an embedding dimension")
+        return dim
+
+    @property
+    def model_name(self) -> str:
+        """Return model name."""
+        return self._model_name
 
     def encode(self, texts: Sequence[str]) -> list[list[float]]:
         """Encode texts to embeddings.
@@ -62,27 +70,89 @@ class EmbeddingModelWrapper:
         Returns:
             List of embedding vectors.
         """
-        embeddings = self._model.encode(texts, normalize_embeddings=True)
+        embeddings = self.model.encode(list(texts), normalize_embeddings=True, convert_to_numpy=True)
         return embeddings.tolist()
 
-    @property
-    def dimension(self) -> int:
-        """Return embedding dimension."""
-        # Get dimension from the actual model
+    def generate_embeddings(self, document_id: str, markdown: str | Path, workspace: str | None = None) -> list[DocumentChunk]:
+        """Generate embeddings for markdown content.
+
+        Args:
+            document_id: Document identifier.
+            markdown: Markdown content to embed.
+            workspace: Optional workspace scope (defaults to "default").
+
+        Returns:
+            List of DocumentChunk objects with embeddings.
+        """
+        if self._storage is None:
+            if self._config.ai_store_path is None:
+                raise RuntimeError("ai_store_path is not configured in AiConfig")
+            self._storage = AiStorage(self._config.ai_store_path, embedding_dimension=self.dimension)
+
+        normalized_workspace = normalize_workspace_name(workspace)
+        markdown_content = markdown.read_text(encoding="utf-8") if isinstance(markdown, Path) else markdown
+
+        # Compute content hash for idempotency
+        content_hash = hashlib.sha256(markdown_content.encode("utf-8")).hexdigest()
+
+        existing_hash = self._storage.get_embedding_hash(document_id)
+        if existing_hash == content_hash:
+            logger.info(f"Skipping embedding for {document_id} - content unchanged")
+            return []
+
+        # Create chunks
+        chunks = _create_chunks(document_id, markdown_content, self._model_name)
+
+        if not chunks:
+            return []
+
+        # Extract text for embedding
+        texts = [chunk.content for chunk in chunks]
+
+        # Generate embeddings
         try:
-            return self._model.get_sentence_embedding_dimension()
-        except Exception:
-            return DEFAULT_DIMENSION
+            embeddings = self.encode(texts)
 
-    @property
-    def model_name(self) -> str:
-        """Return model name."""
-        return self._model_name
+            # Attach embeddings to chunks
+            for chunk, embedding in zip(chunks, embeddings, strict=False):
+                chunk.embedding = [float(value) for value in embedding]
+                chunk.embedding_model = self._model_name
 
-    def _load_model(self) -> None:
-        """Load the sentence-transformers model."""
-        self._model = SentenceTransformer(DEFAULT_MODEL)
-        logger.info(f"Loaded embedding model: {DEFAULT_MODEL}")
+            self._storage.save_chunks(chunks, workspace=normalized_workspace)
+
+            # Store hash for future idempotency
+            self._storage.save_embedding_hash(document_id, content_hash)
+
+            logger.info(f"Generated {len(chunks)} embeddings for {document_id}")
+            return chunks
+
+        except Exception as e:
+            logger.error(f"Failed to generate embeddings for {document_id}: {e}")
+            raise
+
+    def query_embeddings(self, query: str, workspace: str, top_k: int = 5) -> list[tuple[DocumentChunk, float]]:
+        """Query embeddings using semantic search.
+
+        Args:
+            query: Search query.
+            workspace: Workspace scope (required).
+            top_k: Number of results to return.
+
+        Returns:
+            List of (DocumentChunk, score) tuples.
+        """
+        storage = self._storage or AiStorage(self._config.ai_store_path)  # type: ignore[arg-type]
+        normalized_workspace = normalize_workspace_name(workspace)
+
+        # Encode query
+        query_embedding = cast(Any, self.encode([query])[0])
+        if isinstance(query_embedding, list):
+            query_vector = [float(value) for value in query_embedding]
+        else:
+            query_vector = [float(value) for value in query_embedding.tolist()]
+
+        # Search in storage
+        return storage.search_chunks(query_vector, top_k, workspace=normalized_workspace)
 
 
 def _chunk_by_headings(markdown: str) -> list[dict[str, str]]:
@@ -205,12 +275,13 @@ def _chunk_by_paragraphs(text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[
     return overlapped_chunks
 
 
-def _create_chunks(tdoc_id: str, markdown: str) -> list[DocumentChunk]:
+def _create_chunks(document_id: str, markdown: str, model_name: str) -> list[DocumentChunk]:
     """Create document chunks from markdown.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         markdown: Markdown content.
+        model_name: Embedding model name to tag on each chunk.
 
     Returns:
         List of DocumentChunk objects.
@@ -230,60 +301,40 @@ def _create_chunks(tdoc_id: str, markdown: str) -> list[DocumentChunk]:
             for j, sub_content in enumerate(sub_chunks):
                 chunks.append(
                     DocumentChunk(
-                        chunk_id=f"{tdoc_id}:{i * 100 + j}",
-                        tdoc_id=tdoc_id,
+                        chunk_id=f"{document_id}:{i * 100 + j}",
+                        document_id=document_id,
                         section_heading=f"{section_name} ({j + 1})",
                         chunk_index=i * 100 + j,
                         text=sub_content,
                         char_offset_start=0,
                         char_offset_end=len(sub_content),
                         vector=[],
-                        embedding_model=DEFAULT_MODEL,
+                        embedding_model=model_name,
                         created_at=utc_now(),
                     )
                 )
         else:
             chunks.append(
                 DocumentChunk(
-                    chunk_id=f"{tdoc_id}:{i}",
-                    tdoc_id=tdoc_id,
+                    chunk_id=f"{document_id}:{i}",
+                    document_id=document_id,
                     section_heading=section_name,
                     chunk_index=i,
                     text=content,
                     char_offset_start=0,
                     char_offset_end=len(content),
                     vector=[],
-                    embedding_model=DEFAULT_MODEL,
+                    embedding_model=model_name,
                     created_at=utc_now(),
                 )
             )
 
-    logger.info(f"Created {len(chunks)} chunks for {tdoc_id}")
+    logger.info(f"Created {len(chunks)} chunks for {document_id}")
     return chunks
 
 
-def _should_skip_embedding(tdoc_id: str, content_hash: str) -> bool:
-    """Check if embedding should be skipped based on content hash.
-
-    Args:
-        tdoc_id: TDoc identifier.
-        content_hash: Hash of the content.
-
-    Returns:
-        True if embedding exists and is current.
-    """
-    try:
-        config = AiConfig.from_env(cache_manager_name="default")
-        model = get_embedding_model()
-        storage_client = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
-        existing_hash = storage_client.get_embedding_hash(tdoc_id)
-        return existing_hash == content_hash
-    except Exception:
-        return False
-
-
 def generate_embeddings(
-    tdoc_id: str,
+    document_id: str,
     markdown: str | Path,
     storage: AiStorage | None = None,
     workspace: str | None = None,
@@ -291,7 +342,7 @@ def generate_embeddings(
     """Generate embeddings for markdown content.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         markdown: Markdown content to embed.
         storage: Optional storage instance.
         workspace: Optional workspace scope (defaults to "default").
@@ -299,56 +350,8 @@ def generate_embeddings(
     Returns:
         List of DocumentChunk objects with embeddings.
     """
-    if storage is None:
-        config = AiConfig.from_env(cache_manager_name="default")
-        model = get_embedding_model()
-        storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
-
-    normalized_workspace = normalize_workspace_name(workspace)
-    markdown_content = markdown.read_text(encoding="utf-8") if isinstance(markdown, Path) else markdown
-
-    # Compute content hash for idempotency
-    content_hash = hashlib.sha256(markdown_content.encode("utf-8")).hexdigest()
-
-    if _should_skip_embedding(tdoc_id, content_hash):
-        logger.info(f"Skipping embedding for {tdoc_id} - content unchanged")
-        return []
-
-    # Create chunks
-    chunks = _create_chunks(tdoc_id, markdown_content)
-
-    if not chunks:
-        return []
-
-    # Get embedding model
-    model = get_embedding_model()
-
-    # Extract text for embedding
-    texts = [chunk.content for chunk in chunks]
-
-    # Generate embeddings
-    try:
-        embeddings = model.encode(texts)
-
-        # Attach embeddings to chunks
-        for chunk, embedding in zip(chunks, embeddings, strict=False):
-            if hasattr(embedding, "tolist"):
-                chunk.embedding = [float(value) for value in embedding.tolist()]
-            else:
-                chunk.embedding = [float(value) for value in embedding]
-            chunk.embedding_model = model.model_name
-
-        storage.save_chunks(chunks, workspace=normalized_workspace)
-
-        # Store hash for future idempotency
-        storage.save_embedding_hash(tdoc_id, content_hash)
-
-        logger.info(f"Generated {len(chunks)} embeddings for {tdoc_id}")
-        return chunks
-
-    except Exception as e:
-        logger.error(f"Failed to generate embeddings for {tdoc_id}: {e}")
-        raise
+    manager = EmbeddingsManager(storage=storage)
+    return manager.generate_embeddings(document_id, markdown, workspace)
 
 
 def query_embeddings(
@@ -366,23 +369,11 @@ def query_embeddings(
     Returns:
         List of (DocumentChunk, score) tuples.
     """
-    config = AiConfig.from_env(cache_manager_name="default")
-    storage = AiStorage(config.ai_store_path)  # type: ignore[arg-type]
-    normalized_workspace = normalize_workspace_name(workspace)
-
-    # Get embedding model
-    model = get_embedding_model()
-
-    # Encode query
-    query_embedding = cast(Any, model.encode([query])[0])
-    query_vector = [float(value) for value in query_embedding.tolist()] if hasattr(query_embedding, "tolist") else [float(value) for value in query_embedding]
-
-    # Search in storage
-    return storage.search_chunks(query_vector, top_k, workspace=normalized_workspace)
+    return EmbeddingsManager().query_embeddings(query, workspace, top_k)
 
 
 __all__ = [
+    "EmbeddingsManager",
     "generate_embeddings",
-    "get_embedding_model",
     "query_embeddings",
 ]

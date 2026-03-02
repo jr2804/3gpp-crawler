@@ -133,14 +133,14 @@ class LiteLLMClient:
 
 
 def _should_skip_summary(
-    tdoc_id: str,
+    document_id: str,
     content_hash: str,
     storage_client: AiStorage | None = None,
 ) -> bool:
     """Check if summary should be skipped based on content hash.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         content_hash: Hash of content.
         storage_client: Storage client instance.
 
@@ -149,16 +149,16 @@ def _should_skip_summary(
     """
     try:
         if storage_client is not None:
-            existing = storage_client.get_summary_hash(tdoc_id)
+            existing = storage_client.get_summary_hash(document_id)
             return existing == content_hash
 
         if storage is not None:
-            existing = storage.get_summary_hash(tdoc_id)
+            existing = storage.get_summary_hash(document_id)
             return existing == content_hash
 
         config = _get_ai_config()
         storage_client = AiStorage(config.ai_store_path)  # type: ignore[arg-type]
-        existing = storage_client.get_summary_hash(tdoc_id)
+        existing = storage_client.get_summary_hash(document_id)
         return existing == content_hash
     except Exception:
         return False
@@ -201,7 +201,7 @@ def _parse_structured_summary(payload: str) -> dict[str, list[str]]:
 
 
 def summarize_document(
-    tdoc_id: str,
+    document_id: str,
     markdown: str,
     storage: AiStorage | None = None,
     workspace: str | None = None,
@@ -209,7 +209,7 @@ def summarize_document(
     """Generate summary for a document.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         markdown: Markdown content.
         storage: Optional storage instance.
         workspace: Optional workspace scope (defaults to "default").
@@ -227,9 +227,9 @@ def summarize_document(
     # Compute content hash
     content_hash = hashlib.sha256(markdown.encode()).hexdigest()
 
-    if _should_skip_summary(tdoc_id, content_hash, storage_client=storage):
-        logger.info(f"Skipping summary for {tdoc_id} - content unchanged")
-        existing = storage.get_summary(tdoc_id, workspace=normalized_workspace)
+    if _should_skip_summary(document_id, content_hash, storage_client=storage):
+        logger.info(f"Skipping summary for {document_id} - content unchanged")
+        existing = storage.get_summary(document_id, workspace=normalized_workspace)
         if existing:
             return existing
 
@@ -259,7 +259,7 @@ def summarize_document(
     # Validate abstract word count
     word_count = _count_words(abstract)
     if word_count < config.abstract_min_words or word_count > config.abstract_max_words:
-        logger.warning(f"Abstract for {tdoc_id} outside recommended range: {word_count} words")
+        logger.warning(f"Abstract for {document_id} outside recommended range: {word_count} words")
 
     key_points = structured["key_points"] or _extract_key_points(abstract)
     action_items = structured["action_items"] or _extract_action_items(markdown)
@@ -268,7 +268,7 @@ def summarize_document(
 
     # Create summary
     summary = DocumentSummary(
-        tdoc_id=tdoc_id,
+        document_id=document_id,
         abstract=abstract,
         key_points=key_points,
         action_items=action_items,
@@ -281,9 +281,9 @@ def summarize_document(
 
     # Save to storage
     storage.save_summary(summary, workspace=normalized_workspace)
-    storage.save_summary_hash(tdoc_id, content_hash)
+    storage.save_summary_hash(document_id, content_hash)
 
-    logger.info(f"Generated summary for {tdoc_id}")
+    logger.info(f"Generated summary for {document_id}")
     return summary
 
 
@@ -377,7 +377,7 @@ Example output format: ["keyword1", "keyword2", "keyword3"]"""
 
 
 def summarize_tdoc(
-    tdoc_id: str,
+    document_id: str,
     words: int = 200,
     format: str = "markdown",
     fetch_remote: bool = True,
@@ -385,7 +385,7 @@ def summarize_tdoc(
     """Summarize a TDoc by ID.
 
     Args:
-        tdoc_id: TDoc identifier (e.g., "R1-2400001").
+        document_id: Document identifier (e.g., "R1-2400001").
         words: Target word count for summary (default: 200).
         format: Output format - "markdown", "json", or "yaml" (default: "markdown").
         fetch_remote: If True, fetch TDoc metadata from WhatTheSpec if not local.
@@ -399,7 +399,7 @@ def summarize_tdoc(
     """
     # Normalize TDoc ID
 
-    normalized_id = tdoc_id.strip().upper()
+    normalized_id = document_id.strip().upper()
 
     # Try to get metadata from WhatTheSpec
     metadata = None

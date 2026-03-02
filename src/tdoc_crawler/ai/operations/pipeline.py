@@ -16,8 +16,8 @@ from tdoc_crawler.ai.models import (
     PipelineStage,
     ProcessingStatus,
 )
-from tdoc_crawler.ai.operations.classify import classify_tdoc_files
-from tdoc_crawler.ai.operations.embeddings import generate_embeddings
+from tdoc_crawler.ai.operations.classify import classify_document_files
+from tdoc_crawler.ai.operations.embeddings import EmbeddingsManager, generate_embeddings
 from tdoc_crawler.ai.operations.extract import extract_from_folder
 from tdoc_crawler.ai.operations.summarize import summarize_document
 from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_pipeline(  # noqa: PLR0915
-    tdoc_id: str,
+    document_id: str,
     folder_path: Path,
     storage: AiStorage,
     progress_callback: Callable[[PipelineStage, str], None] | None = None,
@@ -45,7 +45,7 @@ def run_pipeline(  # noqa: PLR0915
     5. GRAPH - Build knowledge graph (placeholder)
 
     Args:
-        tdoc_id: TDoc identifier (e.g., "SP-123456").
+        document_id: Document identifier (e.g., "SP-123456").
         folder_path: Path to the TDoc checkout folder.
         storage: AiStorage instance for status tracking.
         progress_callback: Optional callback called after each stage.
@@ -58,31 +58,31 @@ def run_pipeline(  # noqa: PLR0915
     Raises:
         Exception: Per-TDoc errors are isolated and re-raised after logging.
     """
-    logger.info(f"Starting pipeline for {tdoc_id}")
+    logger.info(f"Starting pipeline for {document_id}")
     normalized_workspace = normalize_workspace_name(workspace)
 
     # Get or create processing status
     try:
-        status = storage.get_status(tdoc_id, workspace=normalized_workspace)
+        status = storage.get_status(document_id, workspace=normalized_workspace)
         if status is None:
-            status = ProcessingStatus(tdoc_id=tdoc_id)
+            status = ProcessingStatus(document_id=document_id)
     except Exception:
-        status = ProcessingStatus(tdoc_id=tdoc_id)
+        status = ProcessingStatus(document_id=document_id)
 
     if not force_rerun and status.current_stage == PipelineStage.COMPLETED:
-        logger.info(f"Skipping {tdoc_id} - already completed")
+        logger.info(f"Skipping {document_id} - already completed")
         return status
 
     # Stage 1: CLASSIFY
     try:
         if not force_rerun and status.classified_at:
-            logger.info(f"Skipping classification for {tdoc_id} - already classified")
+            logger.info(f"Skipping classification for {document_id} - already classified")
         else:
-            _run_classify_stage(tdoc_id, folder_path, storage, status, workspace=normalized_workspace)
+            _run_classify_stage(document_id, folder_path, storage, status, workspace=normalized_workspace)
             if progress_callback:
-                progress_callback(PipelineStage.CLASSIFYING, tdoc_id)
+                progress_callback(PipelineStage.CLASSIFYING, document_id)
     except Exception as e:
-        logger.error(f"Classification failed for {tdoc_id}: {e}")
+        logger.error(f"Classification failed for {document_id}: {e}")
         status.error_message = str(e)
         status.current_stage = PipelineStage.FAILED
         storage.save_status(status, workspace=normalized_workspace)
@@ -91,13 +91,13 @@ def run_pipeline(  # noqa: PLR0915
     # Stage 2: EXTRACT
     try:
         if not force_rerun and status.extracted_at:
-            logger.info(f"Skipping extraction for {tdoc_id} - already extracted")
+            logger.info(f"Skipping extraction for {document_id} - already extracted")
         else:
-            _run_extract_stage(tdoc_id, folder_path, storage, status, workspace=normalized_workspace)
+            _run_extract_stage(document_id, folder_path, storage, status, workspace=normalized_workspace)
             if progress_callback:
-                progress_callback(PipelineStage.EXTRACTING, tdoc_id)
+                progress_callback(PipelineStage.EXTRACTING, document_id)
     except Exception as e:
-        logger.error(f"Extraction failed for {tdoc_id}: {e}")
+        logger.error(f"Extraction failed for {document_id}: {e}")
         status.error_message = str(e)
         status.current_stage = PipelineStage.FAILED
         storage.save_status(status, workspace=normalized_workspace)
@@ -106,13 +106,13 @@ def run_pipeline(  # noqa: PLR0915
     # Stage 3: EMBED
     try:
         if not force_rerun and status.embedded_at:
-            logger.info(f"Skipping embedding for {tdoc_id} - already embedded")
+            logger.info(f"Skipping embedding for {document_id} - already embedded")
         else:
-            _run_embedding_stage(tdoc_id, folder_path, storage, status, workspace=normalized_workspace)
+            _run_embedding_stage(document_id, folder_path, storage, status, workspace=normalized_workspace)
             if progress_callback:
-                progress_callback(PipelineStage.EMBEDDING, tdoc_id)
+                progress_callback(PipelineStage.EMBEDDING, document_id)
     except Exception as e:
-        logger.error(f"Embedding failed for {tdoc_id}: {e}")
+        logger.error(f"Embedding failed for {document_id}: {e}")
         status.error_message = str(e)
         status.current_stage = PipelineStage.FAILED
         storage.save_status(status, workspace=normalized_workspace)
@@ -121,13 +121,13 @@ def run_pipeline(  # noqa: PLR0915
     # Stage 4: SUMMARIZE
     try:
         if not force_rerun and status.summarized_at:
-            logger.info(f"Skipping summarization for {tdoc_id} - already summarized")
+            logger.info(f"Skipping summarization for {document_id} - already summarized")
         else:
-            _run_summarize_stage(tdoc_id, folder_path, storage, status, workspace=normalized_workspace)
+            _run_summarize_stage(document_id, folder_path, storage, status, workspace=normalized_workspace)
             if progress_callback:
-                progress_callback(PipelineStage.SUMMARIZING, tdoc_id)
+                progress_callback(PipelineStage.SUMMARIZING, document_id)
     except Exception as e:
-        logger.error(f"Summarization failed for {tdoc_id}: {e}")
+        logger.error(f"Summarization failed for {document_id}: {e}")
         status.error_message = str(e)
         status.current_stage = PipelineStage.FAILED
         storage.save_status(status, workspace=normalized_workspace)
@@ -135,26 +135,26 @@ def run_pipeline(  # noqa: PLR0915
 
     # Stage 5: GRAPH (placeholder for now)
     if not force_rerun and status.graphed_at is not None:
-        logger.info(f"Skipping graphing for {tdoc_id} - already completed")
+        logger.info(f"Skipping graphing for {document_id} - already completed")
     else:
         status.current_stage = PipelineStage.GRAPHING
         status.error_message = None
         status.graphed_at = utc_now()
         storage.save_status(status, workspace=normalized_workspace)
         if progress_callback:
-            progress_callback(PipelineStage.GRAPHING, tdoc_id)
+            progress_callback(PipelineStage.GRAPHING, document_id)
 
     # Mark complete
     status.current_stage = PipelineStage.COMPLETED
     status.completed_at = utc_now()
     storage.save_status(status, workspace=normalized_workspace)
 
-    logger.info(f"Pipeline completed for {tdoc_id}")
+    logger.info(f"Pipeline completed for {document_id}")
     return status
 
 
 def _run_classify_stage(
-    tdoc_id: str,
+    document_id: str,
     folder_path: Path,
     storage: AiStorage,
     status: ProcessingStatus,
@@ -163,7 +163,7 @@ def _run_classify_stage(
     """Run classification stage.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         folder_path: Path to TDoc folder.
         storage: AiStorage instance.
         status: ProcessingStatus to update.
@@ -172,8 +172,8 @@ def _run_classify_stage(
     Returns:
         DocumentClassification for the main document.
     """
-    logger.info(f"Classifying files for {tdoc_id}")
-    classifications = classify_tdoc_files(tdoc_id, folder_path)
+    logger.info(f"Classifying files for {document_id}")
+    classifications = classify_document_files(document_id, folder_path)
 
     if not classifications:
         msg = f"No files found in {folder_path}"
@@ -189,12 +189,12 @@ def _run_classify_stage(
     status.classified_at = utc_now()
     storage.save_status(status, workspace=workspace)
 
-    logger.info(f"Classified {tdoc_id}: main={main.file_path} confidence={main.confidence}")
+    logger.info(f"Classified {document_id}: main={main.file_path} confidence={main.confidence}")
     return main
 
 
 def _run_extract_stage(
-    tdoc_id: str,
+    document_id: str,
     folder_path: Path,
     storage: AiStorage,
     status: ProcessingStatus,
@@ -203,7 +203,7 @@ def _run_extract_stage(
     """Run extraction stage.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         folder_path: Path to TDoc folder.
         storage: AiStorage instance.
         status: ProcessingStatus to update.
@@ -212,13 +212,13 @@ def _run_extract_stage(
     Returns:
         Extracted Markdown content.
     """
-    logger.info(f"Extracting content for {tdoc_id}")
+    logger.info(f"Extracting content for {document_id}")
 
     status.current_stage = PipelineStage.EXTRACTING
     status.error_message = None
     storage.save_status(status, workspace=workspace)
 
-    main_classification = storage.get_main_classification(tdoc_id, workspace=workspace)
+    main_classification = storage.get_main_classification(document_id, workspace=workspace)
     main_doc_path: Path | None = None
     if main_classification is not None:
         file_path = getattr(main_classification, "file_path", None)
@@ -228,19 +228,19 @@ def _run_extract_stage(
                 main_doc_path = candidate_path
 
     # Extract
-    markdown = extract_from_folder(tdoc_id, folder_path, storage, main_doc_path, workspace=workspace)
+    markdown = extract_from_folder(document_id, folder_path, storage, main_doc_path, workspace=workspace)
 
     # Update status
     status.extracted_at = utc_now()
     status.error_message = None
     storage.save_status(status, workspace=workspace)
 
-    logger.info(f"Extracted {tdoc_id}: {len(markdown)} characters")
+    logger.info(f"Extracted {document_id}: {len(markdown)} characters")
     return markdown
 
 
 def _run_embedding_stage(
-    tdoc_id: str,
+    document_id: str,
     folder_path: Path,
     storage: AiStorage,
     status: ProcessingStatus,
@@ -251,12 +251,12 @@ def _run_embedding_stage(
     status.error_message = None
     storage.save_status(status, workspace=workspace)
 
-    artifact_path = folder_path / ".ai" / f"{tdoc_id.strip().upper()}.md"
+    artifact_path = folder_path / ".ai" / f"{document_id.strip().upper()}.md"
     if not artifact_path.exists():
         msg = f"Extracted markdown artifact not found for embedding: {artifact_path}"
         raise FileNotFoundError(msg)
 
-    generate_embeddings(tdoc_id, artifact_path, storage=storage, workspace=workspace)
+    generate_embeddings(document_id, artifact_path, storage=storage, workspace=workspace)
 
     status.embedded_at = utc_now()
     status.error_message = None
@@ -264,7 +264,7 @@ def _run_embedding_stage(
 
 
 def _run_summarize_stage(
-    tdoc_id: str,
+    document_id: str,
     folder_path: Path,
     storage: AiStorage,
     status: ProcessingStatus,
@@ -275,23 +275,23 @@ def _run_summarize_stage(
     status.error_message = None
     storage.save_status(status, workspace=workspace)
 
-    artifact_path = folder_path / ".ai" / f"{tdoc_id.strip().upper()}.md"
+    artifact_path = folder_path / ".ai" / f"{document_id.strip().upper()}.md"
     if not artifact_path.exists():
         msg = f"Extracted markdown artifact not found for summarization: {artifact_path}"
         raise FileNotFoundError(msg)
 
     markdown = artifact_path.read_text(encoding="utf-8")
     try:
-        summarize_document(tdoc_id, markdown, storage=storage, workspace=workspace)
+        summarize_document(document_id, markdown, storage=storage, workspace=workspace)
     except LlmConfigError as exc:
-        logger.warning(f"Falling back to extractive summary for {tdoc_id}: {exc}")
+        logger.warning(f"Falling back to extractive summary for {document_id}: {exc}")
         words = markdown.split()
         abstract = " ".join(words[:220]).strip() or markdown[:1000]
         key_points = [line.strip(" -\t") for line in markdown.splitlines() if line.strip() and not line.lstrip().startswith("#")][:5]
         affected_specs = sorted(set(re.findall(r"(?:TS|TR)\s*\d{2}\.\d{3,4}", markdown)))
         storage.save_summary(
             DocumentSummary(
-                tdoc_id=tdoc_id,
+                document_id=document_id,
                 abstract=abstract,
                 key_points=key_points,
                 action_items=[],
@@ -309,7 +309,7 @@ def _run_summarize_stage(
 
 
 def process_tdoc(
-    tdoc_id: str,
+    document_id: str,
     checkout_path: Path,
     force_rerun: bool = False,
     workspace: str | None = None,
@@ -319,7 +319,7 @@ def process_tdoc(
     Public API function that initializes storage and runs the pipeline.
 
     Args:
-        tdoc_id: TDoc identifier (e.g., "SP-123456").
+        document_id: Document identifier (e.g., "SP-123456").
         checkout_path: Path to the TDoc checkout folder.
         force_rerun: If True, skip resume logic and run all stages.
         workspace: Optional workspace scope (defaults to "default").
@@ -330,13 +330,11 @@ def process_tdoc(
     Raises:
         Exception: Re-raises pipeline exceptions after logging.
     """
-    from tdoc_crawler.ai.operations.embeddings import get_embedding_model
-
-    config = AiConfig.from_env(cache_manager_name="default")
-    model = get_embedding_model()
-    storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
+    config = AiConfig.from_env()
+    manager = EmbeddingsManager(config=config)
+    storage = AiStorage(config.ai_store_path, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
     return run_pipeline(
-        tdoc_id,
+        document_id,
         checkout_path,
         storage,
         force_rerun=force_rerun,
@@ -345,7 +343,7 @@ def process_tdoc(
 
 
 def process_all(
-    tdoc_ids: list[str],
+    document_ids: list[str],
     checkout_base: Path,
     new_only: bool = False,
     force_rerun: bool = False,
@@ -355,7 +353,7 @@ def process_all(
     """Process multiple TDocs through the AI pipeline.
 
     Args:
-        tdoc_ids: List of TDoc identifiers.
+        document_ids: List of Document identifiers.
         checkout_base: Base path containing TDoc checkout folders.
         new_only: If True, process only TDocs not already completed.
         force_rerun: If True, skip resume logic and run all stages.
@@ -363,13 +361,11 @@ def process_all(
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
-        Dict mapping tdoc_id to ProcessingStatus.
+        Dict mapping document_id to ProcessingStatus.
     """
-    from tdoc_crawler.ai.operations.embeddings import get_embedding_model
-
-    config = AiConfig.from_env(cache_manager_name="default")
-    model = get_embedding_model()
-    storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
+    config = AiConfig.from_env()
+    manager = EmbeddingsManager(config=config)
+    storage = AiStorage(config.ai_store_path, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
     normalized_workspace = normalize_workspace_name(workspace)
 
     # Get workspace members and build a lookup map
@@ -378,56 +374,54 @@ def process_all(
         members = storage.list_workspace_members(normalized_workspace)
         member_ids = {m.source_item_id for m in members if m.is_active and m.source_kind == "tdoc"}
         members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind == "tdoc"}
-        tdoc_ids = [tid for tid in tdoc_ids if tid in member_ids]
+        document_ids = [tid for tid in document_ids if tid in member_ids]
     results: dict[str, ProcessingStatus] = {}
-    for tdoc_id in tdoc_ids:
+    for document_id in document_ids:
         if new_only and not force_rerun:
-            existing_status = storage.get_status(tdoc_id, workspace=normalized_workspace)
+            existing_status = storage.get_status(document_id, workspace=normalized_workspace)
             if existing_status and existing_status.current_stage == PipelineStage.COMPLETED:
-                logger.info(f"Skipping {tdoc_id} in new_only mode - already completed")
+                logger.info(f"Skipping {document_id} in new_only mode - already completed")
                 continue
 
         # Use source_path from workspace member if available, otherwise fallback to default
-        member = members_map.get(tdoc_id)
-        folder_path = Path(member.source_path) if member and member.source_path and Path(member.source_path).exists() else checkout_base / tdoc_id
+        member = members_map.get(document_id)
+        folder_path = Path(member.source_path) if member and member.source_path and Path(member.source_path).exists() else checkout_base / document_id
 
         if not folder_path.exists():
             logger.warning(f"Checkout folder not found: {folder_path}")
             continue
         try:
             status = run_pipeline(
-                tdoc_id,
+                document_id,
                 folder_path,
                 storage,
                 progress_callback=progress_callback,
                 force_rerun=force_rerun,
                 workspace=normalized_workspace,
             )
-            results[tdoc_id] = status
+            results[document_id] = status
         except Exception as e:
-            logger.error(f"Pipeline failed for {tdoc_id}: {e}")
+            logger.error(f"Pipeline failed for {document_id}: {e}")
             # Continue with other TDocs - don't block batch processing
 
     return results
 
 
-def get_status(tdoc_id: str, workspace: str | None = None) -> ProcessingStatus | None:
+def get_status(document_id: str, workspace: str | None = None) -> ProcessingStatus | None:
     """Get processing status for a TDoc.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         ProcessingStatus if found, None otherwise.
     """
-    from tdoc_crawler.ai.operations.embeddings import get_embedding_model
-
-    config = AiConfig.from_env(cache_manager_name="default")
-    model = get_embedding_model()
-    storage = AiStorage(config.ai_store_path, embedding_dimension=model.dimension)
+    config = AiConfig.from_env()
+    manager = EmbeddingsManager(config=config)
+    storage = AiStorage(config.ai_store_path, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
     normalized_workspace = normalize_workspace_name(workspace)
-    return storage.get_status(tdoc_id, workspace=normalized_workspace)
+    return storage.get_status(document_id, workspace=normalized_workspace)
 
 
 __all__ = [

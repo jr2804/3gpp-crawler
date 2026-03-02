@@ -16,16 +16,18 @@ from tdoc_crawler.ai import (
     AiStorage,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
-    convert_tdoc,
+    convert_document,
     create_workspace,
     delete_workspace,
     ensure_ai_subfolder,
+    get_active_workspace,
     list_workspaces,
     make_workspace_member,
     normalize_workspace_name,
     query_embeddings,
     query_graph,
-    summarize_tdoc,
+    set_active_workspace,
+    summarize_document,
 )
 from tdoc_crawler.ai.models import SourceKind
 from tdoc_crawler.ai.operations.pipeline import process_all
@@ -64,14 +66,8 @@ def get_active_workspace() -> str | None:
     return None
 
 
-def set_active_workspace(name: str) -> None:
-    """Set the active workspace."""
-    active_file = _get_ai_dir() / "active_workspace"
-    active_file.write_text(normalize_workspace_name(name))
-
-
 def clear_active_workspace() -> None:
-    """Clear the active workspace."""
+    """Clear the active workspace file (deprecated - use registry)."""
     active_file = _get_ai_dir() / "active_workspace"
     if active_file.exists():
         active_file.unlink()
@@ -101,7 +97,7 @@ def ai_summarize(
 ) -> None:
     """Summarize a single document with specified word count."""
     try:
-        result = summarize_tdoc(document_id=document_id, words=words, fetch_remote=True)
+        result = summarize_document(document_id=document_id, words=words, fetch_remote=True)
 
         if json_output or output_format == "json":
             typer.echo(result.to_json())
@@ -117,6 +113,7 @@ def ai_summarize(
             console.print(f"[red]Error: {exc}[/red]")
         raise typer.Exit(1) from exc
 
+
 @ai_app.command("convert")
 def ai_convert(
     document_id: Annotated[str, typer.Argument(..., help="Document ID to convert")],
@@ -126,7 +123,7 @@ def ai_convert(
     """Convert a single document to markdown format."""
     try:
         output_path = Path(output) if output else None
-        markdown_content = convert_tdoc(document_id=document_id, output_path=output_path)
+        markdown_content = convert_document(document_id=document_id, output_path=output_path)
 
         if output_path:
             if json_output:
@@ -198,7 +195,7 @@ def workspace_create(
     """Create a new workspace."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
     workspace = create_workspace(storage, name, auto_build=auto_build)
 
     if activate:
@@ -221,7 +218,7 @@ def workspace_list(
     """List all workspaces."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
     workspaces = list_workspaces(storage)
 
     if json_output:
@@ -252,7 +249,7 @@ def workspace_info(
     """Get detailed workspace information including member counts."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
     workspace = storage.get_workspace(name)
 
     if workspace is None:
@@ -294,7 +291,7 @@ def workspace_activate(
 ) -> None:
     """Set a workspace as the active workspace."""
     CacheManager().register()
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
     workspace = storage.get_workspace(name)
     if workspace is None:
         if json_output:
@@ -335,7 +332,7 @@ def workspace_clear_invalid(
 ) -> None:
     """Remove all invalid (inactive) documents from the workspace."""
     workspace = resolve_workspace(workspace)
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
 
     removed_count = storage.remove_invalid_members(workspace)
 
@@ -354,7 +351,7 @@ def workspace_clear(
 ) -> None:
     """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
     workspace = resolve_workspace(workspace)
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
 
     removed_count = storage.clear_workspace_artifacts(workspace)
 
@@ -396,7 +393,7 @@ def workspace_add_members(
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
 
     source_kind = SourceKind(kind.lower()) if kind.lower() in [e.value for e in SourceKind] else SourceKind.OTHER
 
@@ -478,7 +475,7 @@ def workspace_list_members(
     workspace = resolve_workspace(workspace)
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
     members = storage.list_workspace_members(workspace, include_inactive=include_inactive)
 
     if json_output:
@@ -508,7 +505,7 @@ def workspace_process(
     """Process all active document members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
 
     # Get workspace members
     members = storage.list_workspace_members(workspace, include_inactive=False)
@@ -523,12 +520,11 @@ def workspace_process(
 
     # Process documents
     results = process_all(
-        tdoc_ids=document_ids,
+        document_ids=document_ids,
         checkout_base=manager.root,
         new_only=new_only,
         force_rerun=force_rerun,
         workspace=workspace,
-        summarize_last=summarize,
     )
 
     if json_output:
@@ -545,6 +541,8 @@ def workspace_process(
     else:
         console.print(f"[green]Processed {len(results)}/{len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
         console.print(f"[green]Processed {len(results)}/{len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
+
+
 @_workspace_app.command("delete")
 def workspace_delete(
     name: Annotated[str, typer.Argument(..., help="Workspace name")],
@@ -554,7 +552,7 @@ def workspace_delete(
     """Delete a workspace (default workspace cannot be deleted)."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env(cache_manager_name="default").ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
     result = delete_workspace(storage, name, preserve_artifacts=preserve_artifacts)
 
     if not result:

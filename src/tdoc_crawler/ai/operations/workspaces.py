@@ -1,20 +1,22 @@
 """Workspace helper operations for AI pipeline scoping."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 from typing import Any
 
 from tdoc_crawler.ai.models import WorkspaceMember
+from tdoc_crawler.ai.operations.workspace_registry import DEFAULT_WORKSPACE, WorkspaceRegistry
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 
-DEFAULT_WORKSPACE = "default"
-
 _logger = logging.getLogger(__name__)
+
+
+def _get_registry() -> WorkspaceRegistry:
+    """Get the workspace registry singleton."""
+    return WorkspaceRegistry.load()
 
 
 def normalize_workspace_name(workspace: str | None) -> str:
@@ -49,12 +51,19 @@ def is_default_workspace(workspace: str | None) -> bool:
 
 def ensure_default_workspace(storage: Any) -> Any:
     """Ensure the reserved default workspace exists."""
+    registry = _get_registry()
+    if DEFAULT_WORKSPACE not in registry.workspaces:
+        registry.save()
     return storage.ensure_workspace(DEFAULT_WORKSPACE)
 
 
 def resolve_workspace(storage: Any, workspace: str | None) -> Any:
     """Resolve and auto-create a workspace from optional user input."""
     normalized_workspace = normalize_workspace_name(workspace)
+    registry = _get_registry()
+    if normalized_workspace not in registry.workspaces:
+        registry.create_workspace(normalized_workspace)
+        registry.save()
     return storage.ensure_workspace(normalized_workspace)
 
 
@@ -64,18 +73,25 @@ def get_workspace(storage: Any, workspace: str | None) -> Any | None:
     return storage.get_workspace(normalized_workspace)
 
 
-def create_workspace(storage: Any, workspace: str | None, auto_build: bool = False) -> Any:
+def create_workspace(storage: Any, workspace: str | None, auto_build: bool = False, description: str = "") -> Any:
     """Create a workspace entry after canonical normalization.
 
     Args:
         storage: AiStorage instance.
         workspace: Workspace name to create.
         auto_build: When True, newly added members are automatically processed.
+        description: Optional workspace description.
 
     Returns:
         Created workspace object.
     """
     normalized_workspace = normalize_workspace_name(workspace)
+    registry = _get_registry()
+    try:
+        registry.create_workspace(normalized_workspace, description=description, auto_build=auto_build)
+        registry.save()
+    except ValueError:
+        pass  # Workspace already exists
     return storage.create_workspace(normalized_workspace, auto_build=auto_build)
 
 
@@ -101,7 +117,31 @@ def delete_workspace(storage: Any, workspace: str | None, preserve_artifacts: bo
     if normalized_workspace == DEFAULT_WORKSPACE:
         _logger.warning("Cannot delete the default workspace")
         return False
-    return storage.delete_workspace(normalized_workspace, preserve_artifacts=preserve_artifacts)
+
+    registry = _get_registry()
+    deleted = registry.delete_workspace(normalized_workspace)
+    if deleted:
+        registry.save()
+        return storage.delete_workspace(normalized_workspace, preserve_artifacts=preserve_artifacts)
+    return False
+
+
+def get_active_workspace() -> str:
+    """Get the name of the active workspace."""
+    registry = _get_registry()
+    return registry.active
+
+
+def set_active_workspace(workspace: str | None) -> None:
+    """Set the active workspace.
+
+    Args:
+        workspace: Workspace name to set as active.
+    """
+    normalized_workspace = normalize_workspace_name(workspace)
+    registry = _get_registry()
+    registry.set_active(normalized_workspace)
+    registry.save()
 
 
 def add_workspace_members(
@@ -275,6 +315,7 @@ __all__ = [
     "delete_workspace",
     "ensure_ai_subfolder",
     "ensure_default_workspace",
+    "get_active_workspace",
     "get_workspace",
     "is_default_workspace",
     "list_workspaces",
@@ -282,4 +323,5 @@ __all__ = [
     "normalize_workspace_name",
     "resolve_tdoc_checkout_path",
     "resolve_workspace",
+    "set_active_workspace",
 ]

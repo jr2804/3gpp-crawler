@@ -137,17 +137,17 @@ def _determine_heuristic(
     return best_file, "file_size_fallback", 0.5
 
 
-def classify_tdoc_files(
-    tdoc_id: str,
+def classify_document_files(
+    document_id: str,
     folder_path: Path,
 ) -> list[DocumentClassification]:
-    """Classify files in a TDoc folder to identify the main document.
+    """Classify files in a document folder to identify the main document.
 
     Uses heuristic scoring based on filename patterns, file size, and file type
     to determine which file is likely the main document.
 
     Args:
-        tdoc_id: TDoc identifier (e.g., "SP-123456").
+        document_id: Document identifier (e.g., "SP-123456").
         folder_path: Path to the TDoc checkout folder.
 
     Returns:
@@ -161,7 +161,7 @@ def classify_tdoc_files(
     files = [file_path for file_path in folder_path.glob("*.docx") if file_path.is_file() and not file_path.name.startswith(".")]
 
     if not files:
-        logger.warning(f"No DOCX files found in {folder_path} for TDoc {tdoc_id}")
+        logger.warning(f"No DOCX files found in {folder_path} for document {document_id}")
         return []
 
     if len(files) == 1:
@@ -169,7 +169,7 @@ def classify_tdoc_files(
         file = files[0]
         return [
             DocumentClassification(
-                tdoc_id=tdoc_id,
+                document_id=document_id,
                 file_path=str(file.relative_to(folder_path)),
                 is_main_document=True,
                 confidence=1.0,
@@ -210,7 +210,7 @@ def classify_tdoc_files(
 
         result.append(
             DocumentClassification(
-                tdoc_id=tdoc_id,
+                document_id=document_id,
                 file_path=str(file.relative_to(folder_path)),
                 is_main_document=is_main,
                 confidence=conf,
@@ -220,12 +220,12 @@ def classify_tdoc_files(
             )
         )
 
-    logger.info(f"Classified {len(files)} files for {tdoc_id}, main: {best_file.name} (confidence: {confidence:.2f})")
+    logger.info(f"Classified {len(files)} files for {document_id}, main: {best_file.name} (confidence: {confidence:.2f})")
 
     return result
 
 
 __all__ = [
     "_score_filename",
-    "classify_tdoc_files",
+    "classify_document_files",
 ]

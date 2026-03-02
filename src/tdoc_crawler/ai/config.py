@@ -140,9 +140,9 @@ class AiConfig(BaseConfigModel):
     def _resolve_paths(self) -> AiConfig:
         if self.ai_store_path is None:
             # Include embedding model in path to avoid dimension conflicts
-            # e.g., ~/.tdoc-crawler/.ai/lancedb/sentence-transformers/all-MiniLM-L6-v2
+            # e.g., ~/.tdoc-crawler/.ai/sentence-transformers/all-MiniLM-L6-v2
             # Keep slash to group models by provider
-            self.ai_store_path = self.cache_dir / ".ai" / "lancedb" / self.embedding_model
+            self.ai_store_path = self.cache_dir / ".ai" / self.embedding_model
         return self
 
     @model_validator(mode="after")

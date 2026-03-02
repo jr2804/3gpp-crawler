@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from tdoc_crawler.utils.misc import utc_now
 
 
-def _normalize_tdoc_id(value: str) -> str:
+def _normalize_document_id(value: str) -> str:
     return value.strip().upper()
 
 
@@ -33,7 +33,7 @@ class PipelineStage(StrEnum):
 class GraphNodeType(StrEnum):
     """Types of nodes in the knowledge graph."""
 
-    TDOC = "tdoc"
+    DOCUMENT = "document"
     MEETING = "meeting"
     SPEC = "spec"
     WORK_ITEM = "work_item"
@@ -165,7 +165,7 @@ class ArtifactScope(BaseModel):
 class ProcessingStatus(BaseModel):
     """Processing state for a single TDoc."""
 
-    tdoc_id: str = Field(..., description="TDoc identifier (normalized via .upper())")
+    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
     current_stage: PipelineStage = Field(PipelineStage.PENDING, description="Current pipeline stage")
     classified_at: datetime | None = Field(None, description="Timestamp when classification completed")
     extracted_at: datetime | None = Field(None, description="Timestamp when extraction completed")
@@ -178,16 +178,16 @@ class ProcessingStatus(BaseModel):
     keywords: list[str] | None = Field(None, description="Keywords extracted from document content")
     detected_language: str | None = Field(None, description="Primary language detected in document")
 
-    @field_validator("tdoc_id")
+    @field_validator("document_id")
     @classmethod
-    def _normalize_tdoc_id(cls, value: str) -> str:
-        return _normalize_tdoc_id(value)
+    def _normalize_document_id(cls, value: str) -> str:
+        return _normalize_document_id(value)
 
 
 class DocumentClassification(BaseModel):
     """Classification of a file within a TDoc folder."""
 
-    tdoc_id: str = Field(..., description="TDoc identifier (normalized via .upper())")
+    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
     file_path: str = Field(..., description="Relative path within checkout folder")
     is_main_document: bool = Field(..., description="Whether this file is the main document")
     confidence: float = Field(..., description="Confidence score between 0.0 and 1.0")
@@ -195,10 +195,10 @@ class DocumentClassification(BaseModel):
     file_size_bytes: int = Field(..., ge=0, description="File size in bytes")
     classified_at: datetime = Field(default_factory=utc_now, description="Classification timestamp")
 
-    @field_validator("tdoc_id")
+    @field_validator("document_id")
     @classmethod
-    def _normalize_tdoc_id(cls, value: str) -> str:
-        return _normalize_tdoc_id(value)
+    def _normalize_document_id(cls, value: str) -> str:
+        return _normalize_document_id(value)
 
     @field_validator("confidence")
     @classmethod
@@ -212,8 +212,8 @@ class DocumentClassification(BaseModel):
 class DocumentChunk(BaseModel):
     """A chunk of extracted document text with its embedding."""
 
-    chunk_id: str = Field(..., description="Unique chunk identifier '{tdoc_id}:{chunk_index}'")
-    tdoc_id: str = Field(..., description="TDoc identifier (normalized via .upper())")
+    chunk_id: str = Field(..., description="Unique chunk identifier '{document_id}:{chunk_index}'")
+    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
     section_heading: str | None = Field(None, description="Heading for the chunk's section")
     chunk_index: int = Field(..., ge=0, description="Position within the document")
     text: str = Field(..., description="Chunk text content")
@@ -239,30 +239,30 @@ class DocumentChunk(BaseModel):
     def embedding(self, value: list[float]) -> None:
         self.vector = value
 
-    @field_validator("tdoc_id")
+    @field_validator("document_id")
     @classmethod
-    def _normalize_tdoc_id(cls, value: str) -> str:
-        return _normalize_tdoc_id(value)
+    def _normalize_document_id(cls, value: str) -> str:
+        return _normalize_document_id(value)
 
 
 class QueryResult(BaseModel):
     """Result from embedding similarity query."""
 
-    tdoc_id: str = Field(..., description="TDoc identifier (normalized via .upper())")
+    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
     section: str = Field("", description="Section heading or empty string")
     content: str = Field(..., description="Text content that matched the query")
     score: float = Field(..., ge=0.0, le=1.0, description="Similarity score (0.0-1.0)")
 
-    @field_validator("tdoc_id")
+    @field_validator("document_id")
     @classmethod
-    def _normalize_tdoc_id(cls, value: str) -> str:
-        return _normalize_tdoc_id(value)
+    def _normalize_document_id(cls, value: str) -> str:
+        return _normalize_document_id(value)
 
 
 class DocumentSummary(BaseModel):
     """AI-generated summary for a TDoc."""
 
-    tdoc_id: str = Field(..., description="TDoc identifier (normalized via .upper())")
+    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
     abstract: str = Field(..., description="150-250 word abstract")
     key_points: list[str] = Field(default_factory=list, description="Key findings")
     action_items: list[str] = Field(default_factory=list, description="Action items")
@@ -272,10 +272,10 @@ class DocumentSummary(BaseModel):
     prompt_version: str = Field("v1", description="Prompt template version")
     generated_at: datetime = Field(default_factory=utc_now, description="Generation timestamp")
 
-    @field_validator("tdoc_id")
+    @field_validator("document_id")
     @classmethod
-    def _normalize_tdoc_id(cls, value: str) -> str:
-        return _normalize_tdoc_id(value)
+    def _normalize_document_id(cls, value: str) -> str:
+        return _normalize_document_id(value)
 
 
 class GraphNode(BaseModel):

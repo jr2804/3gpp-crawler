@@ -49,7 +49,7 @@ def _format_markdown(metadata: TDocMetadata) -> str:
     lines.append(f"# {metadata.title}\n")
 
     # TDoc ID
-    lines.append(f"**TDoc ID:** {metadata.tdoc_id}\n")
+    lines.append(f"**TDoc ID:** {metadata.document_id}\n")
 
     # Meeting info
     meeting_name = _get_meeting_info(metadata.meeting_id)
@@ -88,7 +88,7 @@ def _format_markdown(metadata: TDocMetadata) -> str:
 
 
 def convert_tdoc(
-    tdoc_id: str,
+    document_id: str,
     output_path: Path | None = None,
 ) -> str:
     """Convert a TDoc to markdown format.
@@ -97,7 +97,7 @@ def convert_tdoc(
     representation containing title, meeting info, source, and description.
 
     Args:
-        tdoc_id: TDoc identifier (e.g., "S4-260001").
+        document_id: Document identifier (e.g., "S4-260001").
         output_path: Optional path to write markdown file. If None, returns
             the markdown string.
 
@@ -109,7 +109,7 @@ def convert_tdoc(
         ValueError: If TDoc cannot be found via WhatTheSpec.
     """
     # Normalize TDoc ID
-    normalized_id = tdoc_id.strip().upper()
+    normalized_id = document_id.strip().upper()
 
     # Fetch metadata from WhatTheSpec
     logger.info(f"Fetching TDoc metadata for {normalized_id} via WhatTheSpec")

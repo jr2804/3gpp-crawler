@@ -48,45 +48,45 @@ class AiStorage:
         self._embedding_dimension = embedding_dimension or 384
         self._ensure_tables()
 
-    def save_embedding_hash(self, tdoc_id: str, content_hash: str) -> None:
+    def save_embedding_hash(self, document_id: str, content_hash: str) -> None:
         """Persist the latest embedding content hash for idempotency checks."""
-        self._embedding_hashes[tdoc_id.upper()] = content_hash
+        self._embedding_hashes[document_id.upper()] = content_hash
 
-    def get_embedding_hash(self, tdoc_id: str) -> str | None:
+    def get_embedding_hash(self, document_id: str) -> str | None:
         """Return previously persisted embedding content hash if present."""
-        return self._embedding_hashes.get(tdoc_id.upper())
+        return self._embedding_hashes.get(document_id.upper())
 
-    def save_summary_hash(self, tdoc_id: str, content_hash: str) -> None:
+    def save_summary_hash(self, document_id: str, content_hash: str) -> None:
         """Persist the latest summary content hash for idempotency checks."""
-        self._summary_hashes[tdoc_id.upper()] = content_hash
+        self._summary_hashes[document_id.upper()] = content_hash
 
-    def get_summary_hash(self, tdoc_id: str) -> str | None:
+    def get_summary_hash(self, document_id: str) -> str | None:
         """Return previously persisted summary content hash if present."""
-        return self._summary_hashes.get(tdoc_id.upper())
+        return self._summary_hashes.get(document_id.upper())
 
     def save_status(self, status: ProcessingStatus, workspace: str | None = None) -> None:
         """Persist processing status for a TDoc."""
         normalized_workspace = _normalize_workspace_name(workspace)
-        scoped_tdoc_id = _to_scoped_tdoc_id(status.tdoc_id, normalized_workspace)
+        scoped_document_id = _to_scoped_document_id(status.document_id, normalized_workspace)
         table = self._table("processing_status")
-        table.delete(f"tdoc_id = '{scoped_tdoc_id}'")
+        table.delete(f"document_id = '{scoped_document_id}'")
         payload = status.model_dump()
-        payload["tdoc_id"] = scoped_tdoc_id
+        payload["document_id"] = scoped_document_id
         # Ensure keywords is always a list for pyarrow list<string> schema
         if payload.get("keywords") is None:
             payload["keywords"] = []
         table.add([payload])
 
-    def get_status(self, tdoc_id: str, workspace: str | None = None) -> ProcessingStatus | None:
+    def get_status(self, document_id: str, workspace: str | None = None) -> ProcessingStatus | None:
         """Return status for a single TDoc if present."""
         normalized_workspace = _normalize_workspace_name(workspace)
-        scoped_tdoc_id = _to_scoped_tdoc_id(tdoc_id, normalized_workspace)
+        scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
         table = self._table("processing_status")
         records = _table_to_records(table)
         for record in records:
-            if record.get("tdoc_id") == scoped_tdoc_id:
+            if record.get("document_id") == scoped_document_id:
                 unscoped_record = dict(record)
-                unscoped_record["tdoc_id"] = _from_scoped_tdoc_id(scoped_tdoc_id)[1]
+                unscoped_record["document_id"] = _from_scoped_document_id(scoped_document_id)[1]
                 # Handle NaN values for optional strings from LanceDB
                 for field in ["error_message", "source_hash", "detected_language"]:
                     if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
@@ -103,12 +103,12 @@ class AiStorage:
         table = self._table("processing_status")
         statuses: list[ProcessingStatus] = []
         for record in _table_to_records(table):
-            raw_tdoc_id = str(record.get("tdoc_id", ""))
-            record_workspace, unscoped_tdoc_id = _from_scoped_tdoc_id(raw_tdoc_id)
+            raw_document_id = str(record.get("document_id", ""))
+            record_workspace, unscoped_document_id = _from_scoped_document_id(raw_document_id)
             if record_workspace != normalized_workspace:
                 continue
             unscoped_record = dict(record)
-            unscoped_record["tdoc_id"] = unscoped_tdoc_id
+            unscoped_record["document_id"] = unscoped_document_id
             # Handle NaN values for optional strings from LanceDB
             for field in ["error_message", "source_hash", "detected_language"]:
                 if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
@@ -128,27 +128,28 @@ class AiStorage:
         if not classifications:
             return
         normalized_workspace = _normalize_workspace_name(workspace)
-        tdoc_id = classifications[0].tdoc_id.upper()
-        scoped_tdoc_id = _to_scoped_tdoc_id(tdoc_id, normalized_workspace)
+        document_id = classifications[0].document_id.upper()
+        scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
         table = self._table("classifications")
-        table.delete(f"tdoc_id = '{scoped_tdoc_id}'")
+        table = self._table("classifications")
+        table.delete(f"document_id = '{scoped_document_id}'")
         payload: list[dict[str, Any]] = []
         for item in classifications:
             record = item.model_dump()
-            record["tdoc_id"] = _to_scoped_tdoc_id(item.tdoc_id, normalized_workspace)
+            record["document_id"] = _to_scoped_document_id(item.document_id, normalized_workspace)
             payload.append(record)
         table.add(payload)
 
-    def get_classifications(self, tdoc_id: str, workspace: str | None = None) -> list[DocumentClassification]:
+    def get_classifications(self, document_id: str, workspace: str | None = None) -> list[DocumentClassification]:
         """Return classifications for a TDoc."""
         normalized_workspace = _normalize_workspace_name(workspace)
         table = self._table("classifications")
-        scoped_tdoc_id = _to_scoped_tdoc_id(tdoc_id, normalized_workspace)
-        records = [record for record in _table_to_records(table) if record.get("tdoc_id") == scoped_tdoc_id]
+        scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
+        records = [record for record in _table_to_records(table) if record.get("document_id") == scoped_document_id]
         classifications: list[DocumentClassification] = []
         for record in records:
             unscoped_record = dict(record)
-            unscoped_record["tdoc_id"] = _from_scoped_tdoc_id(str(record.get("tdoc_id", "")))[1]
+            unscoped_record["document_id"] = _from_scoped_document_id(str(record.get("document_id", "")))[1]
             classifications.append(DocumentClassification(**unscoped_record))
         return sorted(
             classifications,
@@ -159,9 +160,9 @@ class AiStorage:
             ),
         )
 
-    def get_main_classification(self, tdoc_id: str, workspace: str | None = None) -> DocumentClassification | None:
+    def get_main_classification(self, document_id: str, workspace: str | None = None) -> DocumentClassification | None:
         """Return the main document classification for a TDoc if available."""
-        classifications = self.get_classifications(tdoc_id, workspace=workspace)
+        classifications = self.get_classifications(document_id, workspace=workspace)
         for classification in classifications:
             if classification.is_main_document:
                 return classification
@@ -172,28 +173,29 @@ class AiStorage:
         if not chunks:
             return
         normalized_workspace = _normalize_workspace_name(workspace)
-        tdoc_id = chunks[0].tdoc_id
-        scoped_tdoc_id = _to_scoped_tdoc_id(tdoc_id, normalized_workspace)
+        document_id = chunks[0].document_id
+        scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
         table = self._table("chunks")
-        table.delete(f"tdoc_id = '{scoped_tdoc_id}'")
+        table = self._table("chunks")
+        table.delete(f"document_id = '{scoped_document_id}'")
         payload: list[dict[str, Any]] = []
         for item in chunks:
             record = item.model_dump()
-            record["tdoc_id"] = _to_scoped_tdoc_id(item.tdoc_id, normalized_workspace)
+            record["document_id"] = _to_scoped_document_id(item.document_id, normalized_workspace)
             payload.append(record)
         table.add(payload)
 
-    def get_chunks(self, tdoc_id: str, workspace: str | None = None) -> list[DocumentChunk]:
+    def get_chunks(self, document_id: str, workspace: str | None = None) -> list[DocumentChunk]:
         """Return chunks for a TDoc if present."""
         normalized_workspace = _normalize_workspace_name(workspace)
-        scoped_tdoc_id = _to_scoped_tdoc_id(tdoc_id, normalized_workspace)
+        scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
         table = self._table("chunks")
         records = _table_to_records(table)
         chunks: list[DocumentChunk] = []
         for record in records:
-            if record.get("tdoc_id") == scoped_tdoc_id:
+            if record.get("document_id") == scoped_document_id:
                 unscoped_record = dict(record)
-                unscoped_record["tdoc_id"] = _from_scoped_tdoc_id(scoped_tdoc_id)[1]
+                unscoped_record["document_id"] = _from_scoped_document_id(scoped_document_id)[1]
                 # Handle NaN for optional fields
                 for field in ["section_heading", "section_number"]:
                     if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
@@ -215,10 +217,10 @@ class AiStorage:
         for record in results:
             score = record.get("_distance")
             cleaned_record = _strip_distance(record)
-            record_workspace, unscoped_tdoc_id = _from_scoped_tdoc_id(str(cleaned_record.get("tdoc_id", "")))
+            record_workspace, unscoped_document_id = _from_scoped_document_id(str(cleaned_record.get("document_id", "")))
             if record_workspace != normalized_workspace:
                 continue
-            cleaned_record["tdoc_id"] = unscoped_tdoc_id
+            cleaned_record["document_id"] = unscoped_document_id
             # Handle NaN for optional fields
             for field in ["section_heading", "section_number"]:
                 if field in cleaned_record and (cleaned_record[field] is None or _is_nan(cleaned_record[field])):
@@ -232,23 +234,23 @@ class AiStorage:
     def save_summary(self, summary: DocumentSummary, workspace: str | None = None) -> None:
         """Persist summary for a TDoc."""
         normalized_workspace = _normalize_workspace_name(workspace)
-        scoped_tdoc_id = _to_scoped_tdoc_id(summary.tdoc_id, normalized_workspace)
+        scoped_document_id = _to_scoped_document_id(summary.document_id, normalized_workspace)
         table = self._table("summaries")
-        table.delete(f"tdoc_id = '{scoped_tdoc_id}'")
+        table.delete(f"document_id = '{scoped_document_id}'")
         payload = summary.model_dump()
-        payload["tdoc_id"] = scoped_tdoc_id
+        payload["document_id"] = scoped_document_id
         table.add([payload])
 
-    def get_summary(self, tdoc_id: str, workspace: str | None = None) -> DocumentSummary | None:
+    def get_summary(self, document_id: str, workspace: str | None = None) -> DocumentSummary | None:
         """Return summary for a TDoc if present."""
         normalized_workspace = _normalize_workspace_name(workspace)
-        scoped_tdoc_id = _to_scoped_tdoc_id(tdoc_id, normalized_workspace)
+        scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
         table = self._table("summaries")
         records = _table_to_records(table)
         for record in records:
-            if record.get("tdoc_id") == scoped_tdoc_id:
+            if record.get("document_id") == scoped_document_id:
                 unscoped_record = dict(record)
-                unscoped_record["tdoc_id"] = _from_scoped_tdoc_id(scoped_tdoc_id)[1]
+                unscoped_record["document_id"] = _from_scoped_document_id(scoped_document_id)[1]
                 return DocumentSummary(**unscoped_record)
         return None
 
@@ -342,10 +344,10 @@ class AiStorage:
                     # Delete all scoped items for this workspace
                     all_records = _table_to_records(table)
                     for record in all_records:
-                        tdoc_id = record.get("tdoc_id", "")
-                        record_workspace, _ = _from_scoped_tdoc_id(tdoc_id)
+                        document_id = record.get("document_id", "")
+                        record_workspace, _ = _from_scoped_document_id(document_id)
                         if record_workspace == normalized_workspace:
-                            table.delete(f"tdoc_id = '{tdoc_id}'")
+                            table.delete(f"document_id = '{document_id}'")
                 except Exception as exc:
                     _logger.warning(f"Failed to delete artifacts from {table_name}: {exc}")
 
@@ -466,10 +468,10 @@ class AiStorage:
                 table = self._table(table_name)
                 all_records = _table_to_records(table)
                 for record in all_records:
-                    tdoc_id = record.get("tdoc_id", "")
-                    record_workspace, _ = _from_scoped_tdoc_id(tdoc_id)
+                    document_id = record.get("document_id", "")
+                    record_workspace, _ = _from_scoped_document_id(document_id)
                     if record_workspace == normalized_workspace:
-                        table.delete(f"tdoc_id = '{tdoc_id}'")
+                        table.delete(f"document_id = '{document_id}'")
                         removed_count += 1
             except Exception as exc:
                 _logger.warning(f"Failed to clear artifacts from {table_name}: {exc}")
@@ -515,13 +517,13 @@ class AiStorage:
         normalized_workspace = _normalize_workspace_name(workspace)
         table = self._table("graph_nodes")
 
-        scoped_ids = [_to_scoped_tdoc_id(node.node_id, normalized_workspace) for node in nodes]
+        scoped_ids = [_to_scoped_document_id(node.node_id, normalized_workspace) for node in nodes]
         _delete_by_ids(table, "node_id", scoped_ids)
 
         payload = []
         for node in nodes:
             record = _node_record(node)
-            record["node_id"] = _to_scoped_tdoc_id(node.node_id, normalized_workspace)
+            record["node_id"] = _to_scoped_document_id(node.node_id, normalized_workspace)
             payload.append(record)
 
         table.add(payload)
@@ -533,15 +535,15 @@ class AiStorage:
         normalized_workspace = _normalize_workspace_name(workspace)
         table = self._table("graph_edges")
 
-        scoped_ids = [_to_scoped_tdoc_id(edge.edge_id, normalized_workspace) for edge in edges]
+        scoped_ids = [_to_scoped_document_id(edge.edge_id, normalized_workspace) for edge in edges]
         _delete_by_ids(table, "edge_id", scoped_ids)
 
         payload = []
         for edge in edges:
             record = edge.model_dump()
-            record["edge_id"] = _to_scoped_tdoc_id(edge.edge_id, normalized_workspace)
-            record["source_id"] = _to_scoped_tdoc_id(edge.source_id, normalized_workspace)
-            record["target_id"] = _to_scoped_tdoc_id(edge.target_id, normalized_workspace)
+            record["edge_id"] = _to_scoped_document_id(edge.edge_id, normalized_workspace)
+            record["source_id"] = _to_scoped_document_id(edge.source_id, normalized_workspace)
+            record["target_id"] = _to_scoped_document_id(edge.target_id, normalized_workspace)
             payload.append(record)
 
         table.add(payload)
@@ -555,18 +557,18 @@ class AiStorage:
 
         nodes: list[GraphNode] = []
         for node in raw_nodes:
-            record_workspace, unscoped_node_id = _from_scoped_tdoc_id(node.node_id)
+            record_workspace, unscoped_node_id = _from_scoped_document_id(node.node_id)
             if record_workspace == normalized_workspace:
                 node.node_id = unscoped_node_id
                 nodes.append(node)
 
         edges: list[GraphEdge] = []
         for edge in raw_edges:
-            record_workspace, unscoped_edge_id = _from_scoped_tdoc_id(edge.edge_id)
+            record_workspace, unscoped_edge_id = _from_scoped_document_id(edge.edge_id)
             if record_workspace == normalized_workspace:
                 edge.edge_id = unscoped_edge_id
-                edge.source_id = _from_scoped_tdoc_id(edge.source_id)[1]
-                edge.target_id = _from_scoped_tdoc_id(edge.target_id)[1]
+                edge.source_id = _from_scoped_document_id(edge.source_id)[1]
+                edge.target_id = _from_scoped_document_id(edge.target_id)[1]
                 edges.append(edge)
 
         node_types = filters.get("node_types") if filters else None
@@ -649,19 +651,19 @@ def _normalize_workspace_name(workspace: str | None) -> str:
     return normalized
 
 
-def _to_scoped_tdoc_id(tdoc_id: str, workspace: str | None) -> str:
-    normalized_tdoc_id = tdoc_id.strip().upper()
+def _to_scoped_document_id(document_id: str, workspace: str | None) -> str:
+    normalized_document_id = document_id.strip().upper()
     normalized_workspace = _normalize_workspace_name(workspace)
     if normalized_workspace == DEFAULT_WORKSPACE:
-        return normalized_tdoc_id
-    return f"{normalized_workspace}{_SCOPE_DELIMITER}{normalized_tdoc_id}"
+        return normalized_document_id
+    return f"{normalized_workspace}{_SCOPE_DELIMITER}{normalized_document_id}"
 
 
-def _from_scoped_tdoc_id(value: str) -> tuple[str, str]:
+def _from_scoped_document_id(value: str) -> tuple[str, str]:
     if _SCOPE_DELIMITER not in value:
         return DEFAULT_WORKSPACE, value.strip().upper()
-    workspace, tdoc_id = value.split(_SCOPE_DELIMITER, maxsplit=1)
-    return _normalize_workspace_name(workspace), tdoc_id.strip().upper()
+    workspace, document_id = value.split(_SCOPE_DELIMITER, maxsplit=1)
+    return _normalize_workspace_name(workspace), document_id.strip().upper()
 
 
 def _delete_by_ids(table: Any, field_name: str, ids: list[str]) -> None:
@@ -691,7 +693,7 @@ def _node_from_record(record: dict[str, Any]) -> GraphNode:
 def _processing_status_schema() -> pa.Schema:
     return pa.schema(
         [
-            pa.field("tdoc_id", pa.string()),
+            pa.field("document_id", pa.string()),
             pa.field("current_stage", pa.string()),
             pa.field("classified_at", pa.timestamp("us"), nullable=True),
             pa.field("extracted_at", pa.timestamp("us"), nullable=True),
@@ -737,7 +739,7 @@ def _workspace_member_schema() -> pa.Schema:
 def _classification_schema() -> pa.Schema:
     return pa.schema(
         [
-            pa.field("tdoc_id", pa.string()),
+            pa.field("document_id", pa.string()),
             pa.field("file_path", pa.string()),
             pa.field("is_main_document", pa.bool_()),
             pa.field("confidence", pa.float32()),
@@ -760,7 +762,7 @@ def _chunk_schema(embedding_dimension: int) -> pa.Schema:
     return pa.schema(
         [
             pa.field("chunk_id", pa.string()),
-            pa.field("tdoc_id", pa.string()),
+            pa.field("document_id", pa.string()),
             pa.field("section_heading", pa.string(), nullable=True),
             pa.field("chunk_index", pa.int64()),
             pa.field("text", pa.large_string()),
@@ -771,26 +773,12 @@ def _chunk_schema(embedding_dimension: int) -> pa.Schema:
             pa.field("created_at", pa.timestamp("us")),
         ]
     )
-    return pa.schema(
-        [
-            pa.field("chunk_id", pa.string()),
-            pa.field("tdoc_id", pa.string()),
-            pa.field("section_heading", pa.string(), nullable=True),
-            pa.field("chunk_index", pa.int64()),
-            pa.field("text", pa.large_string()),
-            pa.field("char_offset_start", pa.int64()),
-            pa.field("char_offset_end", pa.int64()),
-            pa.field("vector", pa.list_(pa.float32())),
-            pa.field("embedding_model", pa.string()),
-            pa.field("created_at", pa.timestamp("us")),
-        ]
-    )
 
 
 def _summary_schema() -> pa.Schema:
     return pa.schema(
         [
-            pa.field("tdoc_id", pa.string()),
+            pa.field("document_id", pa.string()),
             pa.field("abstract", pa.large_string()),
             pa.field("key_points", pa.list_(pa.string())),
             pa.field("action_items", pa.list_(pa.string())),

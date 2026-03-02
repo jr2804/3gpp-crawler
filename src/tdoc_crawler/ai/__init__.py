@@ -15,13 +15,15 @@ from tdoc_crawler.ai.models import (
     PipelineStage,
     ProcessingStatus,
 )
-from tdoc_crawler.ai.operations.convert import convert_tdoc
+from tdoc_crawler.ai.operations.convert import convert_tdoc as convert_document
 from tdoc_crawler.ai.operations.embeddings import query_embeddings as _query_embeddings
 from tdoc_crawler.ai.operations.graph import query_graph as _query_graph
 from tdoc_crawler.ai.operations.pipeline import get_status as _pipeline_get_status_impl
 from tdoc_crawler.ai.operations.pipeline import process_all as _pipeline_process_all_impl
 from tdoc_crawler.ai.operations.pipeline import process_tdoc as _pipeline_process_tdoc_impl
-from tdoc_crawler.ai.operations.summarize import SummarizeResult, summarize_tdoc
+from tdoc_crawler.ai.operations.pipeline import process_tdoc as process_document
+from tdoc_crawler.ai.operations.summarize import SummarizeResult
+from tdoc_crawler.ai.operations.summarize import summarize_tdoc as summarize_document
 from tdoc_crawler.ai.operations.workspaces import (
     DEFAULT_WORKSPACE,
     add_workspace_members,
@@ -31,6 +33,7 @@ from tdoc_crawler.ai.operations.workspaces import (
     delete_workspace,
     ensure_ai_subfolder,
     ensure_default_workspace,
+    get_active_workspace,
     get_workspace,
     is_default_workspace,
     list_workspaces,
@@ -38,30 +41,31 @@ from tdoc_crawler.ai.operations.workspaces import (
     normalize_workspace_name,
     resolve_tdoc_checkout_path,
     resolve_workspace,
+    set_active_workspace,
 )
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
 
 
-def _pipeline_get_status(tdoc_id: str, workspace: str) -> ProcessingStatus | None:
+def _pipeline_get_status(document_id: str, workspace: str) -> ProcessingStatus | None:
     """Get processing status for a TDoc."""
-    return _pipeline_get_status_impl(tdoc_id, workspace=workspace)
+    return _pipeline_get_status_impl(document_id, workspace=workspace)
 
 
-def get_status(tdoc_id: str, workspace: str | None = None) -> ProcessingStatus | None:
+def get_status(document_id: str, workspace: str | None = None) -> ProcessingStatus | None:
     """Get processing status for a TDoc."""
-    return _pipeline_get_status_impl(tdoc_id, workspace=workspace)
+    return _pipeline_get_status_impl(document_id, workspace=workspace)
 
 
 def process_tdoc(
-    tdoc_id: str,
+    document_id: str,
     checkout_path: Path,
     force_rerun: bool = False,
     workspace: str | None = None,
 ) -> ProcessingStatus:
     """Process a single TDoc through the AI pipeline."""
     return _pipeline_process_tdoc_impl(
-        tdoc_id,
+        document_id,
         checkout_path,
         force_rerun=force_rerun,
         workspace=workspace,
@@ -69,7 +73,7 @@ def process_tdoc(
 
 
 def process_all(
-    tdoc_ids: list[str],
+    document_ids: list[str],
     checkout_base: Path,
     new_only: bool = False,
     force_rerun: bool = False,
@@ -78,7 +82,7 @@ def process_all(
 ) -> dict[str, ProcessingStatus]:
     """Process multiple TDocs through the AI pipeline."""
     return _pipeline_process_all_impl(
-        tdoc_ids,
+        document_ids,
         checkout_base,
         new_only=new_only,
         force_rerun=force_rerun,
@@ -121,11 +125,12 @@ __all__ = [
     "add_workspace_members",
     "checkout_spec_to_workspace",
     "checkout_tdoc_to_workspace",
-    "convert_tdoc",
+    "convert_document",
     "create_workspace",
     "delete_workspace",
     "ensure_ai_subfolder",
     "ensure_default_workspace",
+    "get_active_workspace",
     "get_status",
     "get_workspace",
     "is_default_workspace",
@@ -133,10 +138,11 @@ __all__ = [
     "make_workspace_member",
     "normalize_workspace_name",
     "process_all",
-    "process_tdoc",
+    "process_document",
     "query_embeddings",
     "query_graph",
     "resolve_tdoc_checkout_path",
     "resolve_workspace",
-    "summarize_tdoc",
+    "set_active_workspace",
+    "summarize_document",
 ]

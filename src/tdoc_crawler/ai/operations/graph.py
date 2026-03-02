@@ -38,8 +38,104 @@ def extract_meeting_references(text: str) -> list[str]:
     return sorted(set(meetings))
 
 
+def extract_company_entities(text: str) -> list[str]:
+    """Extract company/organization names from text.
+
+    Matches common 3GPP contributor names.
+    """
+    companies = [
+        "Huawei",
+        "Nokia",
+        "Ericsson",
+        "Samsung",
+        "Qualcomm",
+        "Intel",
+        "LG",
+        "Motorola",
+        "ZTE",
+        "Cisco",
+        "Vivo",
+        "Oppo",
+        "Xiaomi",
+        "Apple",
+        "Google",
+        "OnePlus",
+        "Realme",
+        "Sony",
+        "NTT DOCOMO",
+        "KDDI",
+        "SoftBank",
+        "SK Telecom",
+        "KT",
+        "China Mobile",
+        "China Telecom",
+        "China Unicom",
+        "Deutsche Telekom",
+        "Orange",
+        "Telefonica",
+        "TIM",
+        "BT",
+        "Vodafone",
+        "AT&T",
+        "Verizon",
+        "T-Mobile",
+        "MediaTek",
+        "HiSilicon",
+        "UNISOC",
+        "Broadcom",
+        "NXP",
+        "Infineon",
+        "InterDigital",
+        "Panasonic",
+        "Fujitsu",
+        "NEC",
+        "Mitsubishi",
+        "Toshiba",
+        "Lenovo",
+        "HTC",
+        "ASUS",
+    ]
+    found = []
+    text_lower = text.lower()
+    for company in companies:
+        if company.lower() in text_lower:
+            found.append(company)
+    return sorted(set(found))
+
+
+def extract_work_items(text: str) -> list[str]:
+    """Extract 3GPP Work Item identifiers from text.
+
+    Patterns: WI-12345, WI 12345, Work Item 12345
+    """
+    patterns = [
+        r"\bWI[- ]?(\d{4,6})\b",
+        r"\bWork Item[- ]?(\d{4,6})\b",
+    ]
+    wis = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for m in matches:
+            wis.add(f"WI-{m}")
+    return sorted(wis)
+
+
+def extract_change_requests(text: str) -> list[str]:
+    """Extract 3GPP Change Request identifiers from text.
+
+    Patterns: CR-1234, CR0001, Change Request 1234, CP-xxxxxx, SP-xxxxxx
+    """
+    patterns = [r"\bCR[- ]?(\d{3,6})\b", r"\bChange Request[- ]?(\d{3,6})\b", r"\bCP[- ]?(\d{2,3}\d{4,5})\b", r"\bSP[- ]?(\d{2,3}\d{4,5})\b"]
+    crs = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for m in matches:
+            crs.add(f"CR-{m}")
+    return sorted(crs)
+
+
 def build_graph(
-    tdoc_id: str,
+    document_id: str,
     markdown: str,
     meeting_id: str | None = None,
     storage: AiStorage | None = None,
@@ -47,7 +143,7 @@ def build_graph(
 ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Build knowledge graph from TDoc content with incremental updates."""
     if storage is None:
-        config = AiConfig.from_env(cache_manager_name="default")
+        config = AiConfig.from_env()
         store_path = config.ai_store_path
         if store_path is None:
             msg = "AI store path not configured"
@@ -62,13 +158,13 @@ def build_graph(
     edges: list[GraphEdge] = []
     now = datetime.now()
 
-    if tdoc_id not in existing_node_ids:
+    if document_id not in existing_node_ids:
         nodes.append(
             GraphNode(
-                node_id=tdoc_id,
-                node_type=GraphNodeType.TDOC,
-                label=f"TDoc {tdoc_id}",
-                properties={"title": f"TDoc {tdoc_id}", "created_at": now.isoformat()},
+                node_id=document_id,
+                node_type=GraphNodeType.DOCUMENT,
+                label=f"TDoc {document_id}",
+                properties={"title": f"TDoc {document_id}", "created_at": now.isoformat()},
                 created_at=now,
             )
         )
@@ -76,25 +172,28 @@ def build_graph(
     referenced_tdocs = extract_tdoc_references(markdown)
     referenced_specs = extract_spec_references(markdown)
     referenced_meetings = extract_meeting_references(markdown)
+    company_entities = extract_company_entities(markdown)
+    work_items = extract_work_items(markdown)
+    change_requests = extract_change_requests(markdown)
 
     for ref_tdoc in referenced_tdocs:
-        if ref_tdoc != tdoc_id and ref_tdoc not in existing_node_ids:
+        if ref_tdoc != document_id and ref_tdoc not in existing_node_ids:
             nodes.append(
                 GraphNode(
                     node_id=ref_tdoc,
-                    node_type=GraphNodeType.TDOC,
+                    node_type=GraphNodeType.DOCUMENT,
                     label=f"TDoc {ref_tdoc}",
                     properties={"title": f"TDoc {ref_tdoc}"},
                     created_at=now,
                 )
             )
 
-        edge_id = f"{tdoc_id}->{GraphEdgeType.REFERENCES.value}->{ref_tdoc}"
-        if ref_tdoc != tdoc_id and edge_id not in existing_edge_ids:
+        edge_id = f"{document_id}->{GraphEdgeType.REFERENCES.value}->{ref_tdoc}"
+        if ref_tdoc != document_id and edge_id not in existing_edge_ids:
             edges.append(
                 GraphEdge(
                     edge_id=edge_id,
-                    source_id=tdoc_id,
+                    source_id=document_id,
                     target_id=ref_tdoc,
                     edge_type=GraphEdgeType.REFERENCES,
                     temporal_context=meeting_id,
@@ -114,12 +213,12 @@ def build_graph(
                 )
             )
 
-        edge_id = f"{tdoc_id}->{GraphEdgeType.REFERENCES.value}->{spec}"
+        edge_id = f"{document_id}->{GraphEdgeType.REFERENCES.value}->{spec}"
         if edge_id not in existing_edge_ids:
             edges.append(
                 GraphEdge(
                     edge_id=edge_id,
-                    source_id=tdoc_id,
+                    source_id=document_id,
                     target_id=spec,
                     edge_type=GraphEdgeType.REFERENCES,
                     temporal_context=meeting_id,
@@ -139,20 +238,95 @@ def build_graph(
                 )
             )
 
-        edge_id = f"{meeting}->{GraphEdgeType.DISCUSSES.value}->{tdoc_id}"
+        edge_id = f"{meeting}->{GraphEdgeType.DISCUSSES.value}->{document_id}"
         if edge_id not in existing_edge_ids:
             edges.append(
                 GraphEdge(
                     edge_id=edge_id,
                     source_id=meeting,
-                    target_id=tdoc_id,
+                    target_id=document_id,
                     edge_type=GraphEdgeType.DISCUSSES,
                     temporal_context=meeting_id,
                     provenance="extracted_meeting_reference",
                 )
             )
 
-    logger.info(f"Built graph for {tdoc_id}: {len(nodes)} nodes, {len(edges)} edges")
+    # Add company entities
+    for company in company_entities:
+        if company not in existing_node_ids:
+            nodes.append(
+                GraphNode(
+                    node_id=company,
+                    node_type=GraphNodeType.COMPANY,
+                    label=company,
+                    properties={"company_name": company},
+                    created_at=now,
+                )
+            )
+        edge_id = f"{document_id}->AUTHORED_BY->{company}"
+        if edge_id not in existing_edge_ids:
+            edges.append(
+                GraphEdge(
+                    edge_id=edge_id,
+                    source_id=document_id,
+                    target_id=company,
+                    edge_type=GraphEdgeType.AUTHORED_BY,
+                    temporal_context=meeting_id,
+                    provenance="extracted_company_entity",
+                )
+            )
+
+    # Add work items
+    for wi in work_items:
+        if wi not in existing_node_ids:
+            nodes.append(
+                GraphNode(
+                    node_id=wi,
+                    node_type=GraphNodeType.WORK_ITEM,
+                    label=wi,
+                    properties={"work_item_id": wi},
+                    created_at=now,
+                )
+            )
+        edge_id = f"{document_id}->DISCUSSES->{wi}"
+        if edge_id not in existing_edge_ids:
+            edges.append(
+                GraphEdge(
+                    edge_id=edge_id,
+                    source_id=document_id,
+                    target_id=wi,
+                    edge_type=GraphEdgeType.DIScusSES,
+                    temporal_context=meeting_id,
+                    provenance="extracted_work_item",
+                )
+            )
+
+    # Add change requests
+    for cr in change_requests:
+        if cr not in existing_node_ids:
+            nodes.append(
+                GraphNode(
+                    node_id=cr,
+                    node_type=GraphNodeType.CHANGE_REQUEST,
+                    label=cr,
+                    properties={"cr_id": cr},
+                    created_at=now,
+                )
+            )
+        edge_id = f"{document_id}->REFERENCES->{cr}"
+        if edge_id not in existing_edge_ids:
+            edges.append(
+                GraphEdge(
+                    edge_id=edge_id,
+                    source_id=document_id,
+                    target_id=cr,
+                    edge_type=GraphEdgeType.REFERENCES,
+                    temporal_context=meeting_id,
+                    provenance="extracted_change_request",
+                )
+            )
+
+    logger.info(f"Built graph for {document_id}: {len(nodes)} nodes, {len(edges)} edges")
     return nodes, edges
 
 
@@ -180,7 +354,7 @@ def query_graph(
         Dict with 'results' key containing list of GraphQueryResult objects.
     """
     if storage is None:
-        config = AiConfig.from_env(cache_manager_name="default")
+        config = AiConfig.from_env()
         store_path = config.ai_store_path
         if store_path is None:
             msg = "AI store path not configured"
@@ -218,10 +392,10 @@ def query_graph(
     return {"results": results}
 
 
-def get_tdoc_evolution(tdoc_id: str, storage: AiStorage | None = None) -> list[GraphNode]:
+def get_tdoc_evolution(document_id: str, storage: AiStorage | None = None) -> list[GraphNode]:
     """Get evolution chain for a TDoc (revisions, supersessions)."""
     if storage is None:
-        config = AiConfig.from_env(cache_manager_name="default")
+        config = AiConfig.from_env()
         store_path = config.ai_store_path
         if store_path is None:
             msg = "AI store path not configured"
@@ -229,15 +403,15 @@ def get_tdoc_evolution(tdoc_id: str, storage: AiStorage | None = None) -> list[G
         storage = AiStorage(store_path)
 
     nodes, edges = storage.query_graph(filters={})
-    related_ids = {tdoc_id}
+    related_ids = {document_id}
 
     for edge in edges:
         if edge.edge_type in [GraphEdgeType.REVISES, GraphEdgeType.SUPERSEDES]:
-            if edge.source_id == tdoc_id:
+            if edge.source_id == document_id:
                 related_ids.add(edge.target_id)
-            elif edge.target_id == tdoc_id:
+            elif edge.target_id == document_id:
                 related_ids.add(edge.source_id)
 
-    related_nodes = [n for n in nodes if n.node_id in related_ids and n.node_type == GraphNodeType.TDOC]
+    related_nodes = [n for n in nodes if n.node_id in related_ids and n.node_type == GraphNodeType.DOCUMENT]
     related_nodes.sort(key=lambda n: n.created_at or datetime.min)
     return related_nodes

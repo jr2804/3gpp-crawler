@@ -18,18 +18,18 @@ from tdoc_crawler.utils.misc import utc_now
 logger = logging.getLogger(__name__)
 
 
-def _normalize_tdoc_id(tdoc_id: str) -> str:
-    return tdoc_id.strip().upper()
+def _normalize_document_id(document_id: str) -> str:
+    return document_id.strip().upper()
 
 
-def _artifact_path(docx_path: Path, tdoc_id: str) -> Path:
+def _artifact_path(docx_path: Path, document_id: str) -> Path:
     artifact_dir = docx_path.parent / ".ai"
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    return artifact_dir / f"{_normalize_tdoc_id(tdoc_id)}.md"
+    return artifact_dir / f"{_normalize_document_id(document_id)}.md"
 
 
-def _write_markdown_artifact(docx_path: Path, tdoc_id: str, markdown: str) -> Path:
-    output_path = _artifact_path(docx_path, tdoc_id)
+def _write_markdown_artifact(docx_path: Path, document_id: str, markdown: str) -> Path:
+    output_path = _artifact_path(docx_path, document_id)
     output_path.write_text(markdown, encoding="utf-8")
     return output_path
 
@@ -68,7 +68,7 @@ def _fallback_extract_docx_to_markdown(docx_path: Path) -> str:
 
 
 def extract_docx_to_markdown(
-    tdoc_id: str,
+    document_id: str,
     docx_path: Path,
     storage: AiStorage,
     workspace: str | None = None,
@@ -76,7 +76,7 @@ def extract_docx_to_markdown(
     """Extract content from DOCX file to Markdown using Kreuzberg.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         docx_path: Path to DOCX file.
         storage: AiStorage instance for status tracking.
         workspace: Optional workspace scope (defaults to "default").
@@ -95,17 +95,17 @@ def extract_docx_to_markdown(
 
     # Check for change detection (idempotency)
     current_hash = compute_source_hash(docx_path)
-    artifact_path = _artifact_path(docx_path, tdoc_id)
+    artifact_path = _artifact_path(docx_path, document_id)
 
     try:
-        status = storage.get_status(tdoc_id, workspace=normalized_workspace)
+        status = storage.get_status(document_id, workspace=normalized_workspace)
         if status and hasattr(status, "source_hash") and status.source_hash == current_hash and hasattr(status, "extracted_at") and status.extracted_at:
-            logger.info(f"Skipping extraction for {tdoc_id} - content unchanged")
+            logger.info(f"Skipping extraction for {document_id} - content unchanged")
             if artifact_path.exists():
                 return artifact_path.read_text(encoding="utf-8")
             return ""
     except Exception as error:
-        logger.debug(f"Unable to load prior extraction status for {tdoc_id}: {error}")
+        logger.debug(f"Unable to load prior extraction status for {document_id}: {error}")
 
     try:
         # Extract DOCX to Markdown using Kreuzberg with advanced features
@@ -134,13 +134,13 @@ def extract_docx_to_markdown(
         if hasattr(result, "detected_languages") and result.detected_languages:
             detected_language = str(result.detected_languages[0])
 
-        artifact_output = _write_markdown_artifact(docx_path, tdoc_id, markdown)
+        artifact_output = _write_markdown_artifact(docx_path, document_id, markdown)
 
         # Save hash for future idempotency
         try:
-            status = storage.get_status(tdoc_id, workspace=normalized_workspace)
+            status = storage.get_status(document_id, workspace=normalized_workspace)
             if status is None:
-                status = ProcessingStatus(tdoc_id=tdoc_id)
+                status = ProcessingStatus(document_id=document_id)
             status.source_hash = current_hash
             status.extracted_at = utc_now()
             status.error_message = None
@@ -157,14 +157,14 @@ def extract_docx_to_markdown(
         logger.warning(f"Kreuzberg extraction failed for {docx_path}, using fallback parser: {e}")
         fallback_markdown = _fallback_extract_docx_to_markdown(docx_path)
         if fallback_markdown:
-            _write_markdown_artifact(docx_path, tdoc_id, fallback_markdown)
+            _write_markdown_artifact(docx_path, document_id, fallback_markdown)
             return fallback_markdown
         msg = f"Failed to extract DOCX: {e}"
         raise ExtractionError(msg) from e
 
 
 def extract_from_folder(
-    tdoc_id: str,
+    document_id: str,
     folder_path: Path,
     storage: AiStorage,
     main_doc_path: Path | None = None,
@@ -173,7 +173,7 @@ def extract_from_folder(
     """Extract content from all relevant files in a TDoc folder.
 
     Args:
-        tdoc_id: TDoc identifier.
+        document_id: Document identifier.
         folder_path: Path to TDoc checkout folder.
         storage: AiStorage instance.
         main_doc_path: Optional path to main document.
@@ -208,7 +208,7 @@ def extract_from_folder(
         logger.info(f"Multiple DOCX files found, classification needed: {docx_files}")
         docx_to_extract = docx_files[0]  # Just use first for now
 
-    return extract_docx_to_markdown(tdoc_id, docx_to_extract, storage, workspace=workspace)
+    return extract_docx_to_markdown(document_id, docx_to_extract, storage, workspace=workspace)
 
 
 __all__ = [
