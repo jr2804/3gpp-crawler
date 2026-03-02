@@ -21,7 +21,6 @@ from tdoc_crawler.ai import (
     delete_workspace,
     ensure_ai_subfolder,
     get_active_workspace,
-    list_workspaces,
     make_workspace_member,
     normalize_workspace_name,
     query_embeddings,
@@ -53,17 +52,10 @@ console = Console()
 def _get_ai_dir() -> Path:
     """Get the .ai directory path."""
     manager = CacheManager().register()
-    ai_dir = manager.root / ".ai"
-    ai_dir.mkdir(parents=True, exist_ok=True)
-    return ai_dir
+    return manager.ai_cache_dir
 
 
-def get_active_workspace() -> str | None:
-    """Get the currently active workspace name, or None if not set."""
-    active_file = _get_ai_dir() / "active_workspace"
-    if active_file.exists():
-        return active_file.read_text().strip() or None
-    return None
+
 
 
 def clear_active_workspace() -> None:
@@ -195,7 +187,7 @@ def workspace_create(
     """Create a new workspace."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir, embedding_dimension=384)  # type: ignore[arg-type]
     workspace = create_workspace(storage, name, auto_build=auto_build)
 
     if activate:
@@ -216,27 +208,37 @@ def workspace_list(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """List all workspaces."""
-    CacheManager().register()
+    from tdoc_crawler.ai.operations.workspace_registry import WorkspaceRegistry
 
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
-    workspaces = list_workspaces(storage)
+    CacheManager().register()
+    registry = WorkspaceRegistry.load()
+    workspaces = registry.list_workspaces()
 
     if json_output:
-        typer.echo(json.dumps([w.model_dump(mode="json") for w in workspaces]))
+        typer.echo(json.dumps([{
+            "name": w.name,
+            "is_active": w.is_active,
+            "tdoc_count": w.tdoc_count,
+            "spec_count": w.spec_count,
+            "other_count": w.other_count,
+            "created_at": w.created_at,
+        } for w in workspaces]))
     else:
         table = Table(title="Workspaces")
         table.add_column("Name", style="cyan")
         table.add_column("Active", style="green")
-        table.add_column("Status", style="yellow")
+        table.add_column("TDocs", style="yellow", justify="right")
+        table.add_column("Specs", style="yellow", justify="right")
+        table.add_column("Other Docs", style="yellow", justify="right")
         table.add_column("Created", style="magenta")
-        active_workspace = get_active_workspace()
         for ws in workspaces:
-            is_active = ws.workspace_name == active_workspace
             table.add_row(
-                ws.workspace_name,
-                "*" if is_active else "",
-                ws.status.value,
-                ws.created_at.isoformat() if ws.created_at else "",
+                ws.name,
+                "*" if ws.is_active else "",
+                str(ws.tdoc_count),
+                str(ws.spec_count),
+                str(ws.other_count),
+                ws.created_at,
             )
         console.print(table)
 
@@ -249,7 +251,7 @@ def workspace_info(
     """Get detailed workspace information including member counts."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir, embedding_dimension=384)  # type: ignore[arg-type]
     workspace = storage.get_workspace(name)
 
     if workspace is None:
@@ -290,15 +292,6 @@ def workspace_activate(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Set a workspace as the active workspace."""
-    CacheManager().register()
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
-    workspace = storage.get_workspace(name)
-    if workspace is None:
-        if json_output:
-            typer.echo(json.dumps({"error": f"Workspace '{name}' not found"}))
-        else:
-            console.print(f"[red]Workspace '{name}' not found[/red]")
-        raise typer.Exit(1)
     set_active_workspace(name)
     if json_output:
         typer.echo(json.dumps({"active_workspace": normalize_workspace_name(name)}))
@@ -310,19 +303,12 @@ def workspace_activate(
 def workspace_deactivate(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Clear the active workspace."""
-    active = get_active_workspace()
-    if active is None:
-        if json_output:
-            typer.echo(json.dumps({"active_workspace": None, "message": "No active workspace set"}))
-        else:
-            console.print("[yellow]No active workspace set[/yellow]")
-        return
-    clear_active_workspace()
+    """Reset the active workspace to default."""
+    set_active_workspace("default")
     if json_output:
-        typer.echo(json.dumps({"active_workspace": None, "deactivated": active}))
+        typer.echo(json.dumps({"active_workspace": "default"}))
     else:
-        console.print(f"[green]Deactivated workspace: {active}[/green]")
+        console.print("[green]Reset active workspace to default[/green]")
 
 
 @_workspace_app.command("clear-invalid")
@@ -332,7 +318,7 @@ def workspace_clear_invalid(
 ) -> None:
     """Remove all invalid (inactive) documents from the workspace."""
     workspace = resolve_workspace(workspace)
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
 
     removed_count = storage.remove_invalid_members(workspace)
 
@@ -351,7 +337,7 @@ def workspace_clear(
 ) -> None:
     """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
     workspace = resolve_workspace(workspace)
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
 
     removed_count = storage.clear_workspace_artifacts(workspace)
 
@@ -393,7 +379,7 @@ def workspace_add_members(
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
 
     source_kind = SourceKind(kind.lower()) if kind.lower() in [e.value for e in SourceKind] else SourceKind.OTHER
 
@@ -475,7 +461,7 @@ def workspace_list_members(
     workspace = resolve_workspace(workspace)
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
     members = storage.list_workspace_members(workspace, include_inactive=include_inactive)
 
     if json_output:
@@ -505,7 +491,7 @@ def workspace_process(
     """Process all active document members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
 
     # Get workspace members
     members = storage.list_workspace_members(workspace, include_inactive=False)
@@ -552,7 +538,7 @@ def workspace_delete(
     """Delete a workspace (default workspace cannot be deleted)."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_store_path)  # type: ignore[arg-type]
+    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
     result = delete_workspace(storage, name, preserve_artifacts=preserve_artifacts)
 
     if not result:

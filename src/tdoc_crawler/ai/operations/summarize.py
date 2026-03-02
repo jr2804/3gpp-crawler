@@ -157,7 +157,7 @@ def _should_skip_summary(
             return existing == content_hash
 
         config = _get_ai_config()
-        storage_client = AiStorage(config.ai_store_path)  # type: ignore[arg-type]
+        storage_client = AiStorage(config.ai_cache_dir)  # type: ignore[arg-type]
         existing = storage_client.get_summary_hash(document_id)
         return existing == content_hash
     except Exception:
@@ -220,7 +220,7 @@ def summarize_document(
     config = _get_ai_config()
 
     if storage is None:
-        storage = AiStorage(config.ai_store_path)  # type: ignore[arg-type]
+        storage = AiStorage(config.ai_cache_dir)  # type: ignore[arg-type]
 
     normalized_workspace = normalize_workspace_name(workspace)
 

@@ -8,6 +8,7 @@ from pathlib import Path
 import litellm
 from pydantic import Field, field_validator, model_validator
 
+from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.models import BaseConfigModel
 
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -78,7 +79,7 @@ def _validate_embedding_model_format(value: str) -> str:
 class AiConfig(BaseConfigModel):
     """Configuration for the AI processing pipeline."""
 
-    ai_store_path: Path | None = Field(None, description="Path to AI LanceDB store")
+    ai_cache_dir: Path | None = Field(None, description="Path to AI LanceDB store")
 
     embedding_model: str = Field(
         DEFAULT_EMBEDDING_MODEL,
@@ -102,8 +103,13 @@ class AiConfig(BaseConfigModel):
         """Create config from environment variables."""
         data: dict[str, str | int | Path | None] = {}
 
-        if store_path := os.getenv("TDC_AI_STORE_PATH"):
-            data["ai_store_path"] = Path(store_path)
+        # Set cache_manager_name for use in _resolve_paths validator
+        if cache_manager_name := overrides.get("cache_manager_name"):
+            data["cache_manager_name"] = cache_manager_name
+
+        # NOTE: ai_cache_dir is NOT set here - it will be resolved in _resolve_paths
+        # validator using ai_embed_dir(embedding_model) to include provider/model subdirectory
+
         if embedding_model := os.getenv("TDC_AI_EMBEDDING_MODEL"):
             data["embedding_model"] = embedding_model
         if llm_model := os.getenv("TDC_AI_LLM_MODEL"):
@@ -138,11 +144,12 @@ class AiConfig(BaseConfigModel):
 
     @model_validator(mode="after")
     def _resolve_paths(self) -> AiConfig:
-        if self.ai_store_path is None:
-            # Include embedding model in path to avoid dimension conflicts
+        if self.ai_cache_dir is None:
+            # Use CacheManager to resolve the embedding directory
             # e.g., ~/.tdoc-crawler/.ai/sentence-transformers/all-MiniLM-L6-v2
-            # Keep slash to group models by provider
-            self.ai_store_path = self.cache_dir / ".ai" / self.embedding_model
+            # The ai_embed_dir method handles the provider/model subdirectory structure
+            self.ai_cache_dir = resolve_cache_manager(self.cache_manager_name).ai_embed_dir(self.embedding_model)
+
         return self
 
     @model_validator(mode="after")

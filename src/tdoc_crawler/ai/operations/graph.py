@@ -144,7 +144,7 @@ def build_graph(
     """Build knowledge graph from TDoc content with incremental updates."""
     if storage is None:
         config = AiConfig.from_env()
-        store_path = config.ai_store_path
+        store_path = config.ai_cache_dir
         if store_path is None:
             msg = "AI store path not configured"
             raise ValueError(msg)
@@ -355,7 +355,7 @@ def query_graph(
     """
     if storage is None:
         config = AiConfig.from_env()
-        store_path = config.ai_store_path
+        store_path = config.ai_cache_dir
         if store_path is None:
             msg = "AI store path not configured"
             raise ValueError(msg)
@@ -396,7 +396,7 @@ def get_tdoc_evolution(document_id: str, storage: AiStorage | None = None) -> li
     """Get evolution chain for a TDoc (revisions, supersessions)."""
     if storage is None:
         config = AiConfig.from_env()
-        store_path = config.ai_store_path
+        store_path = config.ai_cache_dir
         if store_path is None:
             msg = "AI store path not configured"
             raise ValueError(msg)

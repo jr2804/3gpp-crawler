@@ -4,6 +4,7 @@ This module provides a centralized registry for workspace metadata,
 stored in a JSON file at ~/.tdoc-crawler/.ai/workspaces.json.
 """
 
+
 from __future__ import annotations
 
 import json
@@ -12,12 +13,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_WORKSPACE = "default"
-REGISTRY_FILENAME = "workspaces.json"
 
 
 @dataclass
@@ -52,6 +53,17 @@ class WorkspaceMetadata:
 
 
 @dataclass
+class WorkspaceDisplayInfo:
+    """Display information for a workspace including member counts."""
+
+    name: str
+    created_at: str
+    tdoc_count: int = 0
+    spec_count: int = 0
+    other_count: int = 0
+    is_active: bool = False
+
+@dataclass
 class WorkspaceRegistry:
     """Registry for all workspaces.
 
@@ -69,17 +81,13 @@ class WorkspaceRegistry:
     version: int = 1
     workspaces: dict[str, WorkspaceMetadata] = field(default_factory=dict)
     active: str = DEFAULT_WORKSPACE
+    cache_manager_name: str | None = None
 
-    def save(self, registry_path: Path | None = None) -> None:
-        """Save registry to JSON file.
-
-        Args:
-            registry_path: Path to workspaces.json. If None, uses default location.
-        """
-        if registry_path is None:
-            registry_path = self._default_path()
-
-        registry_path.parent.mkdir(parents=True, exist_ok=True)
+    def save(
+        self,
+    ) -> None:
+        """Save registry to JSON file."""
+        registry_path = resolve_cache_manager(self.cache_manager_name).ai_workspace_file
 
         data = {
             "version": self.version,
@@ -166,13 +174,39 @@ class WorkspaceRegistry:
         normalized_name = name.strip().lower() if name else DEFAULT_WORKSPACE
         return self.workspaces.get(normalized_name)
 
-    def list_workspaces(self) -> list[WorkspaceMetadata]:
-        """List all workspaces.
+    def list_workspaces(self, storage: Any | None = None) -> list[WorkspaceDisplayInfo]:
+        """List all workspaces with member counts.
+
+        Args:
+            storage: Optional AiStorage instance for getting member counts.
 
         Returns:
-            List of all WorkspaceMetadata objects.
+            List of WorkspaceDisplayInfo objects with member counts.
         """
-        return list(self.workspaces.values())
+        from tdoc_crawler.ai.config import AiConfig
+        from tdoc_crawler.ai.storage import AiStorage
+
+        if storage is None:
+            config = AiConfig.from_env()
+            storage = AiStorage(config.ai_cache_dir)  # type: ignore[arg-type]
+
+        active_name = self.active or DEFAULT_WORKSPACE
+        result = []
+
+        for metadata in self.workspaces.values():
+            counts = storage.get_workspace_member_counts(metadata.name)
+            result.append(
+                WorkspaceDisplayInfo(
+                    name=metadata.name,
+                    created_at=metadata.created_at,
+                    tdoc_count=counts.get("tdoc", 0),
+                    spec_count=counts.get("spec", 0),
+                    other_count=counts.get("other", 0),
+                    is_active=metadata.name == active_name,
+                )
+            )
+
+        return result
 
     def set_active(self, name: str) -> None:
         """Set the active workspace.
@@ -215,21 +249,22 @@ class WorkspaceRegistry:
             self.workspaces[normalized_name].member_count = count
 
     @classmethod
-    def load(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
+    def load(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
         """Load registry from JSON file.
 
         Args:
-            registry_path: Path to workspaces.json. If None, uses default location.
+            registry_path: Explicit path to workspaces.json. If None, uses CacheManager.
+            cache_manager_name: Cache manager name (used if registry_path is None).
 
         Returns:
             Loaded WorkspaceRegistry instance.
         """
         if registry_path is None:
-            registry_path = cls._default_path()
+            registry_path = resolve_cache_manager(cache_manager_name).ai_workspace_file
 
         if not registry_path.exists():
             logger.debug(f"Registry not found at {registry_path}, creating new")
-            return cls._create_default(registry_path)
+            return cls._create_default(registry_path, cache_manager_name=cache_manager_name)
 
         try:
             with registry_path.open("r", encoding="utf-8") as f:
@@ -241,20 +276,22 @@ class WorkspaceRegistry:
                 version=data.get("version", 1),
                 workspaces=workspaces,
                 active=data.get("active", DEFAULT_WORKSPACE),
+                cache_manager_name=cache_manager_name,
             )
             logger.debug(f"Loaded workspace registry with {len(workspaces)} workspaces")
             return registry
 
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Failed to load registry from {registry_path}: {e}")
-            return cls._create_default(registry_path)
+            return cls._create_default(registry_path, cache_manager_name=cache_manager_name)
 
     @classmethod
-    def _create_default(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
+    def _create_default(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
         """Create a new registry with default workspace.
 
         Args:
-            registry_path: Optional path to save to.
+            registry_path: Optional explicit path to save to (used if cache_manager_name is also None).
+            cache_manager_name: Cache manager name for path resolution.
 
         Returns:
             New WorkspaceRegistry instance with default workspace.
@@ -269,31 +306,68 @@ class WorkspaceRegistry:
                 )
             },
             active=DEFAULT_WORKSPACE,
+            cache_manager_name=cache_manager_name,
         )
 
+        # Save if we have a path (either explicit or from cache manager)
         if registry_path is not None:
-            registry.save(registry_path)
+            registry.save()
+        elif cache_manager_name is not None:
+            # Use cache manager to get path
+            registry_path = resolve_cache_manager(cache_manager_name).ai_workspace_file
+            registry.save()
 
-        return registry
 
-    @staticmethod
-    def _default_path() -> Path:
-        """Get default registry path: ~/.tdoc-crawler/.ai/workspaces.json"""
-        # Use standard cache directory based on platform
-        import platform
+def get_active_workspace(cache_manager_name: str | None = None) -> str:
+    """Get the name of the currently active workspace.
 
-        if platform.system() == "Windows":
-            base = Path.home() / "AppData" / "Local"
-        elif platform.system() == "Darwin":
-            base = Path.home() / "Library" / "Caches"
-        else:
-            base = Path.home() / ".cache"
-        cache_dir = base / "tdoc-crawler"
-        return cache_dir / ".ai" / REGISTRY_FILENAME
+    Args:
+        cache_manager_name: Optional cache manager name. If None, uses default.
 
+    Returns:
+        Name of the active workspace, or DEFAULT_WORKSPACE if none set.
+    """
+    from tdoc_crawler.config import CacheManager
+
+    manager_name = cache_manager_name or "default"
+    try:
+        resolve_cache_manager(manager_name)
+    except ValueError:
+        CacheManager(name=manager_name).register()
+
+    registry = WorkspaceRegistry.load(cache_manager_name=cache_manager_name)
+    return registry.active or DEFAULT_WORKSPACE
+
+
+
+def set_active_workspace(name: str, cache_manager_name: str | None = None) -> None:
+    """Set the active workspace.
+
+    Args:
+        name: Workspace name to set as active.
+        cache_manager_name: Optional cache manager name.
+    """
+    # Ensure cache manager is registered before loading registry
+    from tdoc_crawler.config import CacheManager
+    manager_name = cache_manager_name or "default"
+    try:
+        resolve_cache_manager(manager_name)
+    except ValueError:
+        CacheManager(name=manager_name).register()
+
+    from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
+    registry = WorkspaceRegistry.load(cache_manager_name=cache_manager_name)
+    normalized_name = normalize_workspace_name(name)
+    if normalized_name not in registry.workspaces:
+        raise ValueError(f"Workspace '{name}' does not exist")
+    registry.active = normalized_name
+    registry.save()
+    logger.info(f"Set active workspace to '{normalized_name}'")
 
 __all__ = [
     "DEFAULT_WORKSPACE",
     "WorkspaceMetadata",
     "WorkspaceRegistry",
+    "get_active_workspace",
+    "set_active_workspace",
 ]

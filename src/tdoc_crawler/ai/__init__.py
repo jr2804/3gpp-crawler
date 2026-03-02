@@ -24,8 +24,14 @@ from tdoc_crawler.ai.operations.pipeline import process_tdoc as _pipeline_proces
 from tdoc_crawler.ai.operations.pipeline import process_tdoc as process_document
 from tdoc_crawler.ai.operations.summarize import SummarizeResult
 from tdoc_crawler.ai.operations.summarize import summarize_tdoc as summarize_document
-from tdoc_crawler.ai.operations.workspaces import (
+from tdoc_crawler.ai.operations.workspace_registry import (
     DEFAULT_WORKSPACE,
+    WorkspaceDisplayInfo,
+    WorkspaceRegistry,
+    get_active_workspace,
+    set_active_workspace,
+)
+from tdoc_crawler.ai.operations.workspaces import (
     add_workspace_members,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
@@ -33,7 +39,6 @@ from tdoc_crawler.ai.operations.workspaces import (
     delete_workspace,
     ensure_ai_subfolder,
     ensure_default_workspace,
-    get_active_workspace,
     get_workspace,
     is_default_workspace,
     list_workspaces,
@@ -41,7 +46,6 @@ from tdoc_crawler.ai.operations.workspaces import (
     normalize_workspace_name,
     resolve_tdoc_checkout_path,
     resolve_workspace,
-    set_active_workspace,
 )
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
@@ -122,6 +126,8 @@ __all__ = [
     "PipelineStage",
     "ProcessingStatus",
     "SummarizeResult",
+    "WorkspaceDisplayInfo",
+    "WorkspaceRegistry",
     "add_workspace_members",
     "checkout_spec_to_workspace",
     "checkout_tdoc_to_workspace",

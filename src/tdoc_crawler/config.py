@@ -11,8 +11,9 @@ DEFAULT_CACHE_DIR = Path.home() / ".tdoc-crawler"
 DEFAULT_DATABASE_FILENAME = "tdoc_crawler.db"
 DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
-
 DEFAULT_MANAGER = "default"
+
+REGISTRY_FILENAME = "workspaces.json"
 
 _cache_managers: dict[str, CacheManager] = {}
 
@@ -53,12 +54,13 @@ class CacheManager:
     Acts as the single source of truth for where files are stored.
     """
 
-    def __init__(self, root_path: Path | None = None, name: str = DEFAULT_MANAGER, ensure_paths: bool = True) -> None:
+    def __init__(self, root_path: Path | None = None, ai_cache_dir: Path | None = None, name: str = DEFAULT_MANAGER, ensure_paths: bool = True) -> None:
         """Initialize cache manager.
 
         Args:
             root_path: Explicit root path. If None, tries TDC_CACHE_DIR env var,
                        then falls back to DEFAULT_CACHE_DIR.
+            ai_cache_dir: Explicit AI cache directory path. If None, defaults to root_path/.ai
             name: Optional name to register this manager under. If provided, the manager is registered upon initialization.
             ensure_paths: If True, will create the root directory if it doesn't exist.
         """
@@ -67,11 +69,21 @@ class CacheManager:
         if root_path:
             self.root = root_path
         else:
-            env_path = os.getenv("TDC_CACHE_DIR")
-            self.root = Path(env_path) if env_path else DEFAULT_CACHE_DIR
+            env_cache_dir = os.getenv("TDC_CACHE_DIR")
+            self.root = Path(env_cache_dir) if env_cache_dir else DEFAULT_CACHE_DIR
+
+        if ai_cache_dir:
+            self.ai_cache_dir = ai_cache_dir.resolve()
+        else:
+            env_ai_cache_dir = os.getenv("TDC_AI_STORE_PATH")
+            if env_ai_cache_dir:
+                self.ai_cache_dir = Path(env_ai_cache_dir).resolve()
+            else:
+                self.ai_cache_dir = (self.root / ".ai").resolve()
 
         if ensure_paths:
             self.ensure_paths()
+            self.ensure_ai_paths()
 
     def register(self, force: bool = True) -> Self:
         """Register this instance as a cache manager under the given name.
@@ -97,6 +109,19 @@ class CacheManager:
         """Path to the default checkout directory."""
         return self.root / DEFAULT_CHECKOUT_DIRNAME
 
+    def ai_embed_dir(self, embedding_model: str) -> Path:
+        """Path to store AI-related files for a specific embedding model."""
+        return (self.ai_cache_dir / embedding_model).resolve()
+
+    @property
+    def ai_workspace_file(self) -> Path:
+        """Path to the workspace registry file for a specific workspace."""
+        return self.ai_cache_dir / REGISTRY_FILENAME
+
     def ensure_paths(self) -> None:
         """Ensure the root cache directory exists."""
         self.root.mkdir(parents=True, exist_ok=True)
+
+    def ensure_ai_paths(self) -> None:
+        """Ensure the AI cache directory exists."""
+        self.ai_cache_dir.mkdir(parents=True, exist_ok=True)

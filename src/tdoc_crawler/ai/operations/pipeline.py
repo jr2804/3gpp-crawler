@@ -332,7 +332,7 @@ def process_tdoc(
     """
     config = AiConfig.from_env()
     manager = EmbeddingsManager(config=config)
-    storage = AiStorage(config.ai_store_path, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
+    storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
     return run_pipeline(
         document_id,
         checkout_path,
@@ -365,7 +365,7 @@ def process_all(
     """
     config = AiConfig.from_env()
     manager = EmbeddingsManager(config=config)
-    storage = AiStorage(config.ai_store_path, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
+    storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
     normalized_workspace = normalize_workspace_name(workspace)
 
     # Get workspace members and build a lookup map
@@ -419,7 +419,7 @@ def get_status(document_id: str, workspace: str | None = None) -> ProcessingStat
     """
     config = AiConfig.from_env()
     manager = EmbeddingsManager(config=config)
-    storage = AiStorage(config.ai_store_path, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
+    storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
     normalized_workspace = normalize_workspace_name(workspace)
     return storage.get_status(document_id, workspace=normalized_workspace)
 

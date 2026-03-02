@@ -85,9 +85,9 @@ class EmbeddingsManager:
             List of DocumentChunk objects with embeddings.
         """
         if self._storage is None:
-            if self._config.ai_store_path is None:
-                raise RuntimeError("ai_store_path is not configured in AiConfig")
-            self._storage = AiStorage(self._config.ai_store_path, embedding_dimension=self.dimension)
+            if self._config.ai_cache_dir is None:
+                raise RuntimeError("ai_cache_dir is not configured in AiConfig")
+            self._storage = AiStorage(self._config.ai_cache_dir, embedding_dimension=self.dimension)
 
         normalized_workspace = normalize_workspace_name(workspace)
         markdown_content = markdown.read_text(encoding="utf-8") if isinstance(markdown, Path) else markdown
@@ -141,7 +141,7 @@ class EmbeddingsManager:
         Returns:
             List of (DocumentChunk, score) tuples.
         """
-        storage = self._storage or AiStorage(self._config.ai_store_path)  # type: ignore[arg-type]
+        storage = self._storage or AiStorage(self._config.ai_cache_dir)  # type: ignore[arg-type]
         normalized_workspace = normalize_workspace_name(workspace)
 
         # Encode query
