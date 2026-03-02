@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -381,14 +381,16 @@ def workspace_add_members(
 
     storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
 
-    source_kind = SourceKind(kind.lower()) if kind.lower() in [e.value for e in SourceKind] else SourceKind.OTHER
+    # Normalize kind to singular form (accept both 'tdoc' and 'tdocs')
+    kind_normalized = kind.lower().rstrip('s')
+    source_kind = SourceKind(kind_normalized) if kind_normalized in [e.value for e in SourceKind] else SourceKind.OTHER
 
     # Query database if no items provided but filters are present
     if items is None:
         if source_kind == SourceKind.TDOC:
             config = TDocQueryConfig(
-                start_date=datetime.combine(parse_partial_date(start_date), datetime.min.time()) if start_date else None,
-                end_date=datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time()) if end_date else None,
+                start_date=datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None,
+                end_date=datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None,
                 source_pattern=source,
                 source_pattern_exclude=source_ex,
                 title_pattern=title,
@@ -432,7 +434,9 @@ def workspace_add_members(
                 source_path = str(checkout_path)
                 # Ensure .ai subfolder exists
                 ensure_ai_subfolder(checkout_path)
-        members.append(make_workspace_member(workspace, item, source_path, source_kind))
+        # For specs, include release version in source_item_id to allow multiple versions
+        source_item_id = f"{item}-REL{release}" if source_kind == SourceKind.SPEC and release else item
+        members.append(make_workspace_member(workspace, source_item_id, source_path, source_kind))
 
     # Report skipped items
     if skipped_items:
@@ -472,12 +476,17 @@ def workspace_list_members(
             return
         table = Table(title=f"Members: {normalize_workspace_name(workspace)}")
         table.add_column("Source ID", style="cyan")
+        table.add_column("Release", style="magenta")
         table.add_column("Kind", style="green")
         table.add_column("Path", style="white")
         table.add_column("Active", style="yellow")
         for m in members:
-            table.add_row(m.source_item_id, m.source_kind.value, m.source_path, "Yes" if m.is_active else "No")
-        console.print(table)
+            # Extract release version from source_item_id for specs
+            release = ""
+            source_id = m.source_item_id
+            if m.source_kind == SourceKind.SPEC and "-REL" in source_id.upper():
+                source_id, release = source_id.rsplit("-REL", 1)
+            table.add_row(source_id, release, m.source_kind.value, m.source_path, "Yes" if m.is_active else "No")
 
 
 @_workspace_app.command("process")
