@@ -236,3 +236,9 @@ def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, o
 if __name__ == "__main__":
     pass
 # end of file
+
+
+# Register default cache manager at module level for all tests
+# This ensures AiConfig.from_env() works even when tests don't explicitly use test_cache_dir fixture
+_cache_manager = CacheManager(ensure_paths=False, name="default")
+_cache_manager.register(force=True)

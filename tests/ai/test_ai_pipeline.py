@@ -32,7 +32,7 @@ class TestRunPipeline:
     def test_batch_processing(self, mock_run_pipeline: MagicMock, mock_ai_storage: MagicMock, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test processing multiple TDocs."""
         mock_ai_storage.return_value = mock_storage
-        mock_run_pipeline.return_value = ProcessingStatus(tdoc_id="foo")
+        mock_run_pipeline.return_value = ProcessingStatus(document_id="foo")
 
         tdoc_folders = [d for d in test_data_dir.iterdir() if d.is_dir()][:3]
 
@@ -43,7 +43,7 @@ class TestRunPipeline:
     def test_resume_from_interrupted_stage(self, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test resume from interrupted stage works."""
         # Create a status with partial completion
-        mock_status = ProcessingStatus(tdoc_id="S4-251003")
+        mock_status = ProcessingStatus(document_id="S4-251003")
         mock_status.classified_at = utc_now()
         mock_storage.get_status.return_value = mock_status
 
@@ -58,7 +58,7 @@ class TestRunPipeline:
         """Test incremental processing only processes new items."""
         mock_ai_storage.return_value = mock_storage
         # Status shows already completed
-        mock_status = ProcessingStatus(tdoc_id="S4-251003")
+        mock_status = ProcessingStatus(document_id="S4-251003")
         mock_status.current_stage = PipelineStage.COMPLETED
         mock_storage.get_status.return_value = mock_status
 
@@ -98,7 +98,7 @@ class TestRunPipeline:
             # Note: "26260-j10" is NOT in the workspace
         ]
 
-        mock_run_pipeline.return_value = ProcessingStatus(tdoc_id="S4-251003", current_stage=PipelineStage.COMPLETED)
+        mock_run_pipeline.return_value = ProcessingStatus(document_id="S4-251003", current_stage=PipelineStage.COMPLETED)
 
         tdoc_ids = ["S4-251003", "26260-j10"]
         # Only S4-251003 should be processed because of the workspace scope
@@ -138,8 +138,8 @@ class TestProcessTdocApi:
 
     def test_process_all_new_only_filters_completed_statuses(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """new_only mode should return only non-completed items."""
-        completed = ProcessingStatus(tdoc_id="S4-251003", current_stage=PipelineStage.COMPLETED)
-        pending = ProcessingStatus(tdoc_id="S4-260001", current_stage=PipelineStage.PENDING)
+        completed = ProcessingStatus(document_id="S4-251003", current_stage=PipelineStage.COMPLETED)
+        pending = ProcessingStatus(document_id="S4-260001", current_stage=PipelineStage.PENDING)
 
         def fake_process_all(
             tdoc_ids: list[str],
@@ -150,19 +150,19 @@ class TestProcessTdocApi:
             workspace: str | None = None,
         ) -> dict[str, ProcessingStatus]:
             return {
-                completed.tdoc_id: completed,
-                pending.tdoc_id: pending,
+                completed.document_id: completed,
+                pending.document_id: pending,
             }
 
         monkeypatch.setattr("tdoc_crawler.ai._pipeline_process_all_impl", fake_process_all)
 
         result = process_all_api(
             new_only=True,
-            tdoc_ids=[completed.tdoc_id, pending.tdoc_id],
+            tdoc_ids=[completed.document_id, pending.document_id],
             checkout_base=tmp_path,
         )
 
-        assert [status.tdoc_id for status in result] == [pending.tdoc_id]
+        assert [status.document_id for status in result] == [pending.document_id]
 
 
 class TestPipelineModuleExports:

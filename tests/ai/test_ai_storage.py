@@ -58,12 +58,12 @@ def test_storage_artifact_isolation_by_workspace(tmp_path: Path) -> None:
     storage = AiStorage(tmp_path / "lancedb", embedding_dimension=3)
 
     # Save status for workspace A
-    status_a = ProcessingStatus(tdoc_id="DOC-1", current_stage=PipelineStage.COMPLETED)
+    status_a = ProcessingStatus(document_id="DOC-1", current_stage=PipelineStage.COMPLETED)
     storage.save_status(status_a, workspace="ws_a")
 
     # Save chunks for workspace A
     chunk_a = DocumentChunk(
-        tdoc_id="DOC-1",
+        document_id="DOC-1",
         chunk_id="C1",
         chunk_index=0,
         text="text a",

@@ -65,7 +65,7 @@ class TestGraph:
 
         # Simulate calling build_graph which should use storage
         result_nodes, result_edges = graph.build_graph(
-            tdoc_id="S4-250002", markdown=markdown_content, meeting_id="SA4#123", storage=mock_storage, workspace="test_ws"
+            document_id="S4-250002", markdown=markdown_content, meeting_id="SA4#123", storage=mock_storage, workspace="test_ws"
         )
 
         # Verify query_graph was called to fetch existing data (incremental check)
@@ -137,7 +137,7 @@ class TestGraph:
 
         # Build graph - should extract references and create edges
         result_nodes, result_edges = graph.build_graph(
-            tdoc_id="S4-252000", markdown=markdown_content, meeting_id="SA4#123", storage=mock_storage, workspace="test_ws"
+            document_id="S4-252000", markdown=markdown_content, meeting_id="SA4#123", storage=mock_storage, workspace="test_ws"
         )
 
         # Verify REFERENCES edges were created
@@ -162,3 +162,63 @@ class TestGraphModuleExports:
         """Verify query_graph is exported."""
         assert hasattr(graph, "query_graph")
         assert callable(graph.query_graph)
+
+
+class TestEntityExtractors:
+    """Test entity extraction functions for graph-RAG."""
+
+    def test_extract_company_entities(self) -> None:
+        """Test company name extraction."""
+        from tdoc_crawler.ai.operations.graph import extract_company_entities
+
+        text = "This document was submitted by Huawei and Nokia for discussion at 3GPP."
+        companies = extract_company_entities(text)
+
+        assert "Huawei" in companies
+        assert "Nokia" in companies
+        assert len(companies) >= 2
+
+    def test_extract_work_items(self) -> None:
+        """Test work item extraction."""
+        from tdoc_crawler.ai.operations.graph import extract_work_items
+
+        text = "This relates to WI-12345 and Work Item 67890 for 5G enhancement."
+        wis = extract_work_items(text)
+
+        assert "WI-12345" in wis
+        assert "WI-67890" in wis
+
+    def test_extract_change_requests(self) -> None:
+        """Test change request extraction."""
+        from tdoc_crawler.ai.operations.graph import extract_change_requests
+
+        text = "This CR-001234 and Change Request 5678 propose modifications to the spec."
+        crs = extract_change_requests(text)
+
+        assert "CR-001234" in crs
+        assert "CR-5678" in crs
+
+    def test_extract_all_entity_types(self) -> None:
+        """Test extraction of all entity types together."""
+        from tdoc_crawler.ai.operations.graph import (
+            extract_change_requests,
+            extract_company_entities,
+            extract_work_items,
+        )
+
+        text = """
+        Samsung proposes WI-99999 to address CR-11111.
+        This work item relates to change request CP-230001.
+        Ericsson and Qualcomm support this proposal.
+        """
+
+        companies = extract_company_entities(text)
+        wis = extract_work_items(text)
+        crs = extract_change_requests(text)
+
+        assert "Samsung" in companies
+        assert "Ericsson" in companies
+        assert "Qualcomm" in companies
+        assert "WI-99999" in wis
+        assert "CR-11111" in crs
+        assert "CR-CP-230001" in crs or "CR-230001" in crs

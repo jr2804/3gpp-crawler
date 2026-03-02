@@ -31,7 +31,7 @@ class TestSummarization:
         """Test structured summary has key_points, action_items, decisions, affected_specs."""
         # Create a summary with required fields
         summary = DocumentSummary(
-            tdoc_id="SP-123456",
+            document_id="SP-123456",
             abstract="Test abstract",
             key_points=["Point 1", "Point 2"],
             action_items=["Action 1"],

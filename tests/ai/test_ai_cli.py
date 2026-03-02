@@ -74,8 +74,8 @@ class TestAiCli:
         assert result.exit_code == 0
 
     def test_process_delegates_to_library(self, runner: CliRunner, tmp_path: Path) -> None:
-        """Test process delegates to process_tdoc/process_all."""
-        with patch("tdoc_crawler.cli.ai.process_tdoc") as mock:
+        """Test process delegates to process_document/process_all."""
+        with patch("tdoc_crawler.cli.ai.process_document") as mock:
             mock.return_value = None
             result = runner.invoke(
                 app,
@@ -100,15 +100,15 @@ class TestAiCli:
     def test_status_delegates_to_get_status(self, runner: CliRunner) -> None:
         """Test status delegates to get_status."""
         with patch("tdoc_crawler.cli.ai.get_status") as mock:
-            mock.return_value = ProcessingStatus(tdoc_id="SP-123456", current_stage=PipelineStage.COMPLETED)
+            mock.return_value = ProcessingStatus(document_id="SP-123456", current_stage=PipelineStage.COMPLETED)
             result = runner.invoke(app, ["ai", "status", "--tdoc-id", "SP-123456"])
             assert result.exit_code == 0
 
     def test_status_without_tdoc_id_lists_all(self, runner: CliRunner) -> None:
         """Status command supports listing all statuses without --tdoc-id."""
         statuses = [
-            ProcessingStatus(tdoc_id="SP-123456", current_stage=PipelineStage.COMPLETED),
-            ProcessingStatus(tdoc_id="SP-123457", current_stage=PipelineStage.EXTRACTING),
+            ProcessingStatus(document_id="SP-123456", current_stage=PipelineStage.COMPLETED),
+            ProcessingStatus(document_id="SP-123457", current_stage=PipelineStage.EXTRACTING),
         ]
         with patch("tdoc_crawler.cli.ai.get_status") as mock_get_status:
             mock_get_status.return_value = statuses
@@ -121,7 +121,7 @@ class TestAiCli:
     def test_json_flag_produces_valid_json(self, runner: CliRunner) -> None:
         """Test --json flag produces valid JSON output."""
         with patch("tdoc_crawler.cli.ai.get_status") as mock:
-            mock.return_value = ProcessingStatus(tdoc_id="SP-123456", current_stage=PipelineStage.COMPLETED)
+            mock.return_value = ProcessingStatus(document_id="SP-123456", current_stage=PipelineStage.COMPLETED)
             result = runner.invoke(app, ["ai", "status", "--tdoc-id", "SP-123456", "--json"])
             assert result.exit_code == 0
             # Should be valid JSON
@@ -157,7 +157,7 @@ class TestAiCli:
         assert result.exit_code in (0, 1)
 
     def test_process_without_workspace_uses_default(self, runner: CliRunner, tmp_path: Path) -> None:
-        with patch("tdoc_crawler.cli.ai.process_tdoc") as mock:
+        with patch("tdoc_crawler.cli.ai.process_document") as mock:
             mock.return_value = None
             result = runner.invoke(app, ["ai", "process", "--tdoc-id", "SP-123456", "--checkout-path", str(tmp_path / "checkout")])
             assert result.exit_code == 0
@@ -166,7 +166,7 @@ class TestAiCli:
 
     def test_status_without_workspace_uses_default(self, runner: CliRunner) -> None:
         with patch("tdoc_crawler.cli.ai.get_status") as mock:
-            mock.return_value = ProcessingStatus(tdoc_id="SP-123456", current_stage=PipelineStage.COMPLETED)
+            mock.return_value = ProcessingStatus(document_id="SP-123456", current_stage=PipelineStage.COMPLETED)
             result = runner.invoke(app, ["ai", "status", "--tdoc-id", "SP-123456"])
             assert result.exit_code == 0
             kwargs = mock.call_args.kwargs
@@ -181,7 +181,7 @@ class TestAiCli:
             assert kwargs.get("workspace") is None or kwargs.get("workspace") == "default"
 
     def test_process_with_explicit_workspace_uses_it(self, runner: CliRunner, tmp_path: Path) -> None:
-        with patch("tdoc_crawler.cli.ai.process_tdoc") as mock:
+        with patch("tdoc_crawler.cli.ai.process_document") as mock:
             mock.return_value = None
             result = runner.invoke(app, ["ai", "process", "--tdoc-id", "SP-123456", "--workspace", "myws", "--checkout-path", str(tmp_path / "checkout")])
             assert result.exit_code == 0
