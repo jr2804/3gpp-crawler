@@ -75,5 +75,6 @@ run = [
     "cls",
     "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
     "bun x skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
+    "bun x skills add https://github.com/hardikpandya/stop-slop -a universal -y",
 
 ]

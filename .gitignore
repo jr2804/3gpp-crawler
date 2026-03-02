@@ -234,9 +234,12 @@ Thumbs.db
 .vscode/
 .idea/
 /scripts/cache
-/.agents/skills/visual-explainer
+
+# Agent skills that are downloaded/installed from external sources
 skills-lock.json
+/.agents/skills/visual-explainer
 /.agents/skills/code-deduplication
+/.agents/skills/stop-slop
 
 # Dolt database files (added by bd init)
 .dolt/
