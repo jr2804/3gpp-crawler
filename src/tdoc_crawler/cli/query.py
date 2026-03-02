@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 import typer
@@ -96,12 +96,12 @@ def query_tdocs(
 
     working_groups = parse_working_groups(working_group)
     try:
-        start = datetime.combine(parse_partial_date(start_date), datetime.min.time()) if start_date else None
+        start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None
     except ValueError as exc:
         console.print("[red]Invalid start date format; use ISO-8601")
         raise typer.Exit(code=2) from exc
     try:
-        end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time()) if end_date else None
+        end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None
     except ValueError as exc:
         console.print("[red]Invalid end date format; use ISO-8601")
         raise typer.Exit(code=2) from exc
