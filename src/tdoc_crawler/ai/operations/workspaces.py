@@ -259,12 +259,19 @@ def checkout_spec_to_workspace(
     Returns:
         Path to the checked out spec folder, or None if checkout failed
     """
-    # First check if already checked out
+    # First check if already checked out with the SAME release version
     specs_dir = checkout_base / "Specs"
     if specs_dir.exists():
+        # Search for spec with matching release version
         for spec_dir in specs_dir.rglob(f"*{spec_number}*"):
             if spec_dir.is_dir():
-                _logger.debug(f"Spec {spec_number} already checked out at {spec_dir}")
+                # Check if release version matches
+                dir_name = spec_dir.name
+                if release != "latest":
+                    # For specific release, ensure version matches
+                    if release not in dir_name:
+                        continue
+                _logger.debug(f"Spec {spec_number} (release {release}) already checked out at {spec_dir}")
                 return spec_dir
 
     # Need to checkout the spec
@@ -281,14 +288,14 @@ def checkout_spec_to_workspace(
             )
 
             if checkout_paths and checkout_paths[0] and checkout_paths[0].exists():
-                _logger.info(f"Checked out spec {spec_number} to {checkout_paths[0]}")
+                _logger.info(f"Checked out spec {spec_number} (release {release}) to {checkout_paths[0]}")
                 return checkout_paths[0]
 
-        _logger.warning(f"Failed to checkout spec {spec_number}")
+        _logger.warning(f"Failed to checkout spec {spec_number} (release {release})")
         return None
 
     except Exception as e:
-        _logger.warning(f"Error checking out spec {spec_number}: {e}")
+        _logger.warning(f"Error checking out spec {spec_number} (release {release}): {e}")
         return None
 
 
