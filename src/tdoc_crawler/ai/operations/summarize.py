@@ -152,8 +152,6 @@ def _should_skip_summary(
             existing = storage_client.get_summary_hash(document_id)
             return existing == content_hash
 
-
-
         config = _get_ai_config()
         storage_client = AiStorage(config.ai_cache_dir, embedding_dimension=EmbeddingsManager().dimension)  # type: ignore[arg-type]
         existing = storage_client.get_summary_hash(document_id)
@@ -257,10 +255,29 @@ def summarize_document(
 
     structured = _parse_structured_summary(structured_payload)
 
+    # Count words in original content for intelligent warning
+    original_word_count = _count_words(markdown)
+
     # Validate abstract word count
     word_count = _count_words(abstract)
-    if word_count < config.abstract_min_words or word_count > config.abstract_max_words:
-        logger.warning(f"Abstract for {document_id} outside recommended range: {word_count} words")
+
+    # Only warn if summary is short BUT original document has enough content
+    # If original is already shorter than minimum, summary can't be longer
+    if word_count < config.abstract_min_words:
+        if original_word_count >= config.abstract_min_words:
+            # Original has enough content, summary should be longer
+            logger.warning(
+                f"Abstract for {document_id} shorter than minimum: {word_count} words "
+                f"(minimum: {config.abstract_min_words}, original document: {original_word_count} words)"
+            )
+        else:
+            # Original is too short - don't warn, summary can't be longer than source
+            logger.debug(
+                f"Abstract for {document_id} has {word_count} words, "
+                f"but original document is short ({original_word_count} words, minimum: {config.abstract_min_words})"
+            )
+    elif word_count > config.abstract_max_words:
+        logger.warning(f"Abstract for {document_id} exceeds maximum: {word_count} words (maximum: {config.abstract_max_words})")
 
     key_points = structured["key_points"] or _extract_key_points(abstract)
     action_items = structured["action_items"] or _extract_action_items(markdown)
@@ -505,7 +522,7 @@ def _parse_keywords(payload: str) -> list[str]:
         data = json.loads(cleaned)
         if isinstance(data, list):
             return [str(kw).strip() for kw in data if str(kw).strip()]
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
 
     # Fallback: extract keywords by splitting on common delimiters
