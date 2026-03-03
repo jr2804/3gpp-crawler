@@ -209,16 +209,19 @@ def summarize_document(
     Args:
         document_id: Document identifier.
         markdown: Markdown content.
-        storage: Optional storage instance.
+        storage: Optional storage instance (deprecated, uses singleton now).
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         DocumentSummary object.
     """
+    from tdoc_crawler.ai.container import AiServiceContainer
+
     config = _get_ai_config()
 
     if storage is None:
-        storage = AiStorage(config.ai_cache_dir)  # type: ignore[arg-type]
+        container = AiServiceContainer.get_instance()
+        storage = container.get_ai_storage()
 
     normalized_workspace = normalize_workspace_name(workspace)
 

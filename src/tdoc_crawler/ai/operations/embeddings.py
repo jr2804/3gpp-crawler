@@ -344,13 +344,16 @@ def generate_embeddings(
     Args:
         document_id: Document identifier.
         markdown: Markdown content to embed.
-        storage: Optional storage instance.
+        storage: Optional storage instance (deprecated, uses singleton now).
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         List of DocumentChunk objects with embeddings.
     """
-    manager = EmbeddingsManager(storage=storage)
+    from tdoc_crawler.ai.container import AiServiceContainer
+
+    container = AiServiceContainer.get_instance()
+    manager = container.get_embeddings_manager()
     return manager.generate_embeddings(document_id, markdown, workspace)
 
 
@@ -369,7 +372,11 @@ def query_embeddings(
     Returns:
         List of (DocumentChunk, score) tuples.
     """
-    return EmbeddingsManager().query_embeddings(query, workspace, top_k)
+    from tdoc_crawler.ai.container import AiServiceContainer
+
+    container = AiServiceContainer.get_instance()
+    manager = container.get_embeddings_manager()
+    return manager.query_embeddings(query, workspace, top_k)
 
 
 __all__ = [
