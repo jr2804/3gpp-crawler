@@ -72,16 +72,6 @@ class WorkspaceMetadata:
             "members": self.members,
         }
 
-    @classmethod
-    def from_dict(cls, name: str, data: dict[str, Any]) -> WorkspaceMetadata:
-        return cls(
-            name=name,
-            created_at=data.get("created_at", utc_now().isoformat()),
-            description=data.get("description", ""),
-            auto_build=data.get("auto_build", True),
-            members=data.get("members", []),
-        )
-
     def add_member(self, member: WorkspaceMember) -> None:
         """Add a member to the workspace."""
         self.members = [m for m in self.members if m.get("source_item_id") != member.source_item_id]
@@ -124,6 +114,16 @@ class WorkspaceMetadata:
                 continue
             members.append(member)
         return sorted(members, key=lambda m: m.source_item_id)
+
+    @classmethod
+    def from_dict(cls, name: str, data: dict[str, Any]) -> WorkspaceMetadata:
+        return cls(
+            name=name,
+            created_at=data.get("created_at", utc_now().isoformat()),
+            description=data.get("description", ""),
+            auto_build=data.get("auto_build", True),
+            members=data.get("members", []),
+        )
 
 
 @dataclass
@@ -381,7 +381,7 @@ def get_active_workspace(cache_manager_name: str | None = None) -> str:
     Returns:
         Name of the active workspace, or DEFAULT_WORKSPACE if none set.
     """
-    from tdoc_crawler.config import CacheManager
+    from tdoc_crawler.config import CacheManager  # noqa: PLC0415
 
     manager_name = cache_manager_name or "default"
     try:

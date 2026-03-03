@@ -41,9 +41,7 @@ class DefaultHttpClientProvider:
             A requests.Session configured with caching.
         """
         if self._session is None:
-            self._session = create_cached_session(
-                cache_manager_name=self._cache_manager_name
-            )
+            self._session = create_cached_session(cache_manager_name=self._cache_manager_name)
         return self._session
 
     def close(self) -> None:

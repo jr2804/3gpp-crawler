@@ -9,14 +9,11 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 
 from tdoc_crawler.ai import (
-    AiConfig,
     AiServiceContainer,
-    AiConfig,
-    AiStorage,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
     convert_document,
@@ -31,7 +28,7 @@ from tdoc_crawler.ai import (
     set_active_workspace,
     summarize_document,
 )
-from tdoc_crawler.ai.models import SourceKind
+from tdoc_crawler.ai.models import PipelineStage, SourceKind
 from tdoc_crawler.ai.operations.pipeline import process_all
 from tdoc_crawler.ai.operations.workspaces import (
     add_workspace_members,
@@ -163,7 +160,7 @@ def ai_query(
             table.add_column("Snippet", style="white")
             for chunk, score in embedding_results:
                 snippet = chunk.content[:120].replace("\n", " ")
-                table.add_row(chunk.tdoc_id, str(chunk.section or ""), f"{score:.3f}", snippet)
+                table.add_row(chunk.document_id, str(chunk.section or ""), snippet, f"{score:.3f}")
             console.print(table)
         else:
             console.print("[yellow]No embedding results found.[/yellow]")
@@ -354,9 +351,7 @@ def workspace_clear(
     """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
     workspace = resolve_workspace(workspace)
     CacheManager().register()
-    embeddings_manager = AiServiceContainer.get_instance().get_embeddings_manager()
     storage = AiServiceContainer.get_instance().get_storage()
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir, embedding_dimension=embeddings_manager.dimension)
 
     removed_count = storage.clear_workspace_artifacts(workspace)
 
@@ -563,6 +558,8 @@ def workspace_process(
 
         # Create progress callback
         def progress_callback(stage: PipelineStage, doc_id: str) -> None:
+            # Lazy import to avoid circular dependency with PipelineStage
+            # PipelineStage is defined in models, imported at top level
             # Update description with current document and stage
             stage_name = stage.value.replace("_", " ").title()
             processed_count[0] += 1

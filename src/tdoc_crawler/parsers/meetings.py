@@ -72,6 +72,7 @@ class MeetingParser:
         """
         return parse_meeting_page(html, working_group, subgroup, get_subtb)
 
+
 def parse_meeting_page(
     html: str,
     working_group: WorkingGroup,

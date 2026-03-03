@@ -73,7 +73,7 @@ def extract_doc_to_markdown(
         msg = f"DOC file not found: {doc_path}"
         raise ExtractionError(msg)
 
-    if not doc_path.suffix.lower() == ".doc":
+    if doc_path.suffix.lower() != ".doc":
         msg = f"File must be .doc format: {doc_path}"
         raise ExtractionError(msg)
 
