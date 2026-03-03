@@ -20,7 +20,7 @@ from tdoc_crawler.ai.operations.classify import classify_document_files
 from tdoc_crawler.ai.operations.embeddings import EmbeddingsManager, generate_embeddings
 from tdoc_crawler.ai.operations.extract import extract_from_folder
 from tdoc_crawler.ai.operations.summarize import summarize_document
-from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
+from tdoc_crawler.ai.operations.workspaces import list_workspace_members, normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
 
@@ -371,7 +371,7 @@ def process_all(
     # Get workspace members and build a lookup map
     members_map: dict[str, Any] = {}
     if normalized_workspace != "default":
-        members = storage.list_workspace_members(normalized_workspace)
+        members = list_workspace_members(normalized_workspace)
         member_ids = {m.source_item_id for m in members if m.is_active and m.source_kind == "tdoc"}
         members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind == "tdoc"}
         document_ids = [tid for tid in document_ids if tid in member_ids]

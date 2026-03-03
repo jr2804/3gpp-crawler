@@ -85,17 +85,12 @@ class TestRunPipeline:
         results = process_all(tdoc_ids, base_path)
         assert isinstance(results, dict)
 
-    @patch("tdoc_crawler.ai.operations.pipeline.AiStorage")
+    @patch("tdoc_crawler.ai.operations.pipeline.list_workspace_members")
     @patch("tdoc_crawler.ai.operations.pipeline.run_pipeline")
-    def test_process_all_scopes_to_workspace_members(
-        self, mock_run_pipeline: MagicMock, mock_ai_storage: MagicMock, mock_storage: MagicMock, test_data_dir: Path
-    ) -> None:
+    def test_process_all_scopes_to_workspace_members(self, mock_run_pipeline: MagicMock, mock_list_members: MagicMock, test_data_dir: Path) -> None:
         """Test process_all filters input by workspace members."""
-        mock_ai_storage.return_value = mock_storage
-
-        mock_storage.list_workspace_members.return_value = [
+        mock_list_members.return_value = [
             WorkspaceMember(workspace_name="test_ws", source_item_id="S4-251003", source_path="/path", source_kind="tdoc", status="included"),
-            # Note: "26260-j10" is NOT in the workspace
         ]
 
         mock_run_pipeline.return_value = ProcessingStatus(document_id="S4-251003", current_stage=PipelineStage.COMPLETED)
@@ -106,7 +101,7 @@ class TestRunPipeline:
 
         assert "S4-251003" in results
         assert "26260-j10" not in results
-        mock_storage.list_workspace_members.assert_called_once_with("test_ws")
+        mock_list_members.assert_called_once_with("test_ws")
 
     def test_progress_callback_invocation(self, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test progress callback is invoked after each stage."""
