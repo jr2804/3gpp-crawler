@@ -10,8 +10,10 @@ from tdoc_crawler.models.crawl_limits import CrawlLimits
 
 try:
     from tdoc_crawler.ai.config import AiConfig as _AiConfig
+    from tdoc_crawler.ai.container import AiServiceContainer
 except ImportError:
     _AiConfig = None  # type: ignore[assignment,misc]
+
 
 class ConfigService:
     """Unified access point for all application configuration.
@@ -45,18 +47,6 @@ class ConfigService:
         self._http_cache: HttpCacheConfig | None = None
         self._crawl_limits: CrawlLimits | None = None
 
-    @classmethod
-    def from_env(cls, cache_manager_name: str | None = None) -> ConfigService:
-        """Create ConfigService loading settings from environment variables.
-
-        Args:
-            cache_manager_name: Optional name for the CacheManager to use.
-
-        Returns:
-            ConfigService instance configured from the environment.
-        """
-        return cls(cache_manager_name=cache_manager_name)
-
     @property
     def cache_manager(self) -> CacheManager:
         """Return the resolved CacheManager instance.
@@ -89,9 +79,7 @@ class ConfigService:
             HttpCacheConfig instance with resolved TTL and refresh settings.
         """
         if self._http_cache is None:
-            self._http_cache = HttpCacheConfig.resolve_http_cache_config(
-                cache_file=self.cache_manager.http_cache_file
-            )
+            self._http_cache = HttpCacheConfig.resolve_http_cache_config(cache_file=self.cache_manager.http_cache_file)
         return self._http_cache
 
     @property
@@ -106,13 +94,13 @@ class ConfigService:
         return self._crawl_limits
 
     def get_ai_config(self, **overrides: str | int | Path | None) -> object:
-        """Return AI configuration loaded from environment variables.
+        """Return AI configuration loaded from container.
 
         Args:
-            **overrides: Keyword arguments passed directly to AiConfig.from_env().
+            **overrides: Not supported - all config comes from container.
 
         Returns:
-            AiConfig instance configured from the environment.
+            AiConfig instance configured from container.
 
         Raises:
             ImportError: If the AI extras are not installed.
@@ -120,10 +108,20 @@ class ConfigService:
         if _AiConfig is None:
             msg = "AI extras are not installed. Run: uv add tdoc-crawler[ai]"
             raise ImportError(msg)
-        return _AiConfig.from_env(
-            cache_manager_name=self._cache_manager_name,
-            **overrides,
-        )
+        # Use container for config instead of direct from_env() call
+        return AiServiceContainer.get_instance().get_config()
+
+    @classmethod
+    def from_env(cls, cache_manager_name: str | None = None) -> ConfigService:
+        """Create ConfigService loading settings from environment variables.
+
+        Args:
+            cache_manager_name: Optional name for the CacheManager to use.
+
+        Returns:
+            ConfigService instance configured from the environment.
+        """
+        return cls(cache_manager_name=cache_manager_name)
 
 
 __all__ = ["ConfigService"]

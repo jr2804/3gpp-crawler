@@ -331,7 +331,7 @@ def process_tdoc(
         Exception: Re-raises pipeline exceptions after logging.
     """
     container = AiServiceContainer.get_instance()
-    manager = container.get_embeddings_manager()
+    container.get_embeddings_manager()
     storage = container.get_ai_storage()
     return run_pipeline(
         document_id,
@@ -364,7 +364,7 @@ def process_all(
         Dict mapping document_id to ProcessingStatus.
     """
     container = AiServiceContainer.get_instance()
-    manager = container.get_embeddings_manager()
+    container.get_embeddings_manager()
     storage = container.get_ai_storage()
     normalized_workspace = normalize_workspace_name(workspace)
 
@@ -417,9 +417,7 @@ def get_status(document_id: str, workspace: str | None = None) -> ProcessingStat
     Returns:
         ProcessingStatus if found, None otherwise.
     """
-    config = AiConfig.from_env()
-    manager = EmbeddingsManager(config=config)
-    storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
+    storage = AiServiceContainer.get_instance().get_storage()
     normalized_workspace = normalize_workspace_name(workspace)
     return storage.get_status(document_id, workspace=normalized_workspace)
 

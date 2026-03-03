@@ -12,11 +12,9 @@ The container implements lazy initialization and singleton pattern to ensure:
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from tdoc_crawler.ai.config import AiConfig
-from tdoc_crawler.ai.models import ProcessingStatus
 from tdoc_crawler.ai.operations.embeddings import EmbeddingsManager
 from tdoc_crawler.ai.storage import AiStorage
 
@@ -56,23 +54,6 @@ class AiServiceContainer:
             cls._instance._storage = None
             cls._instance._embeddings_manager = None
         return cls._instance
-
-    @classmethod
-    def get_instance(cls) -> AiServiceContainer:
-        """Get the singleton container instance.
-
-        Returns:
-            AiServiceContainer singleton instance.
-        """
-        return cls()
-
-    @classmethod
-    def reset_for_testing(cls) -> None:
-        """Reset the singleton for testing purposes.
-
-        WARNING: Only use in tests, not in production code.
-        """
-        cls._instance = None
 
     def get_config(self) -> AiConfig:
         """Get the AI configuration singleton.
@@ -138,13 +119,30 @@ class AiServiceContainer:
         self._embeddings_manager = None
         self._config = None
 
-    def __enter__(self) -> "AiServiceContainer":
+    def __enter__(self) -> AiServiceContainer:
         """Context manager entry."""
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit - ensures cleanup."""
         self.close()
+
+    @classmethod
+    def get_instance(cls) -> AiServiceContainer:
+        """Get the singleton container instance.
+
+        Returns:
+            AiServiceContainer singleton instance.
+        """
+        return cls()
+
+    @classmethod
+    def reset_for_testing(cls) -> None:
+        """Reset the singleton for testing purposes.
+
+        WARNING: Only use in tests, not in production code.
+        """
+        cls._instance = None
 
 
 # Convenience functions for backward compatibility

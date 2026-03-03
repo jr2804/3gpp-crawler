@@ -6,7 +6,7 @@ import logging
 import re
 from datetime import datetime
 
-from tdoc_crawler.ai.config import AiConfig
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, GraphQueryResult
 from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
@@ -143,12 +143,7 @@ def build_graph(
 ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Build knowledge graph from TDoc content with incremental updates."""
     if storage is None:
-        config = AiConfig.from_env()
-        store_path = config.ai_cache_dir
-        if store_path is None:
-            msg = "AI store path not configured"
-            raise ValueError(msg)
-        storage = AiStorage(store_path)
+        storage = AiServiceContainer.get_instance().get_storage()
 
     existing_nodes, existing_edges = storage.query_graph(filters={}, workspace=workspace)
     existing_node_ids = {n.node_id for n in existing_nodes}
@@ -332,34 +327,29 @@ def build_graph(
 
 def query_graph(
     query: str,
-    workspace: str,
     node_types: list[GraphNodeType] | None = None,
-    top_k: int = 10,
     meeting_ids: list[str] | None = None,
     date_range: tuple[datetime, datetime] | None = None,
+    top_k: int = 10,
     storage: AiStorage | None = None,
-) -> dict[str, list[GraphQueryResult]]:
-    """Query the knowledge graph with temporal filtering and chronological sorting.
+    workspace: str | None = None,
+) -> dict:
+    """Query knowledge graph for relevant nodes and edges.
 
     Args:
-        query: Search query string.
-        workspace: Workspace scope (required).
+        query: Natural language query.
         node_types: Filter by node types.
-        top_k: Number of results to return.
         meeting_ids: Filter by meeting IDs.
         date_range: Filter by date range.
+        top_k: Maximum number of results to return.
         storage: Optional storage instance.
+        workspace: Workspace name for filtering.
 
     Returns:
         Dict with 'results' key containing list of GraphQueryResult objects.
     """
     if storage is None:
-        config = AiConfig.from_env()
-        store_path = config.ai_cache_dir
-        if store_path is None:
-            msg = "AI store path not configured"
-            raise ValueError(msg)
-        storage = AiStorage(store_path)
+        storage = AiServiceContainer.get_instance().get_storage()
 
     normalized_workspace = normalize_workspace_name(workspace)
 
@@ -392,16 +382,8 @@ def query_graph(
     return {"results": results}
 
 
-def get_tdoc_evolution(document_id: str, storage: AiStorage | None = None) -> list[GraphNode]:
+def get_tdoc_evolution(document_id: str, storage: AiStorage) -> list[GraphNode]:
     """Get evolution chain for a TDoc (revisions, supersessions)."""
-    if storage is None:
-        config = AiConfig.from_env()
-        store_path = config.ai_cache_dir
-        if store_path is None:
-            msg = "AI store path not configured"
-            raise ValueError(msg)
-        storage = AiStorage(store_path)
-
     nodes, edges = storage.query_graph(filters={})
     related_ids = {document_id}
 

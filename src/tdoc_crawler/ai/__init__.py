@@ -5,6 +5,7 @@ from __future__ import annotations
 import litellm
 
 from tdoc_crawler.ai.config import AiConfig
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.ai.models import (
     DocumentChunk,
     DocumentClassification,
@@ -48,7 +49,6 @@ from tdoc_crawler.ai.operations.workspaces import (
     resolve_workspace,
 )
 from tdoc_crawler.ai.storage import AiStorage
-from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.config import CacheManager
 
 litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
@@ -64,6 +64,7 @@ _query_graph = query_graph
 __all__ = [
     "DEFAULT_WORKSPACE",
     "AiConfig",
+    "AiServiceContainer",
     "AiStorage",
     "CacheManager",
     "DocumentChunk",

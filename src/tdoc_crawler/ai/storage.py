@@ -402,11 +402,11 @@ class AiStorage:
             return
         self._tables[name] = self._db.create_table(name, schema=schema)
 
-    def _table(self, name: str) -> Any:
+    def _table(self, name: str) -> LanceDBTable:
         return self._tables[name]
 
 
-def _table_to_records(table: Any) -> list[dict[str, Any]]:
+def _table_to_records(table: LanceDBTable) -> list[dict[str, Any]]:
     try:
         dataframe = table.to_pandas()
         return dataframe.to_dict("records")
@@ -436,8 +436,6 @@ def _is_nat(val: Any) -> bool:
         return False
     # Check for pandas NaT type
     return type(val).__name__ == "NaTType"
-
-
 
 
 def _normalize_workspace_name(workspace: str | None) -> str:

@@ -11,10 +11,10 @@ import re
 import litellm
 
 from tdoc_crawler.ai.config import AiConfig
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError, SummarizeResult
 from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
-from tdoc_crawler.config import CacheManager
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.misc import utc_now
 
@@ -75,8 +75,7 @@ def _get_llm_client() -> LiteLLMClient:
 def _get_ai_config() -> AiConfig:
     """Load AI config and normalize configuration errors to LlmConfigError."""
     try:
-        manager = CacheManager().register()
-        return AiConfig.from_env(cache_manager_name=manager.name)
+        return AiServiceContainer.get_instance().get_config()
     except Exception as exc:
         msg = f"Invalid or missing LLM configuration: {exc}"
         raise LlmConfigError(msg) from exc
@@ -152,8 +151,7 @@ def _should_skip_summary(
             existing = storage_client.get_summary_hash(document_id)
             return existing == content_hash
 
-        config = _get_ai_config()
-        storage_client = AiStorage(config.ai_cache_dir, embedding_dimension=EmbeddingsManager().dimension)  # type: ignore[arg-type]
+        storage_client = AiServiceContainer.get_instance().get_storage()
         existing = storage_client.get_summary_hash(document_id)
         return existing == content_hash
     except Exception:
