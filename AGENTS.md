@@ -84,13 +84,13 @@ def _resolve_meeting_id(db_file: Path) -> int:
 
 ## Anti-Duplication and DRY (Don't Repeat Yourself)
 
-**CRITICAL: Code duplication was the primary driver for the major domain-oriented refactoring. Future assistants MUST NOT introduce duplicated logic.**
+**CRITICAL: Code duplication was primary driver for major domain-oriented refactoring. Future assistants MUST NOT introduce duplicated logic.**
 
 ### Search Before Implement
 
 Before implementing any new functionality:
 
-1. Use `grepai search` to check if a similar implementation exists.
+1. Use available grep tools to check if a similar implementation exists.
 2. Check the relevant domain package (`tdocs/`, `meetings/`, `specs/`).
 3. If logic exists but needs modification, REFACTOR the existing code rather than creating a second version.
 
@@ -370,17 +370,18 @@ Avoid `TYPE_CHECKING` usage at all costs. Instead, use direct imports. Python 3.
 
 ### User Documentation
 
-The project maintains a modular documentation structure:
+The project maintains separate documentation for humans and for coding agents:
 
 1. **README.md** - Project overview, installation, and Quick Start examples.
 1. **docs/index.md** - Main documentation entry point (Jekyll-ready).
 1. **docs/*.md** - Modular task-oriented guides (crawl, query, utils, etc.).
 1. **docs/history/** - Chronological changelog of all significant changes.
+1. **docs/agents-md/** - Agent-facing modular implementation and workflow guidance.
 
 **Critical Rules:**
 
-- `docs/index.md` and related referenced files **MUST** always be up to date and reflect the current state of ALL commands.
-- When adding or modifying commands, **BOTH** the history file AND the relevant documentation files must be updated.
+- The modular user documentation in `docs/` **MUST** always be up to date and reflect current CLI behavior
+- When adding or modifying commands, **BOTH** the history file AND the relevant documentation files must be updated
 
 ## TDoc Data Sources
 

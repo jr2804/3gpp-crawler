@@ -2,6 +2,12 @@
 
 This document provides guidance for organizing and extending tests in the TDoc-Crawler project.
 
+## Quick Start
+
+1. **General TDD patterns**: Use the `test-driven-development` skill for pytest, mocking, fixtures, and coverage guidelines
+2. **Project-specific patterns**: This file covers test organization, pool executor tests, and domain-specific imports
+3. **Standard locations**: Cache: `./tests/test-cache`, Database: `./tests/test-cache/tdoc_crawler.db`
+
 ## Pool Executor Tests (`tests/pool_executor/`)
 
 The `pool_executor/` directory contains all tests related to the `pool_executors` package, which provides executor pool extensions including serial execution support.
