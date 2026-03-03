@@ -552,6 +552,9 @@ def workspace_process(
         console=console,
         refresh_per_second=10,
     ) as progress:
+        # Track processed count for progress updates
+        processed_count = [0]  # Use list to allow modification in callback
+
         # Create main task
         task = progress.add_task(
             f"[cyan]Processing workspace '{normalize_workspace_name(workspace)}'[/cyan]",
@@ -562,7 +565,13 @@ def workspace_process(
         def progress_callback(stage: PipelineStage, doc_id: str) -> None:
             # Update description with current document and stage
             stage_name = stage.value.replace("_", " ").title()
-            progress.update(task, description=f"[cyan]Processing {doc_id}[/cyan] [dim]- {stage_name}[/dim]")
+            processed_count[0] += 1
+            remaining = len(document_ids) - processed_count[0]
+            progress.update(
+                task,
+                advance=1,
+                description=f"[cyan]{processed_count[0]}/{len(document_ids)}[/cyan] [cyan]Processing {doc_id}[/cyan] [dim]{remaining} remaining[/dim] [dim]- {stage_name}[/dim]",
+            )
 
         # Process documents with progress tracking
         results = process_all(
@@ -573,9 +582,6 @@ def workspace_process(
             workspace=workspace,
             progress_callback=progress_callback,
         )
-
-        # Update progress to completed
-        progress.update(task, completed=len(document_ids))
 
     if json_output:
         typer.echo(
