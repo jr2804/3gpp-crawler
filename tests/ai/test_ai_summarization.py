@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -11,7 +10,6 @@ import pytest
 from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError
 from tdoc_crawler.ai.operations import summarize
 from tdoc_crawler.ai.operations.summarize import _count_words, _should_skip_summary
-from tdoc_crawler.ai.storage import AiStorage
 
 
 class TestSummarization:
@@ -44,16 +42,19 @@ class TestSummarization:
         assert summary.decisions is not None
         assert summary.affected_specs is not None
 
-    def test_skip_unchanged_tdoc(self) -> None:
+    def test_skip_unchanged_tdoc(self, ai_storage: AiStorage) -> None:
         """Test that unchanged TDoc is skipped for summarization."""
-        with patch("tdoc_crawler.ai.operations.summarize.storage") as mock:
-            mock.get_summary_hash.return_value = "abc123"
-            result = _should_skip_summary("SP-123456", "abc123")
-            assert result is True
+        # Set a hash in storage
+        ai_storage.save_summary_hash("SP-123456", "abc123")
 
-    def test_summarize_document_parses_structured_llm_output(self, tmp_path: Path) -> None:
+        # Check if summarization should be skipped
+        from tdoc_crawler.ai.container import AiServiceContainer
+
+        result = _should_skip_summary("SP-123456", "abc123", storage=AiServiceContainer.get_instance().get_storage())
+        assert result is True
+
+    def test_summarize_document_parses_structured_llm_output(self, ai_storage: AiStorage) -> None:
         """Summarizer should parse structured JSON output from LLM."""
-        ai_store = AiStorage(tmp_path / "lancedb")
         tdoc_id = "S4-260001"
         markdown = "# Title\n\nDiscussion on TS 26.260 and CR updates."
         abstract = " ".join(["word"] * 180)
@@ -70,7 +71,7 @@ class TestSummarization:
             mock_client = get_client.return_value
             mock_client.complete.side_effect = [abstract, structured_json]
 
-            summary = summarize.summarize_document(tdoc_id, markdown, storage=ai_store)
+            summary = summarize.summarize_document(tdoc_id, markdown, storage=ai_storage)
 
         assert isinstance(summary, DocumentSummary)
         assert summary.key_points == ["Point A", "Point B"]
@@ -81,24 +82,25 @@ class TestSummarization:
 
     def test_missing_llm_model_config_raises_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Missing/invalid LLM config should raise LlmConfigError."""
+        from tdoc_crawler.ai.container import AiServiceContainer
+
         monkeypatch.setattr(
-            "tdoc_crawler.ai.operations.summarize.AiConfig.from_env",
-            lambda **kwargs: (_ for _ in ()).throw(ValueError("llm_model missing")),
+            AiServiceContainer,
+            "get_instance",
+            lambda: (_ for _ in ()).throw(ValueError("llm_model missing")),
         )
 
         with pytest.raises(LlmConfigError):
             summarize.summarize_document("S4-260001", "# sample markdown")
 
-    def test_unreachable_llm_endpoint_raises_error(self, tmp_path: Path) -> None:
+    def test_unreachable_llm_endpoint_raises_error(self, ai_storage: AiStorage) -> None:
         """Connection failures must surface as LlmConfigError."""
-        ai_store = AiStorage(tmp_path / "lancedb")
-
         with patch("tdoc_crawler.ai.operations.summarize._get_llm_client") as get_client:
             mock_client = get_client.return_value
             mock_client.complete.side_effect = ConnectionError("endpoint unreachable")
 
             with pytest.raises(LlmConfigError):
-                summarize.summarize_document("S4-260001", "# markdown", storage=ai_store)
+                summarize.summarize_document("S4-260001", "# markdown", storage=ai_storage)
 
 
 class TestSummarizationModuleExports:

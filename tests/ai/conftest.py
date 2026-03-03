@@ -11,7 +11,6 @@ from unittest.mock import MagicMock
 import pytest
 from typer.testing import CliRunner
 
-from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.http_client import download_to_file
 
 # Mock kreuzberg which might not be installed in all environments.
@@ -128,11 +127,11 @@ def runner() -> CliRunner:
 
 @pytest.fixture
 def ai_storage(test_cache_dir: Path) -> AiStorage:
-    """Create a temporary AI storage for tests.
+    """Create a temporary AI storage for tests using container.
 
-    This fixture creates an AiStorage instance with a temporary
-    LanceDB directory for testing AI commands that require
-    workspace and embedding storage.
+    This fixture creates an AiStorage instance via container
+    with a temporary LanceDB directory for testing AI commands
+    that require workspace and embedding storage.
 
     Args:
         test_cache_dir: Test cache directory from root conftest
@@ -140,9 +139,18 @@ def ai_storage(test_cache_dir: Path) -> AiStorage:
     Returns:
         AiStorage instance with temporary storage
     """
+    from unittest.mock import patch
+
+    from tdoc_crawler.ai.container import AiServiceContainer
+
     lancedb_dir = test_cache_dir / "ai" / "lancedb"
     lancedb_dir.mkdir(parents=True, exist_ok=True)
-    return AiStorage(lancedb_dir)
+
+    # Patch environment variable to point to test cache directory
+    with patch.dict("os.environ", {"TDOC_CRAWLER_AI_CACHE_DIR": str(test_cache_dir / "ai")}):
+        # Get container which will read from env
+        container = AiServiceContainer.get_instance()
+        return container.get_storage()
 
 
 @pytest.fixture
