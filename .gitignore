@@ -240,6 +240,7 @@ skills-lock.json
 /.agents/skills/visual-explainer
 /.agents/skills/code-deduplication
 /.agents/skills/stop-slop
+/.agents/skills/kreuzberg
 
 # Dolt database files (added by bd init)
 .dolt/
