@@ -9,6 +9,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
 from rich.table import Table
 
 from tdoc_crawler.ai import (
@@ -540,14 +541,41 @@ def workspace_process(
             console.print(f"[yellow]No active members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
         return
 
-    # Process documents
-    results = process_all(
-        document_ids=document_ids,
-        checkout_base=manager.root,
-        new_only=new_only,
-        force_rerun=force_rerun,
-        workspace=workspace,
-    )
+    # Create progress bar for tracking document processing
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}", justify="right"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(elapsed_when_finished=True),
+        TimeElapsedColumn(),
+        console=console,
+        refresh_per_second=10,
+    ) as progress:
+        # Create main task
+        task = progress.add_task(
+            f"[cyan]Processing workspace '{normalize_workspace_name(workspace)}'[/cyan]",
+            total=len(document_ids),
+        )
+
+        # Create progress callback
+        def progress_callback(stage: PipelineStage, doc_id: str) -> None:
+            # Update description with current document and stage
+            stage_name = stage.value.replace("_", " ").title()
+            progress.update(task, description=f"[cyan]Processing {doc_id}[/cyan] [dim]- {stage_name}[/dim]")
+
+        # Process documents with progress tracking
+        results = process_all(
+            document_ids=document_ids,
+            checkout_base=manager.root,
+            new_only=new_only,
+            force_rerun=force_rerun,
+            workspace=workspace,
+            progress_callback=progress_callback,
+        )
+
+        # Update progress to completed
+        progress.update(task, completed=len(document_ids))
 
     if json_output:
         typer.echo(
