@@ -35,7 +35,7 @@ REVISION_PATTERNS = [
 ]
 
 STRUCTURED_PATTERNS = [
-    r"\.(docx?|pdf)$",  # Word and PDF are structured
+    r"\.(docx?|doc?|pdf)$",  # Word and PDF are structured
     r"(?i)\breport\b",
     r"(?i)\bspecification\b",
     r"(?i)\bstandard\b",
@@ -46,7 +46,7 @@ STRUCTURED_PATTERNS = [
 UNSTRUCTURED_PATTERNS = [
     r"\.(pptx?|ppt)$",  # PowerPoint
     r"\.(xlsx?|xls)$",  # Excel
-    r"\.(txt|csv)$",
+    r"\.(txt|csv)$",  # Misc. text data
 ]
 
 
@@ -158,10 +158,20 @@ def classify_document_files(
         logger.warning(f"Folder not found: {folder_path}")
         return []
 
-    files = [file_path for file_path in folder_path.glob("*.docx") if file_path.is_file() and not file_path.name.startswith(".")]
+    # Find all files matching structured and unstructured patterns
+    # STRUCTURED: .doc, .docx, .pdf
+    # UNSTRUCTURED: .ppt, .pptx, .xls, .xlsx, .txt, .csv
+    extensions = ["*.doc", "*.docx", "*.pdf", "*.ppt", "*.pptx", "*.xls", "*.xlsx", "*.txt", "*.csv"]
+
+    files = []
+    for ext in extensions:
+        files.extend([file_path for file_path in folder_path.glob(ext) if file_path.is_file() and not file_path.name.startswith(".")])
+
+    # Remove duplicates (in case a file matches multiple patterns)
+    files = list(dict.fromkeys(files))  # Preserves order, removes duplicates
 
     if not files:
-        logger.warning(f"No DOCX files found in {folder_path} for document {document_id}")
+        logger.warning(f"No document files found in {folder_path} for document {document_id}")
         return []
 
     if len(files) == 1:
@@ -179,7 +189,7 @@ def classify_document_files(
             )
         ]
 
-    # Multiple DOCX files - need classification
+    # Multiple files - need classification
     scores: dict[Path, float] = {}
     file_sizes: dict[Path, int] = {}
     for file in files:

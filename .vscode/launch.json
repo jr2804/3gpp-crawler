@@ -12,6 +12,19 @@
 			"console": "integratedTerminal",
 		},
 		{
+			"name": "Debug: ai workspace process",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"ai",
+				"workspace",
+				"process",
+			]
+		},
+		{
 			"name": "Debug: crawl-meetings (max. 5)",
 			"type": "debugpy",
 			"request": "launch",

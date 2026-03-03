@@ -11,10 +11,10 @@ import re
 import litellm
 
 from tdoc_crawler.ai.config import AiConfig
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError, SummarizeResult
 from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
-from tdoc_crawler.config import CacheManager
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.misc import utc_now
 
@@ -75,8 +75,7 @@ def _get_llm_client() -> LiteLLMClient:
 def _get_ai_config() -> AiConfig:
     """Load AI config and normalize configuration errors to LlmConfigError."""
     try:
-        manager = CacheManager().register()
-        return AiConfig.from_env(cache_manager_name=manager.name)
+        return AiServiceContainer.get_instance().get_config()
     except Exception as exc:
         msg = f"Invalid or missing LLM configuration: {exc}"
         raise LlmConfigError(msg) from exc
@@ -152,20 +151,17 @@ def _should_skip_summary(
             existing = storage_client.get_summary_hash(document_id)
             return existing == content_hash
 
-        if storage is not None:
-            existing = storage.get_summary_hash(document_id)
-            return existing == content_hash
-
-        config = _get_ai_config()
-        storage_client = AiStorage(config.ai_cache_dir)  # type: ignore[arg-type]
+        storage_client = AiServiceContainer.get_instance().get_storage()
         existing = storage_client.get_summary_hash(document_id)
         return existing == content_hash
     except Exception:
         return False
 
 
-def _strip_code_fences(payload: str) -> str:
+def _strip_code_fences(payload: str | None) -> str:
     """Strip optional markdown code fences from LLM payloads."""
+    if payload is None:
+        return ""
     value = payload.strip()
     if value.startswith("```"):
         value = re.sub(r"^```(?:json)?\s*", "", value)
@@ -211,16 +207,19 @@ def summarize_document(
     Args:
         document_id: Document identifier.
         markdown: Markdown content.
-        storage: Optional storage instance.
+        storage: Optional storage instance (deprecated, uses singleton now).
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         DocumentSummary object.
     """
+    from tdoc_crawler.ai.container import AiServiceContainer
+
     config = _get_ai_config()
 
     if storage is None:
-        storage = AiStorage(config.ai_cache_dir)  # type: ignore[arg-type]
+        container = AiServiceContainer.get_instance()
+        storage = container.get_ai_storage()
 
     normalized_workspace = normalize_workspace_name(workspace)
 
@@ -256,10 +255,29 @@ def summarize_document(
 
     structured = _parse_structured_summary(structured_payload)
 
+    # Count words in original content for intelligent warning
+    original_word_count = _count_words(markdown)
+
     # Validate abstract word count
     word_count = _count_words(abstract)
-    if word_count < config.abstract_min_words or word_count > config.abstract_max_words:
-        logger.warning(f"Abstract for {document_id} outside recommended range: {word_count} words")
+
+    # Only warn if summary is short BUT original document has enough content
+    # If original is already shorter than minimum, summary can't be longer
+    if word_count < config.abstract_min_words:
+        if original_word_count >= config.abstract_min_words:
+            # Original has enough content, summary should be longer
+            logger.warning(
+                f"Abstract for {document_id} shorter than minimum: {word_count} words "
+                f"(minimum: {config.abstract_min_words}, original document: {original_word_count} words)"
+            )
+        else:
+            # Original is too short - don't warn, summary can't be longer than source
+            logger.debug(
+                f"Abstract for {document_id} has {word_count} words, "
+                f"but original document is short ({original_word_count} words, minimum: {config.abstract_min_words})"
+            )
+    elif word_count > config.abstract_max_words:
+        logger.warning(f"Abstract for {document_id} exceeds maximum: {word_count} words (maximum: {config.abstract_max_words})")
 
     key_points = structured["key_points"] or _extract_key_points(abstract)
     action_items = structured["action_items"] or _extract_action_items(markdown)

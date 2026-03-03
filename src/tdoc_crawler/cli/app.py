@@ -46,6 +46,15 @@ HELP_PANEL_CRAWLING = "Crawling Commands"
 HELP_PANEL_QUERY = "Query Commands"
 
 
+@app.callback()
+def _app_callback(
+    ctx: typer.Context,
+    cache_dir: CacheDirOption = None,
+) -> None:
+    """Global CLI options."""
+    pass  # No global options currently
+
+
 # Register crawl commands
 app.command("crawl-tdocs", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_tdocs)
 app.command("crawl-meetings", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_meetings)

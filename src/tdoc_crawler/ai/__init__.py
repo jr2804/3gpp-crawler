@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from pathlib import Path
+import litellm
 
 from tdoc_crawler.ai.config import AiConfig
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.ai.models import (
     DocumentChunk,
     DocumentClassification,
@@ -16,11 +16,9 @@ from tdoc_crawler.ai.models import (
     ProcessingStatus,
 )
 from tdoc_crawler.ai.operations.convert import convert_tdoc as convert_document
-from tdoc_crawler.ai.operations.embeddings import query_embeddings as _query_embeddings
-from tdoc_crawler.ai.operations.graph import query_graph as _query_graph
-from tdoc_crawler.ai.operations.pipeline import get_status as _pipeline_get_status_impl
-from tdoc_crawler.ai.operations.pipeline import process_all as _pipeline_process_all_impl
-from tdoc_crawler.ai.operations.pipeline import process_tdoc as _pipeline_process_tdoc_impl
+from tdoc_crawler.ai.operations.embeddings import query_embeddings
+from tdoc_crawler.ai.operations.graph import query_graph
+from tdoc_crawler.ai.operations.pipeline import get_status, process_all, process_tdoc
 from tdoc_crawler.ai.operations.pipeline import process_tdoc as process_document
 from tdoc_crawler.ai.operations.summarize import SummarizeResult
 from tdoc_crawler.ai.operations.summarize import summarize_tdoc as summarize_document
@@ -40,82 +38,33 @@ from tdoc_crawler.ai.operations.workspaces import (
     ensure_ai_subfolder,
     ensure_default_workspace,
     get_workspace,
+    get_workspace_member_counts,
     is_default_workspace,
+    list_workspace_members,
     list_workspaces,
     make_workspace_member,
     normalize_workspace_name,
+    remove_invalid_members,
     resolve_tdoc_checkout_path,
     resolve_workspace,
 )
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
 
+litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
 
-def _pipeline_get_status(document_id: str, workspace: str) -> ProcessingStatus | None:
-    """Get processing status for a TDoc."""
-    return _pipeline_get_status_impl(document_id, workspace=workspace)
-
-
-def get_status(document_id: str, workspace: str | None = None) -> ProcessingStatus | None:
-    """Get processing status for a TDoc."""
-    return _pipeline_get_status_impl(document_id, workspace=workspace)
-
-
-def process_tdoc(
-    document_id: str,
-    checkout_path: Path,
-    force_rerun: bool = False,
-    workspace: str | None = None,
-) -> ProcessingStatus:
-    """Process a single TDoc through the AI pipeline."""
-    return _pipeline_process_tdoc_impl(
-        document_id,
-        checkout_path,
-        force_rerun=force_rerun,
-        workspace=workspace,
-    )
-
-
-def process_all(
-    document_ids: list[str],
-    checkout_base: Path,
-    new_only: bool = False,
-    force_rerun: bool = False,
-    progress_callback: Callable[[PipelineStage, str], None] | None = None,
-    workspace: str | None = None,
-) -> dict[str, ProcessingStatus]:
-    """Process multiple TDocs through the AI pipeline."""
-    return _pipeline_process_all_impl(
-        document_ids,
-        checkout_base,
-        new_only=new_only,
-        force_rerun=force_rerun,
-        progress_callback=progress_callback,
-        workspace=workspace,
-    )
-
-
-def query_embeddings(
-    query: str,
-    workspace: str,
-    top_k: int = 5,
-) -> list[tuple[DocumentChunk, float]]:
-    """Query embeddings for semantic search."""
-    return _query_embeddings(query, workspace, top_k)
-
-
-def query_graph(
-    query: str,
-    workspace: str,
-    top_k: int = 5,
-) -> list[dict]:
-    """Query knowledge graph."""
-    return _query_graph(query, workspace, top_k)
+# Backward-compatible internal aliases used by some tests and monkeypatching.
+_pipeline_get_status_impl = get_status
+_pipeline_process_tdoc_impl = process_tdoc
+_pipeline_process_all_impl = process_all
+_query_embeddings = query_embeddings
+_query_graph = query_graph
 
 
 __all__ = [
     "DEFAULT_WORKSPACE",
     "AiConfig",
+    "AiServiceContainer",
     "AiStorage",
     "CacheManager",
     "DocumentChunk",
@@ -139,7 +88,9 @@ __all__ = [
     "get_active_workspace",
     "get_status",
     "get_workspace",
+    "get_workspace_member_counts",
     "is_default_workspace",
+    "list_workspace_members",
     "list_workspaces",
     "make_workspace_member",
     "normalize_workspace_name",
@@ -147,6 +98,7 @@ __all__ = [
     "process_document",
     "query_embeddings",
     "query_graph",
+    "remove_invalid_members",
     "resolve_tdoc_checkout_path",
     "resolve_workspace",
     "set_active_workspace",

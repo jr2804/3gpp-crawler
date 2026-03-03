@@ -7,15 +7,70 @@ from collections.abc import Callable
 from datetime import date
 from urllib.parse import urljoin
 
+import requests
 from bs4 import BeautifulSoup, Tag
 
 from tdoc_crawler.constants.patterns import DATE_PATTERN
 from tdoc_crawler.constants.urls import PORTAL_BASE_URL
+from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models.working_groups import WorkingGroup
 
 logger = get_logger(__name__)
+
+
+class MeetingParser:
+    """HTML parser for 3GPP portal meeting list pages.
+
+    Wraps the standalone ``parse_meeting_page`` function with optional
+    session injection for forward-compatibility with DI patterns.
+
+    Args:
+        session: Optional requests.Session to reuse for any HTTP operations.
+            If not provided, one is created via ``create_cached_session()``
+            on first use.
+
+    Example:
+        >>> parser = MeetingParser()
+        >>> meetings = parser.parse(html, working_group, subgroup)
+    """
+
+    def __init__(self, session: requests.Session | None = None) -> None:
+        """Initialize MeetingParser.
+
+        Args:
+            session: Optional requests.Session. If None, a cached session is
+                     created on first use via ``create_cached_session()``.
+        """
+        self._session = session
+
+    @property
+    def session(self) -> requests.Session:
+        """Return the active session, creating one lazily if needed."""
+        if self._session is None:
+            self._session = create_cached_session()
+        return self._session
+
+    @staticmethod
+    def parse(
+        html: str,
+        working_group: WorkingGroup,
+        subgroup: str | None,
+        get_subtb: Callable[[str], int | None] | None = None,
+    ) -> list[MeetingMetadata]:
+        """Parse meeting page HTML into list of MeetingMetadata.
+
+        Args:
+            html: HTML content of meeting page.
+            working_group: The working group for these meetings.
+            subgroup: Optional subgroup name.
+            get_subtb: Optional callback to get subtb from subgroup code.
+
+        Returns:
+            List of parsed meeting metadata objects.
+        """
+        return parse_meeting_page(html, working_group, subgroup, get_subtb)
 
 
 def parse_meeting_page(
@@ -200,6 +255,7 @@ def parse_single_date(text: str) -> date | None:
 
 
 __all__ = [
+    "MeetingParser",
     "extract_first_link",
     "extract_meeting_reference",
     "parse_dates",

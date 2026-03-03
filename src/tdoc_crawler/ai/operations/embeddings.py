@@ -5,7 +5,7 @@ import logging
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from sentence_transformers import SentenceTransformer
 
@@ -14,6 +14,9 @@ from tdoc_crawler.ai.models import DocumentChunk
 from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +28,13 @@ DEFAULT_OVERLAP = 50
 class EmbeddingsManager:
     """Manages embedding model and storage for document embedding and retrieval."""
 
-    def __init__(self, config: AiConfig | None = None, storage: AiStorage | None = None) -> None:
-        """Initialize the embeddings manager.
+    def __init__(self, config: AiConfig, storage: AiStorage) -> None:
+        """Initialize embeddings manager.
 
         Args:
-            config: AI configuration. If None, resolved from environment via AiConfig.from_env().
-            storage: AI storage instance. If None, created lazily in generate_embeddings.
+            config: AI configuration.
+            storage: AI storage instance.
         """
-        if config is None:
-            config = AiConfig.from_env()
         self._config = config
         self._storage = storage
         # Use the full embedding_model identifier (e.g., 'perplexity-ai/pplx-embed-v1-0.6B')
@@ -84,11 +85,6 @@ class EmbeddingsManager:
         Returns:
             List of DocumentChunk objects with embeddings.
         """
-        if self._storage is None:
-            if self._config.ai_cache_dir is None:
-                raise RuntimeError("ai_cache_dir is not configured in AiConfig")
-            self._storage = AiStorage(self._config.ai_cache_dir, embedding_dimension=self.dimension)
-
         normalized_workspace = normalize_workspace_name(workspace)
         markdown_content = markdown.read_text(encoding="utf-8") if isinstance(markdown, Path) else markdown
 
@@ -141,7 +137,11 @@ class EmbeddingsManager:
         Returns:
             List of (DocumentChunk, score) tuples.
         """
-        storage = self._storage or AiStorage(self._config.ai_cache_dir)  # type: ignore[arg-type]
+        if self._storage is None:
+            from tdoc_crawler.ai.container import AiServiceContainer
+
+            self._storage = AiServiceContainer.get_instance().get_storage()
+        storage = self._storage
         normalized_workspace = normalize_workspace_name(workspace)
 
         # Encode query
@@ -344,13 +344,16 @@ def generate_embeddings(
     Args:
         document_id: Document identifier.
         markdown: Markdown content to embed.
-        storage: Optional storage instance.
+        storage: Optional storage instance (deprecated, uses singleton now).
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         List of DocumentChunk objects with embeddings.
     """
-    manager = EmbeddingsManager(storage=storage)
+    from tdoc_crawler.ai.container import AiServiceContainer
+
+    container = AiServiceContainer.get_instance()
+    manager = container.get_embeddings_manager()
     return manager.generate_embeddings(document_id, markdown, workspace)
 
 
@@ -369,7 +372,11 @@ def query_embeddings(
     Returns:
         List of (DocumentChunk, score) tuples.
     """
-    return EmbeddingsManager().query_embeddings(query, workspace, top_k)
+    from tdoc_crawler.ai.container import AiServiceContainer
+
+    container = AiServiceContainer.get_instance()
+    manager = container.get_embeddings_manager()
+    return manager.query_embeddings(query, workspace, top_k)
 
 
 __all__ = [

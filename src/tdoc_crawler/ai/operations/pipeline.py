@@ -8,7 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from tdoc_crawler.ai.config import AiConfig
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.ai.models import (
     DocumentClassification,
     DocumentSummary,
@@ -17,10 +17,10 @@ from tdoc_crawler.ai.models import (
     ProcessingStatus,
 )
 from tdoc_crawler.ai.operations.classify import classify_document_files
-from tdoc_crawler.ai.operations.embeddings import EmbeddingsManager, generate_embeddings
+from tdoc_crawler.ai.operations.embeddings import generate_embeddings
 from tdoc_crawler.ai.operations.extract import extract_from_folder
 from tdoc_crawler.ai.operations.summarize import summarize_document
-from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
+from tdoc_crawler.ai.operations.workspaces import list_workspace_members, normalize_workspace_name
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
 
@@ -330,9 +330,9 @@ def process_tdoc(
     Raises:
         Exception: Re-raises pipeline exceptions after logging.
     """
-    config = AiConfig.from_env()
-    manager = EmbeddingsManager(config=config)
-    storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
+    container = AiServiceContainer.get_instance()
+    container.get_embeddings_manager()
+    storage = container.get_ai_storage()
     return run_pipeline(
         document_id,
         checkout_path,
@@ -363,15 +363,15 @@ def process_all(
     Returns:
         Dict mapping document_id to ProcessingStatus.
     """
-    config = AiConfig.from_env()
-    manager = EmbeddingsManager(config=config)
-    storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
+    container = AiServiceContainer.get_instance()
+    container.get_embeddings_manager()
+    storage = container.get_ai_storage()
     normalized_workspace = normalize_workspace_name(workspace)
 
     # Get workspace members and build a lookup map
     members_map: dict[str, Any] = {}
     if normalized_workspace != "default":
-        members = storage.list_workspace_members(normalized_workspace)
+        members = list_workspace_members(normalized_workspace)
         member_ids = {m.source_item_id for m in members if m.is_active and m.source_kind == "tdoc"}
         members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind == "tdoc"}
         document_ids = [tid for tid in document_ids if tid in member_ids]
@@ -417,9 +417,7 @@ def get_status(document_id: str, workspace: str | None = None) -> ProcessingStat
     Returns:
         ProcessingStatus if found, None otherwise.
     """
-    config = AiConfig.from_env()
-    manager = EmbeddingsManager(config=config)
-    storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)  # type: ignore[arg-type]
+    storage = AiServiceContainer.get_instance().get_storage()
     normalized_workspace = normalize_workspace_name(workspace)
     return storage.get_status(document_id, workspace=normalized_workspace)
 

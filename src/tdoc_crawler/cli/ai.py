@@ -9,11 +9,11 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 
 from tdoc_crawler.ai import (
-    AiConfig,
-    AiStorage,
+    AiServiceContainer,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
     convert_document,
@@ -28,8 +28,15 @@ from tdoc_crawler.ai import (
     set_active_workspace,
     summarize_document,
 )
-from tdoc_crawler.ai.models import SourceKind
+from tdoc_crawler.ai.models import PipelineStage, SourceKind
 from tdoc_crawler.ai.operations.pipeline import process_all
+from tdoc_crawler.ai.operations.workspaces import (
+    add_workspace_members,
+    get_workspace,
+    get_workspace_member_counts,
+    list_workspace_members,
+    remove_invalid_members,
+)
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
@@ -55,9 +62,6 @@ def _get_ai_dir() -> Path:
     return manager.ai_cache_dir
 
 
-
-
-
 def clear_active_workspace() -> None:
     """Clear the active workspace file (deprecated - use registry)."""
     active_file = _get_ai_dir() / "active_workspace"
@@ -74,10 +78,6 @@ def resolve_workspace(workspace: str | None) -> str:
         return active
     console.print("[red]No workspace specified and no active workspace set. Use -w <name> or 'ai workspace activate <name>'[/red]")
     raise typer.Exit(1)
-
-
-ai_app = typer.Typer(help="AI document processing commands")
-console = Console()
 
 
 @ai_app.command("summarize")
@@ -160,7 +160,7 @@ def ai_query(
             table.add_column("Snippet", style="white")
             for chunk, score in embedding_results:
                 snippet = chunk.content[:120].replace("\n", " ")
-                table.add_row(chunk.tdoc_id, str(chunk.section or ""), f"{score:.3f}", snippet)
+                table.add_row(chunk.document_id, str(chunk.section or ""), snippet, f"{score:.3f}")
             console.print(table)
         else:
             console.print("[yellow]No embedding results found.[/yellow]")
@@ -187,16 +187,21 @@ def workspace_create(
     """Create a new workspace."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir, embedding_dimension=384)  # type: ignore[arg-type]
-    workspace = create_workspace(storage, name, auto_build=auto_build)
+    registry = create_workspace(name, auto_build=auto_build)
+    workspace = registry.get_workspace(name)
 
     if activate:
         set_active_workspace(name)
 
     if json_output:
-        typer.echo(workspace.model_dump_json())
+        data = {
+            "name": workspace.name if workspace else name,
+            "auto_build": auto_build,
+            "created_at": workspace.created_at if workspace else "",
+        }
+        typer.echo(json.dumps(data))
     else:
-        console.print(f"[green]Created workspace: {workspace.workspace_name}[/green]")
+        console.print(f"[green]Created workspace: {normalize_workspace_name(name)}[/green]")
         if activate:
             console.print("[cyan]Activated as current workspace[/cyan]")
         if auto_build:
@@ -215,14 +220,21 @@ def workspace_list(
     workspaces = registry.list_workspaces()
 
     if json_output:
-        typer.echo(json.dumps([{
-            "name": w.name,
-            "is_active": w.is_active,
-            "tdoc_count": w.tdoc_count,
-            "spec_count": w.spec_count,
-            "other_count": w.other_count,
-            "created_at": w.created_at,
-        } for w in workspaces]))
+        typer.echo(
+            json.dumps(
+                [
+                    {
+                        "name": w.name,
+                        "is_active": w.is_active,
+                        "tdoc_count": w.tdoc_count,
+                        "spec_count": w.spec_count,
+                        "other_count": w.other_count,
+                        "created_at": w.created_at,
+                    }
+                    for w in workspaces
+                ]
+            )
+        )
     else:
         table = Table(title="Workspaces")
         table.add_column("Name", style="cyan")
@@ -251,8 +263,7 @@ def workspace_info(
     """Get detailed workspace information including member counts."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir, embedding_dimension=384)  # type: ignore[arg-type]
-    workspace = storage.get_workspace(name)
+    workspace = get_workspace(name)
 
     if workspace is None:
         if json_output:
@@ -262,22 +273,25 @@ def workspace_info(
         raise typer.Exit(1)
 
     # Get member counts
-    counts = storage.get_workspace_member_counts(name)
+    counts = get_workspace_member_counts(name)
 
     if json_output:
-        data = workspace.model_dump(mode="json")
-        data["member_counts"] = counts
+        data = {
+            "name": workspace.name,
+            "description": workspace.description,
+            "auto_build": workspace.auto_build,
+            "created_at": workspace.created_at,
+            "member_counts": counts,
+        }
         typer.echo(json.dumps(data))
     else:
-        table = Table(title=f"Workspace: {workspace.workspace_name}")
+        table = Table(title=f"Workspace: {workspace.name}")
         table.add_column("Field", style="cyan")
         table.add_column("Value", style="green")
-        table.add_row("Name", workspace.workspace_name)
-        table.add_row("Default", "Yes" if workspace.is_default else "No")
-        table.add_row("Status", workspace.status.value)
+        table.add_row("Name", workspace.name)
+        table.add_row("Description", workspace.description or "(none)")
         table.add_row("Auto-build", "Yes" if workspace.auto_build else "No")
-        table.add_row("Created", workspace.created_at.isoformat() if workspace.created_at else "")
-        table.add_row("Updated", workspace.updated_at.isoformat() if workspace.updated_at else "")
+        table.add_row("Created", workspace.created_at)
         table.add_row("", "")  # Empty row for spacing
         table.add_row("Total Members", str(counts["total"]))
         table.add_row("  TDocs", str(counts["tdoc"]))
@@ -318,9 +332,8 @@ def workspace_clear_invalid(
 ) -> None:
     """Remove all invalid (inactive) documents from the workspace."""
     workspace = resolve_workspace(workspace)
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
 
-    removed_count = storage.remove_invalid_members(workspace)
+    removed_count = remove_invalid_members(workspace)
 
     if json_output:
         typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "removed_invalid_members": removed_count}))
@@ -337,7 +350,8 @@ def workspace_clear(
 ) -> None:
     """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
     workspace = resolve_workspace(workspace)
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
+    CacheManager().register()
+    storage = AiServiceContainer.get_instance().get_storage()
 
     removed_count = storage.clear_workspace_artifacts(workspace)
 
@@ -360,7 +374,6 @@ def workspace_add_members(
     ] = "tdoc",
     checkout: Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present")] = True,
     release: Annotated[str | None, typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs.")] = None,
-    # NEW: Add filter options
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     source: SourcePatternOption = None,
@@ -379,10 +392,8 @@ def workspace_add_members(
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
-
     # Normalize kind to singular form (accept both 'tdoc' and 'tdocs')
-    kind_normalized = kind.lower().rstrip('s')
+    kind_normalized = kind.lower().rstrip("s")
     source_kind = SourceKind(kind_normalized) if kind_normalized in [e.value for e in SourceKind] else SourceKind.OTHER
 
     # Query database if no items provided but filters are present
@@ -421,7 +432,7 @@ def workspace_add_members(
         if checkout:
             checkout_path = None
             if source_kind == SourceKind.TDOC:
-                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, storage, workspace)
+                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, workspace)
                 if checkout_path is None:
                     skipped_items.append((item, "TDoc not found in database or meeting not crawled"))
                     continue
@@ -447,7 +458,7 @@ def workspace_add_members(
             console.print("\n[yellow]Hint: For TDocs, ensure the meeting has been crawled with 'tdoc-crawler crawl-tdocs <meeting-id>'[/yellow]")
         console.print()
 
-    count = storage.add_workspace_members(workspace, members)
+    count = add_workspace_members(workspace, members)
 
     if json_output:
         typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "added": count}))
@@ -465,11 +476,23 @@ def workspace_list_members(
     workspace = resolve_workspace(workspace)
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
-    members = storage.list_workspace_members(workspace, include_inactive=include_inactive)
+    members = list_workspace_members(workspace, include_inactive=include_inactive)
 
     if json_output:
-        typer.echo(json.dumps([m.model_dump(mode="json") for m in members]))
+        typer.echo(
+            json.dumps(
+                [
+                    {
+                        "source_item_id": m.source_item_id,
+                        "source_path": m.source_path,
+                        "source_kind": m.source_kind.value,
+                        "is_active": m.is_active,
+                        "added_at": m.added_at,
+                    }
+                    for m in members
+                ]
+            )
+        )
     else:
         if not members:
             console.print(f"[yellow]No members in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
@@ -487,6 +510,7 @@ def workspace_list_members(
             if m.source_kind == SourceKind.SPEC and "-REL" in source_id.upper():
                 source_id, release = source_id.rsplit("-REL", 1)
             table.add_row(source_id, release, m.source_kind.value, m.source_path, "Yes" if m.is_active else "No")
+        console.print(table)
 
 
 @_workspace_app.command("process")
@@ -500,10 +524,9 @@ def workspace_process(
     """Process all active document members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
     manager = CacheManager().register()
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
 
     # Get workspace members
-    members = storage.list_workspace_members(workspace, include_inactive=False)
+    members = list_workspace_members(workspace, include_inactive=False)
     document_ids = [m.source_item_id for m in members if m.is_active]
 
     if not document_ids:
@@ -513,14 +536,49 @@ def workspace_process(
             console.print(f"[yellow]No active members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
         return
 
-    # Process documents
-    results = process_all(
-        document_ids=document_ids,
-        checkout_base=manager.root,
-        new_only=new_only,
-        force_rerun=force_rerun,
-        workspace=workspace,
-    )
+    # Create progress bar for tracking document processing
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}", justify="right"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(elapsed_when_finished=True),
+        TimeElapsedColumn(),
+        console=console,
+        refresh_per_second=10,
+    ) as progress:
+        # Track processed count for progress updates
+        processed_count = [0]  # Use list to allow modification in callback
+
+        # Create main task
+        task = progress.add_task(
+            f"[cyan]Processing workspace '{normalize_workspace_name(workspace)}'[/cyan]",
+            total=len(document_ids),
+        )
+
+        # Create progress callback
+        def progress_callback(stage: PipelineStage, doc_id: str) -> None:
+            # Lazy import to avoid circular dependency with PipelineStage
+            # PipelineStage is defined in models, imported at top level
+            # Update description with current document and stage
+            stage_name = stage.value.replace("_", " ").title()
+            processed_count[0] += 1
+            remaining = len(document_ids) - processed_count[0]
+            progress.update(
+                task,
+                advance=1,
+                description=f"[cyan]{processed_count[0]}/{len(document_ids)}[/cyan] [cyan]Processing {doc_id}[/cyan] [dim]{remaining} remaining[/dim] [dim]- {stage_name}[/dim]",
+            )
+
+        # Process documents with progress tracking
+        results = process_all(
+            document_ids=document_ids,
+            checkout_base=manager.root,
+            new_only=new_only,
+            force_rerun=force_rerun,
+            workspace=workspace,
+            progress_callback=progress_callback,
+        )
 
     if json_output:
         typer.echo(
@@ -535,7 +593,6 @@ def workspace_process(
         )
     else:
         console.print(f"[green]Processed {len(results)}/{len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
-        console.print(f"[green]Processed {len(results)}/{len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'[/green]")
 
 
 @_workspace_app.command("delete")
@@ -547,8 +604,7 @@ def workspace_delete(
     """Delete a workspace (default workspace cannot be deleted)."""
     CacheManager().register()
 
-    storage = AiStorage(AiConfig.from_env().ai_cache_dir)  # type: ignore[arg-type]
-    result = delete_workspace(storage, name, preserve_artifacts=preserve_artifacts)
+    result = delete_workspace(name, preserve_artifacts=preserve_artifacts)
 
     if not result:
         if json_output:
