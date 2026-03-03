@@ -160,8 +160,10 @@ def _should_skip_summary(
         return False
 
 
-def _strip_code_fences(payload: str) -> str:
+def _strip_code_fences(payload: str | None) -> str:
     """Strip optional markdown code fences from LLM payloads."""
+    if payload is None:
+        return ""
     value = payload.strip()
     if value.startswith("```"):
         value = re.sub(r"^```(?:json)?\s*", "", value)
