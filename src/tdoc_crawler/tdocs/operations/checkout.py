@@ -114,12 +114,12 @@ def checkout_tdoc(
     return checkout_path
 
 
-def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool = False, session: requests.Session | None = None) -> Path:
+def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bool = False, session: requests.Session | None = None) -> Path:
     """Prepare TDoc file for opening (download and extract if needed).
 
     Args:
         metadata: TDoc metadata with download URL.
-        cache_dir: Cache directory for downloads and extracted files.
+        checkout_dir: Checkout directory for downloads and extracted files.
         return_dir: When True and TDoc is a zip, return the extract directory.
         session: Optional requests.Session to reuse for downloads.
 
@@ -138,7 +138,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, cache_dir: Path, return_dir: bool 
         logger.debug(f"Skipping download for withdrawn TDoc {metadata.tdoc_id}")
         raise FileNotFoundError("withdrawn")
 
-    downloads_dir = cache_dir / "checkout"
+    downloads_dir = Path(checkout_dir)
     downloads_dir.mkdir(parents=True, exist_ok=True)
     path = urlparse(metadata.url).path
     filename = str(posixpath.basename(path))

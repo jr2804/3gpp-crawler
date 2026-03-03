@@ -106,7 +106,7 @@ def open_tdoc(
             metadata = results[0]
 
         try:
-            tdoc_file = prepare_tdoc_file(metadata, manager.root, session=session)
+            tdoc_file = prepare_tdoc_file(metadata, manager.checkout_dir, session=session)
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             console.print(f"[red]Failed to prepare TDoc {normalized_id}: {exc}")
             raise typer.Exit(code=1) from exc

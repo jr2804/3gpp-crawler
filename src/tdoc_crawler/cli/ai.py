@@ -114,7 +114,7 @@ def ai_convert(
     output: Annotated[Path | None, typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
-    """Convert a single document to markdown format."""
+    """Convert a single TDoc to markdown format."""
     try:
         output_path = Path(output) if output else None
         markdown_content = convert_document(document_id=document_id, output_path=output_path)
@@ -537,7 +537,7 @@ def workspace_add_members(
 
     # Build members with actual paths
     members = []
-    checkout_base = manager.root / "checkout"
+    checkout_base = manager.checkout_dir
     skipped_items = []
     for item in items:
         source_path = item
@@ -546,7 +546,7 @@ def workspace_add_members(
         if checkout:
             checkout_path = None
             if source_kind == SourceKind.TDOC:
-                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, workspace)
+                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, workspace, db_file=manager.db_file)
                 if checkout_path is None:
                     skipped_items.append((item, "TDoc not found in database or meeting not crawled"))
                     continue
@@ -559,7 +559,9 @@ def workspace_add_members(
                 source_path = str(checkout_path)
                 # Ensure .ai subfolder exists
                 ensure_ai_subfolder(checkout_path)
+
         # For specs, include release version in source_item_id to allow multiple versions
+        # TODO: the variable release should always be fully resolved to an actual version with three digits, e.g., "17.0.0" instead of "latest", "17.0" or "17"
         source_item_id = f"{item}-REL{release}" if source_kind == SourceKind.SPEC and release else item
         members.append(make_workspace_member(workspace, source_item_id, source_path, source_kind))
 
