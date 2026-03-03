@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 
 from tdoc_crawler.config import CacheManager, register_cache_manager
-from tdoc_crawler.di.container import ServiceContainer
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -235,47 +234,9 @@ def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, o
         _ = database.upsert_meeting(meeting_metadata)
 
 
-@pytest.fixture
-def service_container(test_cache_dir: Path) -> Iterator[ServiceContainer]:
-    """Create a ServiceContainer for tests with a temporary cache directory.
-
-    Args:
-        test_cache_dir: Temporary cache directory fixture
-
-    Returns:
-        ServiceContainer instance with proper cleanup on test teardown
-    """
-    container = ServiceContainer(cache_dir=test_cache_dir, name="test")
-    yield container
-    container.close()
-
-
-@pytest.fixture
-def preconfigured_service_container(test_cache_dir: Path) -> Iterator[ServiceContainer]:
-    """Create a ServiceContainer with pre-initialized services for tests.
-
-    This fixture eagerly initializes the cache manager and databases so tests
-    can start interacting with services immediately without lazy-init side effects.
-
-    Args:
-        test_cache_dir: Temporary cache directory fixture
-
-    Returns:
-        ServiceContainer with cache manager and databases already initialized
-    """
-    container = ServiceContainer(cache_dir=test_cache_dir, name="test-preconfigured")
-    # Eagerly initialize core services
-    _ = container.cache_manager
-    _ = container.get_tdoc_db()
-    _ = container.get_meeting_db()
-    yield container
-    container.close()
-
-
 if __name__ == "__main__":
     pass
 # end of file
-
 
 # Register default cache manager at module level for all tests
 # This ensures AiConfig.from_env() works even when tests don't explicitly use test_cache_dir fixture

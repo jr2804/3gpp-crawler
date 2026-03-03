@@ -9,13 +9,11 @@ import typer
 from dotenv import load_dotenv
 from rich.table import Table
 
-from tdoc_crawler.cli import di as cli_di
 from tdoc_crawler.cli._shared import console, create_progress_bar
 from tdoc_crawler.cli.ai import ai_app
 from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutTDocIdsArgument,
-    DiModeOption,
     EolPasswordOption,
     EolUsernameOption,
     ForceOption,
@@ -32,7 +30,6 @@ from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
-from tdoc_crawler.di.container import ServiceContainer
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
@@ -52,16 +49,11 @@ HELP_PANEL_QUERY = "Query Commands"
 @app.callback()
 def _app_callback(
     ctx: typer.Context,
-    di_mode: DiModeOption = False,
     cache_dir: CacheDirOption = None,
 ) -> None:
     """Global CLI options."""
-    if di_mode:
-        container = ServiceContainer(cache_dir=cache_dir)
-        cli_di.set_container(container)
-        ctx.call_on_close(container.close)
-    else:
-        cli_di.set_container(None)
+    pass  # No global options currently
+
 
 # Register crawl commands
 app.command("crawl-tdocs", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_tdocs)
