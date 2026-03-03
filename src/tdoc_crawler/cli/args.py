@@ -150,3 +150,12 @@ NoProgressOption = Annotated[
     bool,
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
 ]
+
+DiModeOption = Annotated[
+    bool,
+    typer.Option(
+        "--di-mode/--no-di-mode",
+        help="Enable dependency injection container for service resolution",
+        envvar="TDC_DI_MODE",
+    ),
+]

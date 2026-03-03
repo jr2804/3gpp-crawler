@@ -4,12 +4,65 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import requests
 from bs4 import BeautifulSoup
 
+from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 logger = get_logger(__name__)
+
+
+class PortalParser:
+    """HTML parser for 3GPP portal TDoc pages.
+
+    Wraps the standalone ``parse_tdoc_portal_page`` function with optional
+    session injection for forward-compatibility with DI patterns.
+
+    Args:
+        session: Optional requests.Session to reuse for any HTTP operations.
+            If not provided, one is created via ``create_cached_session()``
+            on first use.
+
+    Example:
+        >>> parser = PortalParser()
+        >>> metadata = parser.parse(html, "S4-251364")
+    """
+
+    def __init__(self, session: requests.Session | None = None) -> None:
+        """Initialize PortalParser.
+
+        Args:
+            session: Optional requests.Session. If None, a cached session is
+                     created on first use via ``create_cached_session()``.
+        """
+        self._session = session
+
+    @property
+    def session(self) -> requests.Session:
+        """Return the active session, creating one lazily if needed."""
+        if self._session is None:
+            self._session = create_cached_session()
+        return self._session
+
+    @staticmethod
+    def parse(html: str, tdoc_id: str, url: str | None = None) -> TDocMetadata:
+        """Parse TDoc metadata from portal HTML page.
+
+        Args:
+            html: HTML content of the TDoc portal page.
+            tdoc_id: TDoc identifier for logging.
+            url: Optional TDoc URL (if known).
+
+        Returns:
+            TDocMetadata instance with portal metadata.
+
+        Raises:
+            PortalParsingError: If TDoc not found, metadata table not found,
+                or mandatory fields missing.
+        """
+        return parse_tdoc_portal_page(html, tdoc_id, url)
 
 
 class PortalParsingError(Exception):
@@ -140,4 +193,4 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
     )
 
 
-__all__ = ["PortalParsingError", "parse_tdoc_portal_page"]
+__all__ = ["PortalParser", "PortalParsingError", "parse_tdoc_portal_page"]

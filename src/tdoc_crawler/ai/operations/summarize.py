@@ -152,12 +152,10 @@ def _should_skip_summary(
             existing = storage_client.get_summary_hash(document_id)
             return existing == content_hash
 
-        if storage is not None:
-            existing = storage.get_summary_hash(document_id)
-            return existing == content_hash
+
 
         config = _get_ai_config()
-        storage_client = AiStorage(config.ai_cache_dir)  # type: ignore[arg-type]
+        storage_client = AiStorage(config.ai_cache_dir, embedding_dimension=EmbeddingsManager().dimension)  # type: ignore[arg-type]
         existing = storage_client.get_summary_hash(document_id)
         return existing == content_hash
     except Exception:
@@ -504,7 +502,7 @@ def _parse_keywords(payload: str) -> list[str]:
         data = json.loads(cleaned)
         if isinstance(data, list):
             return [str(kw).strip() for kw in data if str(kw).strip()]
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):
         pass
 
     # Fallback: extract keywords by splitting on common delimiters

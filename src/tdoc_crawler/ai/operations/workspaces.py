@@ -1,11 +1,16 @@
 """Workspace helper operations for AI pipeline scoping."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import Any
 
-from tdoc_crawler.ai.models import WorkspaceMember
-from tdoc_crawler.ai.operations.workspace_registry import DEFAULT_WORKSPACE, WorkspaceRegistry
+from tdoc_crawler.ai.operations.workspace_registry import (
+    DEFAULT_WORKSPACE,
+    WorkspaceMember,
+    WorkspaceRegistry,
+)
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
@@ -49,41 +54,56 @@ def is_default_workspace(workspace: str | None) -> bool:
     return normalize_workspace_name(workspace) == DEFAULT_WORKSPACE
 
 
-def ensure_default_workspace(storage: Any) -> Any:
+def ensure_default_workspace() -> WorkspaceRegistry:
     """Ensure the reserved default workspace exists."""
     registry = _get_registry()
     if DEFAULT_WORKSPACE not in registry.workspaces:
+        registry.create_workspace(DEFAULT_WORKSPACE)
         registry.save()
-    return storage.ensure_workspace(DEFAULT_WORKSPACE)
+    return registry
 
 
-def resolve_workspace(storage: Any, workspace: str | None) -> Any:
-    """Resolve and auto-create a workspace from optional user input."""
+def resolve_workspace(workspace: str | None) -> WorkspaceRegistry:
+    """Resolve and auto-create a workspace from optional user input.
+
+    Args:
+        workspace: Optional workspace name.
+
+    Returns:
+        WorkspaceRegistry with the workspace ensured to exist.
+    """
     normalized_workspace = normalize_workspace_name(workspace)
     registry = _get_registry()
     if normalized_workspace not in registry.workspaces:
         registry.create_workspace(normalized_workspace)
         registry.save()
-    return storage.ensure_workspace(normalized_workspace)
+    return registry
 
 
-def get_workspace(storage: Any, workspace: str | None) -> Any | None:
-    """Get a workspace by name if it exists."""
+def get_workspace(workspace: str | None) -> WorkspaceRegistry | None:
+    """Get a workspace by name if it exists.
+
+    Args:
+        workspace: Workspace name.
+
+    Returns:
+        WorkspaceRegistry if workspace exists, None otherwise.
+    """
     normalized_workspace = normalize_workspace_name(workspace)
-    return storage.get_workspace(normalized_workspace)
+    registry = _get_registry()
+    return registry.get_workspace(normalized_workspace)
 
 
-def create_workspace(storage: Any, workspace: str | None, auto_build: bool = False, description: str = "") -> Any:
+def create_workspace(workspace: str | None, auto_build: bool = False, description: str = "") -> WorkspaceRegistry:
     """Create a workspace entry after canonical normalization.
 
     Args:
-        storage: AiStorage instance.
         workspace: Workspace name to create.
         auto_build: When True, newly added members are automatically processed.
         description: Optional workspace description.
 
     Returns:
-        Created workspace object.
+        WorkspaceRegistry with created workspace.
     """
     normalized_workspace = normalize_workspace_name(workspace)
     registry = _get_registry()
@@ -92,23 +112,28 @@ def create_workspace(storage: Any, workspace: str | None, auto_build: bool = Fal
         registry.save()
     except ValueError:
         pass  # Workspace already exists
-    return storage.create_workspace(normalized_workspace, auto_build=auto_build)
+    return registry
 
 
-def list_workspaces(storage: Any) -> list[Any]:
+def list_workspaces() -> list[WorkspaceRegistry]:
     """List all known workspaces."""
-    ensure_default_workspace(storage)
-    return storage.list_workspaces()
+    ensure_default_workspace()
+    registry = _get_registry()
+    return list(registry.workspaces.values())
 
 
-def delete_workspace(storage: Any, workspace: str | None, preserve_artifacts: bool = True) -> bool:
+def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> bool:
     """Delete a workspace while preserving artifacts from other workspaces.
 
+    Note: Artifacts in LanceDB are now scoped by workspace name in the document_id.
+    When a workspace is deleted, its artifacts become orphaned (not associated with
+    any active workspace) but are preserved.
+
     Args:
-        storage: AiStorage instance.
         workspace: Workspace name to delete.
-        preserve_artifacts: If True (default), keep artifacts (they become orphaned).
-                           If False, also delete artifacts for this workspace.
+        preserve_artifacts: If True (default), keep artifacts. If False, also delete
+                          artifacts for this workspace (not implemented - artifacts are
+                          always preserved to prevent data loss).
 
     Returns:
         True if deleted, False if not found or if attempting to delete default.
@@ -122,7 +147,8 @@ def delete_workspace(storage: Any, workspace: str | None, preserve_artifacts: bo
     deleted = registry.delete_workspace(normalized_workspace)
     if deleted:
         registry.save()
-        return storage.delete_workspace(normalized_workspace, preserve_artifacts=preserve_artifacts)
+        _logger.info(f"Deleted workspace '{normalized_workspace}' (artifacts preserved)")
+        return True
     return False
 
 
@@ -145,13 +171,160 @@ def set_active_workspace(workspace: str | None) -> None:
 
 
 def add_workspace_members(
-    storage: Any,
     workspace: str | None,
-    source_items: list[Any],
+    members: list[WorkspaceMember],
 ) -> int:
-    """Register source items in a workspace corpus."""
+    """Register source items in a workspace corpus.
+
+    Args:
+        workspace: Workspace name.
+        members: List of WorkspaceMember to add.
+
+    Returns:
+        Number of members added.
+    """
     normalized_workspace = normalize_workspace_name(workspace)
-    return storage.add_workspace_members(normalized_workspace, source_items)
+    registry = _get_registry()
+
+    metadata = registry.get_workspace(normalized_workspace)
+    if metadata is None:
+        registry.create_workspace(normalized_workspace)
+        metadata = registry.get_workspace(normalized_workspace)
+
+    if metadata is None:
+        return 0
+
+    added_count = 0
+    for member in members:
+        metadata.add_member(member)
+        added_count += 1
+
+    registry.save()
+    return added_count
+
+
+def list_workspace_members(
+    workspace: str | None,
+    include_inactive: bool = False,
+) -> list[WorkspaceMember]:
+    """List members for a workspace.
+
+    Args:
+        workspace: Workspace name.
+        include_inactive: Include inactive members.
+
+    Returns:
+        List of WorkspaceMember.
+    """
+    normalized_workspace = normalize_workspace_name(workspace)
+    registry = _get_registry()
+
+    metadata = registry.get_workspace(normalized_workspace)
+    if metadata is None:
+        return []
+
+    return metadata.list_members(include_inactive=include_inactive)
+
+
+def get_workspace_member_counts(workspace: str | None) -> dict[str, int]:
+    """Get member counts for a workspace.
+
+    Args:
+        workspace: Workspace name.
+
+    Returns:
+        Dict with counts for 'tdoc', 'spec', 'other', and 'total'.
+    """
+    normalized_workspace = normalize_workspace_name(workspace)
+    registry = _get_registry()
+
+    metadata = registry.get_workspace(normalized_workspace)
+    if metadata is None:
+        return {"tdoc": 0, "spec": 0, "other": 0, "total": 0}
+
+    return metadata.get_member_counts()
+
+
+def remove_invalid_members(workspace: str | None) -> int:
+    """Remove all inactive members from a workspace.
+
+    Args:
+        workspace: Workspace name.
+
+    Returns:
+        Number of members removed.
+    """
+    normalized_workspace = normalize_workspace_name(workspace)
+    registry = _get_registry()
+
+    metadata = registry.get_workspace(normalized_workspace)
+    if metadata is None:
+        return 0
+
+    # Deactivate all inactive members and count them
+    removed_count = 0
+    active_members = []
+    for member_dict in metadata.members:
+        if not member_dict.get("is_active", True):
+            removed_count += 1
+        else:
+            active_members.append(member_dict)
+
+    metadata.members = active_members
+    registry.save()
+    return removed_count
+
+
+def deactivate_workspace_member(workspace: str | None, source_item_id: str) -> bool:
+    """Deactivate a workspace member.
+
+    Args:
+        workspace: Workspace name.
+        source_item_id: Source item ID to deactivate.
+
+    Returns:
+        True if found and deactivated, False otherwise.
+    """
+    normalized_workspace = normalize_workspace_name(workspace)
+    normalized_source_item_id = source_item_id.strip().upper()
+    if not normalized_source_item_id:
+        return False
+
+    registry = _get_registry()
+    metadata = registry.get_workspace(normalized_workspace)
+    if metadata is None:
+        return False
+
+    result = metadata.deactivate_member(normalized_source_item_id)
+    if result:
+        registry.save()
+    return result
+
+
+def remove_workspace_member(workspace: str | None, source_item_id: str) -> bool:
+    """Remove a workspace member.
+
+    Args:
+        workspace: Workspace name.
+        source_item_id: Source item ID to remove.
+
+    Returns:
+        True if found and removed, False otherwise.
+    """
+    normalized_workspace = normalize_workspace_name(workspace)
+    normalized_source_item_id = source_item_id.strip().upper()
+    if not normalized_source_item_id:
+        return False
+
+    registry = _get_registry()
+    metadata = registry.get_workspace(normalized_workspace)
+    if metadata is None:
+        return False
+
+    result = metadata.remove_member(normalized_source_item_id)
+    if result:
+        registry.save()
+    return result
 
 
 def make_workspace_member(
@@ -160,15 +333,25 @@ def make_workspace_member(
     source_path: str | Path,
     source_kind: Any,
     added_by: str | None = None,
-) -> Any:
-    """Build a normalized workspace member model from raw input."""
-    normalized_workspace = normalize_workspace_name(workspace)
+) -> WorkspaceMember:
+    """Build a normalized workspace member model from raw input.
+
+    Args:
+        workspace: Workspace name.
+        source_item_id: Source item ID.
+        source_path: Path to the source item.
+        source_kind: Kind of source (TDoc, Spec, etc.).
+        added_by: Optional identifier of who added this member.
+
+    Returns:
+        WorkspaceMember instance.
+    """
+    normalize_workspace_name(workspace)
     return WorkspaceMember(
-        workspace_name=normalized_workspace,
         source_item_id=source_item_id,
         source_path=str(source_path),
         source_kind=source_kind,
-        added_by=added_by,
+        added_by=added_by or "",
     )
 
 
@@ -197,7 +380,6 @@ def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None
 def checkout_tdoc_to_workspace(
     tdoc_id: str,
     checkout_base: Path,
-    storage: Any,
     workspace: str | None,
 ) -> Path | None:
     """Checkout a TDoc and add it to a workspace.
@@ -205,7 +387,6 @@ def checkout_tdoc_to_workspace(
     Args:
         tdoc_id: TDoc identifier
         checkout_base: Base checkout directory
-        storage: AiStorage instance
         workspace: Workspace name
 
     Returns:
@@ -319,15 +500,20 @@ __all__ = [
     "checkout_spec_to_workspace",
     "checkout_tdoc_to_workspace",
     "create_workspace",
+    "deactivate_workspace_member",
     "delete_workspace",
     "ensure_ai_subfolder",
     "ensure_default_workspace",
     "get_active_workspace",
     "get_workspace",
+    "get_workspace_member_counts",
     "is_default_workspace",
+    "list_workspace_members",
     "list_workspaces",
     "make_workspace_member",
     "normalize_workspace_name",
+    "remove_invalid_members",
+    "remove_workspace_member",
     "resolve_tdoc_checkout_path",
     "resolve_workspace",
     "set_active_workspace",

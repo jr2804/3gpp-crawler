@@ -17,9 +17,6 @@ from tdoc_crawler.ai.models import (
     GraphEdge,
     GraphNode,
     ProcessingStatus,
-    Workspace,
-    WorkspaceMember,
-    WorkspaceStatus,
 )
 from tdoc_crawler.logging import get_logger
 
@@ -32,12 +29,13 @@ _SCOPE_DELIMITER = "::"
 class AiStorage:
     """LanceDB storage layer for all AI-generated data."""
 
-    def __init__(self, store_path: Path, embedding_dimension: int | None = None) -> None:
+    def __init__(self, store_path: Path, embedding_dimension: int) -> None:
         """Initialize LanceDB connection at the given path.
 
         Args:
             store_path: Directory containing the LanceDB tables.
-            embedding_dimension: Dimension of the embedding model. If None, defaults to 384.
+            embedding_dimension: Dimension of the embedding model, obtained from
+                SentenceTransformer.get_sentence_embedding_dimension().
         """
         self._store_path = store_path
         self._store_path.mkdir(parents=True, exist_ok=True)
@@ -45,8 +43,13 @@ class AiStorage:
         self._tables: dict[str, Any] = {}
         self._embedding_hashes: dict[str, str] = {}
         self._summary_hashes: dict[str, str] = {}
-        self._embedding_dimension = embedding_dimension or 384
+        self._embedding_dimension = embedding_dimension
         self._ensure_tables()
+
+    @property
+    def embedding_dimension(self) -> int:
+        """Return embedding dimension."""
+        return self._embedding_dimension
 
     def save_embedding_hash(self, document_id: str, content_hash: str) -> None:
         """Persist the latest embedding content hash for idempotency checks."""
@@ -75,6 +78,10 @@ class AiStorage:
         # Ensure keywords is always a list for pyarrow list<string> schema
         if payload.get("keywords") is None:
             payload["keywords"] = []
+        # Handle NaT for optional datetime fields - convert to None for LanceDB
+        for field in ["classified_at", "extracted_at", "embedded_at", "summarized_at", "graphed_at", "completed_at"]:
+            if field in payload and _is_nat(payload[field]):
+                payload[field] = None
         table.add([payload])
 
     def get_status(self, document_id: str, workspace: str | None = None) -> ProcessingStatus | None:
@@ -87,9 +94,13 @@ class AiStorage:
             if record.get("document_id") == scoped_document_id:
                 unscoped_record = dict(record)
                 unscoped_record["document_id"] = _from_scoped_document_id(scoped_document_id)[1]
-                # Handle NaN values for optional strings from LanceDB
+                # Handle NaN/NaT values from LanceDB
                 for field in ["error_message", "source_hash", "detected_language"]:
                     if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
+                        unscoped_record[field] = None
+                # Handle NaT for optional datetime fields
+                for field in ["classified_at", "extracted_at", "embedded_at", "summarized_at", "graphed_at", "completed_at"]:
+                    if field in unscoped_record and _is_nat(unscoped_record[field]):
                         unscoped_record[field] = None
                 # Keywords is a list - handle NaN/None
                 if "keywords" in unscoped_record and not isinstance(unscoped_record["keywords"], list):
@@ -109,9 +120,13 @@ class AiStorage:
                 continue
             unscoped_record = dict(record)
             unscoped_record["document_id"] = unscoped_document_id
-            # Handle NaN values for optional strings from LanceDB
+            # Handle NaN/NaT values from LanceDB
             for field in ["error_message", "source_hash", "detected_language"]:
                 if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
+                    unscoped_record[field] = None
+            # Handle NaT for optional datetime fields
+            for field in ["classified_at", "extracted_at", "embedded_at", "summarized_at", "graphed_at", "completed_at"]:
+                if field in unscoped_record and _is_nat(unscoped_record[field]):
                     unscoped_record[field] = None
             # Keywords is a list - handle NaN/None
             if "keywords" in unscoped_record and not isinstance(unscoped_record["keywords"], list):
@@ -130,7 +145,6 @@ class AiStorage:
         normalized_workspace = _normalize_workspace_name(workspace)
         document_id = classifications[0].document_id.upper()
         scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
-        table = self._table("classifications")
         table = self._table("classifications")
         table.delete(f"document_id = '{scoped_document_id}'")
         payload: list[dict[str, Any]] = []
@@ -175,7 +189,6 @@ class AiStorage:
         normalized_workspace = _normalize_workspace_name(workspace)
         document_id = chunks[0].document_id
         scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
-        table = self._table("chunks")
         table = self._table("chunks")
         table.delete(f"document_id = '{scoped_document_id}'")
         payload: list[dict[str, Any]] = []
@@ -254,201 +267,6 @@ class AiStorage:
                 return DocumentSummary(**unscoped_record)
         return None
 
-    def create_workspace(self, workspace_name: str | None, auto_build: bool = False) -> Workspace:
-        """Create or update a workspace entry.
-
-        Args:
-            workspace_name: Workspace name to create.
-            auto_build: When True, newly added members are automatically processed.
-        """
-        normalized_workspace = _normalize_workspace_name(workspace_name)
-        existing = self.get_workspace(normalized_workspace)
-        now_record = Workspace(
-            workspace_name=normalized_workspace,
-            is_default=normalized_workspace == DEFAULT_WORKSPACE,
-            status=WorkspaceStatus.ACTIVE,
-            auto_build=auto_build,
-        )
-        if existing is not None:
-            now_record.created_at = existing.created_at
-            now_record.updated_at = now_record.created_at if existing.status == WorkspaceStatus.ARCHIVED else now_record.updated_at
-        table = self._table("workspaces")
-        table.delete(f"workspace_name = '{normalized_workspace}'")
-        table.add([now_record.model_dump()])
-        return self.get_workspace(normalized_workspace) or now_record
-
-    def get_workspace(self, workspace_name: str | None) -> Workspace | None:
-        """Return a workspace by name if present."""
-        normalized_workspace = _normalize_workspace_name(workspace_name)
-        table = self._table("workspaces")
-        for record in _table_to_records(table):
-            if record.get("workspace_name") == normalized_workspace:
-                return Workspace(**record)
-        return None
-
-    def ensure_workspace(self, workspace_name: str | None, auto_build: bool = False) -> Workspace:
-        """Ensure a workspace exists and return it."""
-        normalized_workspace = _normalize_workspace_name(workspace_name)
-        existing = self.get_workspace(normalized_workspace)
-        if existing is not None:
-            return existing
-        return self.create_workspace(normalized_workspace, auto_build=auto_build)
-
-    def list_workspaces(self) -> list[Workspace]:
-        """Return all configured workspaces."""
-        table = self._table("workspaces")
-        return sorted(
-            [Workspace(**record) for record in _table_to_records(table)],
-            key=lambda item: (not item.is_default, item.workspace_name),
-        )
-
-    def delete_workspace(self, workspace_name: str | None, preserve_artifacts: bool = True) -> bool:
-        """Delete a workspace and optionally its members.
-
-        Artifacts (processing_status, classifications, chunks, summaries, graph nodes/edges)
-        are PRESERVED by default to prevent data loss. They remain in storage but become
-        orphaned (not associated with any active workspace).
-
-        Args:
-            workspace_name: Name of workspace to delete.
-            preserve_artifacts: If True, keep artifacts. If False, also delete workspace artifacts.
-
-        Returns:
-            True if workspace was deleted, False if not found or if attempting to delete default.
-        """
-        normalized_workspace = _normalize_workspace_name(workspace_name)
-
-        # Prevent deletion of default workspace
-        if normalized_workspace == DEFAULT_WORKSPACE:
-            _logger.warning("Cannot delete the default workspace")
-            return False
-
-        # Check if workspace exists
-        existing = self.get_workspace(normalized_workspace)
-        if existing is None:
-            return False
-
-        # Delete workspace members (always delete members, not artifacts)
-        table = self._table("workspace_members")
-        table.delete(f"workspace_name = '{normalized_workspace}'")
-
-        # Delete the workspace record
-        table = self._table("workspaces")
-        table.delete(f"workspace_name = '{normalized_workspace}'")
-
-        # Optionally delete artifacts (these become orphaned otherwise)
-        if not preserve_artifacts:
-            for table_name in ["processing_status", "classifications", "chunks", "summaries", "graph_nodes", "graph_edges"]:
-                try:
-                    table = self._table(table_name)
-                    # Delete all scoped items for this workspace
-                    all_records = _table_to_records(table)
-                    for record in all_records:
-                        document_id = record.get("document_id", "")
-                        record_workspace, _ = _from_scoped_document_id(document_id)
-                        if record_workspace == normalized_workspace:
-                            table.delete(f"document_id = '{document_id}'")
-                except Exception as exc:
-                    _logger.warning(f"Failed to delete artifacts from {table_name}: {exc}")
-
-        _logger.info(f"Deleted workspace '{normalized_workspace}' (artifacts preserved: {preserve_artifacts})")
-        return True
-
-    def add_workspace_members(self, workspace_name: str | None, members: list[WorkspaceMember]) -> int:
-        """Add or reactivate source items for a workspace."""
-        workspace = self.ensure_workspace(workspace_name)
-        if not members:
-            return 0
-
-        table = self._table("workspace_members")
-        added_count = 0
-        for member in members:
-            normalized_member = WorkspaceMember(
-                workspace_name=workspace.workspace_name,
-                source_item_id=member.source_item_id,
-                source_path=member.source_path,
-                source_kind=member.source_kind,
-                added_by=member.added_by,
-                is_active=True,
-            )
-            predicate = f"workspace_name = '{normalized_member.workspace_name}' and source_item_id = '{normalized_member.source_item_id}'"
-            table.delete(predicate)
-            table.add([normalized_member.model_dump()])
-            added_count += 1
-        return added_count
-
-    def list_workspace_members(
-        self,
-        workspace_name: str | None,
-        include_inactive: bool = False,
-    ) -> list[WorkspaceMember]:
-        """List members for a workspace."""
-        workspace = self.ensure_workspace(workspace_name)
-        table = self._table("workspace_members")
-        members: list[WorkspaceMember] = []
-        for record in _table_to_records(table):
-            if record.get("workspace_name") != workspace.workspace_name:
-                continue
-            # Handle NaN values from LanceDB
-            if "added_by" in record and (record["added_by"] is None or _is_nan(record["added_by"])):
-                record["added_by"] = ""
-            member = WorkspaceMember(**record)
-            if not include_inactive and not member.is_active:
-                continue
-            members.append(member)
-        return sorted(members, key=lambda item: item.source_item_id)
-
-    def get_workspace_member_counts(self, workspace_name: str | None) -> dict[str, int]:
-        """Get counts of workspace members by source kind.
-
-        Args:
-            workspace_name: Name of workspace.
-
-        Returns:
-            Dict with counts for 'tdoc', 'spec', 'other', and 'total'.
-        """
-        normalized_workspace = _normalize_workspace_name(workspace_name)
-        table = self._table("workspace_members")
-        members = _table_to_records(table)
-
-        counts = {"tdoc": 0, "spec": 0, "other": 0, "total": 0}
-        for record in members:
-            if record.get("workspace_name") != normalized_workspace:
-                continue
-            if not record.get("is_active", True):
-                continue
-            kind = record.get("source_kind", "other").lower()
-            if kind in counts:
-                counts[kind] += 1
-            else:
-                counts["other"] += 1
-            counts["total"] += 1
-        return counts
-
-    def remove_invalid_members(self, workspace_name: str | None) -> int:
-        """Remove all inactive/invalid members from a workspace.
-
-        Args:
-            workspace_name: Name of workspace.
-
-        Returns:
-            Number of members removed.
-        """
-        normalized_workspace = _normalize_workspace_name(workspace_name)
-        table = self._table("workspace_members")
-        members = _table_to_records(table)
-
-        removed_count = 0
-        for record in members:
-            if record.get("workspace_name") != normalized_workspace:
-                continue
-            if not record.get("is_active", True):
-                source_item_id = record.get("source_item_id", "")
-                predicate = f"workspace_name = '{normalized_workspace}' and source_item_id = '{source_item_id}'"
-                table.delete(predicate)
-                removed_count += 1
-        return removed_count
-
     def clear_workspace_artifacts(self, workspace_name: str | None) -> int:
         """Clear all AI artifacts (embeddings, summaries, etc.) for a workspace while preserving members.
 
@@ -478,37 +296,6 @@ class AiStorage:
 
         _logger.info(f"Cleared {removed_count} artifact(s) for workspace '{normalized_workspace}'")
         return removed_count
-
-    def deactivate_workspace_member(self, workspace_name: str | None, source_item_id: str) -> bool:
-        """Deactivate a workspace member if it exists."""
-        workspace = self.ensure_workspace(workspace_name)
-        normalized_source_item_id = source_item_id.strip().upper()
-        if not normalized_source_item_id:
-            return False
-
-        table = self._table("workspace_members")
-        records = _table_to_records(table)
-        for record in records:
-            if record.get("workspace_name") != workspace.workspace_name:
-                continue
-            if record.get("source_item_id") != normalized_source_item_id:
-                continue
-            # Handle NaN values from LanceDB
-            if "added_by" in record:
-                record["added_by"] = ""
-            member = WorkspaceMember(**record)
-            if not member.is_active:
-                return True
-            member.is_active = False
-            predicate = f"workspace_name = '{member.workspace_name}' and source_item_id = '{member.source_item_id}'"
-            table.delete(predicate)
-            table.add([member.model_dump()])
-            return True
-        return False
-
-    def remove_workspace_member(self, workspace_name: str | None, source_item_id: str) -> bool:
-        """Alias for deactivate_workspace_member for API consistency."""
-        return self.deactivate_workspace_member(workspace_name, source_item_id)
 
     def save_nodes(self, nodes: list[GraphNode], workspace: str | None = None) -> None:
         """Persist graph nodes."""
@@ -588,11 +375,9 @@ class AiStorage:
         return edges
 
     def _ensure_tables(self) -> None:
-        self._ensure_table("workspaces", _workspace_schema())
-        self._ensure_table("workspace_members", _workspace_member_schema())
         self._ensure_table("processing_status", _processing_status_schema())
         self._ensure_table("classifications", _classification_schema())
-        self._ensure_table("chunks", _chunk_schema(self._embedding_dimension))
+        self._ensure_table("chunks", _chunk_schema(self.embedding_dimension))
         self._ensure_table("summaries", _summary_schema())
         self._ensure_table("graph_nodes", _graph_node_schema())
         self._ensure_table("graph_edges", _graph_edge_schema())
@@ -602,9 +387,12 @@ class AiStorage:
             # Check if schema matches, drop and recreate if not
             existing_table = self._db.open_table(name)
             existing_schema = existing_table.schema
-            # Compare field names (simple check)
-            existing_fields = {f.name for f in existing_schema}
-            new_fields = {f.name for f in schema}
+            # Check if schema matches, drop and recreate if not
+            existing_table = self._db.open_table(name)
+            existing_schema = existing_table.schema
+            # Compare field names AND types (especially vector dimensions)
+            existing_fields = {f.name: f.type for f in existing_schema}
+            new_fields = {f.name: f.type for f in schema}
             if existing_fields != new_fields:
                 # Schema mismatch - drop and recreate
                 self._db.drop_table(name)
@@ -640,6 +428,16 @@ def _is_nan(val: Any) -> bool:
     if isinstance(val, float):
         return math.isnan(val)
     return False
+
+
+def _is_nat(val: Any) -> bool:
+    """Check if value is pandas NaT (Not-a-Time)."""
+    if val is None:
+        return False
+    # Check for pandas NaT type
+    return type(val).__name__ == "NaTType"
+
+
 
 
 def _normalize_workspace_name(workspace: str | None) -> str:
@@ -709,33 +507,6 @@ def _processing_status_schema() -> pa.Schema:
     )
 
 
-def _workspace_schema() -> pa.Schema:
-    return pa.schema(
-        [
-            pa.field("workspace_name", pa.string()),
-            pa.field("created_at", pa.timestamp("us")),
-            pa.field("updated_at", pa.timestamp("us")),
-            pa.field("is_default", pa.bool_()),
-            pa.field("status", pa.string()),
-            pa.field("auto_build", pa.bool_()),
-        ]
-    )
-
-
-def _workspace_member_schema() -> pa.Schema:
-    return pa.schema(
-        [
-            pa.field("workspace_name", pa.string()),
-            pa.field("source_item_id", pa.string()),
-            pa.field("source_path", pa.string()),
-            pa.field("source_kind", pa.string()),
-            pa.field("added_at", pa.timestamp("us")),
-            pa.field("added_by", pa.string(), nullable=True),
-            pa.field("is_active", pa.bool_()),
-        ]
-    )
-
-
 def _classification_schema() -> pa.Schema:
     return pa.schema(
         [
@@ -754,7 +525,7 @@ def _chunk_schema(embedding_dimension: int) -> pa.Schema:
     """Create schema for document chunks with fixed-size vector.
 
     Args:
-        embedding_dimension: Dimension of the embedding model (e.g., 384 for all-MiniLM-L6-v2).
+        pa.field("vector", pa.list_(pa.float32(), embedding_dimension)),
 
     Returns:
         PyArrow schema with FixedSizeList vector field.

@@ -141,7 +141,7 @@ class EmbeddingsManager:
         Returns:
             List of (DocumentChunk, score) tuples.
         """
-        storage = self._storage or AiStorage(self._config.ai_cache_dir)  # type: ignore[arg-type]
+        storage = self._storage or AiStorage(self._config.ai_cache_dir, embedding_dimension=self.dimension)
         normalized_workspace = normalize_workspace_name(workspace)
 
         # Encode query

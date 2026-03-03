@@ -17,10 +17,8 @@ from tdoc_crawler.ai.models import (
 from tdoc_crawler.ai.operations.convert import convert_tdoc as convert_document
 from tdoc_crawler.ai.operations.embeddings import query_embeddings
 from tdoc_crawler.ai.operations.graph import query_graph
-from tdoc_crawler.ai.operations.pipeline import get_status
-from tdoc_crawler.ai.operations.pipeline import process_all
+from tdoc_crawler.ai.operations.pipeline import get_status, process_all, process_tdoc
 from tdoc_crawler.ai.operations.pipeline import process_tdoc as process_document
-from tdoc_crawler.ai.operations.pipeline import process_tdoc
 from tdoc_crawler.ai.operations.summarize import SummarizeResult
 from tdoc_crawler.ai.operations.summarize import summarize_tdoc as summarize_document
 from tdoc_crawler.ai.operations.workspace_registry import (
@@ -50,6 +48,7 @@ from tdoc_crawler.ai.operations.workspaces import (
     resolve_workspace,
 )
 from tdoc_crawler.ai.storage import AiStorage
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.config import CacheManager
 
 litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
