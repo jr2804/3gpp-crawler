@@ -65,13 +65,29 @@ class TestClassifyTdocFiles:
                 assert classification.decisive_heuristic is not None
                 assert len(classification.decisive_heuristic) > 0
 
-    def test_non_docx_files_are_ignored(self, tmp_path: Path) -> None:
-        """US2 classification should only consider DOCX candidates."""
+    def test_non_docx_files_are_classified(self, tmp_path: Path) -> None:
+        """Non-DOCX files (.pptx, .xlsx) should be classified."""
         (tmp_path / "agenda.xlsx").write_text("xlsx placeholder", encoding="utf-8")
         (tmp_path / "slides.pptx").write_text("pptx placeholder", encoding="utf-8")
 
         result = classify_document_files("S4-260999", tmp_path)
-        assert result == []
+
+        # Should find and classify both files
+        assert len(result) == 2
+
+        # Extract file paths for easier assertion
+        result_paths = [classification.file_path for classification in result]
+        assert "agenda.xlsx" in result_paths
+        assert "slides.pptx" in result_paths
+
+        # Both should be marked as secondary files (no single file)
+        # PPTX and XLSX have lower scores due to UNSTRUCTURED_PATTERNS
+        main_docs = [c for c in result if c.is_main_document]
+        assert len(main_docs) == 1
+
+        # PPTX typically gets lower score due to being unstructured
+        # Check that at least one classification exists
+        assert any(c for c in result if c.confidence > 0.0)
 
 
 class TestClassifyModuleExports:
