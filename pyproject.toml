@@ -39,6 +39,7 @@ dependencies = [
     "litellm>=1.81.15",
     "sentence-transformers>=2.7.0",
     "tokenizers>=0.22.2",
+    "doc2txt>=1.0.8",
 ]
 
 [project.urls]
