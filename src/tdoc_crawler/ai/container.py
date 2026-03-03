@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from sentence_transformers import SentenceTransformer
+
 from tdoc_crawler.ai.config import AiConfig
 from tdoc_crawler.ai.operations.embeddings import EmbeddingsManager
 from tdoc_crawler.ai.storage import AiStorage
@@ -70,14 +72,16 @@ class AiServiceContainer:
     def get_embeddings_manager(self) -> EmbeddingsManager:
         """Get the embeddings manager singleton.
 
-        Creates EmbeddingsManager with the shared config.
+        Creates EmbeddingsManager with the shared config and storage.
+        Note: Storage must be initialized before calling this method.
 
         Returns:
             EmbeddingsManager singleton instance.
         """
         if self._embeddings_manager is None:
             config = self.get_config()
-            self._embeddings_manager = EmbeddingsManager(config=config)
+            storage = self.get_storage()
+            self._embeddings_manager = EmbeddingsManager(config=config, storage=storage)
         return self._embeddings_manager
 
     def get_storage(self) -> AiStorage:
@@ -91,10 +95,12 @@ class AiServiceContainer:
         """
         if self._storage is None:
             config = self.get_config()
-            manager = self.get_embeddings_manager()
+            # Load dimension directly from model to avoid circular dependency
+            # with get_embeddings_manager() which requires storage
+            dimension = self._load_embedding_dimension()
             # AiConfig.ai_cache_dir already includes the provider/model subdirectory
             # when embedding_model is set (see config.py lines 148-152)
-            self._storage = AiStorage(config.ai_cache_dir, embedding_dimension=manager.dimension)
+            self._storage = AiStorage(config.ai_cache_dir, embedding_dimension=dimension)
         return self._storage
 
     # Aliases for compatibility with main ServiceContainer design
@@ -128,6 +134,16 @@ class AiServiceContainer:
         self.close()
 
     @classmethod
+    def reset_instance(cls) -> None:
+        """Reset the singleton instance.
+
+        This is primarily used for testing to ensure each test starts
+        with a fresh container. After calling this method, the next
+        call to get_instance() will create a new container instance.
+        """
+        cls._instance = None
+
+    @classmethod
     def get_instance(cls) -> AiServiceContainer:
         """Get the singleton container instance.
 
@@ -143,6 +159,23 @@ class AiServiceContainer:
         WARNING: Only use in tests, not in production code.
         """
         cls._instance = None
+
+    def _load_embedding_dimension(self) -> int:
+        """Load the embedding dimension from the configured model.
+
+        This is a helper method to avoid circular dependencies between
+        get_storage() and get_embeddings_manager().
+
+        Returns:
+            The embedding dimension for the configured model.
+        """
+        config = self.get_config()
+
+        model = SentenceTransformer(config.embedding_model)
+        dimension = model.get_sentence_embedding_dimension()
+        if dimension is None:
+            raise RuntimeError(f"Model '{config.embedding_model}' did not report an embedding dimension")
+        return dimension
 
 
 # Convenience functions for backward compatibility

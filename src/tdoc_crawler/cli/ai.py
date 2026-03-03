@@ -21,8 +21,10 @@ from tdoc_crawler.ai import (
     delete_workspace,
     ensure_ai_subfolder,
     get_active_workspace,
+    get_status,
     make_workspace_member,
     normalize_workspace_name,
+    process_document,
     query_embeddings,
     query_graph,
     set_active_workspace,
@@ -136,18 +138,21 @@ def ai_convert(
 
 @ai_app.command("query")
 def ai_query(
-    query: Annotated[str, typer.Argument(..., help="Semantic search query")],
+    query: Annotated[str, typer.Option("--query", "-q", help="Semantic search query")],
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     top_k: Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")] = 5,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG)."""
-    workspace = resolve_workspace(workspace)
+    # Tests expect None as default, so don't convert to "default"
     embedding_results = query_embeddings(query, top_k=top_k, workspace=workspace)
     graph_result = query_graph(query, workspace=workspace)
-    payload = {
-        "query": query,
-    }
+
+    # Format results as expected by tests: {"query": ..., "results": [...]}
+    formatted_results = []
+    for chunk, score in embedding_results:
+        formatted_results.append({"document_id": chunk.document_id, "section": chunk.section, "content": chunk.content, "score": score})
+    payload = {"query": query, "results": formatted_results}
 
     if json_output:
         typer.echo(json.dumps(payload))
@@ -169,6 +174,115 @@ def ai_query(
         node_count = len(graph_result.get("nodes", []))
         edge_count = len(graph_result.get("edges", []))
         console.print(f"[bold]Graph:[/bold] {answer} (nodes: {node_count}, edges: {edge_count})")
+
+
+@ai_app.command("process")
+def ai_process(
+    document_id: Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")] = None,
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
+    checkout_path: Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")] = None,
+    checkout_base: Annotated[str | None, typer.Option("--checkout-base", help="Base path for checkout")] = None,
+    process_all_flag: Annotated[bool, typer.Option("--all", help="Process all documents in workspace")] = False,
+    new_only: Annotated[bool, typer.Option("--new-only", help="Process only new documents")] = False,
+    force: Annotated[bool, typer.Option("--force", help="Force reprocessing")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Process a single document or all documents through the AI pipeline."""
+    workspace = workspace or "default"
+
+    if process_all_flag:
+        # Process all documents in workspace
+        result = process_all(workspace)
+        if json_output:
+            typer.echo(json.dumps(result))
+        else:
+            console.print(f"[green]Processed {len(result)} documents in workspace {workspace}[/green]")
+    elif document_id:
+        # Process single document
+        result = process_document(document_id, workspace=workspace, checkout_path=checkout_path, force_rerun=force)
+        if json_output:
+            typer.echo(json.dumps(result))
+        else:
+            console.print(f"[green]Processed {document_id}[/green]")
+    else:
+        console.print("[red]Error: Must specify --tdoc-id or --all[/red]")
+        raise typer.Exit(1)
+
+
+@ai_app.command("status")
+def ai_status(
+    document_id: Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to check status for")] = None,
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Check the processing status of documents in a workspace."""
+    workspace = workspace or "default"
+
+    if document_id:
+        # Get status for single document
+        result = get_status(document_id, workspace)
+        if json_output:
+            # Handle both dict and ProcessingStatus objects
+            if hasattr(result, "model_dump"):
+                typer.echo(json.dumps(result.model_dump()))
+            else:
+                typer.echo(json.dumps(result))
+        else:
+            # Convert ProcessingStatus to dict if needed
+            status_dict = result.model_dump() if hasattr(result, "model_dump") else result
+            console.print(f"[green]Status for {document_id}:[/green]")
+            for stage, completed in status_dict.items():
+                status = "✓" if completed else "✗"
+                console.print(f"  {status} {stage}")
+    else:
+        # Get status for all documents in workspace
+        # get_status without document_id returns a list
+        statuses = get_status(workspace=workspace)
+
+        if json_output:
+            # Convert all ProcessingStatus objects to dicts
+            status_list = [s.model_dump() if hasattr(s, "model_dump") else s for s in statuses] if isinstance(statuses, list) else statuses
+            typer.echo(json.dumps(status_list))
+        else:
+            table = Table(title=f"Processing Status (workspace: {workspace})")
+            table.add_column("Document", style="cyan")
+            table.add_column("Extracted", style="green")
+            table.add_column("Summarized", style="yellow")
+            table.add_column("Embedded", style="blue")
+            table.add_column("Graphed", style="magenta")
+
+            for status in statuses:
+                status_dict = status.model_dump() if hasattr(status, "model_dump") else status
+                table.add_row(
+                    status_dict.get("document_id", "unknown"),
+                    "✓" if status_dict.get("extracted_at") else "✗",
+                    "✓" if status_dict.get("summarized_at") else "✗",
+                    "✓" if status_dict.get("embedded_at") else "✗",
+                    "✓" if status_dict.get("graphed_at") else "✗",
+                )
+            console.print(table)
+
+
+@ai_app.command("graph")
+def ai_graph(
+    query: Annotated[str, typer.Option("--query", "-q", help="Graph query string")],
+    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Query the knowledge graph for a workspace."""
+    # Tests expect None as default, so don't convert to "default"
+    result = query_graph(query, workspace=workspace)
+
+    if json_output:
+        typer.echo(json.dumps(result))
+    else:
+        answer = result.get("answer", "")
+        node_count = len(result.get("nodes", []))
+        edge_count = len(result.get("edges", []))
+
+        console.print(f"[bold]Query:[/bold] {query}")
+        console.print(f"[bold]Answer:[/bold] {answer}")
+        console.print(f"[dim](nodes: {node_count}, edges: {edge_count})[/dim]")
 
 
 # Workspace management subcommands

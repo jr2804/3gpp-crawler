@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import ModuleType
 
 from tdoc_crawler.ai.storage import AiStorage
 
 
-def _load_workspaces_module() -> types.ModuleType:
+def _load_workspaces_module() -> ModuleType:
     file_path = Path(__file__).resolve().parents[2] / "src" / "tdoc_crawler" / "ai" / "operations" / "workspaces.py"
     spec = importlib.util.spec_from_file_location("workspace_ops", file_path)
     if spec is None or spec.loader is None:

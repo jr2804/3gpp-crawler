@@ -407,18 +407,25 @@ def process_all(
     return results
 
 
-def get_status(document_id: str, workspace: str | None = None) -> ProcessingStatus | None:
-    """Get processing status for a TDoc.
+def get_status(document_id: str | None = None, workspace: str | None = None) -> ProcessingStatus | list[ProcessingStatus] | None:
+    """Get processing status for a TDoc or all TDocs in workspace.
 
     Args:
-        document_id: Document identifier.
+        document_id: Document identifier. If None, returns all statuses in workspace.
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
-        ProcessingStatus if found, None otherwise.
+        ProcessingStatus if document_id provided and found,
+        list of ProcessingStatus if document_id is None,
+        None if document_id provided but not found.
     """
     storage = AiServiceContainer.get_instance().get_storage()
     normalized_workspace = normalize_workspace_name(workspace)
+
+    if document_id is None:
+        # Return all statuses in workspace
+        return storage.list_statuses(normalized_workspace)
+
     return storage.get_status(document_id, workspace=normalized_workspace)
 
 

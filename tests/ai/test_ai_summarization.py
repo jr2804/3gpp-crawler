@@ -10,6 +10,7 @@ import pytest
 from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError
 from tdoc_crawler.ai.operations import summarize
 from tdoc_crawler.ai.operations.summarize import _count_words, _should_skip_summary
+from tdoc_crawler.ai.storage import AiStorage
 
 
 class TestSummarization:

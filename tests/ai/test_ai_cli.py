@@ -190,7 +190,7 @@ class TestAiCli:
 
 
 class TestAiModuleExports:
-    def test_workspace_create_auto_build_flag(runner: CliRunner, tmp_path: Path) -> None:
+    def test_workspace_create_auto_build_flag(self, runner: CliRunner, tmp_path: Path) -> None:
         """T005 [US2]: CLI integration test for --auto-build flag.
 
         Expected: FAIL - flag doesn't exist yet.

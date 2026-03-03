@@ -383,11 +383,9 @@ class AiStorage:
         self._ensure_table("graph_edges", _graph_edge_schema())
 
     def _ensure_table(self, name: str, schema: pa.Schema) -> None:
-        if name in self._db.table_names():
-            # Check if schema matches, drop and recreate if not
-            existing_table = self._db.open_table(name)
-            existing_schema = existing_table.schema
-            # Check if schema matches, drop and recreate if not
+        # First, try to open existing table (handles case where table exists on disk
+        # but list_tables() doesn't return it - can happen with LanceDB)
+        try:
             existing_table = self._db.open_table(name)
             existing_schema = existing_table.schema
             # Compare field names AND types (especially vector dimensions)
@@ -400,7 +398,21 @@ class AiStorage:
             else:
                 self._tables[name] = existing_table
             return
-        self._tables[name] = self._db.create_table(name, schema=schema)
+        except FileNotFoundError:
+            # Table doesn't exist, continue to create it
+            pass
+
+        # Create the table, handling race condition where it might be created
+        # by another process/thread between our check and create
+        try:
+            self._tables[name] = self._db.create_table(name, schema=schema)
+        except ValueError as exc:
+            if "already exists" in str(exc).lower():
+                # Race condition - table was created by another process
+                # Open the existing table
+                self._tables[name] = self._db.open_table(name)
+            else:
+                raise
 
     def _table(self, name: str) -> LanceDBTable:
         return self._tables[name]

@@ -1,5 +1,7 @@
 @echo off
 cls
+call .venv\scripts\activate.bat
+
 :: tdoc-crawler crawl-meetings -s S4
 :: tdoc-crawler crawl-tdocs --start-date 2016
 :: tdoc-crawler query-tdocs --agenda "*atias*" --start-date 2018

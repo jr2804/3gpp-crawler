@@ -125,6 +125,21 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def reset_ai_service_container() -> None:
+    """Reset AiServiceContainer singleton between tests.
+
+    This fixture ensures each test starts with a fresh AiServiceContainer
+    singleton, preventing state leakage between tests that use storage.
+    """
+    from tdoc_crawler.ai.container import AiServiceContainer
+
+    AiServiceContainer.reset_instance()
+    yield
+    # Clean up after test
+    AiServiceContainer.reset_instance()
+
+
 @pytest.fixture
 def ai_storage(test_cache_dir: Path) -> AiStorage:
     """Create a temporary AI storage for tests using container.
