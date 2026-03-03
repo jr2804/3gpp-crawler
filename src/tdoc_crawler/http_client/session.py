@@ -1,0 +1,143 @@
+"""HTTP client factory with hishel caching support."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import cast
+
+import requests
+from hishel import SyncBaseStorage, SyncSqliteStorage
+from hishel.requests import CacheAdapter
+from urllib3.util.retry import Retry
+
+from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.constants.urls import BROWSER_HEADERS
+from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models import HttpCacheConfig
+
+logger = get_logger(__name__)
+
+
+def download_to_file(
+    url: str,
+    destination: Path,
+    session: requests.Session | None = None,
+    close_session: bool = True,
+    http_cache: HttpCacheConfig | None = None,
+    cache_manager_name: str | None = None,
+    http_cache_enabled: bool | None = None,
+) -> requests.Session | None:
+    """Download a file from URL to destination path.
+
+    Args:
+        url: Source URL
+        destination: Destination path
+        session: Optional requests.Session to reuse. If None, a temporary cached session is created.
+        close_session: Whether to close the session after download. Only applicable if a temporary session is created.
+        http_cache: Optional HTTP cache configuration
+        cache_manager_name: Optional cache manager name to determine cache directory when creating a temporary session.
+        http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
+
+    Raises:
+        ValueError: If URL scheme is not supported
+        FileNotFoundError: If download fails
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    lowered = url.lower()
+    allowed_schemes = ("ftp://", "http://", "https://")
+    if not lowered.startswith(allowed_schemes):
+        raise ValueError("unsupported-url-scheme")
+
+    # Use provided session or create a new one (might be used for multiple downloads, so we don't want to create a new session for each)
+    temp_session: requests.Session | None = None
+    if session is None:
+        temp_session = create_cached_session(http_cache=http_cache, cache_manager_name=cache_manager_name, http_cache_enabled=http_cache_enabled)
+        active_session = temp_session
+    else:
+        active_session = session
+
+    try:
+        response = active_session.get(url, timeout=60, stream=True)
+        response.raise_for_status()
+        with destination.open("wb") as target:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    target.write(chunk)
+
+        # return session or None if we created a temporary session and are closing it
+        if close_session:
+            active_session = None
+        return active_session
+
+    finally:
+        if temp_session and close_session:
+            temp_session.close()
+
+
+def create_cached_session(
+    http_cache: HttpCacheConfig | None = None,
+    cache_manager_name: str | None = None,
+    http_cache_enabled: bool | None = None,
+) -> requests.Session:
+    """Create a requests.Session with hishel caching enabled.
+
+    Args:
+        http_cache: HTTP cache configuration
+        cache_manager_name: Optional cache manager name to determine cache configuration.
+        http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
+                         Can be set via HTTP_CACHE_ENABLED environment variable.
+
+    Returns:
+        Configured requests.Session with caching enabled (unless disabled)
+    """
+    # Create session, use requests with browser-like headers to avoid 403 Forbidden
+    session = requests.Session()
+    session.headers.update(BROWSER_HEADERS)
+
+    # Check if caching is disabled via parameter or environment variable
+    if http_cache_enabled is None:
+        env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
+        http_cache_enabled = env_enabled not in ("false", "0", "no", "off", "f", "n")
+
+    # If caching is disabled, return a plain session without caching
+    if not http_cache_enabled:
+        logger.debug("Creating plain HTTP session (caching disabled)")
+        return session
+
+    http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
+    if http_cache.cache_file is None:
+        # If no explicit cache file is provided, determine it using the cache manager
+        manager = resolve_cache_manager(cache_manager_name)
+        http_cache.cache_file = str(manager.http_cache_file)
+
+    logger.debug(f"Creating cached HTTP session with cache_db={http_cache.cache_file})")
+    logger.debug(f"HTTP cache config: ttl={http_cache.ttl}, refresh_ttl_on_access={http_cache.refresh_ttl_on_access}, max_retries={http_cache.max_retries}")
+
+    # Create SQLite storage backend
+    storage = SyncSqliteStorage(
+        database_path=str(http_cache.cache_file),
+        default_ttl=http_cache.ttl,
+        refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
+    )
+    storage = cast(SyncBaseStorage, storage)
+
+    # Configure retry strategy for the session
+    max_retries = Retry(
+        total=http_cache.max_retries,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
+    )
+
+    # Create cache adapter
+    cache_adapter = CacheAdapter(storage=storage, max_retries=max_retries)  # ty:ignore[invalid-argument-type]
+
+    # Mount the cache adapter
+    session.mount("http://", cache_adapter)
+    session.mount("https://", cache_adapter)
+
+    return session
+
+
+__all__ = ["create_cached_session"]
