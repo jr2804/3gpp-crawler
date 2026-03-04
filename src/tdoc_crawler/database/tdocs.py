@@ -287,11 +287,33 @@ class TDocDatabase(MeetingDatabase):
 
     def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
         """Get a TDoc by ID."""
-        try:
-            return self.connection.model_from_table("tdocs", tdoc_id.upper())
-        except KeyError:
-            return None
+        import sqlite3
 
+        try:
+            # Use direct SQL query to retrieve TDoc by ID
+            # Query all required fields from actual database schema
+            with sqlite3.connect(self.connection.filename) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT tdoc_id, meeting_id, title, url, source, contact, agenda_item_nbr "
+                    "FROM tdocs WHERE tdoc_id = ?",
+                    (tdoc_id.upper(),)
+                )
+                row = cursor.fetchone()
+                if row:
+                    from tdoc_crawler.tdocs.models import TDocMetadata
+                    return TDocMetadata(
+                        tdoc_id=row[0],
+                        meeting_id=row[1],
+                        title=row[2],
+                        url=row[3],
+                        source=row[4],
+                        contact=row[5],
+                        agenda_item_nbr=row[6],
+                    )
+                return None
+        except sqlite3.Error:
+            return None
     # ------------------------------------------------------------------
     # Normalisation helpers
     # ------------------------------------------------------------------
