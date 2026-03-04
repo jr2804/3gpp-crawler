@@ -16,9 +16,8 @@ from tdoc_crawler.ai.models import (
     ProcessingStatus,
 )
 from tdoc_crawler.ai.operations.convert import convert_tdoc as convert_document
-from tdoc_crawler.ai.operations.embeddings import query_embeddings
 from tdoc_crawler.ai.operations.graph import query_graph
-from tdoc_crawler.ai.operations.pipeline import get_status, process_all, process_tdoc
+from tdoc_crawler.ai.operations.pipeline import get_status, process_all
 from tdoc_crawler.ai.operations.pipeline import process_tdoc as process_document
 from tdoc_crawler.ai.operations.summarize import SummarizeResult
 from tdoc_crawler.ai.operations.summarize import summarize_tdoc as summarize_document
@@ -52,13 +51,6 @@ from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
 
 litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
-
-# Backward-compatible internal aliases used by some tests and monkeypatching.
-_pipeline_get_status_impl = get_status
-_pipeline_process_tdoc_impl = process_tdoc
-_pipeline_process_all_impl = process_all
-_query_embeddings = query_embeddings
-_query_graph = query_graph
 
 
 __all__ = [
@@ -96,7 +88,6 @@ __all__ = [
     "normalize_workspace_name",
     "process_all",
     "process_document",
-    "query_embeddings",
     "query_graph",
     "remove_invalid_members",
     "resolve_tdoc_checkout_path",

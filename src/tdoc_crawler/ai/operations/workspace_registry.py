@@ -10,11 +10,15 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tdoc_crawler.ai.models import SourceKind
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.utils.misc import utc_now
+
+if TYPE_CHECKING:
+    from tdoc_crawler.ai.operations.workspace_registry import WorkspaceRegistry
+    from tdoc_crawler.ai.operations.workspaces import WorkspaceMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -381,8 +385,6 @@ def get_active_workspace(cache_manager_name: str | None = None) -> str:
     Returns:
         Name of the active workspace, or DEFAULT_WORKSPACE if none set.
     """
-    from tdoc_crawler.config import CacheManager  # noqa: PLC0415
-
     manager_name = cache_manager_name or "default"
     try:
         resolve_cache_manager(manager_name)
@@ -400,16 +402,15 @@ def set_active_workspace(name: str, cache_manager_name: str | None = None) -> No
         name: Workspace name to set as active.
         cache_manager_name: Optional cache manager name.
     """
-    # Ensure cache manager is registered before loading registry
-    from tdoc_crawler.config import CacheManager
+    # Local import to avoid circular dependency with workspaces.py
+    from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name  # noqa: PLC0415
 
+    # Ensure cache manager is registered before loading registry
     manager_name = cache_manager_name or "default"
     try:
         resolve_cache_manager(manager_name)
     except ValueError:
         CacheManager(name=manager_name).register()
-
-    from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
 
     registry = WorkspaceRegistry.load(cache_manager_name=cache_manager_name)
     normalized_name = normalize_workspace_name(name)

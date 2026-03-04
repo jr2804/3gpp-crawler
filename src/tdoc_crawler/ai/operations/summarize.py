@@ -469,7 +469,7 @@ def summarize_tdoc(
         raise LlmConfigError(msg) from exc
 
     # Extract keywords
-    keywords_prompt = KEYWORDS_PROMPT.format(content=content[:4000])
+    keywords_prompt = KEYWORDS_PROMPT.format(content=content)  # TODO: limit content size for keyword extraction as well, maybe 5000 chars?
     try:
         keywords_raw = client.complete(keywords_prompt, model=config.llm_model, max_tokens=200)
         keywords = _parse_keywords(keywords_raw)

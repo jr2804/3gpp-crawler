@@ -1,6 +1,7 @@
 """TDoc database operations."""
 
 import fnmatch
+import sqlite3
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -287,8 +288,6 @@ class TDocDatabase(MeetingDatabase):
 
     def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
         """Get a TDoc by ID."""
-        import sqlite3
-
         try:
             # Use direct SQL query to retrieve TDoc by ID
             # Query all required fields from actual database schema

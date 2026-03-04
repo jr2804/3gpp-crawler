@@ -17,7 +17,6 @@ from tdoc_crawler.ai.models import (
     ProcessingStatus,
 )
 from tdoc_crawler.ai.operations.classify import classify_document_files
-from tdoc_crawler.ai.operations.embeddings import generate_embeddings
 from tdoc_crawler.ai.operations.extract import extract_from_folder
 from tdoc_crawler.ai.operations.summarize import summarize_document
 from tdoc_crawler.ai.operations.workspaces import list_workspace_members, normalize_workspace_name
@@ -256,7 +255,10 @@ def _run_embedding_stage(
         msg = f"Extracted markdown artifact not found for embedding: {artifact_path}"
         raise FileNotFoundError(msg)
 
-    generate_embeddings(document_id, artifact_path, storage=storage, workspace=workspace)
+    # Get embeddings manager from container
+    container = AiServiceContainer.get_instance()
+    embeddings_manager = container.get_embeddings_manager()
+    embeddings_manager.generate_embeddings(document_id, artifact_path, workspace=workspace)
 
     status.embedded_at = utc_now()
     status.error_message = None
