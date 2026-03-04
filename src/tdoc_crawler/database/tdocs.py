@@ -294,14 +294,9 @@ class TDocDatabase(MeetingDatabase):
             # Query all required fields from actual database schema
             with sqlite3.connect(self.connection.filename) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT tdoc_id, meeting_id, title, url, source, contact, agenda_item_nbr "
-                    "FROM tdocs WHERE tdoc_id = ?",
-                    (tdoc_id.upper(),)
-                )
+                cursor.execute("SELECT tdoc_id, meeting_id, title, url, source, contact, agenda_item_nbr FROM tdocs WHERE tdoc_id = ?", (tdoc_id.upper(),))
                 row = cursor.fetchone()
                 if row:
-                    from tdoc_crawler.tdocs.models import TDocMetadata
                     return TDocMetadata(
                         tdoc_id=row[0],
                         meeting_id=row[1],
@@ -314,6 +309,7 @@ class TDocDatabase(MeetingDatabase):
                 return None
         except sqlite3.Error:
             return None
+
     # ------------------------------------------------------------------
     # Normalisation helpers
     # ------------------------------------------------------------------

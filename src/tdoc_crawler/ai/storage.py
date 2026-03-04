@@ -398,8 +398,9 @@ class AiStorage:
             else:
                 self._tables[name] = existing_table
             return
-        except FileNotFoundError:
+        except FileNotFoundError, ValueError:
             # Table doesn't exist, continue to create it
+            # ValueError is raised by LanceDB when table not found
             pass
 
         # Create the table, handling race condition where it might be created
@@ -414,11 +415,11 @@ class AiStorage:
             else:
                 raise
 
-    def _table(self, name: str) -> LanceDBTable:
+    def _table(self, name: str) -> Any:
         return self._tables[name]
 
 
-def _table_to_records(table: LanceDBTable) -> list[dict[str, Any]]:
+def _table_to_records(table: Any) -> list[dict[str, Any]]:
     try:
         dataframe = table.to_pandas()
         return dataframe.to_dict("records")
