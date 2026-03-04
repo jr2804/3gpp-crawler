@@ -79,7 +79,7 @@ def _validate_embedding_model_format(value: str) -> str:
 class AiConfig(BaseConfigModel):
     """Configuration for the AI processing pipeline."""
 
-    ai_cache_dir: Path | None = Field(None, description="Path to AI LanceDB store")
+    ai_cache_dir: Path | None = Field(None, description="Path to AI cache directory")
 
     embedding_model: str = Field(
         DEFAULT_EMBEDDING_MODEL,
