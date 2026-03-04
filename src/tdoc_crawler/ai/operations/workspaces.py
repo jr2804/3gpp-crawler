@@ -11,9 +11,13 @@ from tdoc_crawler.ai.operations.workspace_registry import (
     WorkspaceMember,
     WorkspaceRegistry,
 )
+from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.operations.checkout import checkout_specs
+from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
+from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
+from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 
 _logger = logging.getLogger(__name__)
@@ -377,17 +381,26 @@ def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None
     return None
 
 
+# TODO: This function is doing a lot - consider breaking it up into smaller steps or helper functions for clarity and testability.
 def checkout_tdoc_to_workspace(
     tdoc_id: str,
     checkout_base: Path,
     workspace: str | None,
+    db_file: Path | None = None,
 ) -> Path | None:
     """Checkout a TDoc and add it to a workspace.
+
+    Uses a fallback chain to resolve TDoc metadata:
+    1. Check if already checked out to disk
+    2. Check local database for existing metadata with URL
+    3. Try WhatTheSpec API (unauthenticated)
+    4. Try 3GPP Portal (requires credentials)
 
     Args:
         tdoc_id: TDoc identifier
         checkout_base: Base checkout directory
         workspace: Workspace name
+        db_file: Optional path to database file for metadata lookup
 
     Returns:
         Path to the checked out TDoc folder, or None if checkout failed
@@ -398,15 +411,48 @@ def checkout_tdoc_to_workspace(
         _logger.debug(f"TDoc {tdoc_id} already checked out at {existing_path}")
         return existing_path
 
-    # Need to checkout the TDoc
-    try:
-        # Resolve TDoc metadata
-        metadata = resolve_via_whatthespec(tdoc_id)
-        if not metadata:
-            _logger.warning(f"Could not resolve TDoc {tdoc_id}")
-            return None
+    # Need to checkout the TDoc - use fallback chain
+    metadata: TDocMetadata | None = None
 
-        # Checkout the TDoc - returns Path directly or raises exception
+    # Step 1: Check database for existing metadata
+    if db_file is not None and db_file.exists():
+        try:
+            with TDocDatabase(db_file) as db:
+                metadata = db._get_tdoc(tdoc_id)
+                if metadata and metadata.url:
+                    _logger.debug(f"Found TDoc {tdoc_id} in database with URL")
+        except Exception as e:
+            _logger.debug(f"Database lookup failed for {tdoc_id}: {e}")
+
+    # Step 2: Try WhatTheSpec API if not found in database
+    if metadata is None:
+        _logger.debug(f"Trying WhatTheSpec API for {tdoc_id}")
+        try:
+            metadata = resolve_via_whatthespec(tdoc_id)
+            if metadata:
+                _logger.info(f"Resolved TDoc {tdoc_id} via WhatTheSpec API")
+        except Exception as e:
+            _logger.debug(f"WhatTheSpec lookup failed for {tdoc_id}: {e}")
+
+    # Step 3: Try 3GPP Portal as final fallback (requires credentials)
+    if metadata is None:
+        _logger.debug(f"Trying 3GPP Portal for {tdoc_id}")
+        try:
+            config = TDocSourceConfig(timeout=30)
+            with PortalSource(config) as portal_source:
+                metadata = portal_source.fetch_by_id(tdoc_id, db_file=db_file)
+                if metadata:
+                    _logger.info(f"Resolved TDoc {tdoc_id} via 3GPP Portal")
+        except Exception as e:
+            _logger.debug(f"Portal lookup failed for {tdoc_id}: {e}")
+
+    # Check if we successfully resolved metadata
+    if metadata is None:
+        _logger.warning(f"Could not resolve TDoc {tdoc_id} via any source")
+        return None
+
+    # Checkout the TDoc - returns Path directly or raises exception
+    try:
         checkout_path = checkout_tdoc(metadata, checkout_base)
         if checkout_path and checkout_path.exists():
             _logger.info(f"Checked out TDoc {tdoc_id} to {checkout_path}")
@@ -414,7 +460,6 @@ def checkout_tdoc_to_workspace(
 
         _logger.warning(f"Checkout returned invalid path for TDoc {tdoc_id}")
         return None
-
     except FileNotFoundError as e:
         _logger.warning(f"TDoc {tdoc_id} not found or withdrawn: {e}")
         return None
@@ -448,10 +493,8 @@ def checkout_spec_to_workspace(
             if spec_dir.is_dir():
                 # Check if release version matches
                 dir_name = spec_dir.name
-                if release != "latest":
-                    # For specific release, ensure version matches
-                    if release not in dir_name:
-                        continue
+                if release != "latest" and release not in dir_name:
+                    continue
                 _logger.debug(f"Spec {spec_number} (release {release}) already checked out at {spec_dir}")
                 return spec_dir
 
