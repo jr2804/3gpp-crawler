@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from tdoc_crawler.ai.models import DocumentChunk, PipelineStage, ProcessingStatus, SourceKind
 from tdoc_crawler.ai.operations import workspaces
+from tdoc_crawler.ai.storage import AiStorage
 
 
 def test_workspace_member_isolation_across_workspaces() -> None:

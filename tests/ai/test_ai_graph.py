@@ -7,6 +7,11 @@ from unittest.mock import MagicMock
 
 from tdoc_crawler.ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType
 from tdoc_crawler.ai.operations import graph
+from tdoc_crawler.ai.operations.graph import (
+    extract_change_requests,
+    extract_company_entities,
+    extract_work_items,
+)
 
 
 class TestGraph:
@@ -169,8 +174,6 @@ class TestEntityExtractors:
 
     def test_extract_company_entities(self) -> None:
         """Test company name extraction."""
-        from tdoc_crawler.ai.operations.graph import extract_company_entities
-
         text = "This document was submitted by Huawei and Nokia for discussion at 3GPP."
         companies = extract_company_entities(text)
 
@@ -180,8 +183,6 @@ class TestEntityExtractors:
 
     def test_extract_work_items(self) -> None:
         """Test work item extraction."""
-        from tdoc_crawler.ai.operations.graph import extract_work_items
-
         text = "This relates to WI-12345 and Work Item 67890 for 5G enhancement."
         wis = extract_work_items(text)
 
@@ -190,8 +191,6 @@ class TestEntityExtractors:
 
     def test_extract_change_requests(self) -> None:
         """Test change request extraction."""
-        from tdoc_crawler.ai.operations.graph import extract_change_requests
-
         text = "This CR-001234 and Change Request 5678 propose modifications to the spec."
         crs = extract_change_requests(text)
 
@@ -200,12 +199,6 @@ class TestEntityExtractors:
 
     def test_extract_all_entity_types(self) -> None:
         """Test extraction of all entity types together."""
-        from tdoc_crawler.ai.operations.graph import (
-            extract_change_requests,
-            extract_company_entities,
-            extract_work_items,
-        )
-
         text = """
         Samsung proposes WI-99999 to address CR-11111.
         This work item relates to change request CP-230001.

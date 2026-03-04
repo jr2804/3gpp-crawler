@@ -6,11 +6,13 @@ import hashlib
 import sys
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
 
+from tdoc_crawler.ai.container import AiServiceContainer
+from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.http_client import download_to_file
 
 # Mock kreuzberg which might not be installed in all environments.
@@ -132,8 +134,6 @@ def reset_ai_service_container() -> None:
     This fixture ensures each test starts with a fresh AiServiceContainer
     singleton, preventing state leakage between tests that use storage.
     """
-    from tdoc_crawler.ai.container import AiServiceContainer
-
     AiServiceContainer.reset_instance()
     yield
     # Clean up after test
@@ -154,10 +154,6 @@ def ai_storage(test_cache_dir: Path) -> AiStorage:
     Returns:
         AiStorage instance with temporary storage
     """
-    from unittest.mock import patch
-
-    from tdoc_crawler.ai.container import AiServiceContainer
-
     lancedb_dir = test_cache_dir / "ai" / "lancedb"
     lancedb_dir.mkdir(parents=True, exist_ok=True)
 

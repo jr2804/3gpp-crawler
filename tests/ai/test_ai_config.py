@@ -62,8 +62,8 @@ def test_default_store_path_resolves_under_cache_dir(tmp_path: Path) -> None:
     config = AiConfig(cache_manager_name="test-ai-config")
 
     # Path should be under .ai directory with embedding model subdirectory
-    assert ".ai" in str(config.ai_store_dir)
-    assert "sentence-transformers" in str(config.ai_store_dir) or "all-MiniLM-L6-v2" in str(config.ai_store_dir)
+    assert ".ai" in str(config.ai_cache_dir)
+    assert "sentence-transformers" in str(config.ai_cache_dir) or "all-MiniLM-L6-v2" in str(config.ai_cache_dir)
 
 
 def test_no_hardcoded_models_in_ai_package() -> None:

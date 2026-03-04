@@ -12,6 +12,7 @@ from tdoc_crawler.ai import process_all as process_all_api
 from tdoc_crawler.ai.models import PipelineStage, ProcessingStatus, WorkspaceMember
 from tdoc_crawler.ai.operations import pipeline
 from tdoc_crawler.ai.operations.pipeline import process_all, run_pipeline
+from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.utils.misc import utc_now
 
@@ -150,7 +151,7 @@ class TestProcessTdocApi:
         mock_storage.get_status.side_effect = lambda doc_id, workspace=None: completed if doc_id == "S4-251003" else None
 
         # Mock the container to return our mock storage
-        def mock_get_instance():
+        def mock_get_instance() -> MagicMock:
             container = MagicMock()
             container.get_ai_storage.return_value = mock_storage
             container.get_embeddings_manager.return_value = MagicMock()
@@ -163,7 +164,7 @@ class TestProcessTdocApi:
         (tmp_path / "S4-260001").mkdir()
 
         # Mock run_pipeline to avoid actual processing
-        def mock_run_pipeline(doc_id, folder_path, storage, **kwargs):
+        def mock_run_pipeline(doc_id: str, folder_path: Path, storage: AiStorage, **kwargs) -> ProcessingStatus:
             return completed if doc_id == "S4-251003" else pending
 
         monkeypatch.setattr("tdoc_crawler.ai.operations.pipeline.run_pipeline", mock_run_pipeline)
