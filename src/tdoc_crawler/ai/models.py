@@ -34,6 +34,7 @@ class GraphNodeType(StrEnum):
     """Types of nodes in the knowledge graph."""
 
     DOCUMENT = "document"
+    TDOC = "tdoc"
     MEETING = "meeting"
     SPEC = "spec"
     WORK_ITEM = "work_item"
@@ -268,7 +269,7 @@ class DocumentSummary(BaseModel):
     action_items: list[str] = Field(default_factory=list, description="Action items")
     decisions: list[str] = Field(default_factory=list, description="Decisions recorded")
     affected_specs: list[str] = Field(default_factory=list, description="Affected specification IDs")
-    llm_model: str = Field("ollama/llama3.2", description="Model used for generation")
+    llm_model: str = Field("unknown", description="Model used for generation")
     prompt_version: str = Field("v1", description="Prompt template version")
     generated_at: datetime = Field(default_factory=utc_now, description="Generation timestamp")
 
