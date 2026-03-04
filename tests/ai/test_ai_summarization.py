@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from tdoc_crawler.ai.container import AiServiceContainer
 from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError
 from tdoc_crawler.ai.operations import summarize
 from tdoc_crawler.ai.operations.summarize import _count_words, _should_skip_summary
@@ -81,8 +82,6 @@ class TestSummarization:
 
     def test_missing_llm_model_config_raises_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Missing/invalid LLM config should raise LlmConfigError."""
-        from tdoc_crawler.ai.container import AiServiceContainer
-
         monkeypatch.setattr(
             AiServiceContainer,
             "get_instance",

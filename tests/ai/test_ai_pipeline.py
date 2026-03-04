@@ -140,9 +140,6 @@ class TestProcessTdocApi:
         """new_only mode should return only non-completed items."""
         # This test verifies the filtering logic in process_all
         # by mocking the storage.get_status call
-        from tdoc_crawler.ai.models import PipelineStage, ProcessingStatus
-        from tdoc_crawler.ai.storage import AiStorage
-
         completed = ProcessingStatus(document_id="S4-251003", current_stage=PipelineStage.COMPLETED)
         pending = ProcessingStatus(document_id="S4-260001", current_stage=PipelineStage.PENDING)
 

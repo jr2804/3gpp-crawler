@@ -12,6 +12,7 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.ai.container import AiServiceContainer
+from tdoc_crawler.ai.operations import workspaces as workspace_ops
 from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.http_client import download_to_file
 
@@ -177,8 +178,6 @@ def test_workspace(ai_storage: AiStorage) -> str:
     Returns:
         Workspace name ("default")
     """
-    from tdoc_crawler.ai.operations import workspaces as workspace_ops
-
     workspace_name = "default"
     workspace_ops.create_workspace(workspace_name, auto_build=False)
     return workspace_name

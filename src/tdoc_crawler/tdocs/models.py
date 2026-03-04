@@ -298,6 +298,15 @@ class TDocQueryConfig(BaseConfigModel):
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to date_retrieved")
 
+    # TODO: normalization of tdoc name(s) is most likely done already several times in the project? Consider re-using existing utils function?
+    @field_validator("tdoc_ids", mode="before")
+    @classmethod
+    def _normalize_tdoc_ids(cls, value: Iterable[str] | None) -> list[str] | None:
+        """Normalize TDoc IDs to uppercase."""
+        if value is None:
+            return None
+        return [str(item).upper() for item in value]
+
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup] | None) -> list[WorkingGroup] | None:
         """Ensure the working group list is comprised of enum members."""
