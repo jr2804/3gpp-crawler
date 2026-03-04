@@ -98,6 +98,7 @@ class AiConfig(BaseConfigModel):
     abstract_max_words: int = Field(250, ge=1, description="Maximum abstract word count")
     parallelism: int = Field(4, ge=1, le=32, description="Concurrent TDoc processing")
 
+    '''
     # TODO: This constructor is actually useless; the environment variable parsing is done by the typer CLI argument definitions!
     @classmethod
     def from_env(cls, **overrides: str | int | Path | None) -> AiConfig:
@@ -142,6 +143,7 @@ class AiConfig(BaseConfigModel):
         # Filter out None values to let defaults apply
         filtered_data = {k: v for k, v in data.items() if v is not None}
         return cls(**filtered_data)  # type: ignore[arg-type]
+    '''
 
     @model_validator(mode="after")
     def _resolve_paths(self) -> AiConfig:
