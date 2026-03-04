@@ -199,7 +199,7 @@ def _parse_structured_summary(payload: str) -> dict[str, list[str]]:
 def summarize_document(
     document_id: str,
     markdown: str,
-    storage: AiStorage | None = None,
+    storage: AiStorage,
     workspace: str | None = None,
 ) -> DocumentSummary:
     """Generate summary for a document.
@@ -213,13 +213,7 @@ def summarize_document(
     Returns:
         DocumentSummary object.
     """
-    from tdoc_crawler.ai.container import AiServiceContainer
-
     config = _get_ai_config()
-
-    if storage is None:
-        container = AiServiceContainer.get_instance()
-        storage = container.get_ai_storage()
 
     normalized_workspace = normalize_workspace_name(workspace)
 
