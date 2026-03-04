@@ -49,9 +49,7 @@ class TestSummarization:
         ai_storage.save_summary_hash("SP-123456", "abc123")
 
         # Check if summarization should be skipped
-        from tdoc_crawler.ai.container import AiServiceContainer
-
-        result = _should_skip_summary("SP-123456", "abc123", storage=AiServiceContainer.get_instance().get_storage())
+        result = _should_skip_summary("SP-123456", "abc123", storage_client=ai_storage)
         assert result is True
 
     def test_summarize_document_parses_structured_llm_output(self, ai_storage: AiStorage) -> None:

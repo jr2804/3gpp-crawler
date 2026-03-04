@@ -13,7 +13,8 @@ def test_ai_storage_writes_inside_ai_store_only(tmp_path: Path) -> None:
     manager = CacheManager(root_path=tmp_path, name="ai-storage-boundary").register(force=True)
     ai_store = manager.root / ".ai" / "lancedb"
 
-    storage = AiStorage(ai_store)
+    # Default embedding dimension for sentence-transformers/all-MiniLM-L6-v2
+    storage = AiStorage(ai_store, embedding_dimension=384)
 
     assert storage is not None
     assert ai_store.exists()
@@ -27,6 +28,7 @@ def test_ai_storage_does_not_create_or_mutate_core_sqlite(tmp_path: Path) -> Non
 
     assert not core_db.exists()
 
-    _ = AiStorage(manager.root / ".ai" / "lancedb")
+    # Default embedding dimension for sentence-transformers/all-MiniLM-L6-v2
+    _ = AiStorage(manager.root / ".ai" / "lancedb", embedding_dimension=384)
 
     assert not core_db.exists()

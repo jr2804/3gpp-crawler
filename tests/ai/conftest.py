@@ -181,6 +181,8 @@ def test_workspace(ai_storage: AiStorage) -> str:
     Returns:
         Workspace name ("default")
     """
+    from tdoc_crawler.ai.operations import workspaces as workspace_ops
+
     workspace_name = "default"
-    ai_storage.create_workspace(workspace_name, auto_build=False)
+    workspace_ops.create_workspace(workspace_name, auto_build=False)
     return workspace_name

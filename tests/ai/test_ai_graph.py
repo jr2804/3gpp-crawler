@@ -108,11 +108,11 @@ class TestGraph:
         mock_storage.get_all_graph_edges.return_value = edges
         mock_storage.query_graph.return_value = (nodes, edges)
 
-        # Query with temporal filtering - query_graph returns list of GraphQueryResult
+        # Query with temporal filtering - query_graph returns dict with 'results' key
         results = graph.query_graph(query="all tdocs", storage=mock_storage, meeting_ids=["SA4#123", "SP#123", "RP#88"])
 
         # Extract nodes from results
-        filtered_nodes = [r.node for r in results]
+        filtered_nodes = [r.node for r in results["results"]]
 
         # Verify results are sorted chronologically by created_at
         assert len(filtered_nodes) == 3
