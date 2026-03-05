@@ -246,3 +246,4 @@ skills-lock.json
 .dolt/
 *.db
 .beads/dolt-*.*
+src/teddi-mcp/uv.lock

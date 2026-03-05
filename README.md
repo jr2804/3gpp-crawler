@@ -34,6 +34,9 @@ uv add tdoc-crawler
 # Install with AI features (optional)
 uv add tdoc-crawler[ai]
 
+# Install with TEDDI MCP features (optional)
+uv add tdoc-crawler[teddi]
+
 # AI features are provided by the optional `tdoc-ai` extension package
 # and installed automatically via the extra above.
 
@@ -44,6 +47,9 @@ uv sync
 
 # Enable optional AI extension in source checkout
 uv sync --extra ai
+
+# Enable optional TEDDI MCP extension in source checkout
+uv sync --extra teddi
 ```
 
 ### Using pip (not recommended)

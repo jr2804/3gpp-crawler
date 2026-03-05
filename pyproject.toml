@@ -40,6 +40,9 @@ dependencies = [
 ai = [
     "tdoc-ai>=0.0.0",
 ]
+teddi = [
+    "teddi-mcp>=0.1.0",
+]
 
 [project.urls]
 Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
@@ -114,3 +117,4 @@ style = "semver"
 [tool.uv.sources]
 specify-cli = { git = "https://github.com/github/spec-kit.git" }
 tdoc-ai = { path = "src/tdoc-ai", editable = true }
+teddi-mcp = { path = "src/teddi-mcp", editable = true }
