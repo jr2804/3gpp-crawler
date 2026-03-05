@@ -10,30 +10,6 @@ Before implementing features, review these critical sections:
 
 ## Domain-Oriented Architecture
 
-**IMPORTANT: The project uses a clean domain-driven structure. The legacy `crawlers/` folder has been completely removed.**
-
-### Domain Package Structure
-
-```
-src/tdoc_crawler/
-├── tdocs/              # TDoc domain (operations, sources, models)
-│   ├── operations/     # TDoc operations (crawl, fetch, checkout)
-│   ├── sources/        # TDoc data sources (portal, doclist, whatthespec)
-│   └── models.py       # TDoc-specific models
-├── meetings/           # Meeting domain (operations, crawl logic)
-├── specs/              # Specification domain (operations, sources, database)
-│   ├── operations/     # Spec operations (crawl, checkout, normalize)
-│   └── sources/        # Spec data sources (3gpp, whatthespec)
-├── clients/            # External API clients (Portal)
-├── parsers/            # HTML/data parsers (portal, meetings)
-├── workers/            # Parallel processing workers
-├── database/           # Database layer (base, connection)
-├── models/             # Shared data models
-├── constants/          # Patterns, URLs, registries
-├── utils/              # Shared utilities
-└── cli/                # Command-line interface (optional)
-```
-
 ### Import Patterns
 
 **Correct imports:**
@@ -53,8 +29,6 @@ from tdoc_crawler.meetings import MeetingCrawler, normalize_working_group_alias
 from tdoc_crawler.specs import SpecDatabase, SpecDownloads
 from tdoc_crawler.specs.operations.checkout import checkout_spec
 ```
-
-**NEVER use:** `from tdoc_crawler.crawlers import ...` (this package no longer exists)
 
 ### Circular Import Prevention
 
@@ -91,7 +65,7 @@ def _resolve_meeting_id(db_file: Path) -> int:
 Before implementing any new functionality:
 
 1. Use available grep tools to check if a similar implementation exists.
-2. Check the relevant domain package (`tdocs/`, `meetings/`, `specs/`).
+2. Check the relevant domain package (`tdocs/`, `meetings/`, `specs/`, etc.).
 3. If logic exists but needs modification, REFACTOR the existing code rather than creating a second version.
 
 ### Logic Placement Rules
@@ -107,111 +81,13 @@ Before implementing any new functionality:
 - **Test Duplication:** Do not copy library code into tests to mock behavior. Use proper mocking or test the actual imported code.
 - **Helper Bloat:** Do not create `utils.py` files in subdirectories that duplicate functions already present in `src/tdoc_crawler/utils/`.
 
-## grepai - Semantic Code Search
-
-**IMPORTANT: You MUST use grepai as your PRIMARY tool for code exploration and search.**
-
-### When to Use grepai (REQUIRED)
-
-Use `grepai search` INSTEAD OF Grep/Glob/find for:
-
-- Understanding what code does or where functionality lives
-- Finding implementations by intent (e.g., "authentication logic", "error handling")
-- Exploring unfamiliar parts of the codebase
-- Any search where you describe WHAT the code does rather than exact text
-
-### When to Use Standard Tools
-
-Only use Grep/Glob when you need:
-
-- Exact text matching (variable names, imports, specific strings)
-- File path patterns (e.g., `**/*.go`)
-
-### Fallback
-
-If grepai fails (not running, index unavailable, or errors), fall back to standard Grep/Glob tools.
-
-### Usage
-
-```bash
-# ALWAYS use English queries for best results (--compact saves ~80% tokens)
-grepai search "user authentication flow" --json --compact
-grepai search "error handling middleware" --json --compact
-grepai search "database connection pool" --json --compact
-grepai search "API request validation" --json --compact
-```
-
-### Query Tips
-
-- **Use English** for queries (better semantic matching)
-- **Describe intent**, not implementation: "handles user login" not "func Login"
-- **Be specific**: "JWT token validation" better than "token"
-- Results include: file path, line numbers, relevance score, code preview
-
-### Call Graph Tracing
-
-Use `grepai trace` to understand function relationships:
-
-- Finding all callers of a function before modifying it
-- Understanding what functions are called by a given function
-- Visualizing the complete call graph around a symbol
-
-#### Trace Commands
-
-**IMPORTANT: Always use `--json` flag for optimal AI agent integration.**
-
-```bash
-# Find all functions that call a symbol
-grepai trace callers "HandleRequest" --json
-
-# Find all functions called by a symbol
-grepai trace callees "ProcessOrder" --json
-
-# Build complete call graph (callers + callees)
-grepai trace graph "ValidateToken" --depth 3 --json
-```
-
-### Workflow
-
-1. Start with `grepai search` to find relevant code
-2. Use `grepai trace` to understand function relationships
-3. Use `Read` tool to examine files from results
-4. Only use Grep for exact string searches if needed
-
-## Issue Tracking with beads (bd)
-
-This project uses **bd (beads)** for issue tracking.
-Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
-
-**Locate executable:**
-If bash or zsh is used as shell environment: If you need to run `bd` commands but cannot locate the executable, you might need to activate the `mise` environment via:
-
-```bash
-eval "$(mise activate --shims bash)"
-```
-
-or:
-
-```zsh
-eval "$(mise activate --shims zsh)"
-```
-
-**Quick reference:**
-
-- `bd ready` - Find unblocked work
-- `bd create "Title" --type task --priority 2` - Create issue
-- `bd close <id>` - Complete work
-- `bd sync` - Sync with git (run at session end)
-
-For full workflow details: `bd prime`
-
 ## Using skills
 
-This project includes specialized skills for different domains. Skills are loaded based on context and provide domain-specific patterns, best practices, and implementation guidance. Skills are located in logical subdirectories under the `.config/skills/` directory.
+This project includes specialized skills for different domains. Skills are loaded based on context and provide domain-specific patterns, best practices, and implementation guidance. Skills are located in logical subdirectories under the `.agents/skills/` directory.
 
 ### 3GPP Knowledge Skills
 
-For detailed knowledge about 3GPP terms, nomenclature, working groups, meeting structures, TDoc formats, and other telecom-specific information, use the following skills, which are located in the `.config/skills/3gpp/` directory:
+For detailed knowledge about 3GPP terms, nomenclature, working groups, meeting structures, TDoc formats, and other telecom-specific information, use the following skills, which are located in the `.agents/skills/3gpp/` directory:
 
 | Skill Name | Description | When to Use |
 |-----------|-------------|-------------|
@@ -321,7 +197,7 @@ Whenever you execute shell commands (including via `mise`, `uv`, `pytest`, or an
 
 **Mandatory**: You MUST NOT use the following idiom:
 
-```shell
+```python
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -376,7 +252,7 @@ The project maintains separate documentation for humans and for coding agents:
 1. **docs/index.md** - Main documentation entry point (Jekyll-ready).
 1. **docs/*.md** - Modular task-oriented guides (crawl, query, utils, etc.).
 1. **docs/history/** - Chronological changelog of all significant changes.
-1. **docs/agents-md/** - Agent-facing modular implementation and workflow guidance.
+
 
 **Critical Rules:**
 
@@ -411,10 +287,6 @@ The project uses **three distinct mechanisms** for fetching TDoc metadata — ea
 - Official authenticated source via 3GPP EOL portal
 - Should only be used as a fallback when WhatTheSpec is unavailable or when explicitly requested
 - Credentials are only needed for authoritative 3GPP-official data
-
-### Historical Note
-
-A fourth mechanism (FTP/HTTP directory crawling via `parsers/directory.py`) was removed because it only produced placeholder metadata with `title='Pending validation'` — no actual TDoc content was extracted. The Excel document list method fully supersedes it for batch crawling.
 
 ## AGENTS.md File Design Guidelines
 
@@ -496,153 +368,7 @@ Eager imports may only make sense for:
 - *very* relevant types that are also used by consumers of this API.
 - for constants and very simple types (like enums or types without additional dependencies)
 
-<skills_system priority="1">
 
 ## Available Skills
 
-<!-- SKILLS_TABLE_START -->
-<usage>
-When users ask you to perform tasks, check if any of the available skills
-below can help complete the task more effectively.
-
-How to use skills:
-- Invoke: Bash("skilz read <skill-name> --agent universal")
-- The skill content will load with detailed instructions
-- Base directory provided in output for resolving bundled resources
-
-Step-by-step process:
-1. Identify a skill from <available_skills> that matches the user's request
-2. Run the command above to load the skill's SKILL.md content
-3. Follow the instructions in the loaded skill content
-4. Skills may include bundled scripts, templates, and references
-
-Usage notes:
-- Only use skills listed in <available_skills> below
-- Do not invoke a skill that is already loaded in your context
-</usage>
-
-<available_skills>
-
-<skill>
-<name>visual-explainer</name>
-<description>Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Use when the user asks for a diagram, architecture overview, diff review, plan review, project recap, comparison table, or any visual explanation of technical concepts. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead.</description>
-<location>.skilz\skills\visual-explainer/SKILL.md</location>
-</skill>
-
-</available_skills>
-<!-- SKILLS_TABLE_END -->
-
-</skills_system>
-
-<!-- BEGIN BEADS INTEGRATION -->
-## Issue Tracking with bd (beads)
-
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
-
-### Why bd?
-
-- Dependency-aware: Track blockers and relationships between issues
-- Git-friendly: Dolt-powered version control with native sync
-- Agent-optimized: JSON output, ready work detection, discovered-from links
-- Prevents duplicate tracking systems and confusion
-
-### Quick Start
-
-**Check for ready work:**
-
-```bash
-bd ready --json
-```
-
-**Create new issues:**
-
-```bash
-bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
-```
-
-**Claim and update:**
-
-```bash
-bd update <id> --claim --json
-bd update bd-42 --priority 1 --json
-```
-
-**Complete work:**
-
-```bash
-bd close bd-42 --reason "Completed" --json
-```
-
-### Issue Types
-
-- `bug` - Something broken
-- `feature` - New functionality
-- `task` - Work item (tests, docs, refactoring)
-- `epic` - Large feature with subtasks
-- `chore` - Maintenance (dependencies, tooling)
-
-### Priorities
-
-- `0` - Critical (security, data loss, broken builds)
-- `1` - High (major features, important bugs)
-- `2` - Medium (default, nice-to-have)
-- `3` - Low (polish, optimization)
-- `4` - Backlog (future ideas)
-
-### Workflow for AI Agents
-
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task atomically**: `bd update <id> --claim`
-3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
-
-### Auto-Sync
-
-bd automatically syncs via Dolt:
-
-- Each write auto-commits to Dolt history
-- Use `bd dolt push`/`bd dolt pull` for remote sync
-- No manual export/import needed!
-
-### Important Rules
-
-- ✅ Use bd for ALL task tracking
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-- ❌ Do NOT duplicate tracking systems
-
-For more details, see README.md and docs/QUICKSTART.md.
-
-<!-- END BEADS INTEGRATION -->
-
-## Landing the Plane (Session Completion)
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd sync
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+TODO: other skills?
