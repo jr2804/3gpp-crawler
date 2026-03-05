@@ -5,18 +5,15 @@ import logging
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from sentence_transformers import SentenceTransformer
 
-from tdoc_crawler.ai.config import AiConfig
-from tdoc_crawler.ai.models import DocumentChunk
-from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.config import AiConfig
+from tdoc_ai.models import DocumentChunk
+from tdoc_ai.operations.workspace_names import normalize_workspace_name
+from tdoc_ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +149,7 @@ class EmbeddingsManager:
         return storage.search_chunks(query_vector, top_k, workspace=normalized_workspace)
 
     @classmethod
-    def _chunk_by_paragraphs(text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[str]:
+    def _chunk_by_paragraphs(cls, text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[str]:
         """Split text into chunks by paragraphs.
 
         Args:
@@ -299,33 +296,27 @@ class EmbeddingsManager:
                 # Heading text
                 # Save previous chunk if exists
                 if current_content:
-                    chunks.append(
-                        {
-                            "section": current_section,
-                            "content": "\n\n".join(current_content),
-                        }
-                    )
+                    chunks.append({
+                        "section": current_section,
+                        "content": "\n\n".join(current_content),
+                    })
                     current_content = []
 
                 current_section = part.strip()
 
         # Add final chunk
         if current_content:
-            chunks.append(
-                {
-                    "section": current_section,
-                    "content": "\n\n".join(current_content),
-                }
-            )
+            chunks.append({
+                "section": current_section,
+                "content": "\n\n".join(current_content),
+            })
 
         # If no headings found, treat as single chunk
         if not chunks:
-            chunks.append(
-                {
-                    "section": "Document",
-                    "content": markdown,
-                }
-            )
+            chunks.append({
+                "section": "Document",
+                "content": markdown,
+            })
 
         return chunks
 

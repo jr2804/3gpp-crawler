@@ -34,10 +34,16 @@ uv add tdoc-crawler
 # Install with AI features (optional)
 uv add tdoc-crawler[ai]
 
+# AI features are provided by the optional `tdoc-ai` extension package
+# and installed automatically via the extra above.
+
 # Or install from source
 git clone https://forge.3gpp.org/rep/reimes/tdoc-crawler.git
 cd tdoc-crawler
 uv sync
+
+# Enable optional AI extension in source checkout
+uv sync --extra ai
 ```
 
 ### Using pip (not recommended)

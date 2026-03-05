@@ -6,13 +6,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tdoc_ai import get_status, process_tdoc
+from tdoc_ai import process_all as process_all_api
+from tdoc_ai.models import PipelineStage, ProcessingStatus, WorkspaceMember
+from tdoc_ai.operations import pipeline
+from tdoc_ai.operations.pipeline import process_all, run_pipeline
+from tdoc_ai.storage import AiStorage
 
-from tdoc_crawler.ai import get_status, process_tdoc
-from tdoc_crawler.ai import process_all as process_all_api
-from tdoc_crawler.ai.models import PipelineStage, ProcessingStatus, WorkspaceMember
-from tdoc_crawler.ai.operations import pipeline
-from tdoc_crawler.ai.operations.pipeline import process_all, run_pipeline
-from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.utils.misc import utc_now
 
@@ -27,8 +27,8 @@ class TestRunPipeline:
             status = run_pipeline("S4-251003", tdoc_folder, mock_storage)
             assert status is not None
 
-    @patch("tdoc_crawler.ai.operations.pipeline.AiStorage")
-    @patch("tdoc_crawler.ai.operations.pipeline.run_pipeline")
+    @patch("tdoc_ai.operations.pipeline.AiStorage")
+    @patch("tdoc_ai.operations.pipeline.run_pipeline")
     def test_batch_processing(self, mock_run_pipeline: MagicMock, mock_ai_storage: MagicMock, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test processing multiple TDocs."""
         mock_ai_storage.return_value = mock_storage
@@ -52,8 +52,8 @@ class TestRunPipeline:
             status = run_pipeline("S4-251003", tdoc_folder, mock_storage)
             assert status is not None
 
-    @patch("tdoc_crawler.ai.operations.pipeline.AiServiceContainer")
-    @patch("tdoc_crawler.ai.operations.pipeline.run_pipeline")
+    @patch("tdoc_ai.operations.pipeline.AiServiceContainer")
+    @patch("tdoc_ai.operations.pipeline.run_pipeline")
     def test_incremental_new_only_mode(self, mock_run_pipeline: MagicMock, mock_container: MagicMock, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test incremental processing only processes new items."""
         # Setup mock container to return our mock storage
@@ -73,8 +73,8 @@ class TestRunPipeline:
             assert "S4-251003" not in results  # Should be skipped
             mock_run_pipeline.assert_not_called()
 
-    @patch("tdoc_crawler.ai.operations.pipeline.AiStorage")
-    @patch("tdoc_crawler.ai.operations.pipeline.run_pipeline")
+    @patch("tdoc_ai.operations.pipeline.AiStorage")
+    @patch("tdoc_ai.operations.pipeline.run_pipeline")
     def test_failed_tdoc_does_not_block_others(
         self, mock_run_pipeline: MagicMock, mock_ai_storage: MagicMock, mock_storage: MagicMock, test_data_dir: Path
     ) -> None:
@@ -90,8 +90,8 @@ class TestRunPipeline:
         results = process_all(tdoc_ids, base_path)
         assert isinstance(results, dict)
 
-    @patch("tdoc_crawler.ai.operations.pipeline.list_workspace_members")
-    @patch("tdoc_crawler.ai.operations.pipeline.run_pipeline")
+    @patch("tdoc_ai.operations.pipeline.list_workspace_members")
+    @patch("tdoc_ai.operations.pipeline.run_pipeline")
     def test_process_all_scopes_to_workspace_members(self, mock_run_pipeline: MagicMock, mock_list_members: MagicMock, test_data_dir: Path) -> None:
         """Test process_all filters input by workspace members."""
         mock_list_members.return_value = [
@@ -154,7 +154,7 @@ class TestProcessTdocApi:
             container.get_embeddings_manager.return_value = MagicMock()
             return container
 
-        monkeypatch.setattr("tdoc_crawler.ai.operations.pipeline.AiServiceContainer.get_instance", mock_get_instance)
+        monkeypatch.setattr("tdoc_ai.operations.pipeline.AiServiceContainer.get_instance", mock_get_instance)
 
         # Create checkout folders so the pipeline doesn't skip them
         (tmp_path / "S4-251003").mkdir()
@@ -164,7 +164,7 @@ class TestProcessTdocApi:
         def mock_run_pipeline(doc_id: str, folder_path: Path, storage: AiStorage, **kwargs) -> ProcessingStatus:
             return completed if doc_id == "S4-251003" else pending
 
-        monkeypatch.setattr("tdoc_crawler.ai.operations.pipeline.run_pipeline", mock_run_pipeline)
+        monkeypatch.setattr("tdoc_ai.operations.pipeline.run_pipeline", mock_run_pipeline)
 
         result = process_all_api(
             document_ids=["S4-251003", "S4-260001"],

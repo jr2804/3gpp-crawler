@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,16 @@ from tdoc_crawler.config import CacheManager, register_cache_manager
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocMetadata
+
+
+def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> bool:
+    """Ignore AI tests when optional tdoc-ai package is not installed."""
+    try:
+        version("tdoc-ai")
+    except PackageNotFoundError:
+        path_text = str(collection_path).replace("\\", "/").lower()
+        return "/tests/ai/" in path_text or path_text.endswith("/tests/ai")
+    return False
 
 
 @pytest.fixture

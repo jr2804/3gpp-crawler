@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import zipfile
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any, cast
 
 import typer
@@ -10,7 +11,6 @@ from dotenv import load_dotenv
 from rich.table import Table
 
 from tdoc_crawler.cli._shared import console, create_progress_bar
-from tdoc_crawler.cli.ai import ai_app
 from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutTDocIdsArgument,
@@ -223,5 +223,19 @@ app.command("qm", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_meetings)
 
 __all__ = ["app"]
 
-# Register AI commands
-app.add_typer(ai_app, name="ai", help="AI document processing")
+
+def _register_optional_ai_commands() -> None:
+    """Register AI commands only when AI extras are available."""
+    try:
+        version("tdoc-ai")
+    except PackageNotFoundError:
+        return
+
+    try:
+        from tdoc_crawler.cli.ai import ai_app
+    except ImportError:
+        return
+    app.add_typer(ai_app, name="ai", help="AI document processing")
+
+
+_register_optional_ai_commands()

@@ -7,10 +7,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
-from tdoc_crawler.ai.models import ExtractionError
-from tdoc_crawler.ai.operations import extract
-from tdoc_crawler.ai.operations.extract import (
+from tdoc_ai.models import ExtractionError
+from tdoc_ai.operations import extract
+from tdoc_ai.operations.extract import (
     compute_source_hash,
     extract_docx_to_markdown,
     extract_from_folder,
@@ -124,5 +123,5 @@ Command: uv run pytest tests/ai/test_ai_extraction.py -q
 
 Observed failure:
 - TestExtractDocxToMarkdown.test_no_docx_folder_raises_extraction_error
-    Failed: DID NOT RAISE <class 'tdoc_crawler.ai.models.ExtractionError'>
+    Failed: DID NOT RAISE <class 'tdoc_ai.models.ExtractionError'>
 """

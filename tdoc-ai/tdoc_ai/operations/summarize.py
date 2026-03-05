@@ -10,11 +10,11 @@ import re
 
 import litellm
 
-from tdoc_crawler.ai.config import AiConfig
-from tdoc_crawler.ai.container import AiServiceContainer
-from tdoc_crawler.ai.models import DocumentSummary, LlmConfigError, SummarizeResult
-from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.config import AiConfig
+from tdoc_ai.container import AiServiceContainer
+from tdoc_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
+from tdoc_ai.operations.workspace_names import normalize_workspace_name
+from tdoc_ai.storage import AiStorage
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.misc import utc_now
 
@@ -199,7 +199,7 @@ def _parse_structured_summary(payload: str) -> dict[str, list[str]]:
 def summarize_document(
     document_id: str,
     markdown: str,
-    storage: AiStorage,
+    storage: AiStorage | None = None,
     workspace: str | None = None,
 ) -> DocumentSummary:
     """Generate summary for a document.
@@ -207,22 +207,23 @@ def summarize_document(
     Args:
         document_id: Document identifier.
         markdown: Markdown content.
-        storage: Optional storage instance (deprecated, uses singleton now).
+        storage: Optional storage instance.
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         DocumentSummary object.
     """
     config = _get_ai_config()
+    storage_client = storage or AiServiceContainer.get_instance().get_storage()
 
     normalized_workspace = normalize_workspace_name(workspace)
 
     # Compute content hash
     content_hash = hashlib.sha256(markdown.encode()).hexdigest()
 
-    if _should_skip_summary(document_id, content_hash, storage_client=storage):
+    if _should_skip_summary(document_id, content_hash, storage_client=storage_client):
         logger.info(f"Skipping summary for {document_id} - content unchanged")
-        existing = storage.get_summary(document_id, workspace=normalized_workspace)
+        existing = storage_client.get_summary(document_id, workspace=normalized_workspace)
         if existing:
             return existing
 
@@ -292,8 +293,8 @@ def summarize_document(
     )
 
     # Save to storage
-    storage.save_summary(summary, workspace=normalized_workspace)
-    storage.save_summary_hash(document_id, content_hash)
+    storage_client.save_summary(summary, workspace=normalized_workspace)
+    storage_client.save_summary_hash(document_id, content_hash)
 
     logger.info(f"Generated summary for {document_id}")
     return summary

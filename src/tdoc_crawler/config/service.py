@@ -9,8 +9,8 @@ from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.models.crawl_limits import CrawlLimits
 
 try:
-    from tdoc_crawler.ai.config import AiConfig as _AiConfig
-    from tdoc_crawler.ai.container import AiServiceContainer
+    from tdoc_ai.config import AiConfig as _AiConfig
+    from tdoc_ai.container import AiServiceContainer
 except ImportError:
     _AiConfig = None  # type: ignore[assignment,misc]
 

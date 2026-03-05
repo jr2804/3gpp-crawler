@@ -6,9 +6,9 @@ import re
 from pathlib import Path
 
 import pytest
+from tdoc_ai.config import AiConfig
+from tdoc_ai.models import DocumentSummary
 
-from tdoc_crawler.ai.config import AiConfig
-from tdoc_crawler.ai.models import DocumentSummary
 from tdoc_crawler.config import CacheManager
 
 

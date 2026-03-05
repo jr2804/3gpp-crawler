@@ -6,10 +6,10 @@ import logging
 import re
 from datetime import datetime
 
-from tdoc_crawler.ai.container import AiServiceContainer
-from tdoc_crawler.ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, GraphQueryResult
-from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.container import AiServiceContainer
+from tdoc_ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, GraphQueryResult
+from tdoc_ai.operations.workspace_names import normalize_workspace_name
+from tdoc_ai.storage import AiStorage
 
 logger = logging.getLogger(__name__)
 

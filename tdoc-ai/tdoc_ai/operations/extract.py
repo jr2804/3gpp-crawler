@@ -11,9 +11,9 @@ from pathlib import Path
 from doc2txt import extract_text as doc2txt_extract
 from kreuzberg import ExtractionConfig, KeywordAlgorithm, KeywordConfig, LanguageDetectionConfig, extract_file_sync
 
-from tdoc_crawler.ai.models import ExtractionError, ProcessingStatus
-from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.models import ExtractionError, ProcessingStatus
+from tdoc_ai.operations.workspace_names import normalize_workspace_name
+from tdoc_ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)

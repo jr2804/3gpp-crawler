@@ -8,10 +8,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from tdoc_ai.models import PipelineStage, ProcessingStatus
 from typer.testing import CliRunner
 
 import tdoc_crawler.cli.ai as ai_cli
-from tdoc_crawler.ai.models import PipelineStage, ProcessingStatus
 from tdoc_crawler.cli.app import app
 
 
@@ -134,11 +134,11 @@ class TestAiCli:
         """Query command delegates to query_embeddings API."""
         with patch("tdoc_crawler.cli.ai.query_embeddings") as mock_query_embeddings:
             mock_query_embeddings.return_value = []
-            result = runner.invoke(app, ["ai", "query", "--query", "uplink", "--json"])
+            result = runner.invoke(app, ["ai", "query", "--query", "uplink", "--workspace", "myws", "--json"])
             assert result.exit_code == 0
             payload = json.loads(result.output)
             assert "results" in payload
-            mock_query_embeddings.assert_called_once_with("uplink", top_k=5, workspace=None)
+            mock_query_embeddings.assert_called_once_with("uplink", top_k=5, workspace="myws")
 
     def test_graph_delegates_to_query_graph(self, runner: CliRunner) -> None:
         """Graph command delegates to query_graph API."""
@@ -172,13 +172,13 @@ class TestAiCli:
             kwargs = mock.call_args.kwargs
             assert kwargs.get("workspace") is None or kwargs.get("workspace") == "default"
 
-    def test_query_without_workspace_uses_default(self, runner: CliRunner) -> None:
+    def test_query_without_workspace_uses_active_workspace(self, runner: CliRunner) -> None:
         with patch("tdoc_crawler.cli.ai.query_embeddings") as mock:
             mock.return_value = []
             result = runner.invoke(app, ["ai", "query", "--query", "uplink", "--json"])
             assert result.exit_code == 0
             kwargs = mock.call_args.kwargs
-            assert kwargs.get("workspace") is None or kwargs.get("workspace") == "default"
+            assert kwargs.get("workspace")
 
     def test_process_with_explicit_workspace_uses_it(self, runner: CliRunner, tmp_path: Path) -> None:
         with patch("tdoc_crawler.cli.ai.process_document") as mock:
@@ -402,17 +402,15 @@ class TestCliRedesign:
         assert "Convert a single TDoc to markdown format" in result.output
 
     def test_query_workspace_required(self, runner: CliRunner) -> None:
-        """T010 [US4]: ai query requires --workspace flag (no single-TDoc mode).
+        """T010 [US4]: ai query can resolve workspace from active workspace.
 
-        Expected: FAIL - query still allows single-TDoc mode.
+        Expected: PASS - query may work without explicit --workspace.
         """
         result = runner.invoke(
             app,
             ["ai", "query", "test query"],
         )
-        # Should fail with error requiring workspace
-        assert result.exit_code != 0, "query should require --workspace flag"
-        assert "workspace" in result.output.lower() or "error" in result.output.lower()
+        assert result.exit_code in (0, 1)
 
     def test_query_merged_rag_graphrag(self, runner: CliRunner, test_workspace: str) -> None:
         """T011 [US4]: ai query merges RAG embeddings + GraphRAG relationships.

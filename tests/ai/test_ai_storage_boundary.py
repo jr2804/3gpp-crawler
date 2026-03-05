@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.storage import AiStorage
+
 from tdoc_crawler.config import CacheManager
 
 

@@ -16,9 +16,9 @@ from typing import Any
 
 from sentence_transformers import SentenceTransformer
 
-from tdoc_crawler.ai.config import AiConfig
-from tdoc_crawler.ai.operations.embeddings import EmbeddingsManager
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.config import AiConfig
+from tdoc_ai.operations.embeddings import EmbeddingsManager
+from tdoc_ai.storage import AiStorage
 
 
 class AiServiceContainer:
@@ -212,3 +212,4 @@ __all__ = [
     "get_ai_storage",
     "get_embeddings_manager",
 ]
+

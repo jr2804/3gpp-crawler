@@ -11,8 +11,7 @@ import typer
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
-
-from tdoc_crawler.ai import (
+from tdoc_ai import (
     AiServiceContainer,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
@@ -29,16 +28,17 @@ from tdoc_crawler.ai import (
     set_active_workspace,
     summarize_document,
 )
-from tdoc_crawler.ai.models import PipelineStage, SourceKind
-from tdoc_crawler.ai.operations.pipeline import process_all
-from tdoc_crawler.ai.operations.workspace_registry import WorkspaceRegistry
-from tdoc_crawler.ai.operations.workspaces import (
+from tdoc_ai.models import PipelineStage, SourceKind
+from tdoc_ai.operations.pipeline import process_all
+from tdoc_ai.operations.workspace_registry import WorkspaceRegistry
+from tdoc_ai.operations.workspaces import (
     add_workspace_members,
     get_workspace,
     get_workspace_member_counts,
     list_workspace_members,
     remove_invalid_members,
 )
+
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
@@ -79,6 +79,12 @@ def resolve_workspace(workspace: str | None) -> str:
         return active
     console.print("[red]No workspace specified and no active workspace set. Use -w <name> or 'ai workspace activate <name>'[/red]")
     raise typer.Exit(1)
+
+
+def query_embeddings(query: str, *, top_k: int = 5, workspace: str | None = None) -> list[tuple[object, float]]:
+    """Query semantic embeddings for a workspace."""
+    embeddings_manager = AiServiceContainer.get_instance().get_embeddings_manager()
+    return embeddings_manager.query_embeddings(query, workspace or "default", top_k)
 
 
 @ai_app.command("summarize")
@@ -137,29 +143,34 @@ def ai_convert(
 
 @ai_app.command("query")
 def ai_query(
-    query: Annotated[str, typer.Argument(..., help="Semantic search query")],
+    query_arg: Annotated[str | None, typer.Argument(help="Semantic search query")] = None,
+    query: Annotated[str | None, typer.Option("--query", help="Semantic search query")] = None,
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     top_k: Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")] = 5,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG)."""
-    # Get embeddings manager directly from container
-    embeddings_manager = AiServiceContainer.get_instance().get_embeddings_manager()
-    # Tests expect None as default, so don't convert to "default"
-    embedding_results = embeddings_manager.query_embeddings(query, workspace or "default", top_k)
-    graph_result = query_graph(query, workspace=workspace)
+    query_text = query or query_arg
+    if not query_text:
+        console.print("[red]Error: query is required (positional or --query).[/red]")
+        raise typer.Exit(1)
+
+    resolved_workspace = resolve_workspace(workspace)
+
+    embedding_results = query_embeddings(query_text, top_k=top_k, workspace=resolved_workspace)
+    graph_result = query_graph(query_text, workspace=resolved_workspace)
 
     # Format results as expected by tests: {"query": ..., "results": [...]}
     formatted_results = []
     for chunk, score in embedding_results:
         formatted_results.append({"document_id": chunk.document_id, "section": chunk.section, "content": chunk.content, "score": score})
-    payload = {"query": query, "results": formatted_results}
+    payload = {"query": query_text, "results": formatted_results}
 
     if json_output:
         typer.echo(json.dumps(payload))
     else:
         if embedding_results:
-            table = Table(title=f"Embedding results for '{query}' (workspace: {workspace})")
+            table = Table(title=f"Embedding results for '{query_text}' (workspace: {resolved_workspace})")
             table.add_column("TDoc", style="cyan")
             table.add_column("Section", style="green")
             table.add_column("Score", style="magenta")
@@ -266,13 +277,19 @@ def ai_status(
 
 @ai_app.command("graph")
 def ai_graph(
-    query: Annotated[str, typer.Argument(..., help="Graph query string")],
+    query_arg: Annotated[str | None, typer.Argument(help="Graph query string")] = None,
+    query: Annotated[str | None, typer.Option("--query", help="Graph query string")] = None,
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Query the knowledge graph for a workspace."""
+    query_text = query or query_arg
+    if not query_text:
+        console.print("[red]Error: query is required (positional or --query).[/red]")
+        raise typer.Exit(1)
+
     # Tests expect None as default, so don't convert to "default"
-    result = query_graph(query, workspace=workspace)
+    result = query_graph(query_text, workspace=workspace)
 
     if json_output:
         typer.echo(json.dumps(result))
@@ -281,7 +298,7 @@ def ai_graph(
         node_count = len(result.get("nodes", []))
         edge_count = len(result.get("edges", []))
 
-        console.print(f"[bold]Query:[/bold] {query}")
+        console.print(f"[bold]Query:[/bold] {query_text}")
         console.print(f"[bold]Answer:[/bold] {answer}")
         console.print(f"[dim](nodes: {node_count}, edges: {edge_count})[/dim]")
 

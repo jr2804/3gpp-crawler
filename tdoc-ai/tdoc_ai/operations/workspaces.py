@@ -6,8 +6,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from tdoc_crawler.ai.operations.workspace_registry import (
-    DEFAULT_WORKSPACE,
+from tdoc_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
+from tdoc_ai.operations.workspace_registry import (
     WorkspaceMember,
     WorkspaceRegistry,
 )
@@ -26,36 +26,6 @@ _logger = logging.getLogger(__name__)
 def _get_registry() -> WorkspaceRegistry:
     """Get the workspace registry singleton."""
     return WorkspaceRegistry.load()
-
-
-def normalize_workspace_name(workspace: str | None) -> str:
-    """Normalize workspace input to a canonical name.
-
-    Args:
-        workspace: Optional workspace name from API/CLI.
-
-    Returns:
-        Canonical workspace name. Empty values map to ``default``.
-    """
-    if workspace is None:
-        return DEFAULT_WORKSPACE
-
-    normalized = workspace.strip().lower()
-    if not normalized:
-        return DEFAULT_WORKSPACE
-    return normalized
-
-
-def is_default_workspace(workspace: str | None) -> bool:
-    """Check whether a workspace resolves to the default workspace.
-
-    Args:
-        workspace: Optional workspace name.
-
-    Returns:
-        ``True`` when the normalized workspace is ``default``.
-    """
-    return normalize_workspace_name(workspace) == DEFAULT_WORKSPACE
 
 
 def ensure_default_workspace() -> WorkspaceRegistry:

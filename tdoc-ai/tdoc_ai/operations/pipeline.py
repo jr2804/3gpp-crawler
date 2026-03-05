@@ -8,19 +8,20 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from tdoc_crawler.ai.container import AiServiceContainer
-from tdoc_crawler.ai.models import (
+from tdoc_ai.container import AiServiceContainer
+from tdoc_ai.models import (
     DocumentClassification,
     DocumentSummary,
     LlmConfigError,
     PipelineStage,
     ProcessingStatus,
 )
-from tdoc_crawler.ai.operations.classify import classify_document_files
-from tdoc_crawler.ai.operations.extract import extract_from_folder
-from tdoc_crawler.ai.operations.summarize import summarize_document
-from tdoc_crawler.ai.operations.workspaces import list_workspace_members, normalize_workspace_name
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.operations.classify import classify_document_files
+from tdoc_ai.operations.extract import extract_from_folder
+from tdoc_ai.operations.summarize import summarize_document
+from tdoc_ai.operations.workspace_names import normalize_workspace_name
+from tdoc_ai.operations.workspaces import list_workspace_members
+from tdoc_ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)

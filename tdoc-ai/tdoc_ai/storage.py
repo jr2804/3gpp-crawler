@@ -10,7 +10,7 @@ from typing import Any
 import lancedb
 import pyarrow as pa
 
-from tdoc_crawler.ai.models import (
+from tdoc_ai.models import (
     DocumentChunk,
     DocumentClassification,
     DocumentSummary,
@@ -603,3 +603,4 @@ def _graph_edge_schema() -> pa.Schema:
 
 
 __all__ = ["DEFAULT_WORKSPACE", "AiStorage"]
+

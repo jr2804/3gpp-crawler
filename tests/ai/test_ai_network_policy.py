@@ -5,15 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 
 AI_MODULES = [
-    Path("src/tdoc_crawler/ai/__init__.py"),
-    Path("src/tdoc_crawler/ai/config.py"),
-    Path("src/tdoc_crawler/ai/storage.py"),
-    Path("src/tdoc_crawler/ai/operations/classify.py"),
-    Path("src/tdoc_crawler/ai/operations/extract.py"),
-    Path("src/tdoc_crawler/ai/operations/embeddings.py"),
-    Path("src/tdoc_crawler/ai/operations/summarize.py"),
-    Path("src/tdoc_crawler/ai/operations/graph.py"),
-    Path("src/tdoc_crawler/ai/operations/pipeline.py"),
+    Path("tdoc-ai/tdoc_ai/__init__.py"),
+    Path("tdoc-ai/tdoc_ai/config.py"),
+    Path("tdoc-ai/tdoc_ai/storage.py"),
+    Path("tdoc-ai/tdoc_ai/operations/classify.py"),
+    Path("tdoc-ai/tdoc_ai/operations/extract.py"),
+    Path("tdoc-ai/tdoc_ai/operations/embeddings.py"),
+    Path("tdoc-ai/tdoc_ai/operations/summarize.py"),
+    Path("tdoc-ai/tdoc_ai/operations/graph.py"),
+    Path("tdoc-ai/tdoc_ai/operations/pipeline.py"),
 ]
 
 FORBIDDEN_CORE_SOURCE_REFERENCES = [

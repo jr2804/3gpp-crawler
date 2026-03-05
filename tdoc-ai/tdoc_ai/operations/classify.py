@@ -6,7 +6,7 @@ import logging
 import re
 from pathlib import Path
 
-from tdoc_crawler.ai.models import DocumentClassification
+from tdoc_ai.models import DocumentClassification
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
@@ -239,3 +239,4 @@ __all__ = [
     "_score_filename",
     "classify_document_files",
 ]
+

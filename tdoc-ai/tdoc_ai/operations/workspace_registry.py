@@ -10,19 +10,14 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from tdoc_crawler.ai.models import SourceKind
+from tdoc_ai.models import SourceKind
+from tdoc_ai.operations.workspace_names import DEFAULT_WORKSPACE, normalize_workspace_name
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.utils.misc import utc_now
 
-if TYPE_CHECKING:
-    from tdoc_crawler.ai.operations.workspace_registry import WorkspaceRegistry
-    from tdoc_crawler.ai.operations.workspaces import WorkspaceMetadata
-
 logger = logging.getLogger(__name__)
-
-DEFAULT_WORKSPACE = "default"
 
 
 @dataclass
@@ -402,9 +397,6 @@ def set_active_workspace(name: str, cache_manager_name: str | None = None) -> No
         name: Workspace name to set as active.
         cache_manager_name: Optional cache manager name.
     """
-    # Local import to avoid circular dependency with workspaces.py
-    from tdoc_crawler.ai.operations.workspaces import normalize_workspace_name  # noqa: PLC0415
-
     # Ensure cache manager is registered before loading registry
     manager_name = cache_manager_name or "default"
     try:

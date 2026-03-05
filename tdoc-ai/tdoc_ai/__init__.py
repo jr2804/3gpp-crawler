@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import litellm
 
-from tdoc_crawler.ai.config import AiConfig
-from tdoc_crawler.ai.container import AiServiceContainer
-from tdoc_crawler.ai.models import (
+from tdoc_ai.config import AiConfig
+from tdoc_ai.container import AiServiceContainer
+from tdoc_ai.models import (
     DocumentChunk,
     DocumentClassification,
     DocumentSummary,
@@ -15,20 +15,20 @@ from tdoc_crawler.ai.models import (
     PipelineStage,
     ProcessingStatus,
 )
-from tdoc_crawler.ai.operations.convert import convert_tdoc as convert_document
-from tdoc_crawler.ai.operations.graph import query_graph
-from tdoc_crawler.ai.operations.pipeline import get_status, process_all
-from tdoc_crawler.ai.operations.pipeline import process_tdoc as process_document
-from tdoc_crawler.ai.operations.summarize import SummarizeResult
-from tdoc_crawler.ai.operations.summarize import summarize_tdoc as summarize_document
-from tdoc_crawler.ai.operations.workspace_registry import (
+from tdoc_ai.operations.convert import convert_tdoc as convert_document
+from tdoc_ai.operations.graph import query_graph
+from tdoc_ai.operations.pipeline import get_status, process_all
+from tdoc_ai.operations.pipeline import process_tdoc as process_document
+from tdoc_ai.operations.summarize import SummarizeResult
+from tdoc_ai.operations.summarize import summarize_tdoc as summarize_document
+from tdoc_ai.operations.workspace_registry import (
     DEFAULT_WORKSPACE,
     WorkspaceDisplayInfo,
     WorkspaceRegistry,
     get_active_workspace,
     set_active_workspace,
 )
-from tdoc_crawler.ai.operations.workspaces import (
+from tdoc_ai.operations.workspaces import (
     add_workspace_members,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
@@ -47,10 +47,12 @@ from tdoc_crawler.ai.operations.workspaces import (
     resolve_tdoc_checkout_path,
     resolve_workspace,
 )
-from tdoc_crawler.ai.storage import AiStorage
+from tdoc_ai.storage import AiStorage
 from tdoc_crawler.config import CacheManager
 
 litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
+
+process_tdoc = process_document
 
 
 __all__ = [
@@ -87,6 +89,7 @@ __all__ = [
     "make_workspace_member",
     "normalize_workspace_name",
     "process_all",
+    "process_tdoc",
     "process_document",
     "query_graph",
     "remove_invalid_members",

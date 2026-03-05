@@ -6,15 +6,37 @@ import hashlib
 import sys
 import zipfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
 
-from tdoc_crawler.ai.container import AiServiceContainer
-from tdoc_crawler.ai.operations import workspaces as workspace_ops
-from tdoc_crawler.ai.storage import AiStorage
 from tdoc_crawler.http_client import download_to_file
+
+_TDOC_AI_AVAILABLE = True
+try:
+    from tdoc_ai.container import AiServiceContainer
+    from tdoc_ai.operations import workspaces as workspace_ops
+    from tdoc_ai.storage import AiStorage
+except ModuleNotFoundError:
+    _TDOC_AI_AVAILABLE = False
+    AiServiceContainer = Any  # type: ignore[assignment]
+    workspace_ops = None
+    AiStorage = Any  # type: ignore[assignment]
+
+
+@pytest.fixture(autouse=True)
+def _require_tdoc_ai() -> None:
+    """Skip AI tests when the optional tdoc-ai package is unavailable."""
+    if not _TDOC_AI_AVAILABLE:
+        pytest.skip("tdoc-ai not installed")
+
+
+def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> bool:
+    """Skip collecting AI tests when tdoc-ai is unavailable."""
+    return not _TDOC_AI_AVAILABLE
+
 
 # Mock kreuzberg which might not be installed in all environments.
 # The mock must expose all names imported by extract.py so that

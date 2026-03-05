@@ -41,6 +41,8 @@ uv sync --extra ai
 
 All required dependencies (Kreuzberg, LiteLLM, sentence-transformers, LanceDB) are installed automatically.
 
+Internally, AI capabilities are provided by the optional `tdoc-ai` package, which is pulled in by `tdoc-crawler[ai]`.
+
 ______________________________________________________________________
 
 ## Configuration
