@@ -21,7 +21,7 @@ dependencies = [
     "brotli>=1.2.0",
     "hishel>=1.1.8",
     "lxml>=6.0.2",
-    "pandas<3.0.0",
+    "pandas>=3.0.0",
     "pydantic>=2.12.2",
     "pydantic-sqlite>=0.4.0",
     "python-calamine>=0.5.3",
@@ -113,4 +113,4 @@ style = "semver"
 
 [tool.uv.sources]
 specify-cli = { git = "https://github.com/github/spec-kit.git" }
-tdoc-ai = { path = "tdoc-ai", editable = true }
+tdoc-ai = { path = "src/tdoc-ai", editable = true }

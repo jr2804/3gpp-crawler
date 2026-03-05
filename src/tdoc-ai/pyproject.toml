@@ -1,0 +1,39 @@
+[project]
+name = "tdoc-ai"
+version = "0.1.0"
+description = "Optional AI/RAG extension package for tdoc-crawler"
+authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
+readme = "README.md"
+keywords = ["python", "3gpp", "rag", "ai"]
+requires-python = ">=3.14,<4.0"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "doc2txt>=1.0.8",
+    #"doc2txt>=1.0.8 @ git+https://github.com/Quantatirsk/doc2txt-pypi.git"
+    "kreuzberg[all]>=4.0.0",
+    "lancedb>=0.29.2",
+    "litellm>=1.81.15",
+    "sentence-transformers[openvino]>=2.7.0",
+    "tokenizers>=0.22.2",
+]
+
+[project.urls]
+Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+# doc2txt repository contains pyproject.toml AND setup.py/setup.cfg
+# this causes installation of unnecessary additional dependencies.
+# If compiler issues arise due to this, consider switching to ...
+# - the git+https installation method (commented out above).
+# - or an own local workspace package (copy/improve from doc2txt) with a simplified pyproject.toml that only includes the necessary dependencies for tdoc-ai.
+doc2txt = { git = "https://github.com/Quantatirsk/doc2txt-pypi.git" }

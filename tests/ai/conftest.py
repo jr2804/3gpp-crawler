@@ -6,7 +6,6 @@ import hashlib
 import sys
 import zipfile
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,14 +15,16 @@ from tdoc_crawler.http_client import download_to_file
 
 _TDOC_AI_AVAILABLE = True
 try:
-    from tdoc_ai.container import AiServiceContainer
+    from tdoc_ai.config import AiConfig
     from tdoc_ai.operations import workspaces as workspace_ops
+    from tdoc_ai.operations.embeddings import EmbeddingsManager
     from tdoc_ai.storage import AiStorage
 except ModuleNotFoundError:
     _TDOC_AI_AVAILABLE = False
-    AiServiceContainer = Any  # type: ignore[assignment]
+    AiConfig = None  # type: ignore[assignment]
     workspace_ops = None
-    AiStorage = Any  # type: ignore[assignment]
+    AiStorage = None  # type: ignore[assignment]
+    EmbeddingsManager = None  # type: ignore[assignment]
 
 
 @pytest.fixture(autouse=True)
@@ -152,24 +153,21 @@ def runner() -> CliRunner:
 
 @pytest.fixture(autouse=True)
 def reset_ai_service_container() -> None:
-    """Reset AiServiceContainer singleton between tests.
+    """No-op fixture for backward compatibility.
 
-    This fixture ensures each test starts with a fresh AiServiceContainer
-    singleton, preventing state leakage between tests that use storage.
+    This fixture was previously used to reset the AiServiceContainer singleton.
+    With the refactored design, no singleton exists, so this is a no-op.
     """
-    AiServiceContainer.reset_instance()
-    yield
-    # Clean up after test
-    AiServiceContainer.reset_instance()
+    return  # No cleanup needed - no singleton
 
 
 @pytest.fixture
 def ai_storage(test_cache_dir: Path) -> AiStorage:
-    """Create a temporary AI storage for tests using container.
+    """Create a temporary AI storage for tests.
 
-    This fixture creates an AiStorage instance via container
-    with a temporary LanceDB directory for testing AI commands
-    that require workspace and embedding storage.
+    This fixture creates an AiStorage instance using the new
+    EmbeddingsManager factory with a temporary LanceDB directory
+    for testing AI commands that require workspace and embedding storage.
 
     Args:
         test_cache_dir: Test cache directory from root conftest
@@ -182,9 +180,9 @@ def ai_storage(test_cache_dir: Path) -> AiStorage:
 
     # Patch environment variable to point to test cache directory
     with patch.dict("os.environ", {"TDOC_CRAWLER_AI_CACHE_DIR": str(test_cache_dir / "ai")}):
-        # Get container which will read from env
-        container = AiServiceContainer.get_instance()
-        return container.get_storage()
+        # Use new factory method
+        embeddings_manager = EmbeddingsManager.from_config(AiConfig.from_env())
+        return embeddings_manager.storage
 
 
 @pytest.fixture

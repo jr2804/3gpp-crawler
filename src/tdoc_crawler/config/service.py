@@ -8,12 +8,6 @@ from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.models.crawl_limits import CrawlLimits
 
-try:
-    from tdoc_ai.config import AiConfig as _AiConfig
-    from tdoc_ai.container import AiServiceContainer
-except ImportError:
-    _AiConfig = None  # type: ignore[assignment,misc]
-
 
 class ConfigService:
     """Unified access point for all application configuration.
@@ -92,24 +86,6 @@ class ConfigService:
         if self._crawl_limits is None:
             self._crawl_limits = CrawlLimits()
         return self._crawl_limits
-
-    def get_ai_config(self, **overrides: str | int | Path | None) -> object:
-        """Return AI configuration loaded from container.
-
-        Args:
-            **overrides: Not supported - all config comes from container.
-
-        Returns:
-            AiConfig instance configured from container.
-
-        Raises:
-            ImportError: If the AI extras are not installed.
-        """
-        if _AiConfig is None:
-            msg = "AI extras are not installed. Run: uv add tdoc-crawler[ai]"
-            raise ImportError(msg)
-        # Use container for config instead of direct from_env() call
-        return AiServiceContainer.get_instance().get_config()
 
     @classmethod
     def from_env(cls, cache_manager_name: str | None = None) -> ConfigService:

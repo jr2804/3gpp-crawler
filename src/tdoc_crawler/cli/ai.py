@@ -12,7 +12,6 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 from tdoc_ai import (
-    AiServiceContainer,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
     convert_document,
@@ -28,7 +27,9 @@ from tdoc_ai import (
     set_active_workspace,
     summarize_document,
 )
+from tdoc_ai.config import AiConfig
 from tdoc_ai.models import PipelineStage, SourceKind
+from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.operations.pipeline import process_all
 from tdoc_ai.operations.workspace_registry import WorkspaceRegistry
 from tdoc_ai.operations.workspaces import (
@@ -79,12 +80,6 @@ def resolve_workspace(workspace: str | None) -> str:
         return active
     console.print("[red]No workspace specified and no active workspace set. Use -w <name> or 'ai workspace activate <name>'[/red]")
     raise typer.Exit(1)
-
-
-def query_embeddings(query: str, *, top_k: int = 5, workspace: str | None = None) -> list[tuple[object, float]]:
-    """Query semantic embeddings for a workspace."""
-    embeddings_manager = AiServiceContainer.get_instance().get_embeddings_manager()
-    return embeddings_manager.query_embeddings(query, workspace or "default", top_k)
 
 
 @ai_app.command("summarize")
@@ -156,8 +151,10 @@ def ai_query(
         raise typer.Exit(1)
 
     resolved_workspace = resolve_workspace(workspace)
+    embeddings_manager = EmbeddingsManager.from_config(AiConfig.from_env())
 
-    embedding_results = query_embeddings(query_text, top_k=top_k, workspace=resolved_workspace)
+    embedding_results = embeddings_manager.query_embeddings(query_text, workspace or "default", top_k)
+
     graph_result = query_graph(query_text, workspace=resolved_workspace)
 
     # Format results as expected by tests: {"query": ..., "results": [...]}
@@ -480,8 +477,7 @@ def workspace_clear(
 ) -> None:
     """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
     workspace = resolve_workspace(workspace)
-    _get_cache_manager()
-    storage = AiServiceContainer.get_instance().get_storage()
+    storage = EmbeddingsManager.from_config(AiConfig.from_env()).storage
 
     removed_count = storage.clear_workspace_artifacts(workspace)
 
@@ -650,7 +646,6 @@ def workspace_process(
     workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
     new_only: Annotated[bool, typer.Option("--new-only", help="Process only TDocs not already completed")] = True,
     force_rerun: Annotated[bool, typer.Option("--force", help="Force reprocessing of all TDocs")] = False,
-    summarize: Annotated[bool, typer.Option("--summarize/--no-summarize", help="Generate LLM summary (requires LLM config)")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
 ) -> None:
     """Process all active document members in a workspace through the AI pipeline."""
