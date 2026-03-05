@@ -289,7 +289,8 @@ def _run_summarize_stage(
     except LlmConfigError as exc:
         logger.warning(f"Falling back to extractive summary for {document_id}: {exc}")
         words = markdown.split()
-        abstract = " ".join(words[:220]).strip() or markdown[:1000]
+        # TODO: limit number of words (220?) and/or markdown characters (1000?) to ensure we don't exceed storage limits for summary fields
+        abstract = " ".join(words).strip() or markdown
         key_points = [line.strip(" -\t") for line in markdown.splitlines() if line.strip() and not line.lstrip().startswith("#")][:5]
         affected_specs = sorted(set(re.findall(r"(?:TS|TR)\s*\d{2}\.\d{3,4}", markdown)))
         storage.save_summary(

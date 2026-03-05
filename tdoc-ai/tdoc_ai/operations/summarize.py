@@ -98,7 +98,7 @@ class LiteLLMClient:
         self,
         prompt: str,
         system_prompt: str = SUMMARY_SYSTEM_PROMPT,
-        max_tokens: int = 2000,
+        max_tokens: int = 256000,
         model: str | None = None,
     ) -> str:
         """Generate completion from prompt.
@@ -231,16 +231,17 @@ def summarize_document(
     client = _get_llm_client()
 
     # Generate abstract
-    abstract_prompt = ABSTRACT_PROMPT.format(content=markdown[:5000])  # Limit input
+    abstract_prompt = ABSTRACT_PROMPT.format(content=markdown)  # TODO: Limit input (5000?)
     try:
         abstract = client.complete(abstract_prompt, model=config.llm_model)
     except Exception as exc:
         msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
         raise LlmConfigError(msg) from exc
 
+    # TODO: Limit input (5000?)
     structured_prompt = STRUCTURED_SUMMARY_PROMPT.format(
         abstract=abstract,
-        content=markdown[:5000],
+        content=markdown,
     )
     try:
         structured_payload = client.complete(structured_prompt)
@@ -461,7 +462,7 @@ def summarize_tdoc(
     # Generate summary
     summary_prompt = CONCISE_SUMMARY_PROMPT.format(
         target_words=words,
-        content=content[:8000],  # Limit input size
+        content=content,  # TODO: Limit input size (8000)?
     )
     try:
         summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=words * 4)
