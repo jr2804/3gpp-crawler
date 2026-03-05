@@ -4,7 +4,7 @@ from typing import Annotated
 
 import typer
 
-from teddi_mcp.models import SearchIn, SearchPattern
+from teddi_mcp.models import OutputFormat, SearchIn, SearchPattern
 
 TermArgument = Annotated[
     str,
@@ -35,10 +35,10 @@ TechnicalBodiesOption = Annotated[
     ),
 ]
 OutputFormatOption = Annotated[
-    str,
+    OutputFormat,
     typer.Option(
-        "table",
+        OutputFormat.TABLE,
         "--output",
-        help="Output format: table or json",
+        help="Output format: json, ison, toon, table",
     ),
 ]

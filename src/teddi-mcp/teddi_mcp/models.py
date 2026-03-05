@@ -38,6 +38,15 @@ class TechnicalBody(StrEnum):
     ZSM = "zsm"
 
 
+class OutputFormat(StrEnum):
+    """Supported CLI output formats."""
+
+    TABLE = "table"
+    JSON = "json"
+    ISON = "ison"
+    TOON = "toon"
+
+
 @dataclass
 class DocumentRef:
     """Reference to a specification document from TEDDI results."""

@@ -5,7 +5,7 @@ A FastMCP 3.0 server that wraps ETSI's TErms and Definitions Database Interactiv
 ## Features
 
 - **FastMCP 3.0 Server**: Expose TEDDI search as an MCP tool for AI agents (Claude, etc.)
-- **CLI Interface**: Search TEDDI from the command line with rich table/JSON output
+- **CLI Interface**: Search TEDDI from the command line with table, JSON, ISON, and TOON output
 - **HTTP Caching**: Automatic hishel-based caching of TEDDI responses (2-hour TTL)
 - **TB Grouping**: Smart parsing of sub-table results with technical body grouping logic
 - **Type-Safe**: Full Pydantic models and type hints throughout
@@ -24,23 +24,29 @@ uv pip install -e .
 
 ```bash
 # Search for a term
-teddi-mcp search-term --term "QoS" --search-pattern exactmatch
+teddi-mcp search term "QoS" --search-pattern exactmatch
 
 # List available technical bodies
-teddi-mcp list-technical-bodies
+teddi-mcp search list-bodies
 
 # JSON output
-teddi-mcp search-term --term "QoS" --output json
+teddi-mcp search term "QoS" --output json
+
+# ISON output (token-optimized)
+teddi-mcp search term "QoS" --output ison
+
+# TOON output (token-optimized)
+teddi-mcp search term "QoS" --output toon
 
 # Filter by technical bodies
-teddi-mcp search-term --term "test" --technical-bodies "3gpp,etsi"
+teddi-mcp search term "test" --technical-bodies "3gpp,etsi"
 ```
 
 ### MCP Server
 
 ```bash
 # Start the MCP server (stdio)
-teddi-mcp serve
+teddi-mcp server
 ```
 
 Then configure your AI agent client (e.g., Claude) to use this server:
@@ -50,7 +56,7 @@ Then configure your AI agent client (e.g., Claude) to use this server:
   "mcpServers": {
     "teddi": {
       "command": "teddi-mcp",
-      "args": ["serve"]
+      "args": ["server"]
     }
   }
 }

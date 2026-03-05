@@ -2,6 +2,7 @@
 
 from teddi_mcp.models import (
     DocumentRef,
+    OutputFormat,
     SearchIn,
     SearchPattern,
     SearchRequest,
@@ -38,6 +39,13 @@ class TestEnums:
         """Test creating TechnicalBody from string value."""
         tb = TechnicalBody("3gpp")
         assert tb == TechnicalBody.THREE_GPP
+
+    def test_output_format_enum_values(self) -> None:
+        """Test OutputFormat enum has expected values."""
+        assert OutputFormat.TABLE.value == "table"
+        assert OutputFormat.JSON.value == "json"
+        assert OutputFormat.ISON.value == "ison"
+        assert OutputFormat.TOON.value == "toon"
 
 
 class TestDataClasses:

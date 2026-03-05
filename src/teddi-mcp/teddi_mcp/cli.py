@@ -12,7 +12,14 @@ from rich.console import Console
 from rich.table import Table
 
 from teddi_mcp.client import TeddiClient
-from teddi_mcp.models import SearchIn, SearchPattern, SearchRequest, TechnicalBody
+from teddi_mcp.models import (
+    OutputFormat,
+    SearchIn,
+    SearchPattern,
+    SearchRequest,
+    SearchResponse,
+    TechnicalBody,
+)
 
 app = typer.Typer(help="TEDDI CLI - search and MCP server")
 search_app = typer.Typer(help="Search commands")
@@ -34,6 +41,97 @@ def async_command(func: Callable[..., Any]) -> Callable[..., Any]:
         return asyncio.run(func(*args, **kwargs))
 
     return wrapper
+
+
+def _build_results_payload(request: SearchRequest, response: SearchResponse) -> dict[str, Any]:
+    """Build canonical machine-readable payload for non-table outputs."""
+    return {
+        "query": {
+            "term": request.term,
+            "search_in": request.search_in.value,
+            "search_pattern": request.search_pattern.value,
+            "technical_bodies": (
+                [tb.value for tb in request.technical_bodies] if request.technical_bodies else None
+            ),
+        },
+        "total_count": response.total_count,
+        "results": [
+            {
+                "term": result.term,
+                "description": result.description,
+                "documents": [
+                    {
+                        "technical_body": doc.technical_body,
+                        "specification": doc.specification,
+                        "url": doc.url,
+                    }
+                    for doc in result.documents
+                ],
+            }
+            for result in response.results
+        ],
+    }
+
+
+def _serialize_payload(payload: dict[str, Any], output: OutputFormat) -> str:
+    """Serialize payload according to requested output format."""
+    if output == OutputFormat.JSON:
+        return json.dumps(payload, indent=2)
+
+    if output == OutputFormat.ISON:
+        try:
+            from ison_parser import dumps as ison_dumps
+            from ison_parser import from_dict as ison_from_dict
+        except ImportError as exc:
+            raise RuntimeError(
+                "ISON output requires 'ison-py' (module: ison_parser). Install dependencies and retry."
+            ) from exc
+        return str(ison_dumps(ison_from_dict(payload)))
+
+    if output == OutputFormat.TOON:
+        try:
+            from toon_format import encode as toon_encode
+        except ImportError as exc:
+            raise RuntimeError(
+                "TOON output requires 'toon-format'. Install dependencies and retry."
+            ) from exc
+        return str(toon_encode(payload))
+
+    raise RuntimeError(f"Unsupported output format: {output.value}")
+
+
+def _render_table(term: str, response: SearchResponse) -> None:
+    """Render search response as a Rich table."""
+    if not response.results:
+        console.print("[yellow]No results found[/yellow]")
+        return
+
+    table = Table(title=f"TEDDI Search Results: '{term}' ({response.total_count})")
+    table.add_column("Term", style="cyan")
+    table.add_column("Description", style="white")
+    table.add_column("Technical Body", style="green")
+    table.add_column("Specification", style="blue")
+
+    for result in response.results:
+        first_doc = True
+        for doc in result.documents:
+            table.add_row(
+                result.term if first_doc else "",
+                result.description if first_doc else "",
+                doc.technical_body,
+                doc.specification,
+            )
+            first_doc = False
+
+        if not result.documents:
+            table.add_row(
+                result.term,
+                result.description,
+                "[yellow]No documents[/yellow]",
+                "",
+            )
+
+    console.print(table)
 
 
 @search_app.command("term")
@@ -62,12 +160,12 @@ async def search_term(
         ),
     ] = None,
     output: Annotated[
-        str,
+        OutputFormat,
         typer.Option(
             "--output",
-            help="Output format: table or json",
+            help="Output format: json, ison, toon, table",
         ),
-    ] = "table",
+    ] = OutputFormat.TABLE,
 ) -> None:
     """Search TEDDI for a term."""
     try:
@@ -76,13 +174,13 @@ async def search_term(
             si = SearchIn(search_in.lower())
         except ValueError:
             console.print(f"[red]Error: Invalid search-in value '{search_in}'[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from None
 
         try:
             sp = SearchPattern(search_pattern.lower())
         except ValueError:
             console.print(f"[red]Error: Invalid search-pattern value '{search_pattern}'[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from None
 
         # Parse technical bodies
         tbs: list[TechnicalBody] | None = None
@@ -110,69 +208,12 @@ async def search_term(
         async with TeddiClient() as client:
             response = await client.search_terms(request)
 
-        # Output results
-        if output == "json":
-            # Convert to JSON-serializable format
-            results_data = {
-                "query": {
-                    "term": request.term,
-                    "search_in": request.search_in.value,
-                    "search_pattern": request.search_pattern.value,
-                    "technical_bodies": (
-                        [tb.value for tb in request.technical_bodies]
-                        if request.technical_bodies
-                        else None
-                    ),
-                },
-                "total_count": response.total_count,
-                "results": [
-                    {
-                        "term": result.term,
-                        "description": result.description,
-                        "documents": [
-                            {
-                                "technical_body": doc.technical_body,
-                                "specification": doc.specification,
-                                "url": doc.url,
-                            }
-                            for doc in result.documents
-                        ],
-                    }
-                    for result in response.results
-                ],
-            }
-            console.print(json.dumps(results_data, indent=2))
-        else:
-            # Table format
-            if not response.results:
-                console.print("[yellow]No results found[/yellow]")
-            else:
-                table = Table(title=f"TEDDI Search Results: '{term}' ({response.total_count})")
-                table.add_column("Term", style="cyan")
-                table.add_column("Description", style="white")
-                table.add_column("Technical Body", style="green")
-                table.add_column("Specification", style="blue")
+        if output == OutputFormat.TABLE:
+            _render_table(term, response)
+            return
 
-                for result in response.results:
-                    first_doc = True
-                    for doc in result.documents:
-                        table.add_row(
-                            result.term if first_doc else "",
-                            result.description if first_doc else "",
-                            doc.technical_body,
-                            doc.specification,
-                        )
-                        first_doc = False
-
-                    if not result.documents:
-                        table.add_row(
-                            result.term,
-                            result.description,
-                            "[yellow]No documents[/yellow]",
-                            "",
-                        )
-
-                console.print(table)
+        payload = _build_results_payload(request, response)
+        console.print(_serialize_payload(payload, output))
 
     except typer.Exit:
         raise
