@@ -43,12 +43,44 @@ from tdoc_ai.operations.workspaces import (
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
+    CheckoutBaseOption,
+    CheckoutPathOption,
+    ConvertDocumentArgument,
+    ConvertOutputOption,
+    EmbeddingTopKOption,
     EndDateOption,
+    GraphQueryArgument,
+    GraphQueryOption,
+    JsonOutputOption,
+    ProcessAllOption,
+    ProcessForceOption,
+    ProcessNewOnlyOption,
+    ProcessTDocIdOption,
+    QueryArgument,
+    QueryOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
+    StatusTDocIdOption,
+    SummarizeDocumentArgument,
+    SummarizeFormatOption,
+    SummarizeWordsOption,
     TitlePatternExcludeOption,
     TitlePatternOption,
+    WorkspaceActivateArgument,
+    WorkspaceActivateOption,
+    WorkspaceAutoBuildOption,
+    WorkspaceCheckoutOption,
+    WorkspaceIncludeInactiveOption,
+    WorkspaceItemsArgument,
+    WorkspaceKindOption,
+    WorkspaceLimitOption,
+    WorkspaceNameArgument,
+    WorkspaceNameOption,
+    WorkspacePreserveArtifactsOption,
+    WorkspaceProcessForceOption,
+    WorkspaceProcessNewOnlyOption,
+    WorkspaceReleaseOption,
 )
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
@@ -84,9 +116,9 @@ def resolve_workspace(workspace: str | None) -> str:
 
 @ai_app.command("summarize")
 def ai_summarize(
-    document_id: Annotated[str, typer.Argument(..., help="Document ID to summarize")],
-    words: Annotated[int, typer.Option("--words", "-w", help="Target word count (default: 200)")] = 200,
-    output_format: Annotated[str, typer.Option("--format", "-f", help="Output format (markdown, json, yaml)")] = "markdown",
+    document_id: SummarizeDocumentArgument,
+    words: SummarizeWordsOption = 200,
+    output_format: SummarizeFormatOption = "markdown",
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON (overrides --format)")] = False,
 ) -> None:
     """Summarize a single document with specified word count."""
@@ -110,9 +142,9 @@ def ai_summarize(
 
 @ai_app.command("convert")
 def ai_convert(
-    document_id: Annotated[str, typer.Argument(..., help="Document ID to convert")],
-    output: Annotated[Path | None, typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    document_id: ConvertDocumentArgument,
+    output: ConvertOutputOption = None,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Convert a single TDoc to markdown format."""
     try:
@@ -138,11 +170,11 @@ def ai_convert(
 
 @ai_app.command("query")
 def ai_query(
-    query_arg: Annotated[str | None, typer.Argument(help="Semantic search query")] = None,
-    query: Annotated[str | None, typer.Option("--query", help="Semantic search query")] = None,
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    top_k: Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")] = 5,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    query_arg: QueryArgument = None,
+    query: QueryOption = None,
+    workspace: WorkspaceNameOption = None,
+    top_k: EmbeddingTopKOption = 5,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG)."""
     query_text = query or query_arg
@@ -187,28 +219,38 @@ def ai_query(
 
 @ai_app.command("process")
 def ai_process(
-    document_id: Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")] = None,
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    checkout_path: Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")] = None,
-    checkout_base: Annotated[str | None, typer.Option("--checkout-base", help="Base path for checkout")] = None,
-    process_all_flag: Annotated[bool, typer.Option("--all", help="Process all documents in workspace")] = False,
-    new_only: Annotated[bool, typer.Option("--new-only", help="Process only new documents")] = False,
-    force: Annotated[bool, typer.Option("--force", help="Force reprocessing")] = False,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    document_id: ProcessTDocIdOption = None,
+    workspace: WorkspaceNameOption = None,
+    checkout_path: CheckoutPathOption = None,
+    checkout_base: CheckoutBaseOption = None,
+    process_all_flag: ProcessAllOption = False,
+    new_only: ProcessNewOnlyOption = False,
+    force: ProcessForceOption = False,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Process a single document or all documents through the AI pipeline."""
     workspace = workspace or "default"
 
     if process_all_flag:
         # Process all documents in workspace
-        result = process_all(workspace)
+        manager = _get_cache_manager()
+        checkout_root = Path(checkout_base) if checkout_base else manager.root
+        result = process_all(
+            document_ids=[],
+            checkout_base=checkout_root,
+            new_only=new_only,
+            force_rerun=force,
+            workspace=workspace,
+        )
         if json_output:
             typer.echo(json.dumps(result))
         else:
             console.print(f"[green]Processed {len(result)} documents in workspace {workspace}[/green]")
     elif document_id:
         # Process single document
-        result = process_document(document_id, workspace=workspace, checkout_path=checkout_path, force_rerun=force)
+        manager = _get_cache_manager()
+        resolved_checkout = Path(checkout_path) if checkout_path else manager.checkout_dir / document_id
+        result = process_document(document_id, workspace=workspace, checkout_path=resolved_checkout, force_rerun=force)
         if json_output:
             typer.echo(json.dumps(result))
         else:
@@ -220,9 +262,9 @@ def ai_process(
 
 @ai_app.command("status")
 def ai_status(
-    document_id: Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to check status for")] = None,
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    document_id: StatusTDocIdOption = None,
+    workspace: WorkspaceNameOption = None,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Check the processing status of documents in a workspace."""
     workspace = workspace or "default"
@@ -274,10 +316,10 @@ def ai_status(
 
 @ai_app.command("graph")
 def ai_graph(
-    query_arg: Annotated[str | None, typer.Argument(help="Graph query string")] = None,
-    query: Annotated[str | None, typer.Option("--query", help="Graph query string")] = None,
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    query_arg: GraphQueryArgument = None,
+    query: GraphQueryOption = None,
+    workspace: WorkspaceNameOption = None,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Query the knowledge graph for a workspace."""
     query_text = query or query_arg
@@ -306,12 +348,10 @@ _workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
 
 @_workspace_app.command("create")
 def workspace_create(
-    name: Annotated[str, typer.Argument(..., help="Workspace name")],
-    auto_build: Annotated[bool, typer.Option("--auto-build", help="Automatically process documents added to this workspace")] = False,
-    activate: Annotated[
-        bool, typer.Option("--activate/--no-activate", help="Activate workspace after creation (default: activate)", envvar="TDC_AI_WORKSPACE_ACTIVATE")
-    ] = True,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    name: WorkspaceNameArgument,
+    auto_build: WorkspaceAutoBuildOption = False,
+    activate: WorkspaceActivateOption = True,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Create a new workspace."""
     _get_cache_manager()
@@ -339,7 +379,7 @@ def workspace_create(
 
 @_workspace_app.command("list")
 def workspace_list(
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """List all workspaces."""
     _get_cache_manager()
@@ -384,8 +424,8 @@ def workspace_list(
 
 @_workspace_app.command("info")
 def workspace_info(
-    name: Annotated[str, typer.Argument(..., help="Workspace name")],
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    name: WorkspaceNameArgument,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Get detailed workspace information including member counts."""
     _get_cache_manager()
@@ -429,8 +469,8 @@ def workspace_info(
 
 @_workspace_app.command("activate")
 def workspace_activate(
-    name: Annotated[str, typer.Argument(..., help="Workspace name to activate")],
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    name: WorkspaceActivateArgument,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Set a workspace as the active workspace."""
     set_active_workspace(name)
@@ -442,7 +482,7 @@ def workspace_activate(
 
 @_workspace_app.command("deactivate")
 def workspace_deactivate(
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Reset the active workspace to default."""
     set_active_workspace("default")
@@ -454,8 +494,8 @@ def workspace_deactivate(
 
 @_workspace_app.command("clear-invalid")
 def workspace_clear_invalid(
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    workspace: WorkspaceNameOption = None,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Remove all invalid (inactive) documents from the workspace."""
     workspace = resolve_workspace(workspace)
@@ -472,8 +512,8 @@ def workspace_clear_invalid(
 
 @_workspace_app.command("clear")
 def workspace_clear(
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    workspace: WorkspaceNameOption = None,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
     workspace = resolve_workspace(workspace)
@@ -492,14 +532,11 @@ def workspace_clear(
 
 @_workspace_app.command("add-members")
 def workspace_add_members(
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    items: Annotated[list[str] | None, typer.Argument(..., help="Source item IDs to add (optional if filters provided)")] = None,
-    kind: Annotated[
-        str,
-        typer.Option("--kind", help="Source kind (tdoc, spec, other)"),
-    ] = "tdoc",
-    checkout: Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present")] = True,
-    release: Annotated[str | None, typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs.")] = None,
+    workspace: WorkspaceNameOption = None,
+    items: WorkspaceItemsArgument = None,
+    kind: WorkspaceKindOption = "tdoc",
+    checkout: WorkspaceCheckoutOption = True,
+    release: WorkspaceReleaseOption = None,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     source: SourcePatternOption = None,
@@ -508,8 +545,8 @@ def workspace_add_members(
     title_ex: TitlePatternExcludeOption = None,
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
-    limit: Annotated[int | None, typer.Option("--limit", help="Maximum items to add")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    limit: WorkspaceLimitOption = None,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Add source items to a workspace.
 
@@ -596,9 +633,9 @@ def workspace_add_members(
 
 @_workspace_app.command("list-members")
 def workspace_list_members(
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    include_inactive: Annotated[bool, typer.Option("--include-inactive", help="Include inactive members")] = False,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    workspace: WorkspaceNameOption = None,
+    include_inactive: WorkspaceIncludeInactiveOption = False,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """List members of a workspace."""
     workspace = resolve_workspace(workspace)
@@ -643,10 +680,10 @@ def workspace_list_members(
 
 @_workspace_app.command("process")
 def workspace_process(
-    workspace: Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")] = None,
-    new_only: Annotated[bool, typer.Option("--new-only", help="Process only TDocs not already completed")] = True,
-    force_rerun: Annotated[bool, typer.Option("--force", help="Force reprocessing of all TDocs")] = False,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    workspace: WorkspaceNameOption = None,
+    new_only: WorkspaceProcessNewOnlyOption = True,
+    force_rerun: WorkspaceProcessForceOption = False,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Process all active document members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
@@ -724,9 +761,9 @@ def workspace_process(
 
 @_workspace_app.command("delete")
 def workspace_delete(
-    name: Annotated[str, typer.Argument(..., help="Workspace name")],
-    preserve_artifacts: Annotated[bool, typer.Option("--preserve-artifacts/--no-preserve-artifacts", help="Preserve artifacts (default: yes)")] = True,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    name: WorkspaceNameArgument,
+    preserve_artifacts: WorkspacePreserveArtifactsOption = True,
+    json_output: JsonOutputOption = False,
 ) -> None:
     """Delete a workspace (default workspace cannot be deleted)."""
     _get_cache_manager()

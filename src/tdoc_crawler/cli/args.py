@@ -150,3 +150,69 @@ NoProgressOption = Annotated[
     bool,
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
 ]
+
+
+# Options - AI
+SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
+SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target word count (default: 200)")]
+SummarizeFormatOption = Annotated[str, typer.Option("--format", "-f", help="Output format (markdown, json, yaml)")]
+JsonOutputOption = Annotated[bool, typer.Option("--json", help="Output as JSON")]
+
+ConvertDocumentArgument = Annotated[str, typer.Argument(help="Document ID to convert")]
+ConvertOutputOption = Annotated[
+    Path | None,
+    typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)"),
+]
+
+QueryArgument = Annotated[str | None, typer.Argument(help="Semantic search query")]
+QueryOption = Annotated[str | None, typer.Option("--query", help="Semantic search query")]
+WorkspaceNameOption = Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")]
+EmbeddingTopKOption = Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")]
+
+ProcessTDocIdOption = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")]
+CheckoutPathOption = Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")]
+CheckoutBaseOption = Annotated[str | None, typer.Option("--checkout-base", help="Base path for checkout")]
+ProcessAllOption = Annotated[bool, typer.Option("--all", help="Process all documents in workspace")]
+ProcessNewOnlyOption = Annotated[bool, typer.Option("--new-only", help="Process only new documents")]
+ProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing")]
+
+StatusTDocIdOption = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to check status for")]
+
+GraphQueryArgument = Annotated[str | None, typer.Argument(help="Graph query string")]
+GraphQueryOption = Annotated[str | None, typer.Option("--query", help="Graph query string")]
+
+WorkspaceNameArgument = Annotated[str, typer.Argument(help="Workspace name")]
+WorkspaceActivateArgument = Annotated[str, typer.Argument(help="Workspace name to activate")]
+WorkspaceAutoBuildOption = Annotated[
+    bool,
+    typer.Option("--auto-build", help="Automatically process documents added to this workspace"),
+]
+WorkspaceActivateOption = Annotated[
+    bool,
+    typer.Option(
+        "--activate/--no-activate",
+        help="Activate workspace after creation (default: activate)",
+        envvar="TDC_AI_WORKSPACE_ACTIVATE",
+    ),
+]
+
+WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(..., help="Source item IDs to add (optional if filters provided)")]
+WorkspaceKindOption = Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)")]
+WorkspaceCheckoutOption = Annotated[
+    bool,
+    typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present"),
+]
+WorkspaceReleaseOption = Annotated[
+    str | None,
+    typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs."),
+]
+WorkspaceLimitOption = Annotated[int | None, typer.Option("--limit", help="Maximum items to add")]
+WorkspaceIncludeInactiveOption = Annotated[bool, typer.Option("--include-inactive", help="Include inactive members")]
+
+WorkspaceProcessNewOnlyOption = Annotated[bool, typer.Option("--new-only", help="Process only TDocs not already completed")]
+WorkspaceProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing of all TDocs")]
+
+WorkspacePreserveArtifactsOption = Annotated[
+    bool,
+    typer.Option("--preserve-artifacts/--no-preserve-artifacts", help="Preserve artifacts (default: yes)"),
+]
