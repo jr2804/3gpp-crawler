@@ -111,6 +111,13 @@ class AiConfig(BaseConfigModel):
         description="Level of graph query answer generation (simple|medium|advanced)",
     )
 
+    @property
+    def ai_cache_dir(self) -> Path:
+        # Use CacheManager to resolve the embedding directory
+        # e.g., ~/.tdoc-crawler/.ai/sentence-transformers/all-MiniLM-L6-v2
+        # The ai_embed_dir method handles the provider/model subdirectory structure
+        return resolve_cache_manager(self.cache_manager_name).ai_embed_dir(self.embedding_model)
+
     @classmethod
     def from_env(cls, **overrides: str | int | Path | None) -> AiConfig:
         """Create config from environment variables."""
@@ -156,14 +163,6 @@ class AiConfig(BaseConfigModel):
         # Filter out None values to let defaults apply
         filtered_data = {k: v for k, v in data.items() if v is not None}
         return cls(**filtered_data)
-
-
-    @property
-    def ai_cache_dir(self) -> Path:
-        # Use CacheManager to resolve the embedding directory
-        # e.g., ~/.tdoc-crawler/.ai/sentence-transformers/all-MiniLM-L6-v2
-        # The ai_embed_dir method handles the provider/model subdirectory structure
-        return resolve_cache_manager(self.cache_manager_name).ai_embed_dir(self.embedding_model)
 
     @model_validator(mode="after")
     def _validate_bounds(self) -> AiConfig:
