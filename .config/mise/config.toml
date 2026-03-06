@@ -67,7 +67,10 @@ usage = '''
 arg "<ai_agent>" help="AI assistant to use: claude, gemini, copilot, opencode, ... see: https://github.com/neondatabase/add-mcp"
 '''
 shell = "pwsh -NoProfile -Command"
-run = 'bun x add-mcp  -y -a {{usage.ai_agent}} "grepai mcp-serve"'
+run = [
+    'bun x add-mcp  -y -a {{usage.ai_agent}} "grepai mcp-serve"',
+    'bun x add-mcp  -y -a {{usage.ai_agent}} -n teddi-mcp "uv run -m teddi_mcp server"'
+]
 
 [tasks.add-skills]
 run = [
