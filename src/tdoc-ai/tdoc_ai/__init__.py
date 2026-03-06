@@ -69,7 +69,7 @@ def create_embeddings_manager(config: AiConfig | None = None) -> EmbeddingsManag
     """
     if config is None:
         config = AiConfig.from_env()
-    return EmbeddingsManager.from_config(config)
+    return EmbeddingsManager(config)
 
 
 # Backward compatibility alias

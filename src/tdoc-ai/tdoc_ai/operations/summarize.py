@@ -10,6 +10,7 @@ import re
 
 import litellm
 
+from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.config import AiConfig
 from tdoc_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
 from tdoc_ai.operations.workspace_names import normalize_workspace_name
@@ -141,10 +142,7 @@ def _should_skip_summary(
             existing = storage_client.get_summary_hash(document_id)
             return existing == content_hash
 
-        # Get storage via EmbeddingsManager
-        from tdoc_ai.operations.embeddings import EmbeddingsManager
-
-        storage_client = EmbeddingsManager.from_config(AiConfig.from_env()).storage
+        storage_client = EmbeddingsManager(AiConfig.from_env()).storage
         existing = storage_client.get_summary_hash(document_id)
         return existing == content_hash
     except Exception:
@@ -207,10 +205,8 @@ def summarize_document(
         DocumentSummary object.
     """
     config = AiConfig.from_env()
-    # Get storage via EmbeddingsManager
-    from tdoc_ai.operations.embeddings import EmbeddingsManager
 
-    storage_client = storage or EmbeddingsManager.from_config(config).storage
+    storage_client = storage or EmbeddingsManager(config).storage
 
     normalized_workspace = normalize_workspace_name(workspace)
 

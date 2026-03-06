@@ -5,7 +5,7 @@ import logging
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast, Literal
+from typing import Any, cast
 
 from sentence_transformers import SentenceTransformer
 
@@ -27,28 +27,22 @@ class EmbeddingsManager:
     """Manages embedding model and storage for document embedding and retrieval.
 
     This class handles both the embedding model lifecycle and storage initialization.
-    Use the `from_config()` class method for automatic storage creation with the
-    correct embedding dimension derived from the model.
     """
 
     def __init__(
         self,
-        config: AiConfig,
-        storage: AiStorage | None = None,
-        model: SentenceTransformer | None = None,
+        config: AiConfig
     ) -> None:
         """Initialize embeddings manager.
 
         Args:
             config: AI configuration.
-            storage: Optional pre-created storage. If None, created lazily via from_config().
-            model: Optional pre-loaded model. If None, loaded lazily.
         """
         self._config = config
-        self._storage = storage
-        self._model = model
-        # Use the full embedding_model identifier (e.g., 'perplexity-ai/pplx-embed-v1-0.6B')
-        self._model_name: str = config.embedding_model
+
+        # will be initialized lazily on first access to allow for faster startup and to ensure correct device selection based on backend
+        self._storage = None
+        self._model = None
 
     @property
     def embedding_backend(self) -> Backend:
@@ -74,12 +68,11 @@ class EmbeddingsManager:
         Raises:
             RuntimeError: If neither storage nor model was provided at init.
         """
+
         if self._storage is None:
-            # Force model load which creates storage
-            _ = self.model
-        if self._storage is None:
-            msg = "No storage available. Use from_config() or provide storage at init."
-            raise RuntimeError(msg)
+            self._storage = AiStorage(self.config.ai_cache_dir, embedding_dimension=self.dimension)
+            logger.info(f"Initialized AiStorage at {self.config.ai_cache_dir} with dimension {self.dimension}")
+
         return self._storage
 
     @property
@@ -87,18 +80,11 @@ class EmbeddingsManager:
         """Return the sentence-transformers model, loading it lazily on first access."""
         if self._model is None:
             self._model = SentenceTransformer(
-                self._model_name,
+                self._config.embedding_model,
                 trust_remote_code=True,
-                backend=self.embedding_backend,
+                device=None, # uses GPU if available, otherwise CPU (note: OpenVINO backend requires device="cpu")
             )
-            logger.info(f"Loaded embedding model: {self._model_name}")
-
-            # If storage not yet created, create it now
-            if self._storage is None:
-                dimension = self._get_dimension(self._model)
-                # ai_cache_dir is guaranteed to be set by AiConfig's _resolve_paths validator
-                assert self._config.ai_cache_dir is not None, "ai_cache_dir must be set"
-                self._storage = AiStorage(self._config.ai_cache_dir, embedding_dimension=dimension)
+            logger.info(f"Loaded embedding model: {self._config.embedding_model}")
 
         return self._model
 
@@ -107,13 +93,13 @@ class EmbeddingsManager:
         """Return embedding dimension."""
         dim = self.model.get_sentence_embedding_dimension()
         if dim is None:
-            raise RuntimeError(f"Model '{self._model_name}' did not report an embedding dimension")
+            raise RuntimeError(f"Model '{self._config.embedding_model}' did not report an embedding dimension")
         return dim
 
     @property
     def model_name(self) -> str:
         """Return model name."""
-        return self._model_name
+        return self._config.embedding_model
 
     def encode(self, texts: Sequence[str]) -> list[list[float]]:
         """Encode texts to embeddings.
@@ -151,7 +137,7 @@ class EmbeddingsManager:
             return []
 
         # Create chunks
-        chunks = self._create_chunks(document_id, markdown_content, self._model_name)
+        chunks = self._create_chunks(document_id, markdown_content, self.model_name)
 
         if not chunks:
             return []
@@ -166,7 +152,7 @@ class EmbeddingsManager:
             # Attach embeddings to chunks
             for chunk, embedding in zip(chunks, embeddings, strict=False):
                 chunk.embedding = [float(value) for value in embedding]
-                chunk.embedding_model = self._model_name
+                chunk.embedding_model = self._config.embedding_model
 
             storage.save_chunks(chunks, workspace=normalized_workspace)
 
@@ -203,33 +189,6 @@ class EmbeddingsManager:
 
         # Search in storage
         return storage.search_chunks(query_vector, top_k, workspace=normalized_workspace)
-
-    @classmethod
-    def from_config(cls, config: AiConfig) -> EmbeddingsManager:
-        """Create EmbeddingsManager with storage from configuration.
-
-        This is the recommended factory method. It:
-        1. Loads the embedding model
-        2. Extracts dimension from model
-        3. Creates AiStorage with correct path and dimension
-        4. Returns fully initialized manager
-
-        Args:
-            config: AI configuration with embedding_model and ai_cache_dir set.
-
-        Returns:
-            EmbeddingsManager with .storage property available.
-        """
-        model = SentenceTransformer(
-            config.embedding_model,
-            trust_remote_code=True,
-            backend=config.embedding_backend,
-        )
-        dimension = cls._get_dimension(model)
-        # ai_cache_dir is guaranteed to be set by AiConfig's _resolve_paths validator
-        assert config.ai_cache_dir is not None, "ai_cache_dir must be set"
-        storage = AiStorage(config.ai_cache_dir, embedding_dimension=dimension)
-        return cls(config=config, storage=storage, model=model)
 
     @classmethod
     def _chunk_by_paragraphs(cls, text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[str]:

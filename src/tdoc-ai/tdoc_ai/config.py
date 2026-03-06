@@ -85,8 +85,6 @@ def _validate_embedding_model_format(value: str) -> str:
 class AiConfig(BaseConfigModel):
     """Configuration for the AI processing pipeline."""
 
-    ai_cache_dir: Path | None = Field(None, description="Path to AI cache directory")
-
     embedding_model: str = Field(
         DEFAULT_EMBEDDING_MODEL,
         description="Embedding model in <provider>/<model_name> format",
@@ -121,9 +119,6 @@ class AiConfig(BaseConfigModel):
         # Set cache_manager_name for use in _resolve_paths validator
         if cache_manager_name := overrides.get("cache_manager_name"):
             data["cache_manager_name"] = cache_manager_name
-
-        # NOTE: ai_cache_dir is NOT set here - it will be resolved in _resolve_paths
-        # validator using ai_embed_dir(embedding_model) to include provider/model subdirectory
 
         if embedding_model := os.getenv("TDC_AI_EMBEDDING_MODEL"):
             data["embedding_model"] = embedding_model
@@ -162,15 +157,13 @@ class AiConfig(BaseConfigModel):
         filtered_data = {k: v for k, v in data.items() if v is not None}
         return cls(**filtered_data)
 
-    @model_validator(mode="after")
-    def _resolve_paths(self) -> AiConfig:
-        if self.ai_cache_dir is None:
-            # Use CacheManager to resolve the embedding directory
-            # e.g., ~/.tdoc-crawler/.ai/sentence-transformers/all-MiniLM-L6-v2
-            # The ai_embed_dir method handles the provider/model subdirectory structure
-            self.ai_cache_dir = resolve_cache_manager(self.cache_manager_name).ai_embed_dir(self.embedding_model)
 
-        return self
+    @property
+    def ai_cache_dir(self) -> Path:
+        # Use CacheManager to resolve the embedding directory
+        # e.g., ~/.tdoc-crawler/.ai/sentence-transformers/all-MiniLM-L6-v2
+        # The ai_embed_dir method handles the provider/model subdirectory structure
+        return resolve_cache_manager(self.cache_manager_name).ai_embed_dir(self.embedding_model)
 
     @model_validator(mode="after")
     def _validate_bounds(self) -> AiConfig:

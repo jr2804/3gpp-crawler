@@ -181,7 +181,7 @@ def ai_storage(test_cache_dir: Path) -> AiStorage:
     # Patch environment variable to point to test cache directory
     with patch.dict("os.environ", {"TDOC_CRAWLER_AI_CACHE_DIR": str(test_cache_dir / "ai")}):
         # Use new factory method
-        embeddings_manager = EmbeddingsManager.from_config(AiConfig.from_env())
+        embeddings_manager = EmbeddingsManager(AiConfig.from_env())
         return embeddings_manager.storage
 
 
