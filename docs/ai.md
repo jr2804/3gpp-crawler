@@ -59,6 +59,7 @@ TDC_AI_LLM_API_BASE=                           # Optional: custom endpoint
 
 # Embedding Model (HuggingFace sentence-transformers)
 TDC_AI_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2   # Default: popular 384-dim model
+TDC_AI_EMBEDDING_BACKEND=torch                                  # torch | onnx | openvino (default: torch)
 
 # Storage
 TDC_AI_STORE_PATH=                             # Defaults to <cache_dir>/.ai/lancedb
@@ -160,6 +161,12 @@ tdoc-crawler ai workspace process -w my-project --force
 ```
 
 ### 5. Single TDoc Operations
+
+Process a single TDoc through the pipeline (classification, extraction, embeddings, graph). Use `--accelerate` to choose the sentence-transformers backend.
+
+```bash
+tdoc-crawler ai process --tdoc-id SP-240001 --accelerate onnx
+```
 
 ______________________________________________________________________
 
