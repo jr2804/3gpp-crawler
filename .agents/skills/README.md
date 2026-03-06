@@ -39,6 +39,14 @@ Change Request procedure, workflow, status tracking, and CR database.
 - [SKILL.md](3gpp-change-request/SKILL.md) - Full CR reference
 - [workflow.md](3gpp-change-request/workflow.md) - Quick workflow guide
 
+### @mcp-teddi
+
+MCP usage for TEDDI term and definition search from Copilot chat tools.
+
+### @cli-teddi
+
+CLI usage for teddi-mcp via `uv run` for search, technical body listing, and server mode.
+
 ## Cross-Reference Map
 
 | From \\ To | basics | working-groups | meetings | tdocs | portal-auth | releases | specs | change-request |
