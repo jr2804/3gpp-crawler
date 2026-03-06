@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-from typing import Literal
 from pathlib import Path
+from typing import Literal
 
 import litellm
 from pydantic import Field, field_validator, model_validator
@@ -16,6 +16,10 @@ DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "openrouter/openrouter/free"
 
 type Backend = Literal["torch", "onnx", "openvino"]
+
+# Graph query level type
+type GraphQueryLevel = Literal["simple", "medium", "advanced"]
+
 
 def _env_int(name: str) -> int | None:
     value = os.getenv(name)
@@ -104,6 +108,11 @@ class AiConfig(BaseConfigModel):
     abstract_max_words: int = Field(250, ge=1, description="Maximum abstract word count")
     parallelism: int = Field(4, ge=1, le=32, description="Concurrent TDoc processing")
 
+    graph_query_level: GraphQueryLevel = Field(
+        "simple",
+        description="Level of graph query answer generation (simple|medium|advanced)",
+    )
+
     @classmethod
     def from_env(cls, **overrides: str | int | Path | None) -> AiConfig:
         """Create config from environment variables."""
@@ -144,6 +153,9 @@ class AiConfig(BaseConfigModel):
         parallelism = _env_int("TDC_AI_PARALLELISM")
         if parallelism is not None:
             data["parallelism"] = parallelism
+
+        if graph_query_level := os.getenv("TDC_GRAPH_QUERY_LEVEL"):
+            data["graph_query_level"] = graph_query_level
 
         data.update(overrides)
         # Filter out None values to let defaults apply
@@ -190,5 +202,16 @@ class AiConfig(BaseConfigModel):
     def _validate_llm_model(cls, value: str) -> str:
         return _validate_model_identifier(value, "llm_model")
 
+    @field_validator("graph_query_level")
+    @classmethod
+    def _validate_graph_query_level(cls, value: GraphQueryLevel | str) -> GraphQueryLevel:
+        if isinstance(value, str):
+            value = value.strip().lower()
+            if value not in ["simple", "medium", "advanced"]:
+                msg = "graph_query_level must be one of: simple, medium, advanced"
+                raise ValueError(msg)
+            return value  # type: ignore[return-value]
+        return value
 
-__all__ = ["AiConfig"]
+
+__all__ = ["AiConfig", "Backend", "GraphQueryLevel"]

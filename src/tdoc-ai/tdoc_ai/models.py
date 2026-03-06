@@ -44,6 +44,14 @@ class GraphNodeType(StrEnum):
     CONCEPT = "concept"
 
 
+class GraphQueryLevel(StrEnum):
+    """Level of sophistication for graph query answer generation."""
+
+    SIMPLE = "simple"  # Return count and list without synthesis
+    MEDIUM = "medium"  # Parse query, filter, generate simple text summary
+    ADVANCED = "advanced"  # Use LLM to synthesize answer from graph + embeddings (GraphRAG)
+
+
 class GraphEdgeType(StrEnum):
     """Types of edges in the knowledge graph."""
 
@@ -54,6 +62,34 @@ class GraphEdgeType(StrEnum):
     AUTHORED_BY = "authored_by"
     MERGED_INTO = "merged_into"
     PRESENTED_AT = "presented_at"
+    REVISION_OF = "revision_of"  # is_revision_of metadata relationship
+
+
+class ProcessingFailureType(StrEnum):
+    """Classification of processing failures to determine retry behavior.
+
+    Permanent failures - do NOT retry:
+    - NOT_FOUND_ONLINE: Document withdrawn or never existed
+    - DOWNLOAD_FAILED: Could not download source file
+    - BROKEN_SOURCE: Downloaded file is corrupt/invalid
+    - CLASSIFICATION_FAILED: Could not identify main document
+
+    Retryable failures - CAN retry in next run:
+    - EXTRACTION_FAILED: DOCX to Markdown conversion failed
+    - EMBEDDING_FAILED: Embedding generation failed
+    - GRAPH_FAILED: Graph building failed
+    """
+
+    # Permanent failures
+    NOT_FOUND_ONLINE = "not_found_online"
+    DOWNLOAD_FAILED = "download_failed"
+    BROKEN_SOURCE = "broken_source"
+    CLASSIFICATION_FAILED = "classification_failed"
+
+    # Retryable failures
+    EXTRACTION_FAILED = "extraction_failed"
+    EMBEDDING_FAILED = "embedding_failed"
+    GRAPH_FAILED = "graph_failed"
 
 
 class WorkspaceStatus(StrEnum):
@@ -176,9 +212,29 @@ class ProcessingStatus(BaseModel):
     graphed_at: datetime | None = Field(None, description="Timestamp when graphing completed")
     completed_at: datetime | None = Field(None, description="Timestamp when pipeline completed")
     error_message: str | None = Field(None, description="Error details for failed stage")
+    failure_type: ProcessingFailureType | None = Field(None, description="Type of failure if permanent")
     source_hash: str | None = Field(None, description="Hash of source DOCX for change detection")
     keywords: list[str] | None = Field(None, description="Keywords extracted from document content")
     detected_language: str | None = Field(None, description="Primary language detected in document")
+
+    @property
+    def is_permanent_failure(self) -> bool:
+        """Check if this status represents a permanent failure that should not be retried."""
+        return self.failure_type is not None and self.failure_type in (
+            ProcessingFailureType.NOT_FOUND_ONLINE,
+            ProcessingFailureType.DOWNLOAD_FAILED,
+            ProcessingFailureType.BROKEN_SOURCE,
+            ProcessingFailureType.CLASSIFICATION_FAILED,
+        )
+
+    @property
+    def is_retryable_failure(self) -> bool:
+        """Check if this status represents a retryable failure."""
+        return self.failure_type is not None and self.failure_type in (
+            ProcessingFailureType.EXTRACTION_FAILED,
+            ProcessingFailureType.EMBEDDING_FAILED,
+            ProcessingFailureType.GRAPH_FAILED,
+        )
 
     @field_validator("document_id")
     @classmethod

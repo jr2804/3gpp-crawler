@@ -95,7 +95,7 @@ class AiStorage:
                 unscoped_record = dict(record)
                 unscoped_record["document_id"] = _from_scoped_document_id(scoped_document_id)[1]
                 # Handle NaN/NaT values from LanceDB
-                for field in ["error_message", "source_hash", "detected_language"]:
+                for field in ["error_message", "source_hash", "detected_language", "failure_type"]:
                     if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
                         unscoped_record[field] = None
                 # Handle NaT for optional datetime fields
@@ -121,7 +121,7 @@ class AiStorage:
             unscoped_record = dict(record)
             unscoped_record["document_id"] = unscoped_document_id
             # Handle NaN/NaT values from LanceDB
-            for field in ["error_message", "source_hash", "detected_language"]:
+            for field in ["error_message", "source_hash", "detected_language", "failure_type"]:
                 if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
                     unscoped_record[field] = None
             # Handle NaT for optional datetime fields
@@ -511,6 +511,7 @@ def _processing_status_schema() -> pa.Schema:
             pa.field("graphed_at", pa.timestamp("us"), nullable=True),
             pa.field("completed_at", pa.timestamp("us"), nullable=True),
             pa.field("error_message", pa.string(), nullable=True),
+            pa.field("failure_type", pa.string(), nullable=True),
             pa.field("source_hash", pa.string(), nullable=True),
             pa.field("keywords", pa.list_(pa.string()), nullable=True),
             pa.field("detected_language", pa.string(), nullable=True),
