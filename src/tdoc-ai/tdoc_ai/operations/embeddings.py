@@ -29,10 +29,7 @@ class EmbeddingsManager:
     This class handles both the embedding model lifecycle and storage initialization.
     """
 
-    def __init__(
-        self,
-        config: AiConfig
-    ) -> None:
+    def __init__(self, config: AiConfig) -> None:
         """Initialize embeddings manager.
 
         Args:
@@ -68,7 +65,6 @@ class EmbeddingsManager:
         Raises:
             RuntimeError: If neither storage nor model was provided at init.
         """
-
         if self._storage is None:
             self._storage = AiStorage(self.config.ai_cache_dir, embedding_dimension=self.dimension)
             logger.info(f"Initialized AiStorage at {self.config.ai_cache_dir} with dimension {self.dimension}")
@@ -82,7 +78,7 @@ class EmbeddingsManager:
             self._model = SentenceTransformer(
                 self._config.embedding_model,
                 trust_remote_code=True,
-                device=None, # uses GPU if available, otherwise CPU (note: OpenVINO backend requires device="cpu")
+                device=None,  # uses GPU if available, otherwise CPU (note: OpenVINO backend requires device="cpu")
             )
             logger.info(f"Loaded embedding model: {self._config.embedding_model}")
 

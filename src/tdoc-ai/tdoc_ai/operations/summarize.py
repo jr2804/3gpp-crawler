@@ -10,9 +10,9 @@ import re
 
 import litellm
 
-from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.config import AiConfig
 from tdoc_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
+from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.operations.workspace_names import normalize_workspace_name
 from tdoc_ai.storage import AiStorage
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
