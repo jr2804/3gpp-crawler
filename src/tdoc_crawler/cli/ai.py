@@ -48,6 +48,7 @@ from tdoc_crawler.cli.args import (
     ConvertDocumentArgument,
     ConvertOutputOption,
     EmbeddingTopKOption,
+    EmbeddingBackendOption,
     EndDateOption,
     GraphQueryArgument,
     GraphQueryOption,
@@ -226,10 +227,12 @@ def ai_process(
     process_all_flag: ProcessAllOption = False,
     new_only: ProcessNewOnlyOption = False,
     force: ProcessForceOption = False,
+    accelerate: EmbeddingBackendOption = "torch",
     json_output: JsonOutputOption = False,
 ) -> None:
     """Process a single document or all documents through the AI pipeline."""
     workspace = workspace or "default"
+    config = AiConfig.from_env(embedding_backend=accelerate)
 
     if process_all_flag:
         # Process all documents in workspace
@@ -241,6 +244,7 @@ def ai_process(
             new_only=new_only,
             force_rerun=force,
             workspace=workspace,
+            config=config,
         )
         if json_output:
             typer.echo(json.dumps(result))
@@ -250,7 +254,13 @@ def ai_process(
         # Process single document
         manager = _get_cache_manager()
         resolved_checkout = Path(checkout_path) if checkout_path else manager.checkout_dir / document_id
-        result = process_document(document_id, workspace=workspace, checkout_path=resolved_checkout, force_rerun=force)
+        result = process_document(
+            document_id,
+            workspace=workspace,
+            checkout_path=resolved_checkout,
+            force_rerun=force,
+            config=config,
+        )
         if json_output:
             typer.echo(json.dumps(result))
         else:
@@ -287,6 +297,8 @@ def ai_status(
                 console.print(f"  {status} {stage}")
     else:
         # Get status for all documents in workspace
+        # Ensure cache manager is registered before calling get_status
+        _get_cache_manager()
         # get_status without document_id returns a list
         statuses = get_status(workspace=workspace)
 

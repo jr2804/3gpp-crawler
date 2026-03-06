@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
@@ -170,6 +170,15 @@ WorkspaceNameOption = Annotated[str | None, typer.Option("--workspace", "-w", he
 EmbeddingTopKOption = Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")]
 
 ProcessTDocIdOption = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")]
+EmbeddingBackendOption = Annotated[
+    Literal["torch", "onnx", "openvino"],
+    typer.Option(
+        "--accelerate",
+        "-a",
+        help="Embedding backend (torch, onnx, openvino)",
+        envvar="TDC_AI_EMBEDDING_BACKEND",
+    ),
+]
 CheckoutPathOption = Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")]
 CheckoutBaseOption = Annotated[str | None, typer.Option("--checkout-base", help="Base path for checkout")]
 ProcessAllOption = Annotated[bool, typer.Option("--all", help="Process all documents in workspace")]
