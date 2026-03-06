@@ -19,7 +19,7 @@ dependencies = [
     "kreuzberg[all]>=4.0.0",
     "lancedb>=0.29.2",
     "litellm>=1.81.15",
-    "sentence-transformers[openvino]>=2.7.0",
+    "sentence-transformers[openvino,onnx-gpu]>=2.7.0",
     "tokenizers>=0.22.2",
 ]
 

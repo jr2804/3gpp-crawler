@@ -16,6 +16,7 @@ def test_from_env_reads_supported_variables(monkeypatch: pytest.MonkeyPatch) -> 
     """AiConfig.from_env reads TDC_AI_* variables."""
     monkeypatch.setenv("TDC_AI_LLM_MODEL", "ollama/llama3.2")
     monkeypatch.setenv("TDC_AI_EMBEDDING_MODEL", "huggingface/BAAI/bge-small-en-v1.5")
+    monkeypatch.setenv("TDC_AI_EMBEDDING_BACKEND", "openvino")
     monkeypatch.setenv("TDC_AI_MAX_CHUNK_SIZE", "1200")
     monkeypatch.setenv("TDC_AI_CHUNK_OVERLAP", "120")
     monkeypatch.setenv("TDC_AI_PARALLELISM", "6")
@@ -25,6 +26,7 @@ def test_from_env_reads_supported_variables(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert config.llm_model == "ollama/llama3.2"
     assert config.embedding_model == "huggingface/BAAI/bge-small-en-v1.5"
+    assert config.embedding_backend == "openvino"
     assert config.max_chunk_size == 1200
     assert config.chunk_overlap == 120
     assert config.parallelism == 6
@@ -54,6 +56,18 @@ def test_invalid_provider_is_rejected() -> None:
     """Unknown provider segment is rejected."""
     with pytest.raises(ValueError, match="provider"):
         AiConfig(llm_model="not-a-provider/gpt-x")
+
+
+def test_embedding_backend_defaults_to_torch() -> None:
+    """Embedding backend defaults to torch when unset."""
+    config = AiConfig(llm_model="openai/gpt-4o-mini")
+    assert config.embedding_backend == "torch"
+
+
+def test_embedding_backend_rejects_invalid_values() -> None:
+    """Invalid embedding backend values are rejected."""
+    with pytest.raises(ValueError, match="embedding_backend"):
+        AiConfig(embedding_backend="cuda", llm_model="openai/gpt-4o-mini")
 
 
 def test_default_store_path_resolves_under_cache_dir(tmp_path: Path) -> None:

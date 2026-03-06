@@ -31,6 +31,7 @@ def run_pipeline(  # noqa: PLR0915
     progress_callback: Callable[[PipelineStage, str], None] | None = None,
     force_rerun: bool = False,
     workspace: str | None = None,
+    config: AiConfig | None = None,
 ) -> ProcessingStatus:
     """Run the complete AI processing pipeline for a TDoc.
 
@@ -107,7 +108,14 @@ def run_pipeline(  # noqa: PLR0915
         if not force_rerun and status.embedded_at:
             logger.info(f"Skipping embedding for {document_id} - already embedded")
         else:
-            _run_embedding_stage(document_id, folder_path, storage, status, workspace=normalized_workspace)
+            _run_embedding_stage(
+                document_id,
+                folder_path,
+                storage,
+                status,
+                workspace=normalized_workspace,
+                config=config,
+            )
             if progress_callback:
                 progress_callback(PipelineStage.EMBEDDING, document_id)
     except Exception as e:
@@ -229,6 +237,7 @@ def _run_embedding_stage(
     storage: AiStorage,
     status: ProcessingStatus,
     workspace: str | None = None,
+    config: AiConfig | None = None,
 ) -> None:
     """Run embedding stage based on extracted markdown artifact."""
     status.current_stage = PipelineStage.EMBEDDING
@@ -241,7 +250,7 @@ def _run_embedding_stage(
         raise FileNotFoundError(msg)
 
     # Get embeddings manager from config
-    config = AiConfig.from_env()
+    config = config or AiConfig.from_env()
     embeddings_manager = EmbeddingsManager.from_config(config)
     embeddings_manager.generate_embeddings(document_id, artifact_path, workspace=workspace)
 
@@ -255,6 +264,7 @@ def process_tdoc(
     checkout_path: Path,
     force_rerun: bool = False,
     workspace: str | None = None,
+    config: AiConfig | None = None,
 ) -> ProcessingStatus:
     """Process a single TDoc through the AI pipeline.
 
@@ -272,7 +282,7 @@ def process_tdoc(
     Raises:
         Exception: Re-raises pipeline exceptions after logging.
     """
-    config = AiConfig.from_env()
+    config = config or AiConfig.from_env()
     embeddings_manager = EmbeddingsManager.from_config(config)
     storage = embeddings_manager.storage
     return run_pipeline(
@@ -281,6 +291,7 @@ def process_tdoc(
         storage,
         force_rerun=force_rerun,
         workspace=workspace,
+        config=config,
     )
 
 
@@ -291,6 +302,7 @@ def process_all(
     force_rerun: bool = False,
     progress_callback: Callable[[PipelineStage, str], None] | None = None,
     workspace: str | None = None,
+    config: AiConfig | None = None,
 ) -> dict[str, ProcessingStatus]:
     """Process multiple TDocs through the AI pipeline.
 
@@ -305,7 +317,7 @@ def process_all(
     Returns:
         Dict mapping document_id to ProcessingStatus.
     """
-    config = AiConfig.from_env()
+    config = config or AiConfig.from_env()
     embeddings_manager = EmbeddingsManager.from_config(config)
     storage = embeddings_manager.storage
     normalized_workspace = normalize_workspace_name(workspace)
@@ -340,6 +352,7 @@ def process_all(
                 progress_callback=progress_callback,
                 force_rerun=force_rerun,
                 workspace=normalized_workspace,
+                config=config,
             )
             results[document_id] = status
         except Exception as e:

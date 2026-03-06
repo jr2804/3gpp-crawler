@@ -5,11 +5,11 @@ import logging
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, Literal
 
 from sentence_transformers import SentenceTransformer
 
-from tdoc_ai.config import AiConfig
+from tdoc_ai.config import AiConfig, Backend
 from tdoc_ai.models import DocumentChunk
 from tdoc_ai.operations.workspace_names import normalize_workspace_name
 from tdoc_ai.storage import AiStorage
@@ -51,6 +51,11 @@ class EmbeddingsManager:
         self._model_name: str = config.embedding_model
 
     @property
+    def embedding_backend(self) -> Backend:
+        """Return the embedding backend."""
+        return self.config.embedding_backend
+
+    @property
     def config(self) -> AiConfig:
         """Return the AI configuration."""
         return self._config
@@ -81,7 +86,11 @@ class EmbeddingsManager:
     def model(self) -> SentenceTransformer:
         """Return the sentence-transformers model, loading it lazily on first access."""
         if self._model is None:
-            self._model = SentenceTransformer(self._model_name, trust_remote_code=True)
+            self._model = SentenceTransformer(
+                self._model_name,
+                trust_remote_code=True,
+                backend=self.embedding_backend,
+            )
             logger.info(f"Loaded embedding model: {self._model_name}")
 
             # If storage not yet created, create it now
@@ -211,7 +220,11 @@ class EmbeddingsManager:
         Returns:
             EmbeddingsManager with .storage property available.
         """
-        model = SentenceTransformer(config.embedding_model, trust_remote_code=True)
+        model = SentenceTransformer(
+            config.embedding_model,
+            trust_remote_code=True,
+            backend=config.embedding_backend,
+        )
         dimension = cls._get_dimension(model)
         # ai_cache_dir is guaranteed to be set by AiConfig's _resolve_paths validator
         assert config.ai_cache_dir is not None, "ai_cache_dir must be set"

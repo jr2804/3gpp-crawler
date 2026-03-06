@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Literal
 from pathlib import Path
 
 import litellm
@@ -14,6 +15,7 @@ from tdoc_crawler.models import BaseConfigModel
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "openrouter/openrouter/free"
 
+type Backend = Literal["torch", "onnx", "openvino"]
 
 def _env_int(name: str) -> int | None:
     value = os.getenv(name)
@@ -85,6 +87,10 @@ class AiConfig(BaseConfigModel):
         DEFAULT_EMBEDDING_MODEL,
         description="Embedding model in <provider>/<model_name> format",
     )
+    embedding_backend: Backend = Field(
+        "torch",
+        description="Sentence-transformers backend (torch, onnx, openvino)",
+    )
     max_chunk_size: int = Field(1000, ge=1, description="Max tokens per chunk")
     chunk_overlap: int = Field(100, ge=0, description="Token overlap between chunks")
 
@@ -112,6 +118,8 @@ class AiConfig(BaseConfigModel):
 
         if embedding_model := os.getenv("TDC_AI_EMBEDDING_MODEL"):
             data["embedding_model"] = embedding_model
+        if embedding_backend := os.getenv("TDC_AI_EMBEDDING_BACKEND"):
+            data["embedding_backend"] = embedding_backend
         if llm_model := os.getenv("TDC_AI_LLM_MODEL"):
             data["llm_model"] = llm_model
         if llm_api_base := os.getenv("TDC_AI_LLM_API_BASE"):
@@ -166,6 +174,16 @@ class AiConfig(BaseConfigModel):
     @classmethod
     def _validate_embedding_model(cls, value: str) -> str:
         return _validate_embedding_model_format(value)
+
+    @field_validator("embedding_backend")
+    @classmethod
+    def _validate_embedding_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        allowed = {"torch", "onnx", "openvino"}
+        if normalized not in allowed:
+            msg = "embedding_backend must be one of: torch, onnx, openvino"
+            raise ValueError(msg)
+        return normalized
 
     @field_validator("llm_model")
     @classmethod

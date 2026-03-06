@@ -188,6 +188,28 @@ class TestAiCli:
             kwargs = mock.call_args.kwargs
             assert kwargs.get("workspace") == "myws"
 
+    def test_process_with_accelerate_passes_backend(self, runner: CliRunner, tmp_path: Path) -> None:
+        with patch("tdoc_crawler.cli.ai.process_document") as mock:
+            mock.return_value = None
+            result = runner.invoke(
+                app,
+                [
+                    "ai",
+                    "process",
+                    "--tdoc-id",
+                    "SP-123456",
+                    "--accelerate",
+                    "onnx",
+                    "--checkout-path",
+                    str(tmp_path / "checkout"),
+                ],
+            )
+            assert result.exit_code == 0
+            kwargs = mock.call_args.kwargs
+            config = kwargs.get("config")
+            assert config is not None
+            assert config.embedding_backend == "onnx"
+
 
 class TestAiModuleExports:
     def test_workspace_create_auto_build_flag(self, runner: CliRunner, tmp_path: Path) -> None:
