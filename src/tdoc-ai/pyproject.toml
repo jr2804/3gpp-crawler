@@ -19,10 +19,10 @@ dependencies = [
     "kreuzberg[all]>=4.0.0",
     "lancedb>=0.29.2",
     "litellm>=1.81.15",
-    "sentence-transformers[openvino,onnx,onnx-gpu]>=2.7.0",
+    "sentence-transformers[openvino] @ git+https://github.com/huggingface/sentence-transformers.git",
     "tokenizers>=0.22.2",
-    "optimum[openvino]"
-
+    "optimum[openvino]",
+    "hf_xet"
     #"nvidia-cudnn-cu12", "nvidia-cuda-runtime-cu12", "nvidia-cufft-cu12"
 ]
 
@@ -32,6 +32,9 @@ Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.uv.sources]
 # doc2txt repository contains pyproject.toml AND setup.py/setup.cfg
