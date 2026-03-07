@@ -375,11 +375,15 @@ def checkout_tdoc_to_workspace(
     Returns:
         Path to the checked out TDoc folder, or None if checkout failed
     """
-    # First check if already checked out
+    # First check if already checked out with actual files
     existing_path = resolve_tdoc_checkout_path(tdoc_id, checkout_base)
     if existing_path:
-        _logger.debug(f"TDoc {tdoc_id} already checked out at {existing_path}")
-        return existing_path
+        # Check if folder has actual document files (not just .ai subfolder)
+        has_files = any(f.is_file() for f in existing_path.iterdir())
+        if has_files:
+            _logger.info(f"TDoc {tdoc_id} already checked out at {existing_path}")
+            return existing_path
+        _logger.info(f"TDoc {tdoc_id} folder exists but is empty at {existing_path}, re-downloading...")
 
     # Need to checkout the TDoc - use fallback chain
     metadata: TDocMetadata | None = None
