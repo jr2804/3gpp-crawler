@@ -23,7 +23,6 @@ from tdoc_ai import (
     get_status,
     make_workspace_member,
     normalize_workspace_name,
-    process_document,
     query_graph,
     set_active_workspace,
     summarize_document,
@@ -45,7 +44,6 @@ from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
     CheckoutBaseOption,
-    CheckoutPathOption,
     ConvertDocumentArgument,
     ConvertOutputOption,
     EmbeddingBackendOption,
@@ -57,7 +55,6 @@ from tdoc_crawler.cli.args import (
     ProcessAllOption,
     ProcessForceOption,
     ProcessNewOnlyOption,
-    ProcessTDocIdOption,
     QueryArgument,
     QueryOption,
     SourcePatternExcludeOption,
@@ -216,9 +213,7 @@ def ai_query(
 
 @ai_app.command("process")
 def ai_process(
-    document_id: ProcessTDocIdOption = None,
     workspace: WorkspaceNameOption = None,
-    checkout_path: CheckoutPathOption = None,
     checkout_base: CheckoutBaseOption = None,
     process_all_flag: ProcessAllOption = False,
     new_only: ProcessNewOnlyOption = False,
@@ -226,44 +221,34 @@ def ai_process(
     accelerate: EmbeddingBackendOption = "torch",
     json_output: JsonOutputOption = False,
 ) -> None:
-    """Process a single document or all documents through the AI pipeline."""
+    """Process all documents in a workspace through the AI pipeline.
+
+    Processing runs in three phases:
+    Phase 1: CLASSIFY → EXTRACT (create markdown artifacts)
+    Phase 2: EMBED (generate vector embeddings)
+    Phase 3: GRAPH (build knowledge graph)
+
+    Failed documents in one phase are not processed in later phases,
+    keeping logs clean and errors contained.
+    """
     workspace = workspace or "default"
     config = AiConfig.from_env(embedding_backend=accelerate)
 
-    if process_all_flag:
-        # Process all documents in workspace
-        manager = _get_cache_manager()
-        checkout_root = Path(checkout_base) if checkout_base else manager.root
-        result = process_all(
-            document_ids=[],
-            checkout_base=checkout_root,
-            new_only=new_only,
-            force_rerun=force,
-            workspace=workspace,
-            config=config,
-        )
-        if json_output:
-            typer.echo(json.dumps(result))
-        else:
-            console.print(f"[green]Processed {len(result)} documents in workspace {workspace}[/green]")
-    elif document_id:
-        # Process single document
-        manager = _get_cache_manager()
-        resolved_checkout = Path(checkout_path) if checkout_path else manager.checkout_dir / document_id
-        result = process_document(
-            document_id,
-            workspace=workspace,
-            checkout_path=resolved_checkout,
-            force_rerun=force,
-            config=config,
-        )
-        if json_output:
-            typer.echo(json.dumps(result))
-        else:
-            console.print(f"[green]Processed {document_id}[/green]")
+    # Process all documents in workspace
+    manager = _get_cache_manager()
+    checkout_root = Path(checkout_base) if checkout_base else manager.root
+    result = process_all(
+        document_ids=[],
+        checkout_base=checkout_root,
+        new_only=new_only,
+        force_rerun=force,
+        workspace=workspace,
+        config=config,
+    )
+    if json_output:
+        typer.echo(json.dumps(result))
     else:
-        console.print("[red]Error: Must specify --tdoc-id or --all[/red]")
-        raise typer.Exit(1)
+        console.print(f"[green]Processed {len(result)} documents in workspace {workspace}[/green]")
 
 
 @ai_app.command("status")
