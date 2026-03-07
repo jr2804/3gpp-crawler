@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import platform
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
@@ -93,7 +94,14 @@ console = Console()
 @cache
 def _get_cache_manager() -> CacheManager:
     """Get or create the default cache manager (avoids repeated register() calls)."""
-    return CacheManager().register()
+    from tdoc_crawler.config import resolve_cache_manager
+
+    # Check if already registered
+    try:
+        return resolve_cache_manager("default")
+    except ValueError:
+        # Not registered yet, create and register
+        return CacheManager().register()
 
 
 def resolve_workspace(workspace: str | None) -> str:
@@ -220,6 +228,7 @@ def ai_process(
     force: ProcessForceOption = False,
     accelerate: EmbeddingBackendOption = "torch",
     json_output: JsonOutputOption = False,
+    limit: int | None = typer.Option(None, "--limit", "-l", help="Limit number of documents to process (for testing)"),
 ) -> None:
     """Process all documents in a workspace through the AI pipeline.
 
@@ -244,6 +253,7 @@ def ai_process(
         force_rerun=force,
         workspace=workspace,
         config=config,
+        limit=limit,
     )
     if json_output:
         typer.echo(json.dumps(result))
@@ -678,14 +688,21 @@ def workspace_process(
     new_only: WorkspaceProcessNewOnlyOption = True,
     force_rerun: WorkspaceProcessForceOption = False,
     json_output: JsonOutputOption = False,
+    limit: int | None = typer.Option(None, "--limit", "-l", help="Limit number of documents to process (for testing)"),
 ) -> None:
     """Process all active document members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
-    manager = _get_cache_manager()
+    manager = _get_cache_manager()  # Already registered
+    is_windows = platform.system() == "Windows"
 
     # Get workspace members
     members = list_workspace_members(workspace, include_inactive=False)
     document_ids = [m.source_item_id for m in members if m.is_active]
+
+    # Apply limit for testing
+    if limit is not None and limit > 0:
+        document_ids = document_ids[:limit]
+        console.print(f"[cyan]Limited to {limit} documents for testing[/cyan]")
 
     if not document_ids:
         if json_output:
@@ -721,19 +738,27 @@ def workspace_process(
         else:
             phase = current_phase
 
-        # Phase transition - start new progress bar
+        # Phase transition
         if phase != current_phase:
             current_phase = phase
-            # Update all progress bars for phase transition
-            for p in (1, 2, 3):
-                if p in progress.tasks:
-                    task = progress.tasks[p]
-                    if p < phase:
-                        progress.update(task, completed=task.total, description=f"[green]{phase_names[p]} - Done")
-                    elif p == phase:
-                        progress.update(task, description=f"[cyan]{phase_names[p]}")
+            if not is_windows:
+                # Update all progress bars for phase transition
+                for p in (1, 2, 3):
+                    if p in progress.tasks:
+                        task = progress.tasks[p]
+                        if p < phase:
+                            progress.update(task, completed=task.total, description=f"[green]{phase_names[p]} - Done")
+                        elif p == phase:
+                            progress.update(task, description=f"[cyan]{phase_names[p]}")
 
         # Update current phase progress
+        if is_windows:
+            if doc_id in processed_in_phase[phase]:
+                return
+            processed_in_phase[phase].add(doc_id)
+            console.print(f"[{len(processed_in_phase[phase])}/{len(document_ids)}] {phase_names[phase]}: {doc_id}")
+            return
+
         if phase in progress.tasks and doc_id not in processed_in_phase[phase]:
             processed_in_phase[phase].add(doc_id)
             task = progress.tasks[phase]
@@ -743,30 +768,8 @@ def workspace_process(
                 description=f"[cyan]{phase_names[phase]}: {doc_id}",
             )
 
-    # Run pipeline with progress tracking
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}", justify="right"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeRemainingColumn(elapsed_when_finished=True),
-        TimeElapsedColumn(),
-        console=console,
-        refresh_per_second=10,
-    ) as progress:
-        # Add tasks for each phase (initially hidden)
-        tasks = {}
-        for phase in (1, 2, 3):
-            tasks[phase] = progress.add_task(
-                f"[dim]{phase_names[phase]}",
-                total=len(document_ids),
-                visible=False,
-            )
-
-        # Show first phase
-        progress.update(tasks[1], visible=True)
-
-        # Process documents with progress tracking
+    if is_windows:
+        console.print(f"[cyan]Processing {len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'...[/cyan]")
         results = process_all(
             document_ids=document_ids,
             checkout_base=manager.root,
@@ -775,6 +778,39 @@ def workspace_process(
             workspace=workspace,
             progress_callback=progress_callback,
         )
+    else:
+        # Run pipeline with progress tracking
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}", justify="right"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(elapsed_when_finished=True),
+            TimeElapsedColumn(),
+            console=console,
+            refresh_per_second=10,
+        ) as progress:
+            # Add tasks for each phase (initially hidden)
+            tasks = {}
+            for phase in (1, 2, 3):
+                tasks[phase] = progress.add_task(
+                    f"[dim]{phase_names[phase]}",
+                    total=len(document_ids),
+                    visible=False,
+                )
+
+            # Show first phase
+            progress.update(tasks[1], visible=True)
+
+            # Process documents with progress tracking
+            results = process_all(
+                document_ids=document_ids,
+                checkout_base=manager.root,
+                new_only=new_only,
+                force_rerun=force_rerun,
+                workspace=workspace,
+                progress_callback=progress_callback,
+            )
 
     if json_output:
         typer.echo(

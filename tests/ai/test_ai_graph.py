@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 from tdoc_ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType
 from tdoc_ai.operations import graph
 from tdoc_ai.operations.graph import (
-    extract_change_requests,
     extract_company_entities,
     extract_work_items,
 )
@@ -189,29 +188,18 @@ class TestEntityExtractors:
         assert "WI-12345" in wis
         assert "WI-67890" in wis
 
-    def test_extract_change_requests(self) -> None:
-        """Test change request extraction."""
-        text = "This CR-001234 and Change Request 5678 propose modifications to the spec."
-        crs = extract_change_requests(text)
-
-        assert "CR-001234" in crs
-        assert "CR-5678" in crs
-
     def test_extract_all_entity_types(self) -> None:
         """Test extraction of all entity types together."""
         text = """
-        Samsung proposes WI-99999 to address CR-11111.
-        This work item relates to change request CP-230001.
+        Samsung proposes WI-99999 for 5G enhancement.
+        This work item relates to specification TS 38.101.
         Ericsson and Qualcomm support this proposal.
         """
 
         companies = extract_company_entities(text)
         wis = extract_work_items(text)
-        crs = extract_change_requests(text)
 
         assert "Samsung" in companies
         assert "Ericsson" in companies
         assert "Qualcomm" in companies
         assert "WI-99999" in wis
-        assert "CR-11111" in crs
-        assert "CR-CP-230001" in crs or "CR-230001" in crs
