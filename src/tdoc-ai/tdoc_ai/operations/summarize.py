@@ -19,11 +19,11 @@ from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
-storage = None
+_ = None
 
 # Summary settings
-ABSTRACT_MIN_WORDS = 150
-ABSTRACT_MAX_WORDS = 250
+_ = 150
+_ = 250
 
 # Prompt templates
 SUMMARY_SYSTEM_PROMPT = """You are a technical document analyzer specializing in 3GPP TDoc documents.

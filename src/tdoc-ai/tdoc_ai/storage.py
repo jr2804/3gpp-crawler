@@ -198,24 +198,6 @@ class AiStorage:
             payload.append(record)
         table.add(payload)
 
-    def get_chunks(self, document_id: str, workspace: str | None = None) -> list[DocumentChunk]:
-        """Return chunks for a TDoc if present."""
-        normalized_workspace = _normalize_workspace_name(workspace)
-        scoped_document_id = _to_scoped_document_id(document_id, normalized_workspace)
-        table = self._table("chunks")
-        records = _table_to_records(table)
-        chunks: list[DocumentChunk] = []
-        for record in records:
-            if record.get("document_id") == scoped_document_id:
-                unscoped_record = dict(record)
-                unscoped_record["document_id"] = _from_scoped_document_id(scoped_document_id)[1]
-                # Handle NaN for optional fields
-                for field in ["section_heading", "section_number"]:
-                    if field in unscoped_record and (unscoped_record[field] is None or _is_nan(unscoped_record[field])):
-                        unscoped_record[field] = None
-                chunks.append(DocumentChunk(**unscoped_record))
-        return chunks
-
     def search_chunks(
         self,
         query_vector: list[float],
@@ -266,36 +248,6 @@ class AiStorage:
                 unscoped_record["document_id"] = _from_scoped_document_id(scoped_document_id)[1]
                 return DocumentSummary(**unscoped_record)
         return None
-
-    def clear_workspace_artifacts(self, workspace_name: str | None) -> int:
-        """Clear all AI artifacts (embeddings, summaries, etc.) for a workspace while preserving members.
-
-        Args:
-            workspace_name: Name of workspace.
-
-        Returns:
-            Number of artifact records removed.
-        """
-        normalized_workspace = _normalize_workspace_name(workspace_name)
-        removed_count = 0
-
-        artifact_tables = ["processing_status", "classifications", "chunks", "summaries", "graph_nodes", "graph_edges"]
-
-        for table_name in artifact_tables:
-            try:
-                table = self._table(table_name)
-                all_records = _table_to_records(table)
-                for record in all_records:
-                    document_id = record.get("document_id", "")
-                    record_workspace, _ = _from_scoped_document_id(document_id)
-                    if record_workspace == normalized_workspace:
-                        table.delete(f"document_id = '{document_id}'")
-                        removed_count += 1
-            except Exception as exc:
-                _logger.warning(f"Failed to clear artifacts from {table_name}: {exc}")
-
-        _logger.info(f"Cleared {removed_count} artifact(s) for workspace '{normalized_workspace}'")
-        return removed_count
 
     def save_nodes(self, nodes: list[GraphNode], workspace: str | None = None) -> None:
         """Persist graph nodes."""

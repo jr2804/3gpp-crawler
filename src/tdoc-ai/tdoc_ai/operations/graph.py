@@ -844,20 +844,3 @@ def _generate_answer(
     # For now, fall back to medium behavior
     logger.warning("Advanced query level not yet implemented, falling back to medium")
     return _generate_answer(query, nodes, edges, "medium")
-
-
-def get_tdoc_evolution(document_id: str, storage: AiStorage) -> list[GraphNode]:
-    """Get evolution chain for a TDoc (revisions, supersessions)."""
-    nodes, edges = storage.query_graph(filters={})
-    related_ids = {document_id}
-
-    for edge in edges:
-        if edge.edge_type in [GraphEdgeType.REVISES, GraphEdgeType.SUPERSEDES]:
-            if edge.source_id == document_id:
-                related_ids.add(edge.target_id)
-            elif edge.target_id == document_id:
-                related_ids.add(edge.source_id)
-
-    related_nodes = [n for n in nodes if n.node_id in related_ids and n.node_type == GraphNodeType.DOCUMENT]
-    related_nodes.sort(key=lambda n: n.created_at or datetime.min)
-    return related_nodes

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tdoc_ai.config import AiConfig
@@ -25,7 +23,6 @@ class PipelineStage(StrEnum):
     CLASSIFYING = "classifying"
     EXTRACTING = "extracting"
     EMBEDDING = "embedding"
-    SUMMARIZING = "summarizing"
     GRAPHING = "graphing"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -41,26 +38,17 @@ class GraphNodeType(StrEnum):
     WORK_ITEM = "work_item"
     CHANGE_REQUEST = "cr"
     COMPANY = "company"
-    CONCEPT = "concept"
 
 
-class GraphQueryLevel(StrEnum):
-    """Level of sophistication for graph query answer generation."""
-
-    SIMPLE = "simple"  # Return count and list without synthesis
-    MEDIUM = "medium"  # Parse query, filter, generate simple text summary
-    ADVANCED = "advanced"  # Use LLM to synthesize answer from graph + embeddings (GraphRAG)
+# Use LLM to synthesize answer from graph + embeddings (GraphRAG)
 
 
 class GraphEdgeType(StrEnum):
     """Types of edges in the knowledge graph."""
 
     DISCUSSES = "discusses"
-    REVISES = "revises"
     REFERENCES = "references"
-    SUPERSEDES = "supersedes"
     AUTHORED_BY = "authored_by"
-    MERGED_INTO = "merged_into"
     PRESENTED_AT = "presented_at"
     REVISION_OF = "revision_of"  # is_revision_of metadata relationship
 
@@ -80,15 +68,6 @@ class ProcessingFailureType(StrEnum):
     - GRAPH_FAILED: Graph building failed
     """
 
-    # Permanent failures
-    NOT_FOUND_ONLINE = "not_found_online"
-    DOWNLOAD_FAILED = "download_failed"
-    BROKEN_SOURCE = "broken_source"
-    CLASSIFICATION_FAILED = "classification_failed"
-
-    # Retryable failures
-    EXTRACTION_FAILED = "extraction_failed"
-    EMBEDDING_FAILED = "embedding_failed"
     GRAPH_FAILED = "graph_failed"
 
 
@@ -96,15 +75,10 @@ class WorkspaceStatus(StrEnum):
     """Lifecycle state of a workspace."""
 
     ACTIVE = "active"
-    ARCHIVED = "archived"
 
 
 class SourceKind(StrEnum):
     """Kinds of source items that can be part of a workspace corpus."""
-
-    TDOC = "tdoc"
-    SPEC = "spec"
-    OTHER = "other"
 
 
 class AiError(Exception):
@@ -216,25 +190,6 @@ class ProcessingStatus(BaseModel):
     source_hash: str | None = Field(None, description="Hash of source DOCX for change detection")
     keywords: list[str] | None = Field(None, description="Keywords extracted from document content")
     detected_language: str | None = Field(None, description="Primary language detected in document")
-
-    @property
-    def is_permanent_failure(self) -> bool:
-        """Check if this status represents a permanent failure that should not be retried."""
-        return self.failure_type is not None and self.failure_type in (
-            ProcessingFailureType.NOT_FOUND_ONLINE,
-            ProcessingFailureType.DOWNLOAD_FAILED,
-            ProcessingFailureType.BROKEN_SOURCE,
-            ProcessingFailureType.CLASSIFICATION_FAILED,
-        )
-
-    @property
-    def is_retryable_failure(self) -> bool:
-        """Check if this status represents a retryable failure."""
-        return self.failure_type is not None and self.failure_type in (
-            ProcessingFailureType.EXTRACTION_FAILED,
-            ProcessingFailureType.EMBEDDING_FAILED,
-            ProcessingFailureType.GRAPH_FAILED,
-        )
 
     @field_validator("document_id")
     @classmethod
@@ -378,26 +333,6 @@ class SummarizeResult(BaseModel):
         description="Metadata including meeting_id, source, word_count",
     )
     word_count: int = Field(..., ge=0, description="Actual word count of summary")
-
-    def to_markdown(self) -> str:
-        """Format result as markdown."""
-        lines = [f"## Summary\n\n{self.summary}\n"]
-        if self.keywords:
-            lines.append(f"## Keywords\n\n{', '.join(self.keywords)}\n")
-        if self.metadata:
-            lines.append("## Metadata\n")
-            for key, value in self.metadata.items():
-                lines.append(f"- **{key}**: {value}\n")
-        lines.append(f"\n*Word count: {self.word_count}*\n")
-        return "".join(lines)
-
-    def to_json(self) -> str:
-        """Format result as JSON."""
-        return json.dumps(self.model_dump(), indent=2)
-
-    def to_yaml(self) -> str:
-        """Format result as YAML."""
-        return yaml.dump(self.model_dump(), default_flow_style=False)
 
     @field_validator("keywords", mode="before")
     @classmethod
