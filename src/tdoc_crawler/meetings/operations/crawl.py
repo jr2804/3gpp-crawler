@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from tdoc_crawler.constants.urls import MEETINGS_BASE_URL
 from tdoc_crawler.credentials import resolve_credentials
@@ -13,7 +14,11 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
 from tdoc_crawler.models.crawl_limits import CrawlLimits
-from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBWORKING_GROUP_RECORDS
+from tdoc_crawler.models.subworking_groups import (
+    CODE_INDEX,
+    SUBWORKING_GROUP_RECORDS,
+    SubWorkingGroupRecord,
+)
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.parsers.meetings import parse_meeting_page
 
@@ -67,42 +72,15 @@ class MeetingCrawler:
 
         try:
             for working_group in working_groups:
-                # Filter records for the current working group
-                relevant_records = [r for r in SUBWORKING_GROUP_RECORDS if r.tbid == working_group.tbid]
-
-                for record in relevant_records:
-                    # Skip subgroup if subgroups filter is set and this subgroup is not in the list
-                    if config.subgroups and record.code not in config.subgroups:
-                        continue
-                    url = MEETINGS_BASE_URL.format(code=record.code)
-                    try:
-                        response = session.get(url, timeout=config.timeout)
-                        response.raise_for_status()
-                    except Exception as exc:
-                        message = f"Meeting crawl failed for {record.code}: {exc}"
-                        logger.warning(message)
-                        errors.append(message)
-                        continue
-
-                    # Create callback for subtb lookup using pre-built index
-                    def get_subtb(subgroup_code: str) -> int | None:
-                        """Get subtb from subgroup code via CODE_INDEX lookup."""
-                        record = CODE_INDEX.get(subgroup_code.upper())
-                        return record.subtb if record else None
-
-                    parsed_meetings = parse_meeting_page(
-                        response.text,
-                        working_group,
-                        record.code,
-                        get_subtb=get_subtb,
+                meetings.extend(
+                    self._crawl_working_group(
+                        session=session,
+                        working_group=working_group,
+                        config=config,
+                        existing_ids=existing_ids,
+                        errors=errors,
                     )
-                    for meeting in parsed_meetings:
-                        if config.incremental and meeting.meeting_id in existing_ids:
-                            continue
-                        # Filter out meetings without files_url unless explicitly included
-                        if not config.include_without_files and not meeting.files_url:
-                            continue
-                        meetings.append(meeting)
+                )
         finally:
             session.close()
 
@@ -123,6 +101,32 @@ class MeetingCrawler:
             errors=errors,
         )
 
+    def _crawl_working_group(
+        self,
+        session: Any,
+        working_group: WorkingGroup,
+        config: MeetingCrawlConfig,
+        existing_ids: set[int],
+        errors: list[str],
+    ) -> list[MeetingMetadata]:
+        """Crawl and parse meeting metadata for one working group."""
+        meetings: list[MeetingMetadata] = []
+        records = [record for record in SUBWORKING_GROUP_RECORDS if record.tbid == working_group.tbid and self._record_is_in_scope(record, config)]
+        for record in records:
+            html_text = self._fetch_meeting_page_text(session, record, config.timeout, errors)
+            if html_text is None:
+                continue
+            parsed_meetings = parse_meeting_page(
+                html_text,
+                working_group,
+                record.code,
+                get_subtb=self._get_subtb,
+            )
+            for meeting in parsed_meetings:
+                if self._include_meeting(meeting, config, existing_ids):
+                    meetings.append(meeting)
+        return meetings
+
     def _apply_limits(
         self,
         meetings: list[MeetingMetadata],
@@ -135,6 +139,38 @@ class MeetingCrawler:
         filtered = self._limit_meetings_per_wg(filtered, limits.limit_meetings_per_wg)
         filtered = self._limit_meetings(filtered, limits.limit_meetings)
         return filtered
+
+    @staticmethod
+    def _get_subtb(subgroup_code: str) -> int | None:
+        """Resolve subgroup code to subtb via lookup index."""
+        record = CODE_INDEX.get(subgroup_code.upper())
+        return record.subtb if record else None
+
+    @staticmethod
+    def _record_is_in_scope(record: SubWorkingGroupRecord, config: MeetingCrawlConfig) -> bool:
+        """Check whether subgroup record should be crawled for the current config."""
+        return not config.subgroups or record.code in config.subgroups
+
+    @staticmethod
+    def _include_meeting(meeting: MeetingMetadata, config: MeetingCrawlConfig, existing_ids: set[int]) -> bool:
+        """Apply incremental and files-url filters before persisting meetings."""
+        if config.incremental and meeting.meeting_id in existing_ids:
+            return False
+        return config.include_without_files or bool(meeting.files_url)
+
+    @staticmethod
+    def _fetch_meeting_page_text(session: Any, record: SubWorkingGroupRecord, timeout: float, errors: list[str]) -> str | None:
+        """Fetch meeting page HTML text for one subgroup record."""
+        url = MEETINGS_BASE_URL.format(code=record.code)
+        try:
+            response = session.get(url, timeout=timeout)
+            response.raise_for_status()
+        except Exception as exc:
+            message = f"Meeting crawl failed for {record.code}: {exc}"
+            logger.warning(message)
+            errors.append(message)
+            return None
+        return response.text
 
     @staticmethod
     def _limit_working_groups(
