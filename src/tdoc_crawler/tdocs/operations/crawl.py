@@ -7,6 +7,8 @@ import time
 from collections.abc import Callable
 from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
+from datetime import date
+from typing import Any
 
 from pool_executors.pool_executors import create_executor
 from tdoc_crawler.database import TDocDatabase
@@ -80,7 +82,7 @@ class TDocCrawler:
             errors=errors,
         )
 
-    def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list:
+    def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list[MeetingMetadata]:
         """Query meetings from the database based on configuration filters."""
         meeting_config = MeetingQueryConfig(
             working_groups=config.working_groups,
@@ -92,20 +94,14 @@ class TDocCrawler:
 
         meetings = self.database.query_meetings(meeting_config)
 
-        if config.meeting_ids:
-            meeting_id_set = set(config.meeting_ids)
-            meetings = [meeting for meeting in meetings if meeting.meeting_id in meeting_id_set]
-
-        if config.start_date:
-            meetings = [meeting for meeting in meetings if meeting.start_date and meeting.start_date >= config.start_date]
-        if config.end_date:
-            meetings = [meeting for meeting in meetings if meeting.start_date and meeting.start_date <= config.end_date]
-
-        return meetings
+        filtered = self._filter_meetings_by_ids(meetings, config.meeting_ids)
+        filtered = self._filter_meetings_by_start_date(filtered, config.start_date)
+        filtered = self._filter_meetings_by_end_date(filtered, config.end_date)
+        return filtered
 
     def _crawl_meetings(
         self,
-        meetings: list,
+        meetings: list[MeetingMetadata],
         config: TDocCrawlConfig,
         collected: list[TDocMetadata],
         existing_ids: set[str],
@@ -114,47 +110,22 @@ class TDocCrawler:
         """Launch subinterpreter workers to crawl meetings via document lists."""
         errors: list[str] = []
         seen_ids: set[str] = set()
-        max_tdocs = None
-        if config.limits.limit_tdocs is not None and config.limits.limit_tdocs != 0:
-            max_tdocs = abs(config.limits.limit_tdocs)
+        max_tdocs = self._resolve_max_tdocs(config.limits.limit_tdocs)
+        targets = self._normalize_targets(targets)
 
-        if targets is not None:
-            targets = {item.upper() for item in targets}
-
-        if config.workers == 1:
-            executor = create_executor("serial")
-            executor_type = "serial"
-        else:
-            executor = create_executor("multiprocessing", max_workers=config.workers)
-            executor_type = "multiprocessing"
+        executor, executor_type = self._create_executor_for_workers(config.workers)
 
         logger.debug("Using %s executor with %d worker(s)", executor_type, config.workers)
 
         start_time = time.monotonic()
 
         with executor:
-            futures: dict[Future[str], MeetingMetadata] = {}
-
-            for meeting in meetings:
-                future = executor.submit(
-                    fetch_meeting_document_list_subinterpreter,
-                    meeting_id=meeting.meeting_id,
-                    timeout=config.timeout,
-                    http_cache=config.http_cache,
-                    cache_manager_name=config.cache_manager_name,
-                    files_url=meeting.files_url,
-                )
-                futures[future] = meeting
+            futures = self._submit_meeting_futures(executor, meetings, config)
 
             for future in as_completed(futures):
                 meeting = futures[future]
-                try:
-                    json_payload = future.result()
-                except Exception as exc:  # pragma: no cover - defensive, depends on network
-                    short_name = meeting.short_name or str(meeting.meeting_id)
-                    message = f"Meeting {short_name}: {exc}"
-                    logger.warning(message)
-                    errors.append(message)
+                json_payload = self._handle_future_error(future, meeting, errors)
+                if json_payload is None:
                     continue
 
                 limit_reached = self._process_document_list_response(
@@ -169,59 +140,225 @@ class TDocCrawler:
                     errors,
                 )
 
-                elapsed = time.monotonic() - start_time
-                timeout_exceeded = config.overall_timeout is not None and elapsed >= config.overall_timeout
-
-                if limit_reached or (targets is not None and not targets) or timeout_exceeded:
-                    for pending_future in futures:
-                        if not pending_future.done():
-                            pending_future.cancel()
-                    if timeout_exceeded:
-                        message = f"Overall timeout of {config.overall_timeout}s exceeded after {elapsed:.1f}s"
-                        logger.warning(message)
-                        errors.append(message)
+                timeout_exceeded, elapsed = self._timeout_exceeded(config.overall_timeout, start_time)
+                if self._should_stop_processing(limit_reached, targets, timeout_exceeded):
+                    self._cancel_pending_futures(futures)
+                    self._append_timeout_error_if_needed(timeout_exceeded, config.overall_timeout, elapsed, errors)
                     break
 
         return errors
 
-    @staticmethod
-    def _apply_meeting_limits(meetings: list, limits: CrawlLimits) -> list:
+    @classmethod
+    def _apply_meeting_limits(cls, meetings: list[MeetingMetadata], limits: CrawlLimits) -> list[MeetingMetadata]:
         """Apply crawl limits to the meeting list."""
         limited = list(meetings)
-
-        if limits.limit_meetings is not None and limits.limit_meetings != 0:
-            limit = limits.limit_meetings
-            limited = limited[:limit] if limit > 0 else limited[limit:]
-
-        if limits.limit_meetings_per_wg is not None and limits.limit_meetings_per_wg != 0:
-            per_wg_limit = abs(limits.limit_meetings_per_wg)
-            per_wg_counts: dict[WorkingGroup, int] = {}
-            filtered: list = []
-            for meeting in limited:
-                working_group = meeting.working_group
-                count = per_wg_counts.get(working_group, 0)
-                if count >= per_wg_limit:
-                    continue
-                per_wg_counts[working_group] = count + 1
-                filtered.append(meeting)
-            limited = filtered
-
-        if limits.limit_wgs is not None and limits.limit_wgs != 0:
-            max_groups = abs(limits.limit_wgs)
-            seen_groups: set[WorkingGroup] = set()
-            filtered: list = []
-            for meeting in limited:
-                working_group = meeting.working_group
-                if working_group in seen_groups:
-                    filtered.append(meeting)
-                    continue
-                if len(seen_groups) >= max_groups:
-                    continue
-                seen_groups.add(working_group)
-                filtered.append(meeting)
-            limited = filtered
-
+        limited = cls._apply_total_meeting_limit(limited, limits.limit_meetings)
+        limited = cls._apply_meetings_per_wg_limit(limited, limits.limit_meetings_per_wg)
+        limited = cls._apply_working_group_limit(limited, limits.limit_wgs)
         return limited
+
+    @classmethod
+    def _parse_document_list_payload(cls, json_payload: str, meeting: MeetingMetadata, errors: list[str]) -> list[str] | None:
+        """Decode worker payload and validate expected list shape."""
+        short_name = cls._meeting_short_name(meeting)
+        try:
+            response_data = json.loads(json_payload)
+        except json.JSONDecodeError as exc:
+            message = f"Failed to parse document list response for meeting {short_name}: {exc}"
+            logger.warning(message)
+            errors.append(message)
+            return None
+
+        if isinstance(response_data, dict) and "_error" in response_data:
+            error_info = response_data["_error"]
+            message = f"Document list method failed for meeting {short_name}: {error_info.get('error', 'Unknown error')}"
+            logger.warning(message)
+            errors.append(message)
+            return None
+
+        if not isinstance(response_data, list):
+            message = f"Unexpected document list response for meeting {short_name}"
+            logger.warning(message)
+            errors.append(message)
+            return None
+
+        return response_data
+
+    @staticmethod
+    def _filter_meetings_by_ids(meetings: list[MeetingMetadata], meeting_ids: list[int] | None) -> list[MeetingMetadata]:
+        """Filter meetings by explicit meeting ID allowlist."""
+        if not meeting_ids:
+            return meetings
+        meeting_id_set = set(meeting_ids)
+        return [meeting for meeting in meetings if meeting.meeting_id in meeting_id_set]
+
+    @staticmethod
+    def _filter_meetings_by_start_date(
+        meetings: list[MeetingMetadata],
+        start_date: date | None,
+    ) -> list[MeetingMetadata]:
+        """Filter meetings with start date greater than or equal to provided date."""
+        if not start_date:
+            return meetings
+        return [meeting for meeting in meetings if meeting.start_date and meeting.start_date >= start_date]
+
+    @staticmethod
+    def _filter_meetings_by_end_date(
+        meetings: list[MeetingMetadata],
+        end_date: date | None,
+    ) -> list[MeetingMetadata]:
+        """Filter meetings with start date less than or equal to provided date."""
+        if not end_date:
+            return meetings
+        return [meeting for meeting in meetings if meeting.start_date and meeting.start_date <= end_date]
+
+    @staticmethod
+    def _resolve_max_tdocs(limit_tdocs: int | None) -> int | None:
+        """Normalize limit_tdocs into an absolute positive cap when set."""
+        if limit_tdocs is None or limit_tdocs == 0:
+            return None
+        return abs(limit_tdocs)
+
+    @staticmethod
+    def _normalize_targets(targets: set[str] | None) -> set[str] | None:
+        """Uppercase target IDs for case-insensitive matching."""
+        if targets is None:
+            return None
+        return {item.upper() for item in targets}
+
+    @staticmethod
+    def _create_executor_for_workers(workers: int) -> tuple[Any, str]:
+        """Create configured executor and return it with a label for logging."""
+        if workers == 1:
+            return create_executor("serial"), "serial"
+        return create_executor("multiprocessing", max_workers=workers), "multiprocessing"
+
+    @staticmethod
+    def _submit_meeting_futures(executor: Any, meetings: list[MeetingMetadata], config: TDocCrawlConfig) -> dict[Future[str], MeetingMetadata]:
+        """Submit worker tasks for each meeting and map futures back to meeting metadata."""
+        futures: dict[Future[str], MeetingMetadata] = {}
+        for meeting in meetings:
+            future = executor.submit(
+                fetch_meeting_document_list_subinterpreter,
+                meeting_id=meeting.meeting_id,
+                timeout=config.timeout,
+                http_cache=config.http_cache,
+                cache_manager_name=config.cache_manager_name,
+                files_url=meeting.files_url,
+            )
+            futures[future] = meeting
+        return futures
+
+    @staticmethod
+    def _cancel_pending_futures(futures: dict[Future[str], MeetingMetadata]) -> None:
+        """Cancel any not-yet-started/unfinished futures."""
+        for pending_future in futures:
+            if not pending_future.done():
+                pending_future.cancel()
+
+    @staticmethod
+    def _handle_future_error(future: Future[str], meeting: MeetingMetadata, errors: list[str]) -> str | None:
+        """Resolve future payload or collect error and return None on failure."""
+        try:
+            return future.result()
+        except Exception as exc:  # pragma: no cover - defensive, depends on network
+            short_name = meeting.short_name or str(meeting.meeting_id)
+            message = f"Meeting {short_name}: {exc}"
+            logger.warning(message)
+            errors.append(message)
+            return None
+
+    @staticmethod
+    def _timeout_exceeded(overall_timeout: float | None, start_time: float) -> tuple[bool, float]:
+        """Check elapsed crawl time against optional overall timeout."""
+        elapsed = time.monotonic() - start_time
+        if overall_timeout is None:
+            return False, elapsed
+        return elapsed >= overall_timeout, elapsed
+
+    @staticmethod
+    def _should_stop_processing(limit_reached: bool, targets: set[str] | None, timeout_exceeded: bool) -> bool:
+        """Determine whether crawl loop should stop after current completion."""
+        return limit_reached or (targets is not None and not targets) or timeout_exceeded
+
+    @staticmethod
+    def _append_timeout_error_if_needed(timeout_exceeded: bool, overall_timeout: float | None, elapsed: float, errors: list[str]) -> None:
+        """Record timeout message when loop exits because overall timeout was reached."""
+        if not timeout_exceeded or overall_timeout is None:
+            return
+        message = f"Overall timeout of {overall_timeout}s exceeded after {elapsed:.1f}s"
+        logger.warning(message)
+        errors.append(message)
+
+    @staticmethod
+    def _apply_total_meeting_limit(meetings: list[MeetingMetadata], limit: int | None) -> list[MeetingMetadata]:
+        """Apply absolute meeting count limit across all meetings."""
+        if limit is None or limit == 0:
+            return meetings
+        return meetings[:limit] if limit > 0 else meetings[limit:]
+
+    @staticmethod
+    def _apply_meetings_per_wg_limit(meetings: list[MeetingMetadata], per_wg_limit: int | None) -> list[MeetingMetadata]:
+        """Limit number of meetings per working group."""
+        if per_wg_limit is None or per_wg_limit == 0:
+            return meetings
+
+        max_per_wg = abs(per_wg_limit)
+        per_wg_counts: dict[WorkingGroup, int] = {}
+        filtered: list[MeetingMetadata] = []
+        for meeting in meetings:
+            working_group = meeting.working_group
+            count = per_wg_counts.get(working_group, 0)
+            if count >= max_per_wg:
+                continue
+            per_wg_counts[working_group] = count + 1
+            filtered.append(meeting)
+        return filtered
+
+    @staticmethod
+    def _apply_working_group_limit(meetings: list[MeetingMetadata], limit_wgs: int | None) -> list[MeetingMetadata]:
+        """Limit number of distinct working groups represented in meetings."""
+        if limit_wgs is None or limit_wgs == 0:
+            return meetings
+
+        max_groups = abs(limit_wgs)
+        seen_groups: set[WorkingGroup] = set()
+        filtered: list[MeetingMetadata] = []
+        for meeting in meetings:
+            working_group = meeting.working_group
+            if working_group in seen_groups:
+                filtered.append(meeting)
+                continue
+            if len(seen_groups) >= max_groups:
+                continue
+            seen_groups.add(working_group)
+            filtered.append(meeting)
+        return filtered
+
+    @staticmethod
+    def _meeting_short_name(meeting: MeetingMetadata) -> str:
+        """Return a stable meeting label for log and error messages."""
+        return meeting.short_name or str(meeting.meeting_id)
+
+    @staticmethod
+    def _should_include_tdoc(
+        tdoc_id: str,
+        seen_ids: set[str],
+        existing_ids: set[str],
+        incremental: bool,
+        targets: set[str] | None,
+    ) -> bool:
+        """Apply deduplication, incremental and target filters for one TDoc."""
+        if tdoc_id in seen_ids:
+            return False
+        if incremental and tdoc_id in existing_ids:
+            return False
+        return targets is None or tdoc_id in targets
+
+    @staticmethod
+    def _limit_reached(collected_count: int, max_tdocs: int | None) -> bool:
+        """Check whether global TDoc collection limit has been reached."""
+        return max_tdocs is not None and collected_count >= max_tdocs
 
     @staticmethod
     def _process_document_list_response(
@@ -240,39 +377,15 @@ class TDocCrawler:
         Returns True when a crawl limit (target IDs or limit_tdocs) has been
         reached and processing should stop.
         """
-        try:
-            response_data = json.loads(json_payload)
-        except json.JSONDecodeError as exc:
-            short_name = meeting.short_name or str(meeting.meeting_id)
-            message = f"Failed to parse document list response for meeting {short_name}: {exc}"
-            logger.warning(message)
-            errors.append(message)
-            return False
-
-        if isinstance(response_data, dict) and "_error" in response_data:
-            error_info = response_data["_error"]
-            short_name = meeting.short_name or str(meeting.meeting_id)
-            message = f"Document list method failed for meeting {short_name}: {error_info.get('error', 'Unknown error')}"
-            logger.warning(message)
-            errors.append(message)
-            return False
-
-        if not isinstance(response_data, list):
-            short_name = meeting.short_name or str(meeting.meeting_id)
-            message = f"Unexpected document list response for meeting {short_name}"
-            logger.warning(message)
-            errors.append(message)
+        response_data = TDocCrawler._parse_document_list_payload(json_payload, meeting, errors)
+        if response_data is None:
             return False
 
         for tdoc_json in response_data:
             metadata = TDocMetadata.model_validate_json(tdoc_json)
             tdoc_id = metadata.tdoc_id
 
-            if tdoc_id in seen_ids:
-                continue
-            if incremental and tdoc_id in existing_ids:
-                continue
-            if targets is not None and tdoc_id not in targets:
+            if not TDocCrawler._should_include_tdoc(tdoc_id, seen_ids, existing_ids, incremental, targets):
                 continue
 
             collected.append(metadata)
@@ -283,7 +396,7 @@ class TDocCrawler:
                 if not targets:
                     return True
 
-            if max_tdocs is not None and len(collected) >= max_tdocs:
+            if TDocCrawler._limit_reached(len(collected), max_tdocs):
                 return True
 
         return False

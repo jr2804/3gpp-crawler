@@ -33,6 +33,7 @@ dependencies = [
     "typer>=0.19.2",
     "xlsxwriter>=3.2.9",
     "zipinspect>=0.1.2",
+    "lxml>=6.0.2",
 ]
 
 [project.optional-dependencies]
