@@ -1,6 +1,7 @@
 [tools]
 "aqua:steveyegge/beads" = "latest"
 "github:yoanbernabeu/grepai" = "latest"
+"github:djinn-soul/CytoScnPy" = "latest"
 node = "latest"
 bun = "latest"
 
@@ -12,7 +13,7 @@ run = "mise tasks"
 
 [tasks.upgrade-tools]
 description = "Upgrade all development tools to their latest versions"
-run = "mise up"
+run = ["mise install", "mise up", "mise prune"]
 
 [tasks.env-sync]
 description = "Sync the virtual environment with pyproject.toml dependencies"
@@ -63,18 +64,22 @@ arg "[script]" help="Script variant to use: sh (bash/zsh) or ps (PowerShell)" de
 run = ["cls", "uv run specify init --here --ai {{usage.ai_agent}} --script {{usage.script}}", "uv run specify check"]
 
 [tasks.add-mcp-servers]
+
+depends = ["upgrade-tools", "env-sync"]
+
 usage = '''
 arg "<ai_agent>" help="AI assistant to use: claude, gemini, copilot, opencode, ... see: https://github.com/neondatabase/add-mcp"
 '''
 shell = "pwsh -NoProfile -Command"
 run = [
-    'bun x add-mcp  -y -a {{usage.ai_agent}} "grepai mcp-serve"',
-    'bun x add-mcp  -y -a {{usage.ai_agent}} -n teddi-mcp "uv run -m teddi_mcp server"'
+    'cls',
+    'bun x add-mcp -y -a {{usage.ai_agent}} "grepai mcp-serve"',
+    'bun x add-mcp -y -a {{usage.ai_agent}} -n teddi-mcp "uv run -m teddi_mcp server"',
+    'bun x add-mcp -y -a {{usage.ai_agent}} -n cytoscnpy-mcp "cytoscnpy mcp-server"'
 ]
 
 [tasks.add-skills]
 run = [
-    "@echo off",
     "cls",
     "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
     "bun x skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
