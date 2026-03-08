@@ -15,11 +15,6 @@ class WorkingGroup(StrEnum):
     CT = "CT"
 
     @property
-    def literal(self) -> str:
-        """Return single letter literal for this working group."""
-        return self.value[0].upper()
-
-    @property
     def tbid(self) -> int:
         """Return the technical body ID for this working group."""
         mapping: dict[WorkingGroup, int] = {
@@ -46,11 +41,6 @@ class WorkingGroupRecord(BaseModel):
     tbid: int = Field(..., description="Technical body identifier")
     code: str = Field(..., description="Canonical short code (e.g., 'RAN')")
     name: str = Field(..., description="Display name for the working group")
-
-    @property
-    def ftp_identifier(self) -> str:
-        """Return the FTP root path segment for the working group."""
-        return f"/tsg_{self.code.lower()}"
 
 
 WORKING_GROUP_RECORDS: tuple[WorkingGroupRecord, ...] = tuple(WorkingGroupRecord(tbid=wg.tbid, code=wg.value, name=wg.value) for wg in list(WorkingGroup))

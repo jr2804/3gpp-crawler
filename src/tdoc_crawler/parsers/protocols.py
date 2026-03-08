@@ -8,27 +8,6 @@ import requests
 
 
 @runtime_checkable
-class ParserProtocol(Protocol):
-    """Protocol for HTML/data parser implementations.
-
-    Parsers accept raw content (typically HTML strings) and return
-    structured data objects.
-    """
-
-    def parse(self, content: str, **kwargs: Any) -> Any:
-        """Parse raw content into structured data.
-
-        Args:
-            content: Raw content to parse (e.g., HTML string).
-            **kwargs: Parser-specific keyword arguments.
-
-        Returns:
-            Parsed structured data (type depends on implementation).
-        """
-        ...
-
-
-@runtime_checkable
 class ClientProtocol(Protocol):
     """Protocol for HTTP client abstractions used by parsers and sources.
 

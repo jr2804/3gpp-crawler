@@ -2,20 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
-
 import requests
-
-from tdoc_crawler.http_client.session import create_cached_session
-
-
-@runtime_checkable
-class HttpClientProvider(Protocol):
-    """Protocol for providing HTTP sessions."""
-
-    def get_session(self) -> requests.Session:
-        """Return a configured requests.Session for HTTP operations."""
-        ...
 
 
 class DefaultHttpClientProvider:
@@ -33,16 +20,6 @@ class DefaultHttpClientProvider:
         """
         self._cache_manager_name = cache_manager_name
         self._session: requests.Session | None = None
-
-    def get_session(self) -> requests.Session:
-        """Return a cached requests.Session with hishel caching enabled.
-
-        Returns:
-            A requests.Session configured with caching.
-        """
-        if self._session is None:
-            self._session = create_cached_session(cache_manager_name=self._cache_manager_name)
-        return self._session
 
     def close(self) -> None:
         """Close and release the cached session."""

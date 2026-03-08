@@ -47,24 +47,6 @@ class PortalParser:
             self._session = create_cached_session()
         return self._session
 
-    @staticmethod
-    def parse(html: str, tdoc_id: str, url: str | None = None) -> TDocMetadata:
-        """Parse TDoc metadata from portal HTML page.
-
-        Args:
-            html: HTML content of the TDoc portal page.
-            tdoc_id: TDoc identifier for logging.
-            url: Optional TDoc URL (if known).
-
-        Returns:
-            TDocMetadata instance with portal metadata.
-
-        Raises:
-            PortalParsingError: If TDoc not found, metadata table not found,
-                or mandatory fields missing.
-        """
-        return parse_tdoc_portal_page(html, tdoc_id, url)
-
 
 class PortalParsingError(Exception):
     """Raised when portal page parsing fails."""

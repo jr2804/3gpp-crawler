@@ -52,26 +52,6 @@ class MeetingParser:
             self._session = create_cached_session()
         return self._session
 
-    @staticmethod
-    def parse(
-        html: str,
-        working_group: WorkingGroup,
-        subgroup: str | None,
-        get_subtb: Callable[[str], int | None] | None = None,
-    ) -> list[MeetingMetadata]:
-        """Parse meeting page HTML into list of MeetingMetadata.
-
-        Args:
-            html: HTML content of meeting page.
-            working_group: The working group for these meetings.
-            subgroup: Optional subgroup name.
-            get_subtb: Optional callback to get subtb from subgroup code.
-
-        Returns:
-            List of parsed meeting metadata objects.
-        """
-        return parse_meeting_page(html, working_group, subgroup, get_subtb)
-
 
 def parse_meeting_page(
     html: str,
