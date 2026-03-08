@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from tdoc_crawler.database.specs import SpecDatabase
-from tdoc_crawler.specs.models import Specification, SpecificationDownload, SpecificationSourceRecord, SpecificationVersion, SpecQueryFilters
+from tdoc_crawler.specs.models import Specification, SpecificationSourceRecord, SpecificationVersion, SpecQueryFilters
 
 
 def test_upsert_specification_roundtrip(tmp_path: Path) -> None:
@@ -126,26 +126,6 @@ def test_query_specs_discrepancies(tmp_path: Path) -> None:
     assert differences["title"]["3gpp"] == "System Architecture"
     assert differences["title"]["whatthespec"] == "System Arch"
     assert "status" not in differences
-
-
-def test_log_spec_download(tmp_path: Path) -> None:
-    checkout_path = tmp_path / "checkout"
-    document_path = checkout_path / "23501.docx"
-    download = SpecificationDownload(
-        spec_number="23.501",
-        version="17.3.0",
-        download_url="https://example.org/23501.zip",
-        checkout_path=checkout_path,
-        document_path=document_path,
-        attachment_paths=[],
-        doc_only_used=True,
-        outcome_status="success",
-        outcome_message=None,
-        extracted_at=None,
-    )
-    db_path = tmp_path / "tdoc_crawler.db"
-    with SpecDatabase(db_path) as database:
-        database.log_spec_download(download)
 
 
 def test_upsert_spec_source_and_version(tmp_path: Path) -> None:

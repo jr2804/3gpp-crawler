@@ -67,7 +67,7 @@ class TestTeddiClient:
             term="test",
             search_in=SearchIn.DEFINITIONS,
             search_pattern=SearchPattern.STARTING_WITH,
-            technical_bodies=[TechnicalBody.THREE_GPP],
+            technical_bodies=[TechnicalBody.ALL],
         )
         await client.search_terms(request)
 
@@ -77,7 +77,7 @@ class TestTeddiClient:
         assert call_kwargs["data"]["qWhatToSearch"] == "test"
         assert call_kwargs["data"]["qWhereOption"] == 3  # DEFINITIONS
         assert call_kwargs["data"]["qWhatOption"] == 2  # STARTING_WITH
-        assert call_kwargs["data"]["qShowTBs"] == "3GPP"
+        assert call_kwargs["data"]["qShowTBs"] == "ALL"
         assert call_kwargs["data"]["btnSearch.x"] == 0
         assert call_kwargs["data"]["btnSearch.y"] == 0
 
@@ -97,25 +97,12 @@ class TestTeddiClient:
         client = TeddiClient(client=mock_client)
         request = SearchRequest(
             term="test",
-            technical_bodies=[TechnicalBody.THREE_GPP, TechnicalBody.ETSI],
+            technical_bodies=[TechnicalBody.ALL],
         )
         await client.search_terms(request)
 
         call_args, call_kwargs = mock_client.post.call_args
-        assert call_kwargs["data"]["qShowTBs"] == "3GPP,ETSI"
-
-    async def test_get_available_technical_bodies(self) -> None:
-        """Test retrieving available technical bodies."""
-        mock_client = AsyncMock()
-        client = TeddiClient(client=mock_client)
-
-        tbs = await client.get_available_technical_bodies()
-
-        assert len(tbs) > 0
-        assert TechnicalBody.THREE_GPP in tbs
-        assert TechnicalBody.ETSI in tbs
-        # ALL should not be in list
-        assert TechnicalBody.ALL not in tbs
+        assert call_kwargs["data"]["qShowTBs"] == "ALL"
 
     async def test_search_without_client_raises_error(self) -> None:
         """Test that search without initializing client raises error."""

@@ -31,14 +31,11 @@ class TestEnums:
     def test_technical_body_enum_has_expected_bodies(self) -> None:
         """Test TechnicalBody enum has expected values."""
         assert TechnicalBody.ALL.value == "all"
-        assert TechnicalBody.THREE_GPP.value == "3gpp"
-        assert TechnicalBody.ETSI.value == "etsi"
-        assert TechnicalBody.IETF.value == "ietf"
 
     def test_technical_body_enum_from_value(self) -> None:
         """Test creating TechnicalBody from string value."""
-        tb = TechnicalBody("3gpp")
-        assert tb == TechnicalBody.THREE_GPP
+        tb = TechnicalBody("all")
+        assert tb == TechnicalBody.ALL
 
     def test_output_format_enum_values(self) -> None:
         """Test OutputFormat enum has expected values."""
@@ -93,12 +90,12 @@ class TestDataClasses:
             term="QoS",
             search_in=SearchIn.DEFINITIONS,
             search_pattern=SearchPattern.STARTING_WITH,
-            technical_bodies=[TechnicalBody.THREE_GPP, TechnicalBody.ETSI],
+            technical_bodies=[TechnicalBody.ALL],
         )
         assert request.term == "QoS"
         assert request.search_in == SearchIn.DEFINITIONS
         assert request.search_pattern == SearchPattern.STARTING_WITH
-        assert len(request.technical_bodies) == 2
+        assert len(request.technical_bodies) == 1
 
     def test_search_response_creation(self) -> None:
         """Test SearchResponse creation with results."""

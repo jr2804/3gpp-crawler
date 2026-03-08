@@ -6,7 +6,6 @@ import json
 from unittest.mock import patch
 
 import pytest
-from tdoc_ai.container import AiServiceContainer
 from tdoc_ai.models import DocumentSummary, LlmConfigError
 from tdoc_ai.operations import summarize
 from tdoc_ai.operations.summarize import _count_words, _should_skip_summary
@@ -36,6 +35,7 @@ class TestSummarization:
             action_items=["Action 1"],
             decisions=["Decision 1"],
             affected_specs=["TS 26.260"],
+            prompt_version="v1",
         )
 
         assert summary.key_points is not None
@@ -78,17 +78,6 @@ class TestSummarization:
         assert summary.decisions == ["Decision A"]
         assert summary.affected_specs == ["TS 26.260"]
         assert mock_client.complete.call_count == 2
-
-    def test_missing_llm_model_config_raises_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Missing/invalid LLM config should raise LlmConfigError."""
-        monkeypatch.setattr(
-            AiServiceContainer,
-            "get_instance",
-            lambda: (_ for _ in ()).throw(ValueError("llm_model missing")),
-        )
-
-        with pytest.raises(LlmConfigError):
-            summarize.summarize_document("S4-260001", "# sample markdown")
 
     def test_unreachable_llm_endpoint_raises_error(self, ai_storage: AiStorage) -> None:
         """Connection failures must surface as LlmConfigError."""

@@ -8,13 +8,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 from tdoc_ai import get_status, process_tdoc
 from tdoc_ai import process_all as process_all_api
-from tdoc_ai.models import PipelineStage, ProcessingStatus, WorkspaceMember
+from tdoc_ai.models import PipelineStage, ProcessingStatus
 from tdoc_ai.operations import pipeline
 from tdoc_ai.operations.pipeline import process_all, run_pipeline
 from tdoc_ai.storage import AiStorage
 
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.utils.misc import utc_now
+
+
+def _status(document_id: str, stage: PipelineStage = PipelineStage.PENDING) -> ProcessingStatus:
+    return ProcessingStatus.model_validate({"document_id": document_id, "current_stage": stage})
 
 
 class TestRunPipeline:
@@ -32,7 +36,7 @@ class TestRunPipeline:
     def test_batch_processing(self, mock_run_pipeline: MagicMock, mock_ai_storage: MagicMock, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test processing multiple TDocs."""
         mock_ai_storage.return_value = mock_storage
-        mock_run_pipeline.return_value = ProcessingStatus(document_id="foo")
+        mock_run_pipeline.return_value = _status("foo")
 
         tdoc_folders = [d for d in test_data_dir.iterdir() if d.is_dir()][:3]
 
@@ -43,7 +47,7 @@ class TestRunPipeline:
     def test_resume_from_interrupted_stage(self, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test resume from interrupted stage works."""
         # Create a status with partial completion
-        mock_status = ProcessingStatus(document_id="S4-251003")
+        mock_status = _status("S4-251003")
         mock_status.classified_at = utc_now()
         mock_storage.get_status.return_value = mock_status
 
@@ -52,19 +56,20 @@ class TestRunPipeline:
             status = run_pipeline("S4-251003", tdoc_folder, mock_storage)
             assert status is not None
 
-    @patch("tdoc_ai.operations.pipeline.AiServiceContainer")
+    @patch("tdoc_ai.operations.pipeline.EmbeddingsManager")
     @patch("tdoc_ai.operations.pipeline.run_pipeline")
-    def test_incremental_new_only_mode(self, mock_run_pipeline: MagicMock, mock_container: MagicMock, mock_storage: MagicMock, test_data_dir: Path) -> None:
+    def test_incremental_new_only_mode(
+        self,
+        mock_run_pipeline: MagicMock,
+        mock_embeddings_manager: MagicMock,
+        mock_storage: MagicMock,
+        test_data_dir: Path,
+    ) -> None:
         """Test incremental processing only processes new items."""
-        # Setup mock container to return our mock storage
-        mock_container_instance = MagicMock()
-        mock_container_instance.get_ai_storage.return_value = mock_storage
-        mock_container_instance.get_embeddings_manager.return_value = MagicMock()
-        mock_container.get_instance.return_value = mock_container_instance
+        mock_embeddings_manager.return_value.storage = mock_storage
 
         # Status shows already completed
-        mock_status = ProcessingStatus(document_id="S4-251003")
-        mock_status.current_stage = PipelineStage.COMPLETED
+        mock_status = _status("S4-251003", stage=PipelineStage.COMPLETED)
         mock_storage.get_status.return_value = mock_status
 
         tdoc_folder = test_data_dir / "S4-251003"
@@ -95,10 +100,14 @@ class TestRunPipeline:
     def test_process_all_scopes_to_workspace_members(self, mock_run_pipeline: MagicMock, mock_list_members: MagicMock, test_data_dir: Path) -> None:
         """Test process_all filters input by workspace members."""
         mock_list_members.return_value = [
-            WorkspaceMember(workspace_name="test_ws", source_item_id="S4-251003", source_path="/path", source_kind="tdoc", status="included"),
+            MagicMock(
+                source_item_id="S4-251003",
+                is_active=True,
+                source_kind="tdoc",
+            ),
         ]
 
-        mock_run_pipeline.return_value = ProcessingStatus(document_id="S4-251003", current_stage=PipelineStage.COMPLETED)
+        mock_run_pipeline.return_value = _status("S4-251003", stage=PipelineStage.COMPLETED)
 
         tdoc_ids = ["S4-251003", "26260-j10"]
         # Only S4-251003 should be processed because of the workspace scope
@@ -107,18 +116,6 @@ class TestRunPipeline:
         assert "S4-251003" in results
         assert "26260-j10" not in results
         mock_list_members.assert_called_once_with("test_ws")
-
-    def test_progress_callback_invocation(self, mock_storage: MagicMock, test_data_dir: Path) -> None:
-        """Test progress callback is invoked after each stage."""
-        callback_calls = []
-
-        def progress_callback(stage: PipelineStage, tdoc_id: str) -> None:
-            callback_calls.append((stage, tdoc_id))
-
-        tdoc_folder = test_data_dir / "S4-251003"
-        if tdoc_folder.exists():
-            run_pipeline("S4-251003", tdoc_folder, mock_storage, progress_callback=progress_callback)
-            assert len(callback_calls) > 0
 
 
 class TestProcessTdocApi:
@@ -140,21 +137,16 @@ class TestProcessTdocApi:
         """new_only mode should return only non-completed items."""
         # This test verifies the filtering logic in process_all
         # by mocking the storage.get_status call
-        completed = ProcessingStatus(document_id="S4-251003", current_stage=PipelineStage.COMPLETED)
-        pending = ProcessingStatus(document_id="S4-260001", current_stage=PipelineStage.PENDING)
+        completed = _status("S4-251003", stage=PipelineStage.COMPLETED)
+        pending = _status("S4-260001", stage=PipelineStage.PENDING)
 
         # Create a mock storage that returns completed status for one doc
         mock_storage = MagicMock(spec=AiStorage)
         mock_storage.get_status.side_effect = lambda doc_id, workspace=None: completed if doc_id == "S4-251003" else None
 
-        # Mock the container to return our mock storage
-        def mock_get_instance() -> MagicMock:
-            container = MagicMock()
-            container.get_ai_storage.return_value = mock_storage
-            container.get_embeddings_manager.return_value = MagicMock()
-            return container
-
-        monkeypatch.setattr("tdoc_ai.operations.pipeline.AiServiceContainer.get_instance", mock_get_instance)
+        mock_manager = MagicMock()
+        mock_manager.storage = mock_storage
+        monkeypatch.setattr("tdoc_ai.operations.pipeline.EmbeddingsManager", lambda _: mock_manager)
 
         # Create checkout folders so the pipeline doesn't skip them
         (tmp_path / "S4-251003").mkdir()

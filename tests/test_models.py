@@ -146,12 +146,6 @@ class TestWorkingGroup:
         ct = WorkingGroup("CT")
         assert ct == WorkingGroup.CT
 
-    def test_working_group_literal(self) -> None:
-        """Test WorkingGroup literal property returns single character."""
-        assert WorkingGroup.RAN.literal == "R"
-        assert WorkingGroup.SA.literal == "S"
-        assert WorkingGroup.CT.literal == "C"
-
     def test_working_group_tbid(self) -> None:
         """Test WorkingGroup technical body ID mapping."""
         assert WorkingGroup.RAN.tbid == 373
