@@ -75,12 +75,27 @@ class EmbeddingsManager:
     def model(self) -> SentenceTransformer:
         """Return the sentence-transformers model, loading it lazily on first access."""
         if self._model is None:
-            self._model = SentenceTransformer(
-                self._config.embedding_model,
-                trust_remote_code=True,
-                device=None,  # uses GPU if available, otherwise CPU (note: OpenVINO backend requires device="cpu")
-            )
-            logger.info(f"Loaded embedding model: {self._config.embedding_model}")
+            try:
+                self._model = SentenceTransformer(
+                    self._config.embedding_model,
+                    trust_remote_code=True,
+                    device=None,  # uses GPU if available, otherwise CPU (note: OpenVINO backend requires device="cpu")
+                )
+                logger.info(f"Loaded embedding model: {self._config.embedding_model}")
+            except ImportError as e:
+                # Check if it's a version compatibility issue
+                error_msg = str(e)
+                if "Module" in error_msg or "sentence_transformers.models" in error_msg:
+                    raise RuntimeError(
+                        f"Model '{self._config.embedding_model}' requires an older version of sentence-transformers.\n"
+                        f"Current version: 3.x (installed: {self._get_sentence_transformers_version()})\n"
+                        f"This model requires sentence-transformers 2.x.\n"
+                        f"Options:\n"
+                        f"  1. Use a different embedding model compatible with sentence-transformers 3.x\n"
+                        f"  2. Use the default model: 'sentence-transformers/all-MiniLM-L6-v2'\n"
+                        f"  3. Use Perplexity API directly instead of local model"
+                    ) from e
+                raise RuntimeError(f"Failed to load embedding model '{self._config.embedding_model}': {e}") from e
 
         return self._model
 
@@ -185,6 +200,15 @@ class EmbeddingsManager:
 
         # Search in storage
         return storage.search_chunks(query_vector, top_k, workspace=normalized_workspace)
+
+    def _get_sentence_transformers_version(self) -> str:
+        """Get the installed sentence-transformers version."""
+        try:
+            import sentence_transformers
+
+            return sentence_transformers.__version__
+        except ImportError:
+            return "unknown"
 
     @classmethod
     def _chunk_by_paragraphs(cls, text: str, max_chars: int = DEFAULT_MAX_CHARS) -> list[str]:

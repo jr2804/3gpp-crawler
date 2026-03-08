@@ -23,6 +23,7 @@ from tdoc_ai.operations.workspaces import (
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
     list_workspace_members,
+    resolve_tdoc_checkout_path,
 )
 from tdoc_ai.storage import AiStorage
 from tdoc_crawler.config import resolve_cache_manager
@@ -389,28 +390,56 @@ def process_all(
                 progress_callback(PipelineStage.FAILED, document_id)
             continue
 
-        folder_path = Path(member.source_path) if member.source_path and Path(member.source_path).exists() else checkout_base / document_id
+        # Determine folder path using metadata-based resolution
+        folder_path = None
+        cache_manager = resolve_cache_manager()
 
-        # Check if folder has actual document files (not just .ai subfolder)
-        has_files = folder_path.exists() and any(f.is_file() for f in folder_path.iterdir())
-
-        # Try to re-checkout if folder doesn't exist or has no files
-        if not has_files:
-            logger.warning(f"Folder empty for {document_id} at {folder_path}, re-checkouting...")
-            cache_manager = resolve_cache_manager()
-            if member.source_kind == "tdoc":
+        if member.source_kind == "tdoc":
+            # First try to resolve from existing checkout structure
+            folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
+            # If not found, perform checkout
+            if not folder_path:
                 folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
-            elif member.source_kind == "spec":
-                release = "latest"
-                if member.source_item_id and "-REL" in member.source_item_id:
-                    release = member.source_item_id.split("-REL")[-1]
-                folder_path = checkout_spec_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, release=release)
+        elif member.source_kind == "spec":
+            # Extract base spec number and release from source_item_id (e.g., "21905-REL19" -> spec="21905", release="19")
+            base_spec = member.source_item_id
+            release = "latest"
+            if member.source_item_id and "-REL" in member.source_item_id:
+                parts = member.source_item_id.split("-REL")
+                base_spec = parts[0]
+                release = parts[1]
+            folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
 
         if not folder_path or not folder_path.exists():
             logger.warning(f"Checkout folder not found for {document_id}")
             if progress_callback:
                 progress_callback(PipelineStage.FAILED, document_id)
             continue
+
+        # Check if folder has actual files (not just empty folder)
+        has_files = any(f.is_file() for f in folder_path.iterdir())
+        if not has_files:
+            logger.warning(f"Checkout folder is empty for {document_id}, attempting re-checkout...")
+            # Try to re-checkout with fresh download
+            if member.source_kind == "tdoc":
+                folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
+            elif member.source_kind == "spec":
+                folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
+
+            # Verify re-checkout worked
+            if not folder_path or not folder_path.exists():
+                logger.error(f"Re-checkout failed for {document_id}")
+                if progress_callback:
+                    progress_callback(PipelineStage.FAILED, document_id)
+                continue
+
+            # Check again after re-checkout
+            has_files = any(f.is_file() for f in folder_path.iterdir())
+            if not has_files:
+                logger.error(f"Re-checkout produced empty folder for {document_id}")
+                if progress_callback:
+                    progress_callback(PipelineStage.FAILED, document_id)
+                continue
 
         try:
             # Get or create status for this document
@@ -453,28 +482,52 @@ def process_all(
                     progress_callback(PipelineStage.FAILED, document_id)
                 continue
 
-            folder_path = Path(member.source_path) if member.source_path and Path(member.source_path).exists() else checkout_base / document_id
+            # Determine folder path using metadata-based resolution
+            folder_path = None
+            cache_manager = resolve_cache_manager()
 
-            # Check if folder has actual document files (not just .ai subfolder)
-            has_files = folder_path.exists() and any(f.is_file() for f in folder_path.iterdir())
-
-            # Try to re-checkout if folder doesn't exist or has no files
-            if not has_files:
-                logger.info(f"Folder empty for {document_id} in Phase 2, re-checkouting...")
-                cache_manager = resolve_cache_manager()
-                if member.source_kind == "tdoc":
+            if member.source_kind == "tdoc":
+                folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
+                if not folder_path:
                     folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
-                elif member.source_kind == "spec":
-                    release = "latest"
-                    if member.source_item_id and "-REL" in member.source_item_id:
-                        release = member.source_item_id.split("-REL")[-1]
-                    folder_path = checkout_spec_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, release=release)
+            elif member.source_kind == "spec":
+                # Extract base spec number and release from source_item_id (e.g., "21905-REL19" -> spec="21905", release="19")
+                base_spec = member.source_item_id
+                release = "latest"
+                if member.source_item_id and "-REL" in member.source_item_id:
+                    parts = member.source_item_id.split("-REL")
+                    base_spec = parts[0]
+                    release = parts[1]
+                folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
 
             if not folder_path or not folder_path.exists():
                 logger.warning(f"Checkout folder not found for {document_id} in Phase 2")
                 if progress_callback:
                     progress_callback(PipelineStage.FAILED, document_id)
                 continue
+
+            # Check if folder has actual files (not just empty folder)
+            has_files = any(f.is_file() for f in folder_path.iterdir())
+            if not has_files:
+                logger.warning(f"Checkout folder is empty for {document_id} in Phase 2, attempting re-checkout...")
+                if member.source_kind == "tdoc":
+                    folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
+                elif member.source_kind == "spec":
+                    folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
+
+                # Verify re-checkout worked
+                if not folder_path or not folder_path.exists():
+                    logger.error(f"Re-checkout failed for {document_id} in Phase 2")
+                    if progress_callback:
+                        progress_callback(PipelineStage.FAILED, document_id)
+                    continue
+
+                has_files = any(f.is_file() for f in folder_path.iterdir())
+                if not has_files:
+                    logger.error(f"Re-checkout produced empty folder for {document_id} in Phase 2")
+                    if progress_callback:
+                        progress_callback(PipelineStage.FAILED, document_id)
+                    continue
 
             # Check if already embedded (skip if already done)
             # Note: If embeddings were manually deleted, use --force to reprocess
@@ -533,6 +586,7 @@ def process_all(
     return results
 
 
+# TODO: ambigious name, ambiguous argument, ambiguous return type - consider splitting into get_status(document_id) and list_statuses(workspace)
 def get_status(document_id: str | None = None, workspace: str | None = None) -> ProcessingStatus | list[ProcessingStatus] | None:
     """Get processing status for a TDoc or all TDocs in workspace.
 
@@ -587,7 +641,8 @@ def build_all_graphs(
     members_map: dict[str, Any] = {}
     if normalized_workspace != "default":
         members = list_workspace_members(normalized_workspace)
-        members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind == "tdoc"}
+        # Include both tdocs and specs
+        members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind in ("tdoc", "spec")}
 
     results: dict[str, ProcessingStatus] = {}
 
@@ -606,28 +661,33 @@ def build_all_graphs(
                 progress_callback(PipelineStage.GRAPHING, document_id)
             continue
 
-        # Determine folder path - use workspace member path if available
+        # Determine folder path using metadata-based resolution
         member = members_map.get(document_id)
+        cache_manager = resolve_cache_manager()
+
         if not member:
-            logger.warning(f"No workspace member found for {document_id} in graph phase")
-            continue
-
-        folder_path = Path(member.source_path) if member.source_path and Path(member.source_path).exists() else checkout_base / document_id
-
-        # Check if folder has actual document files (not just .ai subfolder)
-        has_files = folder_path.exists() and any(f.is_file() for f in folder_path.iterdir())
-
-        # Try to re-checkout if folder doesn't exist or has no files
-        if not has_files:
-            logger.info(f"Folder empty for {document_id} in graph phase, re-checkouting...")
-            cache_manager = resolve_cache_manager()
-            if member.source_kind == "tdoc":
+            # For specs, try to construct path from document_id
+            if "-REL" in document_id:
+                # Spec format: 26260-REL19
+                spec_number = document_id.split("-REL")[0]
+                release = document_id.split("-REL")[1]
+                folder_path = checkout_base / "specs" / f"{spec_number}-REL{release}" / spec_number
+            else:
+                logger.warning(f"No workspace member found for {document_id} in graph phase")
+                continue
+        elif member.source_kind == "tdoc":
+            folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
+            if not folder_path:
                 folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
-            elif member.source_kind == "spec":
-                release = "latest"
-                if member.source_item_id and "-REL" in member.source_item_id:
-                    release = member.source_item_id.split("-REL")[-1]
-                folder_path = checkout_spec_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, release=release)
+        else:  # member.source_kind == "spec"
+            # Extract base spec number and release from source_item_id (e.g., "21905-REL19" -> spec="21905", release="19")
+            base_spec = member.source_item_id
+            release = "latest"
+            if member.source_item_id and "-REL" in member.source_item_id:
+                parts = member.source_item_id.split("-REL")
+                base_spec = parts[0]
+                release = parts[1]
+            folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
 
         if not folder_path or not folder_path.exists():
             logger.warning(f"Checkout folder not found for {document_id} in graph phase")

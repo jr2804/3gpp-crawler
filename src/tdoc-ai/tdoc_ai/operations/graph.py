@@ -606,6 +606,8 @@ def query_graph(
     storage: AiStorage | None = None,
     workspace: str | None = None,
     query_level: GraphQueryLevel | str | None = None,
+    embedding_chunks: list[tuple[Any, float]] | None = None,
+    max_words: int = 300,
 ) -> dict:
     """Query knowledge graph for relevant nodes and edges.
 
@@ -619,6 +621,8 @@ def query_graph(
         workspace: Workspace name for filtering.
         query_level: Query sophistication level (simple|medium|advanced).
             If None, uses config default.
+        embedding_chunks: Optional retrieved document chunks for LLM synthesis.
+        max_words: Target word count for LLM-generated answer.
 
     Returns:
         Dict with 'answer', 'nodes', and 'edges' keys for CLI compatibility.
@@ -662,8 +666,13 @@ def query_graph(
         node_edges = [e for e in edges if node.node_id in (e.source_id, e.target_id)]
         results.append(GraphQueryResult(node=node, connected_edges=node_edges))
 
-    # Generate answer based on query level
-    answer = _generate_answer(query, matching_nodes, edges, query_level)
+    # Generate answer based on query level and context availability
+    if embedding_chunks and query_level in ("advanced", "medium"):
+        # Use LLM synthesis with RAG + GraphRAG context
+        answer = _synthesize_with_llm(query, embedding_chunks, matching_nodes, edges, max_words=300)
+    else:
+        # Use simple/medium keyword-based answer
+        answer = _generate_answer(query, matching_nodes, edges, query_level)
 
     # Log level - handle both string and Literal types
     level_str = query_level if isinstance(query_level, str) else str(query_level)
@@ -675,6 +684,91 @@ def query_graph(
         "nodes": [n.model_dump() for n in matching_nodes],
         "edges": [e.model_dump() for e in edges],
     }
+
+
+# Prompt for RAG + GraphRAG synthesis
+RAG_SYNTHESIS_PROMPT = """You are a technical analyst specializing in 3GPP TDoc documents.
+Answer the user's question based ONLY on the provided context from embeddings (RAG) and knowledge graph.
+
+Context:
+- EMBEDDINGS (RAG): Relevant document chunks retrieved by semantic similarity
+- GRAPH: Related entities and relationships from the knowledge graph
+
+Instructions:
+1. Answer the question based ONLY on the provided context
+2. If the context doesn't contain enough information, say so
+3. Cite specific document IDs and sections when possible
+4. Be concise but comprehensive (target: ~{max_words} words)
+
+Question: {query}
+
+Embedding Context:
+{embedding_context}
+
+Graph Context:
+{graph_context}
+
+Answer (aim for ~{max_words} words):"""
+
+
+def _synthesize_with_llm(
+    query: str,
+    embedding_chunks: list[tuple[Any, float]],
+    nodes: list[GraphNode],
+    edges: list[GraphEdge],
+    max_words: int = 300,
+) -> str:
+    """Synthesize answer using LLM with RAG + GraphRAG context.
+
+    Args:
+        query: User's question.
+        embedding_chunks: Retrieved document chunks with scores.
+        nodes: Relevant graph nodes.
+        edges: Related graph edges.
+        max_words: Target word count for the answer.
+
+    Returns:
+        LLM-generated answer.
+    """
+    from tdoc_ai.operations.summarize import _get_llm_client
+
+    # Build embedding context
+    embedding_context_parts = []
+    for chunk, score in embedding_chunks[:10]:  # Top 10 chunks
+        embedding_context_parts.append(f"- {chunk.document_id} (section: {chunk.section_heading}, score: {score:.3f}):\n  {chunk.content[:500]}")
+    embedding_context = "\n".join(embedding_context_parts) if embedding_context_parts else "No embedding context available."
+
+    # Build graph context
+    graph_context_parts = []
+    # Add node info
+    if nodes:
+        graph_context_parts.append(f"Relevant entities ({len(nodes)} nodes):")
+        for node in nodes[:20]:  # Top 20 nodes
+            graph_context_parts.append(f"- {node.node_type.value}: {node.node_id} - {node.label}")
+    # Add edge info
+    if edges:
+        graph_context_parts.append(f"\nRelationships ({len(edges)} edges):")
+        for edge in edges[:20]:  # Top 20 edges
+            graph_context_parts.append(f"- {edge.source_id} --[{edge.edge_type.value}]--> {edge.target_id}")
+    graph_context = "\n".join(graph_context_parts) if graph_context_parts else "No graph context available."
+
+    # Build prompt
+    prompt = RAG_SYNTHESIS_PROMPT.format(
+        query=query,
+        embedding_context=embedding_context,
+        graph_context=graph_context,
+        max_words=max_words,
+    )
+
+    # Call LLM - calculate roughly 1.3 tokens per word
+    int(max_words * 1.3)
+    try:
+        llm_client = _get_llm_client()
+        answer = llm_client.complete(prompt, max_tokens=4096)
+        return answer
+    except Exception as e:
+        logger.error(f"LLM synthesis failed: {e}")
+        return f"Error generating answer: {e}"
 
 
 def _generate_answer(

@@ -11,7 +11,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeRemainingColumn
 from rich.table import Table
 from tdoc_ai import (
     checkout_spec_to_workspace,
@@ -29,7 +29,7 @@ from tdoc_ai import (
     summarize_document,
 )
 from tdoc_ai.config import AiConfig
-from tdoc_ai.models import PipelineStage, SourceKind
+from tdoc_ai.models import SourceKind
 from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.operations.pipeline import process_all
 from tdoc_ai.operations.workspace_registry import WorkspaceRegistry
@@ -175,9 +175,13 @@ def ai_query(
     query: QueryOption = None,
     workspace: WorkspaceNameOption = None,
     top_k: EmbeddingTopKOption = 5,
+    words: int = typer.Option(300, "--words", help="Target word count for LLM answer (default: 300)"),
     json_output: JsonOutputOption = False,
 ) -> None:
-    """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG)."""
+    """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG).
+
+    Uses LLM to synthesize an answer from embedding and graph context.
+    """
     query_text = query or query_arg
     if not query_text:
         console.print("[red]Error: query is required (positional or --query).[/red]")
@@ -187,9 +191,16 @@ def ai_query(
     _get_cache_manager()  # Ensure cache manager is registered before config loads
     embeddings_manager = EmbeddingsManager(AiConfig.from_env())
 
-    embedding_results = embeddings_manager.query_embeddings(query_text, workspace or "default", top_k)
+    embedding_results = embeddings_manager.query_embeddings(query_text, resolved_workspace, top_k)
 
-    graph_result = query_graph(query_text, workspace=resolved_workspace)
+    # Pass embedding chunks to query_graph for LLM synthesis
+    graph_result = query_graph(
+        query_text,
+        workspace=resolved_workspace,
+        embedding_chunks=embedding_results,
+        max_words=words,
+        query_level="advanced",  # Always use LLM synthesis
+    )
 
     # Format results as expected by tests: {"query": ..., "results": [...]}
     formatted_results = []
@@ -216,7 +227,15 @@ def ai_query(
         answer = graph_result.get("answer", "")
         node_count = len(graph_result.get("nodes", []))
         edge_count = len(graph_result.get("edges", []))
-        console.print(f"[bold]Graph:[/bold] {answer} (nodes: {node_count}, edges: {edge_count})")
+
+        # Print answer - handle potential encoding issues
+        console.print("[bold]Answer:[/bold]")
+        try:
+            console.print(answer)
+        except Exception:
+            # Fallback: print as plain text
+            print(answer)
+        console.print(f"[dim](nodes: {node_count}, edges: {edge_count})[/dim]")
 
 
 @ai_app.command("process")
@@ -284,7 +303,7 @@ def ai_status(
             status_dict = result.model_dump() if hasattr(result, "model_dump") else result
             console.print(f"[green]Status for {document_id}:[/green]")
             for stage, completed in status_dict.items():
-                status = "✓" if completed else "✗"
+                status = "OK" if completed else "NO"
                 console.print(f"  {status} {stage}")
     else:
         # Get status for all documents in workspace
@@ -309,10 +328,10 @@ def ai_status(
                 status_dict = status.model_dump() if hasattr(status, "model_dump") else status
                 table.add_row(
                     status_dict.get("document_id", "unknown"),
-                    "✓" if status_dict.get("extracted_at") else "✗",
-                    "✓" if status_dict.get("summarized_at") else "✗",
-                    "✓" if status_dict.get("embedded_at") else "✗",
-                    "✓" if status_dict.get("graphed_at") else "✗",
+                    "OK" if status_dict.get("extracted_at") else "NO",
+                    "OK" if status_dict.get("summarized_at") else "NO",
+                    "OK" if status_dict.get("embedded_at") else "NO",
+                    "OK" if status_dict.get("graphed_at") else "NO",
                 )
             console.print(table)
 
@@ -690,9 +709,15 @@ def workspace_process(
     json_output: JsonOutputOption = False,
     limit: int | None = typer.Option(None, "--limit", "-l", help="Limit number of documents to process (for testing)"),
 ) -> None:
-    """Process all active document members in a workspace through the AI pipeline."""
+    """Process all active document members in a workspace through the AI pipeline.
+
+    Processing runs in three sequential phases:
+    Phase 1: CLASSIFY → EXTRACT (create markdown artifacts)
+    Phase 2: EMBED (generate vector embeddings)
+    Phase 3: GRAPH (build knowledge graph)
+    """
     workspace = resolve_workspace(workspace)
-    manager = _get_cache_manager()  # Already registered
+    manager = _get_cache_manager()
     is_windows = platform.system() == "Windows"
 
     # Get workspace members
@@ -711,106 +736,47 @@ def workspace_process(
             console.print(f"[yellow]No active members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
         return
 
-    # Create progress bars for each phase
-    # Phase 1: Extract (Classify + Extract)
-    # Phase 2: Embed
-    # Phase 3: Graph
-    phase_names = {
-        1: "Extracting (Classify + Extract)",
-        2: "Embedding",
-        3: "Building Graph",
-    }
-
-    # Track phase progression
-    current_phase = 0
-    processed_in_phase: dict[int, set[str]] = {1: set(), 2: set(), 3: set()}
-
-    def progress_callback(stage: PipelineStage, doc_id: str) -> None:
-        nonlocal current_phase
-
-        # Determine which phase this callback belongs to
-        if stage in (PipelineStage.CLASSIFYING, PipelineStage.EXTRACTING):
-            phase = 1
-        elif stage in (PipelineStage.EMBEDDING,):
-            phase = 2
-        elif stage in (PipelineStage.GRAPHING, PipelineStage.COMPLETED):
-            phase = 3
-        else:
-            phase = current_phase
-
-        # Phase transition
-        if phase != current_phase:
-            current_phase = phase
-            if not is_windows:
-                # Update all progress bars for phase transition
-                for p in (1, 2, 3):
-                    if p in progress.tasks:
-                        task = progress.tasks[p]
-                        if p < phase:
-                            progress.update(task, completed=task.total, description=f"[green]{phase_names[p]} - Done")
-                        elif p == phase:
-                            progress.update(task, description=f"[cyan]{phase_names[p]}")
-
-        # Update current phase progress
-        if is_windows:
-            if doc_id in processed_in_phase[phase]:
-                return
-            processed_in_phase[phase].add(doc_id)
-            console.print(f"[{len(processed_in_phase[phase])}/{len(document_ids)}] {phase_names[phase]}: {doc_id}")
-            return
-
-        if phase in progress.tasks and doc_id not in processed_in_phase[phase]:
-            processed_in_phase[phase].add(doc_id)
-            task = progress.tasks[phase]
-            progress.update(
-                task,
-                advance=1,
-                description=f"[cyan]{phase_names[phase]}: {doc_id}",
-            )
-
+    # Simple Windows output (no rich progress bar due to WindowsLegacyRenderer bugs)
     if is_windows:
         console.print(f"[cyan]Processing {len(document_ids)} document(s) in workspace '{normalize_workspace_name(workspace)}'...[/cyan]")
+        console.print("[dim]Phase 1: Extracting (Classify + Extract)[/dim]")
         results = process_all(
             document_ids=document_ids,
             checkout_base=manager.root,
             new_only=new_only,
             force_rerun=force_rerun,
             workspace=workspace,
-            progress_callback=progress_callback,
         )
+        console.print(f"[green]OK: Processed {len(results)} documents[/green]")
     else:
-        # Run pipeline with progress tracking
+        # Unix: Three separate progress bars, one per phase
         with Progress(
             SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}", justify="right"),
+            TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
-            TimeRemainingColumn(elapsed_when_finished=True),
-            TimeElapsedColumn(),
+            TimeRemainingColumn(),
             console=console,
             refresh_per_second=10,
         ) as progress:
-            # Add tasks for each phase (initially hidden)
-            tasks = {}
-            for phase in (1, 2, 3):
-                tasks[phase] = progress.add_task(
-                    f"[dim]{phase_names[phase]}",
-                    total=len(document_ids),
-                    visible=False,
-                )
-
-            # Show first phase
-            progress.update(tasks[1], visible=True)
-
-            # Process documents with progress tracking
+            # Phase 1: Extract
+            extract_task = progress.add_task("[cyan]Phase 1: Extracting (Classify + Extract)", total=len(document_ids))
             results = process_all(
                 document_ids=document_ids,
                 checkout_base=manager.root,
                 new_only=new_only,
                 force_rerun=force_rerun,
                 workspace=workspace,
-                progress_callback=progress_callback,
             )
+            progress.update(extract_task, completed=len(document_ids))
+
+            # Phase 2: Embed
+            embed_task = progress.add_task("[cyan]Phase 2: Embedding", total=len(document_ids))
+            progress.update(embed_task, completed=len(document_ids))
+
+            # Phase 3: Graph
+            graph_task = progress.add_task("[cyan]Phase 3: Building Graph", total=len(document_ids))
+            progress.update(graph_task, completed=len(document_ids))
 
     if json_output:
         typer.echo(
