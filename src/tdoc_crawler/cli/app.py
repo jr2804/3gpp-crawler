@@ -133,7 +133,7 @@ def checkout(
 
     manager = CacheManager(cache_dir).register()
     normalized_ids = [tid.strip().upper() for tid in tdoc_ids]
-    config = TDocQueryConfig(target_ids=normalized_ids)
+    config = TDocQueryConfig(tdoc_ids=normalized_ids)
 
     with create_cached_session() as session:
         with TDocDatabase(manager.db_file) as database:

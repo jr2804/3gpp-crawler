@@ -11,7 +11,7 @@ import typer
 
 from tdoc_crawler.logging import get_console, get_logger
 
-console = get_console()
+_ = get_console()
 logger = get_logger(__name__)
 
 

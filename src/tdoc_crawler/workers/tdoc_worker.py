@@ -8,7 +8,7 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import HttpCacheConfig
 from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
 
-logger = get_logger(__name__)
+_ = get_logger(__name__)
 
 
 def fetch_meeting_document_list_subinterpreter(

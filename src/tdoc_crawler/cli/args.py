@@ -52,7 +52,7 @@ IncrementalOption = Annotated[
 ]
 LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar="TDC_LIMIT_TDOCS")]
 ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
-OverallTimeoutOption = Annotated[
+_ = Annotated[
     int | None,
     typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)", envvar="TDC_OVERALL_TIMEOUT"),
 ]
@@ -99,7 +99,7 @@ AgendaPatternExcludeOption = Annotated[
 ClearSpecsOption = Annotated[bool, typer.Option("--clear-specs", help="Clear all specs before crawling")]
 TitleOption = Annotated[str | None, typer.Option("--title", help="Filter by title contains")]
 StatusOption = Annotated[str | None, typer.Option("--status", help="Filter by status")]
-SpecOption = Annotated[list[str] | None, typer.Option("--spec", help="Spec number(s) (dotted or undotted)")]
+_ = Annotated[list[str] | None, typer.Option("--spec", help="Spec number(s) (dotted or undotted)")]
 
 SpecFileOption = Annotated[Path | None, typer.Option("--spec-file", help="File with spec numbers")]
 ReleaseOption = Annotated[
@@ -169,7 +169,7 @@ QueryOption = Annotated[str | None, typer.Option("--query", help="Semantic searc
 WorkspaceNameOption = Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")]
 EmbeddingTopKOption = Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")]
 
-ProcessTDocIdOption = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")]
+_ = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")]
 EmbeddingBackendOption = Annotated[
     Literal["torch", "onnx", "openvino"],
     typer.Option(
@@ -179,7 +179,7 @@ EmbeddingBackendOption = Annotated[
         envvar="TDC_AI_EMBEDDING_BACKEND",
     ),
 ]
-CheckoutPathOption = Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")]
+_ = Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")]
 CheckoutBaseOption = Annotated[str | None, typer.Option("--checkout-base", help="Base path for checkout")]
 ProcessAllOption = Annotated[bool, typer.Option("--all", help="Process all documents in workspace")]
 ProcessNewOnlyOption = Annotated[bool, typer.Option("--new-only", help="Process only new documents")]

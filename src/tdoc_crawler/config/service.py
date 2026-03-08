@@ -76,17 +76,6 @@ class ConfigService:
             self._http_cache = HttpCacheConfig.resolve_http_cache_config(cache_file=self.cache_manager.http_cache_file)
         return self._http_cache
 
-    @property
-    def crawl_limits(self) -> CrawlLimits:
-        """Return crawl limits with all limits unset (use CLI overrides as needed).
-
-        Returns:
-            CrawlLimits instance with no restrictions applied.
-        """
-        if self._crawl_limits is None:
-            self._crawl_limits = CrawlLimits()
-        return self._crawl_limits
-
     @classmethod
     def from_env(cls, cache_manager_name: str | None = None) -> ConfigService:
         """Create ConfigService loading settings from environment variables.
