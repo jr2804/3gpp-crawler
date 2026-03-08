@@ -12,7 +12,6 @@ from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.models import (
     Specification,
-    SpecificationDownload,
     SpecificationSourceRecord,
     SpecificationVersion,
     SpecQueryFilters,
@@ -187,20 +186,6 @@ class SpecDatabase(DocDatabase):
             return result
         except Exception:
             return []
-
-    def log_spec_download(self, download: SpecificationDownload) -> None:
-        """Persist download/extraction outcomes for a spec version."""
-        record_id = download.record_id or f"{download.spec_number}:{download.version}"
-        # Convert Path objects to strings for SQLite compatibility
-        updated_download = download.model_copy(
-            update={
-                "record_id": record_id,
-                "checkout_path": str(download.checkout_path),
-                "document_path": str(download.document_path),
-                "attachment_paths": [str(p) for p in download.attachment_paths],
-            }
-        )
-        self.connection.add("spec_downloads", updated_download, pk="record_id")
 
     def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
         """Query stored spec metadata."""

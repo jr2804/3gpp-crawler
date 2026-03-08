@@ -4,7 +4,6 @@ import fnmatch
 import sqlite3
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Any
 
 from tdoc_crawler.database.meetings import MeetingDatabase
@@ -159,89 +158,6 @@ class TDocDatabase(MeetingDatabase):
             if meeting.tbid in allowed_tbids:
                 result.add(record.tdoc_id)
         return result
-
-    def get_processed_meetings(
-        self,
-        working_groups: Iterable[WorkingGroup] | None = None,
-        subgroups: Iterable[str] | None = None,
-    ) -> set[int]:
-        """Get set of meeting IDs that have TDocs stored.
-
-        Args:
-            working_groups: Optional list of working groups to filter by
-            subgroups: Optional list of subgroup codes to filter by
-
-        Returns:
-            Set of meeting IDs
-        """
-        records = self._table_rows("tdocs")
-
-        meeting_db = MeetingDatabase(self.db_file)
-        meeting_db._database = self._database  # Share connection
-        meeting_map = meeting_db._meeting_map()
-
-        allowed_tbids = {wg.tbid for wg in working_groups} if working_groups else None
-        allowed_subgroups = {value.strip().upper() for value in subgroups} if subgroups else None
-
-        processed: set[int] = set()
-        for record in records:
-            meeting_id = record.meeting_id
-            if meeting_id is None:
-                continue
-            meeting = meeting_map.get(meeting_id)
-            if meeting is None:
-                continue
-            if not self._meeting_matches_filters(meeting, allowed_tbids, allowed_subgroups):
-                continue
-            processed.add(meeting_id)
-        return processed
-
-    def cache_invalid_tdoc(
-        self,
-        tdoc_id: str,
-        url: str,
-        working_group: WorkingGroup,
-        subgroup: str,
-    ) -> None:
-        """Cache an invalid TDoc (for deduplication during crawling).
-
-        Args:
-            tdoc_id: TDoc identifier
-            url: TDoc URL
-            working_group: Working group
-            subgroup: Subgroup code
-        """
-        _ = (working_group, subgroup)
-        if self._get_tdoc(tdoc_id) is not None:
-            return
-
-        metadata = TDocMetadata(
-            tdoc_id=tdoc_id,
-            url=url,
-            meeting_id=0,
-            title="Unknown",
-            contact="Unknown",
-            source="Unknown",
-            tdoc_type="unknown",
-            for_purpose="unknown",
-            agenda_item_nbr=Decimal("0.0"),
-            agenda_item_text="Unknown",
-            status=None,
-            is_revision_of=None,
-            file_size=None,
-            date_created=None,
-            validated=False,
-            validation_failed=True,
-        )
-        self.connection.add("tdocs", metadata.model_copy(update={"date_updated": utc_now()}), pk="tdoc_id")
-
-    def get_cached_invalid_tdocs(self) -> set[str]:
-        """Get set of TDoc IDs marked as invalid.
-
-        Returns:
-            Set of invalid TDoc IDs
-        """
-        return {record.tdoc_id for record in self._table_rows("tdocs") if record.validation_failed}
 
     def _apply_pattern_filters(self, records: list[TDocMetadata], config: TDocQueryConfig) -> list[TDocMetadata]:
         """Apply all supported include/exclude glob filters."""

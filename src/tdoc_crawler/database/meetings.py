@@ -8,7 +8,7 @@ from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
-from tdoc_crawler.models.subworking_groups import CODE_INDEX, SUBTB_INDEX
+from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS, WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
@@ -147,37 +147,6 @@ class MeetingDatabase(DocDatabase):
         allowed = {wg.tbid for wg in working_groups}
         return {meeting.meeting_id for meeting in meetings if meeting.tbid in allowed}
 
-    def get_tdoc_count_for_meeting(self, meeting_id: int) -> int:
-        """Get the number of TDocs associated with a meeting.
-
-        Args:
-            meeting_id: The meeting identifier
-
-        Returns:
-            Number of TDocs for this meeting
-        """
-        tdocs = self._table_rows("tdocs")
-        return sum(1 for tdoc in tdocs if tdoc.meeting_id == meeting_id)
-
-    def update_meeting_tdoc_count(self, meeting_id: int, tdoc_count: int) -> None:
-        """Update the tdoc_count field for a meeting.
-
-        Args:
-            meeting_id: The meeting identifier
-            tdoc_count: The new TDoc count
-        """
-        meeting = self._get_meeting(meeting_id)
-        if meeting is None:
-            return
-
-        updated = meeting.model_copy(
-            update={
-                "tdoc_count": tdoc_count,
-                "updated_at": utc_now(),
-            }
-        )
-        self.connection.add("meetings", updated, pk="meeting_id")
-
     def resolve_meeting_id(self, meeting_name: str) -> int | None:
         """Resolve meeting name to meeting_id from database.
 
@@ -277,26 +246,6 @@ class MeetingDatabase(DocDatabase):
             "total_working_groups": len(WORKING_GROUP_RECORDS),
             "by_working_group": dict(by_working_group),
             "recent_crawls": recent_crawls,
-        }
-
-    @staticmethod
-    def get_subgroup_by_code(code: str) -> dict[str, int | str] | None:
-        """Get subgroup metadata by code.
-
-        Args:
-            code: Subgroup code (e.g., "S4", "R1")
-
-        Returns:
-            Dictionary with subgroup metadata or None if not found
-        """
-        record = CODE_INDEX.get(code.strip().upper())
-        if record is None:
-            return None
-        return {
-            "subtb": record.subtb,
-            "tbid": record.tbid,
-            "code": record.code,
-            "name": record.name,
         }
 
     def _meeting_map(self) -> dict[int, MeetingMetadata]:

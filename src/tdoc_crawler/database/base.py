@@ -69,14 +69,6 @@ class DocDatabase:
             raise DatabaseError.connection_not_open()
         return self._database
 
-    def clear_all_data(self) -> dict[str, int]:
-        """Clear all TDocs and meetings from database.
-
-        Returns:
-            Mapping of table name to deleted count
-        """
-        return self._clear_tables(self.model_map.keys())
-
     def clear_tdocs(self) -> int:
         """Clear all TDoc records from database.
 
@@ -85,15 +77,6 @@ class DocDatabase:
         """
         counts = self._clear_tables(["tdocs"])
         return counts.get("tdocs", 0)
-
-    def clear_meetings(self) -> int:
-        """Clear all meeting records from database.
-
-        Returns:
-            Number of meetings deleted
-        """
-        counts = self._clear_tables(["meetings"])
-        return counts.get("meetings", 0)
 
     def clear_specs(self) -> dict[str, int]:
         """Clear all spec-related records from database.

@@ -13,15 +13,3 @@ class DatabaseError(RuntimeError):
     @classmethod
     def connection_not_open(cls) -> DatabaseError:
         return cls("connection-not-open")
-
-    @classmethod
-    def crawl_log_persist_failed(cls) -> DatabaseError:
-        return cls("crawl-log-persist-failed")
-
-    @classmethod
-    def parse_failure(cls, entity: str, detail: str) -> DatabaseError:
-        return cls(f"{entity}-parse-failed", detail=detail)
-
-    @classmethod
-    def missing_datetime(cls) -> DatabaseError:
-        return cls("missing-required-datetime")
