@@ -6,11 +6,11 @@ import typer
 
 from teddi_mcp.models import OutputFormat, SearchIn, SearchPattern
 
-TermArgument = Annotated[
+_ = Annotated[
     str,
     typer.Argument(..., help="Term to search for"),
 ]
-SearchInOption = Annotated[
+_ = Annotated[
     SearchIn,
     typer.Option(
         SearchIn.BOTH,
@@ -18,7 +18,7 @@ SearchInOption = Annotated[
         help="Search scope: abbreviations, definitions, or both",
     ),
 ]
-SearchPatternOption = Annotated[
+_ = Annotated[
     SearchPattern,
     typer.Option(
         SearchPattern.ALL_OCCURRENCES,
@@ -26,7 +26,7 @@ SearchPatternOption = Annotated[
         help="Pattern matching: exactmatch, startingwith, endingwith, alloccurrences. Default: alloccurrences",
     ),
 ]
-TechnicalBodiesOption = Annotated[
+_ = Annotated[
     str | None,
     typer.Option(
         None,
@@ -34,7 +34,7 @@ TechnicalBodiesOption = Annotated[
         help="Comma-separated TB names to filter by (e.g., '3gpp,etsi'). Default: all",
     ),
 ]
-OutputFormatOption = Annotated[
+_ = Annotated[
     OutputFormat,
     typer.Option(
         OutputFormat.TABLE,

@@ -3,7 +3,7 @@
 import logging
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from teddi_mcp.models import DocumentRef, TermResult
 
@@ -119,7 +119,7 @@ def parse_teddi_response(html_content: str) -> list[TermResult]:
     return results
 
 
-def _parse_document_table(cell_content) -> list[DocumentRef]:
+def _parse_document_table(cell_content: Tag) -> list[DocumentRef]:
     """Parse nested table in 'Declared in document(s)' cell with TB grouping.
 
     Handles TB grouping: if TB column is empty, inherit from previous row.
