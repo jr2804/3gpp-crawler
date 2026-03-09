@@ -5,14 +5,18 @@ import logging
 from typing import Any
 
 import typer
+from ison_parser import dumps as ison_dumps
+from ison_parser import from_dict as ison_from_dict
 from rich.console import Console
 from rich.table import Table
+from toon_format import encode as toon_encode
 
 from teddi_mcp.models import (
     OutputFormat,
     SearchRequest,
     SearchResponse,
 )
+from teddi_mcp.server import main
 
 app = typer.Typer(help="TEDDI CLI - search and MCP server")
 search_app = typer.Typer(help="Search commands")
@@ -62,22 +66,9 @@ def _serialize_payload(payload: dict[str, Any], output: OutputFormat) -> str:
         return json.dumps(payload, indent=2)
 
     if output == OutputFormat.ISON:
-        try:
-            from ison_parser import dumps as ison_dumps
-            from ison_parser import from_dict as ison_from_dict
-        except ImportError as exc:
-            raise RuntimeError(
-                "ISON output requires 'ison-py' (module: ison_parser). Install dependencies and retry."
-            ) from exc
         return str(ison_dumps(ison_from_dict(payload)))
 
     if output == OutputFormat.TOON:
-        try:
-            from toon_format import encode as toon_encode
-        except ImportError as exc:
-            raise RuntimeError(
-                "TOON output requires 'toon-format'. Install dependencies and retry."
-            ) from exc
         return str(toon_encode(payload))
 
     raise RuntimeError(f"Unsupported output format: {output.value}")
@@ -120,7 +111,6 @@ def _render_table(term: str, response: SearchResponse) -> None:
 @app.command("server")
 def run_server() -> None:
     """Start the MCP server on stdio."""
-    from teddi_mcp.server import main
 
     console.print("[cyan]Starting TEDDI-MCP server...[/cyan]")
     main()
