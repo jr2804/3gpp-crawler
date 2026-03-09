@@ -106,7 +106,9 @@ class SpecDownloads:
 
             if not doc_only_success:
                 self._download_full_zip(url, target_dir / filename)
-                self._extract_zip(target_dir / filename, target_dir)
+                extract_subdir = target_dir / Path(filename).stem
+                self._extract_zip(target_dir / filename, extract_subdir)
+                return extract_subdir
 
             return target_dir
         except Exception as exc:
