@@ -2,6 +2,7 @@
 "aqua:steveyegge/beads" = "latest"
 "github:yoanbernabeu/grepai" = "latest"
 "github:djinn-soul/CytoScnPy" = "latest"
+"github:AlmogBaku/debug-skill" = "latest"
 node = "latest"
 bun = "latest"
 
@@ -84,5 +85,6 @@ run = [
     "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
     "bun x skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
     "bun x skills add https://github.com/hardikpandya/stop-slop -a universal -y",
-    "bun x skills add kreuzberg-dev/kreuzberg -a universal -y"
+    "bun x skills add kreuzberg-dev/kreuzberg -a universal -y",
+    "bun x skills add AlmogBaku/debug-skill -a universal -y"
 ]
