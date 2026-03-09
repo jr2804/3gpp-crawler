@@ -390,7 +390,7 @@ def _extract_spec_references(markdown: str) -> list[str]:
 
 
 # Prompt for concise summary with word count constraint
-CONCISE_SUMMARY_PROMPT = """Generate a summary of approximately {target_words} words for this document:
+CONCISE_SUMMARY_PROMPT = """Generate a summary of approximately {max_words} words or less for this document:
 
 {content}
 
@@ -407,16 +407,14 @@ Example output format: ["keyword1", "keyword2", "keyword3"]"""
 
 def summarize_tdoc(
     document_id: str,
-    words: int = 200,
-    format: str = "markdown",
+    max_words: int = 200,
     fetch_remote: bool = True,
 ) -> SummarizeResult:
     """Summarize a TDoc by ID.
 
     Args:
         document_id: Document identifier (e.g., "R1-2400001").
-        words: Target word count for summary (default: 200).
-        format: Output format - "markdown", "json", or "yaml" (default: "markdown").
+        max_words: Maximum word count for summary (default: 200).
         fetch_remote: If True, fetch TDoc metadata from WhatTheSpec if not local.
 
     Returns:
@@ -427,7 +425,6 @@ def summarize_tdoc(
         ValueError: If format is not supported.
     """
     # Normalize TDoc ID
-
     normalized_id = document_id.strip().upper()
 
     # Try to get metadata from WhatTheSpec
@@ -477,11 +474,11 @@ def summarize_tdoc(
     # Generate summary
     truncated_for_summary = _truncate_text(content, SUMMARY_INPUT_LIMIT)
     summary_prompt = CONCISE_SUMMARY_PROMPT.format(
-        target_words=words,
+        max_words=max_words,
         content=truncated_for_summary,
     )
     try:
-        summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=words * 4)
+        summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=max_words * 4)
     except Exception as exc:
         msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
         raise LlmConfigError(msg) from exc

@@ -670,7 +670,7 @@ def query_graph(
     # Generate answer based on query level and context availability
     if embedding_chunks and query_level in ("advanced", "medium"):
         # Use LLM synthesis with RAG + GraphRAG context
-        answer = _synthesize_with_llm(query, embedding_chunks, matching_nodes, edges, max_words=300)
+        answer = _synthesize_with_llm(query, embedding_chunks, matching_nodes, edges, max_words=max_words)
     else:
         # Use simple/medium keyword-based answer
         answer = _generate_answer(query, matching_nodes, edges, query_level)
@@ -699,7 +699,7 @@ Instructions:
 1. Answer the question based ONLY on the provided context
 2. If the context doesn't contain enough information, say so
 3. Cite specific document IDs and sections when possible
-4. Be concise but comprehensive (target: ~{max_words} words)
+4. Be concise but comprehensive (target: less than {max_words} words)
 
 Question: {query}
 
@@ -762,10 +762,10 @@ def _synthesize_with_llm(
     )
 
     # Call LLM - calculate roughly 1.3 tokens per word
-    int(max_words * 1.3)
+    max_tokens = max(4096, int(max_words * 1.3))
     try:
         llm_client = _get_llm_client()
-        answer = llm_client.complete(prompt, max_tokens=4096)
+        answer = llm_client.complete(prompt, max_tokens=max_tokens)
         return answer
     except Exception as e:
         logger.error(f"LLM synthesis failed: {e}")
