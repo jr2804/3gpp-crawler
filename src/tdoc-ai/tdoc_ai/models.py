@@ -9,12 +9,9 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tdoc_ai.config import AiConfig
+from tdoc_ai.operations.workspace_names import normalize_workspace_name
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
-
-
-# TODO: the same functions is re-defined in operations/extract.py, src/tdoc_crawler/tdocs/models.py and src/tdoc_crawler/tdocs/utils.py - should exist only at a single location!
-def _normalize_document_id(value: str) -> str:
-    return value.strip().upper()
 
 
 class PipelineStage(StrEnum):
@@ -124,11 +121,10 @@ class Workspace(BaseModel):
     @field_validator("workspace_name")
     @classmethod
     def _normalize_workspace_name(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if not normalized:
+        if not value.strip():
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
-        return normalized
+        return normalize_workspace_name(value)
 
 
 class WorkspaceMember(BaseModel):
@@ -145,16 +141,15 @@ class WorkspaceMember(BaseModel):
     @field_validator("workspace_name")
     @classmethod
     def _normalize_workspace_name(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if not normalized:
+        if not value.strip():
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
-        return normalized
+        return normalize_workspace_name(value)
 
     @field_validator("source_item_id")
     @classmethod
     def _normalize_source_item_id(cls, value: str) -> str:
-        normalized = value.strip().upper()
+        normalized = normalize_tdoc_id(value)
         if not normalized:
             msg = "source_item_id must not be empty"
             raise ValueError(msg)
@@ -173,11 +168,10 @@ class ArtifactScope(BaseModel):
     @field_validator("workspace_name")
     @classmethod
     def _normalize_workspace_name(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if not normalized:
+        if not value.strip():
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
-        return normalized
+        return normalize_workspace_name(value)
 
 
 class ProcessingStatus(BaseModel):
@@ -200,7 +194,11 @@ class ProcessingStatus(BaseModel):
     @field_validator("document_id")
     @classmethod
     def _normalize_document_id(cls, value: str) -> str:
-        return _normalize_document_id(value)
+        normalized = normalize_tdoc_id(value)
+        if not normalized:
+            msg = "document_id must not be empty"
+            raise ValueError(msg)
+        return normalized
 
 
 class DocumentClassification(BaseModel):
@@ -217,7 +215,11 @@ class DocumentClassification(BaseModel):
     @field_validator("document_id")
     @classmethod
     def _normalize_document_id(cls, value: str) -> str:
-        return _normalize_document_id(value)
+        normalized = normalize_tdoc_id(value)
+        if not normalized:
+            msg = "document_id must not be empty"
+            raise ValueError(msg)
+        return normalized
 
     @field_validator("confidence")
     @classmethod
@@ -261,7 +263,11 @@ class DocumentChunk(BaseModel):
     @field_validator("document_id")
     @classmethod
     def _normalize_document_id(cls, value: str) -> str:
-        return _normalize_document_id(value)
+        normalized = normalize_tdoc_id(value)
+        if not normalized:
+            msg = "document_id must not be empty"
+            raise ValueError(msg)
+        return normalized
 
 
 class QueryResult(BaseModel):
@@ -275,7 +281,11 @@ class QueryResult(BaseModel):
     @field_validator("document_id")
     @classmethod
     def _normalize_document_id(cls, value: str) -> str:
-        return _normalize_document_id(value)
+        normalized = normalize_tdoc_id(value)
+        if not normalized:
+            msg = "document_id must not be empty"
+            raise ValueError(msg)
+        return normalized
 
 
 class DocumentSummary(BaseModel):
@@ -287,14 +297,21 @@ class DocumentSummary(BaseModel):
     action_items: list[str] = Field(default_factory=list, description="Action items")
     decisions: list[str] = Field(default_factory=list, description="Decisions recorded")
     affected_specs: list[str] = Field(default_factory=list, description="Affected specification IDs")
-    llm_model: str = Field(default_factory=lambda: AiConfig().llm_model, description="Model used for generation")
+    llm_model: str = Field(
+        default_factory=lambda: AiConfig().llm_model,
+        description="Model used for generation",
+    )
     prompt_version: str = Field("v1", description="Prompt template version")
     generated_at: datetime = Field(default_factory=utc_now, description="Generation timestamp")
 
     @field_validator("document_id")
     @classmethod
     def _normalize_document_id(cls, value: str) -> str:
-        return _normalize_document_id(value)
+        normalized = normalize_tdoc_id(value)
+        if not normalized:
+            msg = "document_id must not be empty"
+            raise ValueError(msg)
+        return normalized
 
 
 class GraphNode(BaseModel):

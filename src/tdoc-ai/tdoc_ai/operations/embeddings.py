@@ -204,7 +204,7 @@ class EmbeddingsManager:
     def _get_sentence_transformers_version(self) -> str:
         """Get the installed sentence-transformers version."""
         try:
-            import sentence_transformers
+            import sentence_transformers  # noqa: PLC0415
 
             return sentence_transformers.__version__
         except ImportError:

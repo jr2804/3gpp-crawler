@@ -6,6 +6,7 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from tdoc_ai.config import AiConfig, GraphQueryLevel
 from tdoc_ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType, GraphQueryResult
@@ -730,7 +731,7 @@ def _synthesize_with_llm(
     Returns:
         LLM-generated answer.
     """
-    from tdoc_ai.operations.summarize import _get_llm_client
+    from tdoc_ai.operations.summarize import _get_llm_client  # noqa: PLC0415
 
     # Build embedding context
     embedding_context_parts = []

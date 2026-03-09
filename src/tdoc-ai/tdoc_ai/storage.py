@@ -489,7 +489,7 @@ def _chunk_schema(embedding_dimension: int) -> pa.Schema:
     """Create schema for document chunks with fixed-size vector.
 
     Args:
-        pa.field("vector", pa.list_(pa.float32(), embedding_dimension)),
+        embedding_dimension: Dimension of the embedding vectors.
 
     Returns:
         PyArrow schema with FixedSizeList vector field.

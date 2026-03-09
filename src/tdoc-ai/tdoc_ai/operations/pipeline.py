@@ -293,6 +293,7 @@ def process_tdoc(
         checkout_path: Path to the TDoc checkout folder.
         force_rerun: If True, skip resume logic and run all stages.
         workspace: Optional workspace scope (defaults to "default").
+        config: Optional AI configuration (defaults to environment config).
 
     Returns:
         ProcessingStatus with final pipeline state.
