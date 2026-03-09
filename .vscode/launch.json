@@ -12,6 +12,19 @@
 			"console": "integratedTerminal",
 		},
 		{
+			"name": "Debug: ai query",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "tdoc_crawler",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"ai",
+				"query",
+				"Can you provide a summary of the test methods for IVAS-capable devices?",
+			]
+		},
+		{
 			"name": "Debug: ai workspace process",
 			"type": "debugpy",
 			"request": "launch",
