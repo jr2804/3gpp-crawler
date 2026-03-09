@@ -22,6 +22,8 @@ class TestGraph:
             node_id="SP-123456",
             node_type=GraphNodeType.TDOC,
             label="Test TDoc",
+            valid_from=None,
+            valid_to=None,
         )
         assert node.node_type == GraphNodeType.TDOC
 
@@ -44,7 +46,7 @@ class TestGraph:
             edge_id="SP-123456->discusses->SP-123457",
             source_id="SP-123456",
             target_id="SP-123457",
-            edge_type=GraphEdgeType.REVISES,
+            edge_type=GraphEdgeType.REVISION_OF,
             weight=1.0,
             temporal_context="SA#123",
             provenance="extracted_from_tdoc",
@@ -54,7 +56,7 @@ class TestGraph:
     def test_incremental_update_adds_without_rebuild(self, mock_storage: MagicMock) -> None:
         """Test incremental update adds without full rebuild."""
         # Setup: Create initial graph with one node
-        initial_nodes = [GraphNode(node_id="S4-250001", node_type=GraphNodeType.TDOC, label="Initial TDoc")]
+        initial_nodes = [GraphNode(node_id="S4-250001", node_type=GraphNodeType.TDOC, label="Initial TDoc", valid_from=None, valid_to=None)]
         initial_edges: list[GraphEdge] = []
 
         # Mock query_graph to return existing nodes
@@ -89,6 +91,8 @@ class TestGraph:
                 label="TDoc 1",
                 properties={"meeting_id": "SA4#123"},
                 created_at=datetime(2025, 1, 15),
+                valid_from=None,
+                valid_to=None,
             ),
             GraphNode(
                 node_id="SP-123002",
@@ -96,6 +100,8 @@ class TestGraph:
                 label="TDoc 2",
                 properties={"meeting_id": "SP#123"},
                 created_at=datetime(2025, 3, 20),
+                valid_from=None,
+                valid_to=None,
             ),
             GraphNode(
                 node_id="RP-880003",
@@ -103,6 +109,8 @@ class TestGraph:
                 label="TDoc 3",
                 properties={"meeting_id": "RP#88"},
                 created_at=datetime(2025, 2, 10),
+                valid_from=None,
+                valid_to=None,
             ),
         ]
         edges: list[GraphEdge] = []
@@ -112,18 +120,18 @@ class TestGraph:
         mock_storage.get_all_graph_edges.return_value = edges
         mock_storage.query_graph.return_value = (nodes, edges)
 
-        # Query with temporal filtering - query_graph returns dict with 'results' key
+        # Query with temporal filtering - query_graph returns dict with 'nodes' key
         results = graph.query_graph(query="all tdocs", storage=mock_storage, meeting_ids=["SA4#123", "SP#123", "RP#88"])
 
-        # Extract nodes from results
-        filtered_nodes = [r.node for r in results["results"]]
+        # Extract nodes from results - query_graph returns {"answer": ..., "nodes": ..., "edges": ...}
+        filtered_nodes = results["nodes"]
 
         # Verify results are sorted chronologically by created_at
         assert len(filtered_nodes) == 3
         # First should be Jan, then Feb, then Mar
-        assert filtered_nodes[0].node_id == "S4-250001"  # Jan 15
-        assert filtered_nodes[1].node_id == "RP-880003"  # Feb 10
-        assert filtered_nodes[2].node_id == "SP-123002"  # Mar 20
+        assert filtered_nodes[0]["node_id"] == "S4-250001"  # Jan 15
+        assert filtered_nodes[1]["node_id"] == "RP-880003"  # Feb 10
+        assert filtered_nodes[2]["node_id"] == "SP-123002"  # Mar 20
 
     def test_explicit_tdoc_reference_creates_edge(self, mock_storage: MagicMock) -> None:
         """Test explicit TDoc-ID reference creates references edge."""

@@ -138,7 +138,7 @@ class TestProcessTdocApi:
         # This test verifies the filtering logic in process_all
         # by mocking the storage.get_status call
         completed = _status("S4-251003", stage=PipelineStage.COMPLETED)
-        pending = _status("S4-260001", stage=PipelineStage.PENDING)
+        _status("S4-260001", stage=PipelineStage.PENDING)
 
         # Create a mock storage that returns completed status for one doc
         mock_storage = MagicMock(spec=AiStorage)
@@ -152,11 +152,18 @@ class TestProcessTdocApi:
         (tmp_path / "S4-251003").mkdir()
         (tmp_path / "S4-260001").mkdir()
 
-        # Mock run_pipeline to avoid actual processing
-        def mock_run_pipeline(doc_id: str, folder_path: Path, storage: AiStorage, **kwargs) -> ProcessingStatus:
-            return completed if doc_id == "S4-251003" else pending
+        # Mock the internal stage functions to avoid actual processing
+        def mock_classify_stage(doc_id: str, folder_path: Path, storage: AiStorage, status: ProcessingStatus, **kwargs) -> None:
+            status.current_stage = PipelineStage.CLASSIFYING
+            status.classified_at = utc_now()
 
-        monkeypatch.setattr("tdoc_ai.operations.pipeline.run_pipeline", mock_run_pipeline)
+        def mock_extract_stage(doc_id: str, folder_path: Path, storage: AiStorage, status: ProcessingStatus, **kwargs) -> str:
+            status.current_stage = PipelineStage.EXTRACTING
+            status.extracted_at = utc_now()
+            return "mocked markdown"
+
+        monkeypatch.setattr("tdoc_ai.operations.pipeline._run_classify_stage", mock_classify_stage)
+        monkeypatch.setattr("tdoc_ai.operations.pipeline._run_extract_stage", mock_extract_stage)
 
         result = process_all_api(
             document_ids=["S4-251003", "S4-260001"],

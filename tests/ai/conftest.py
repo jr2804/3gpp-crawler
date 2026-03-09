@@ -138,6 +138,7 @@ def mock_storage() -> MagicMock:
     """
     mock = MagicMock()
     mock.get_status.return_value = None
+    mock.query_graph.return_value = ([], [])
     return mock
 
 

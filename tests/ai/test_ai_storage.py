@@ -52,28 +52,44 @@ def test_remove_workspace_member_operation_expected() -> None:
 def test_storage_artifact_isolation_by_workspace(ai_storage: AiStorage) -> None:
     """US3: artifacts (status, chunks) are isolated by workspace."""
     # Save status for workspace A
-    status_a = ProcessingStatus(document_id="DOC-1", current_stage=PipelineStage.COMPLETED)
+    status_a = ProcessingStatus(
+        document_id="DOC-1",
+        current_stage=PipelineStage.COMPLETED,
+        classified_at=None,
+        extracted_at=None,
+        embedded_at=None,
+        summarized_at=None,
+        graphed_at=None,
+        completed_at=None,
+        error_message=None,
+        failure_type=None,
+        source_hash=None,
+        keywords=None,
+        detected_language=None,
+    )
     ai_storage.save_status(status_a, workspace="ws_a")
 
     # Save chunks for workspace A
-    # Vector dimension must match storage's embedding_dimension (usually 384 for all-MiniLM-L6-v2)
+    # Vector dimension must match storage's embedding_dimension
+    embedding_dim = ai_storage.embedding_dimension
     chunk_a = DocumentChunk(
+        chunk_id="DOC-1:C1",
         document_id="DOC-1",
-        chunk_id="C1",
+        section_heading=None,
         chunk_index=0,
         text="text a",
-        metadata={"test": "a"},
         char_offset_start=0,
         char_offset_end=6,
-        vector=[0.1] * 384,  # 384-dimensional vector
+        vector=[0.1] * embedding_dim,  # Use actual storage dimension
         embedding_model="test",
     )
     ai_storage.save_chunks([chunk_a], workspace="ws_a")
 
     # Should not exist in workspace B
     assert ai_storage.get_status("DOC-1", workspace="ws_b") is None
-    assert len(ai_storage.get_chunks("DOC-1", workspace="ws_b")) == 0
+    # Use search_chunks with a dummy vector to check existence
+    assert len(ai_storage.search_chunks([0.0] * embedding_dim, top_k=10, workspace="ws_b")) == 0
 
     # Should exist in workspace A
     assert ai_storage.get_status("DOC-1", workspace="ws_a") is not None
-    assert len(ai_storage.get_chunks("DOC-1", workspace="ws_a")) == 1
+    assert len(ai_storage.search_chunks([0.1] * embedding_dim, top_k=10, workspace="ws_a")) == 1
