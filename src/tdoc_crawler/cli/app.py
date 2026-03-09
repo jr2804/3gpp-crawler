@@ -232,7 +232,7 @@ def _register_optional_ai_commands() -> None:
         return
 
     try:
-        from tdoc_crawler.cli.ai import ai_app
+        from tdoc_crawler.cli.ai import ai_app  # noqa: PLC0415
     except ImportError:
         return
     app.add_typer(ai_app, name="ai", help="AI document processing")

@@ -84,7 +84,7 @@ from tdoc_crawler.cli.args import (
     WorkspaceProcessNewOnlyOption,
     WorkspaceReleaseOption,
 )
-from tdoc_crawler.config import CacheManager
+from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
@@ -98,8 +98,6 @@ _logger = logging.getLogger(__name__)
 @cache
 def _get_cache_manager() -> CacheManager:
     """Get or create the default cache manager (avoids repeated register() calls)."""
-    from tdoc_crawler.config import resolve_cache_manager
-
     # Check if already registered
     try:
         return resolve_cache_manager("default")
