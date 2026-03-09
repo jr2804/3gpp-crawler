@@ -129,7 +129,7 @@ class LiteLLMClient:
             api_key = os.environ.get("TDC_AI_LLM_API_KEY")
 
             response = litellm.completion(
-                model=model or AiConfig().llm_model,
+                model=model or AiConfig.from_env().llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
