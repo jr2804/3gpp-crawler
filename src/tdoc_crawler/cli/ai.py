@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import platform
 from datetime import UTC, datetime
 from functools import cache
@@ -22,6 +23,7 @@ from tdoc_ai import (
     ensure_ai_subfolder,
     get_active_workspace,
     get_status,
+    list_statuses,
     make_workspace_member,
     normalize_workspace_name,
     query_graph,
@@ -86,9 +88,11 @@ from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
+from tdoc_crawler.utils.normalization import resolve_release_to_full_version
 
 ai_app = typer.Typer(help="AI document processing commands")
 console = Console()
+_logger = logging.getLogger(__name__)
 
 
 @cache
@@ -307,10 +311,10 @@ def ai_status(
                 console.print(f"  {status} {stage}")
     else:
         # Get status for all documents in workspace
-        # Ensure cache manager is registered before calling get_status
+        # Ensure cache manager is registered before calling list_statuses
         _get_cache_manager()
-        # get_status without document_id returns a list
-        statuses = get_status(workspace=workspace)
+        # list_statuses returns all statuses in workspace
+        statuses = list_statuses(workspace=workspace)
 
         if json_output:
             # Convert all ProcessingStatus objects to dicts
@@ -633,8 +637,20 @@ def workspace_add_members(
                 ensure_ai_subfolder(checkout_path)
 
         # For specs, include release version in source_item_id to allow multiple versions
-        # TODO: the variable release should always be fully resolved to an actual version with three digits, e.g., "17.0.0" instead of "latest", "17.0" or "17"
-        source_item_id = f"{item}-REL{release}" if source_kind == SourceKind.SPEC and release else item
+        # Resolve release to full 3-digit version (e.g., "17.0.0" instead of "latest" or "17")
+        resolved_release: str | None = release
+        if source_kind == SourceKind.SPEC and release:
+            try:
+                # Get available versions for this spec from database
+                with TDocDatabase(manager.db_file) as db:
+                    available_versions = db.get_spec_versions(item)
+                    if available_versions:
+                        version_list = [v.version for v in available_versions]
+                        resolved_release = resolve_release_to_full_version(release, version_list)
+            except Exception as e:
+                _logger.debug(f"Could not resolve release version for {item}: {e}")
+                resolved_release = release
+        source_item_id = f"{item}-REL{resolved_release}" if source_kind == SourceKind.SPEC and release else item
         members.append(make_workspace_member(workspace, source_item_id, source_path, source_kind))
 
     # Report skipped items

@@ -153,8 +153,8 @@ class TDocCrawler:
         """Apply crawl limits to the meeting list."""
         limited = list(meetings)
         limited = cls._apply_total_meeting_limit(limited, limits.limit_meetings)
-        limited = cls._apply_meetings_per_wg_limit(limited, limits.limit_meetings_per_wg)
-        limited = cls._apply_working_group_limit(limited, limits.limit_wgs)
+        limited = cls._apply_meetings_per_subwg_limit(limited, limits.limit_meetings_per_subwg)
+        limited = cls._apply_subworking_group_limit(limited, limits.limit_subwgs)
         return limited
 
     @classmethod
@@ -298,30 +298,30 @@ class TDocCrawler:
         return meetings[:limit] if limit > 0 else meetings[limit:]
 
     @staticmethod
-    def _apply_meetings_per_wg_limit(meetings: list[MeetingMetadata], per_wg_limit: int | None) -> list[MeetingMetadata]:
-        """Limit number of meetings per working group."""
-        if per_wg_limit is None or per_wg_limit == 0:
+    def _apply_meetings_per_subwg_limit(meetings: list[MeetingMetadata], per_subwg_limit: int | None) -> list[MeetingMetadata]:
+        """Limit number of meetings per sub-working group."""
+        if per_subwg_limit is None or per_subwg_limit == 0:
             return meetings
 
-        max_per_wg = abs(per_wg_limit)
-        per_wg_counts: dict[WorkingGroup, int] = {}
+        max_per_subwg = abs(per_subwg_limit)
+        per_subwg_counts: dict[WorkingGroup, int] = {}
         filtered: list[MeetingMetadata] = []
         for meeting in meetings:
             working_group = meeting.working_group
-            count = per_wg_counts.get(working_group, 0)
-            if count >= max_per_wg:
+            count = per_subwg_counts.get(working_group, 0)
+            if count >= max_per_subwg:
                 continue
-            per_wg_counts[working_group] = count + 1
+            per_subwg_counts[working_group] = count + 1
             filtered.append(meeting)
         return filtered
 
     @staticmethod
-    def _apply_working_group_limit(meetings: list[MeetingMetadata], limit_wgs: int | None) -> list[MeetingMetadata]:
-        """Limit number of distinct working groups represented in meetings."""
-        if limit_wgs is None or limit_wgs == 0:
+    def _apply_subworking_group_limit(meetings: list[MeetingMetadata], limit_subwgs: int | None) -> list[MeetingMetadata]:
+        """Limit number of distinct sub-working groups represented in meetings."""
+        if limit_subwgs is None or limit_subwgs == 0:
             return meetings
 
-        max_groups = abs(limit_wgs)
+        max_groups = abs(limit_subwgs)
         seen_groups: set[WorkingGroup] = set()
         filtered: list[MeetingMetadata] = []
         for meeting in meetings:

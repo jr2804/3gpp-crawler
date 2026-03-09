@@ -20,26 +20,26 @@ class CrawlLimits(BaseConfigModel):
         None,
         description="Maximum meetings to crawl overall (negative for newest N)",
     )
-    limit_meetings_per_wg: int | None = Field(
+    limit_meetings_per_subwg: int | None = Field(
         None,
-        description="Per working group meeting limit",
+        description="Per sub-working group meeting limit",
     )
-    limit_wgs: int | None = Field(None, description="Maximum number of working groups to process")
+    limit_subwgs: int | None = Field(None, description="Maximum number of sub-working groups to process")
 
     @classmethod
     def build(
         cls,
         limit_tdocs: int | None,
         limit_meetings: int | None,
-        limit_meetings_per_wg: int | None,
-        limit_wgs: int | None,
+        limit_meetings_per_subwg: int | None,
+        limit_subwgs: int | None,
     ) -> Self:
         """Build CrawlLimits configuration from individual parameters."""
         return cls(
             limit_tdocs=limit_tdocs,
             limit_meetings=limit_meetings,
-            limit_meetings_per_wg=limit_meetings_per_wg,
-            limit_wgs=limit_wgs,
+            limit_meetings_per_subwg=limit_meetings_per_subwg,
+            limit_subwgs=limit_subwgs,
         )
 
 
@@ -48,8 +48,8 @@ def _new_crawl_limits() -> CrawlLimits:
     return CrawlLimits(
         limit_tdocs=None,
         limit_meetings=None,
-        limit_meetings_per_wg=None,
-        limit_wgs=None,
+        limit_meetings_per_subwg=None,
+        limit_subwgs=None,
     )
 
 

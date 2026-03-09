@@ -25,9 +25,9 @@ from tdoc_crawler.cli.args import (
     IncludeWithoutFilesOption,
     IncrementalOption,
     LimitMeetingsOption,
-    LimitMeetingsPerWgOption,
+    LimitMeetingsPerSubWgOption,
+    LimitSubWgsOption,
     LimitTDocsOption,
-    LimitWgsOption,
     MaxRetriesOption,
     NoProgressOption,
     OutputFormatOption,
@@ -76,8 +76,8 @@ def crawl_tdocs(
     subgroup: SubgroupOption = None,
     limit_tdocs: LimitTDocsOption = None,
     limit_meetings: LimitMeetingsOption = None,
-    limit_meetings_per_wg: LimitMeetingsPerWgOption = None,
-    limit_wgs: LimitWgsOption = None,
+    limit_meetings_per_subwg: LimitMeetingsPerSubWgOption = None,
+    limit_subwgs: LimitSubWgsOption = None,
     checkout: CheckoutOption = False,
     incremental: IncrementalOption = True,
     clear_tdocs: ClearTDocsOption = False,
@@ -109,7 +109,7 @@ def crawl_tdocs(
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
 
-    limits = CrawlLimits.build(limit_tdocs, limit_meetings, limit_meetings_per_wg, limit_wgs)
+    limits = CrawlLimits.build(limit_tdocs, limit_meetings, limit_meetings_per_subwg, limit_subwgs)
 
     http_cache = HttpCacheConfig.resolve_http_cache_config(
         cache_ttl=None, cache_refresh_on_access=None, max_retries=max_retries, cache_file=manager.http_cache_file
@@ -256,8 +256,8 @@ def crawl_meetings(
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     limit_meetings: LimitMeetingsOption = None,
-    limit_meetings_per_wg: LimitMeetingsPerWgOption = None,
-    limit_wgs: LimitWgsOption = None,
+    limit_meetings_per_subwg: LimitMeetingsPerSubWgOption = None,
+    limit_subwgs: LimitSubWgsOption = None,
     checkout: CheckoutOption = False,
     incremental: IncrementalOption = True,
     include_without_files: IncludeWithoutFilesOption = False,
@@ -282,7 +282,7 @@ def crawl_meetings(
 
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
-    limits = CrawlLimits.build(None, limit_meetings, limit_meetings_per_wg, limit_wgs)
+    limits = CrawlLimits.build(None, limit_meetings, limit_meetings_per_subwg, limit_subwgs)
 
     config = MeetingCrawlConfig(
         working_groups=working_groups,

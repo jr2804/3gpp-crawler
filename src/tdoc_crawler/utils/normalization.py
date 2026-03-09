@@ -14,11 +14,13 @@ class NormalizationError(ValueError):
     """Raised when spec identifier normalization or expansion fails."""
 
 
+# TODO is already defined in src/tdoc_crawler/tdocs/utils.py - should exist only at a single location!
 def normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
     """Uppercase and strip whitespace from TDoc identifiers."""
     return [str(value).strip().upper() for value in ids]
 
 
+# TODO is already defined in src/tdoc_crawler/meetings/models.py - should exist only at a single location!
 def normalize_portal_meeting_name(portal_meeting: str | None) -> str:
     """Normalize portal meeting name to database format.
 
@@ -251,3 +253,57 @@ def normalize_release(release: str) -> tuple[str, str | None, int | None]:
 
     # Partial match (1 or 2 components)
     return ("prefix", normalized, specificity)
+
+
+def resolve_release_to_full_version(release: str, available_versions: list[str]) -> str:
+    """Resolve a release selector to a full 3-digit version string.
+
+    Args:
+        release: Release selector (e.g., "latest", "17", "17.0", "17.0.0").
+        available_versions: List of available version strings (e.g., ["17.0.0", "17.1.0"]).
+
+    Returns:
+        Full 3-digit version string (e.g., "17.0.0").
+
+    Raises:
+        ValueError: If no matching version found or release format invalid.
+    """
+    release_type, release_value, specificity = normalize_release(release)
+
+    # Parse and sort versions (highest first)
+    def parse_version(version: str) -> tuple[int, ...]:
+        try:
+            return tuple(map(int, version.split(".")))
+        except ValueError:
+            return (0, 0, 0)
+
+    sorted_versions = sorted(available_versions, key=parse_version, reverse=True)
+
+    if release_type == "latest":
+        # Return highest version
+        if not sorted_versions:
+            raise ValueError("No versions available")
+        return sorted_versions[0]
+
+    if release_type == "all":
+        # Return highest version as default
+        if not sorted_versions:
+            raise ValueError("No versions available")
+        return sorted_versions[0]
+
+    if release_type == "exact":
+        # Exact match required
+        if release_value in sorted_versions:
+            return release_value
+        raise ValueError(f"Version {release_value} not found")
+
+    if release_type == "prefix":
+        # Match by prefix (major or major.minor)
+        prefix_parts = release_value.split(".")
+        for version in sorted_versions:
+            version_parts = version.split(".")
+            if len(version_parts) >= specificity and all(version_parts[i] == prefix_parts[i] for i in range(specificity)):
+                return version
+        raise ValueError(f"No version matches prefix {release_value}")
+
+    raise ValueError(f"Invalid release type: {release_type}")

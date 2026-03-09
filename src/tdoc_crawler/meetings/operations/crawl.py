@@ -136,7 +136,7 @@ class MeetingCrawler:
         if not meetings:
             return []
         filtered = list(meetings)
-        filtered = self._limit_meetings_per_wg(filtered, limits.limit_meetings_per_wg)
+        filtered = self._limit_meetings_per_subwg(filtered, limits.limit_meetings_per_subwg)
         filtered = self._limit_meetings(filtered, limits.limit_meetings)
         return filtered
 
@@ -178,17 +178,17 @@ class MeetingCrawler:
         limits: CrawlLimits,
     ) -> list[WorkingGroup]:
         """Apply working group limits from crawl configuration."""
-        if limits.limit_wgs is None or limits.limit_wgs == 0:
+        if limits.limit_subwgs is None or limits.limit_subwgs == 0:
             return working_groups
-        limit = limits.limit_wgs
+        limit = limits.limit_subwgs
         return working_groups[:limit] if limit > 0 else working_groups[limit:]
 
     @staticmethod
-    def _limit_meetings_per_wg(
+    def _limit_meetings_per_subwg(
         meetings: list[MeetingMetadata],
         limit: int | None,
     ) -> list[MeetingMetadata]:
-        """Limit number of meetings per working group."""
+        """Limit number of meetings per sub-working group."""
         if limit is None or limit == 0:
             return meetings
         order: dict[WorkingGroup, list[int]] = defaultdict(list)
