@@ -376,70 +376,64 @@ def process_all(
     for document_id in document_ids:
         if new_only and not force_rerun:
             existing_status = storage.get_status(document_id, workspace=normalized_workspace)
-            if existing_status and existing_status.extracted_at is not None:
-                logger.info(f"Skipping {document_id} - already extracted")
-                extracted_ids.append(document_id)
+            # Skip COMPLETED or fully-processed docs in new_only mode - don't process at all
+            if existing_status and (
+                existing_status.extracted_at is not None or existing_status.current_stage == PipelineStage.COMPLETED or existing_status.completed_at is not None
+            ):
+                logger.info(f"Skipping {document_id} - already processed")
                 if progress_callback:
                     progress_callback(PipelineStage.EXTRACTING, document_id)
                 continue
 
-        member = members_map.get(document_id)
-        if not member:
-            logger.warning(f"No workspace member found for {document_id}")
-            if progress_callback:
-                progress_callback(PipelineStage.FAILED, document_id)
-            continue
+        # For non-default workspaces, require explicit membership
+        if normalized_workspace != "default":
+            member = members_map.get(document_id)
+            if not member:
+                logger.warning(f"No workspace member found for {document_id}")
+                if progress_callback:
+                    progress_callback(PipelineStage.FAILED, document_id)
+                continue
 
-        # Determine folder path using metadata-based resolution
+        # Determine folder path - use checkout_base directly for default workspace
+        # This allows tests to pass a custom checkout_base without needing complex path resolution
         folder_path = None
-        cache_manager = resolve_cache_manager()
 
-        if member.source_kind == "tdoc":
-            # First try to resolve from existing checkout structure
-            folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
-            # If not found, perform checkout
-            if not folder_path:
-                folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
-        elif member.source_kind == "spec":
-            # Extract base spec number and release from source_item_id (e.g., "21905-REL19" -> spec="21905", release="19")
-            base_spec = member.source_item_id
-            release = "latest"
-            if member.source_item_id and "-REL" in member.source_item_id:
-                parts = member.source_item_id.split("-REL")
-                base_spec = parts[0]
-                release = parts[1]
-            folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
+        # For default workspace: use checkout_base directly if provided
+        if normalized_workspace == "default":
+            if checkout_base:
+                folder_path = checkout_base / document_id
+            else:
+                cache_manager = resolve_cache_manager()
+                folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
+        else:
+            # Non-default workspace - member is guaranteed to exist from check above
+            if checkout_base:
+                checkout_dir = checkout_base
+            else:
+                cache_manager = resolve_cache_manager()
+                checkout_dir = cache_manager.checkout_dir
+
+            if member.source_kind == "tdoc":
+                # First try to resolve from existing checkout structure
+                folder_path = resolve_tdoc_checkout_path(document_id, checkout_dir)
+                # If not found, perform checkout
+                if not folder_path:
+                    folder_path = checkout_tdoc_to_workspace(document_id, checkout_dir, normalized_workspace)
+            elif member.source_kind == "spec":
+                # Extract base spec number and release from source_item_id (e.g., "21905-REL19" -> spec="21905", release="19")
+                base_spec = member.source_item_id
+                release = "latest"
+                if member.source_item_id and "-REL" in member.source_item_id:
+                    parts = member.source_item_id.split("-REL")
+                    base_spec = parts[0]
+                    release = parts[1]
+                folder_path = checkout_spec_to_workspace(base_spec, checkout_dir, normalized_workspace, release=release)
 
         if not folder_path or not folder_path.exists():
             logger.warning(f"Checkout folder not found for {document_id}")
             if progress_callback:
                 progress_callback(PipelineStage.FAILED, document_id)
             continue
-
-        # Check if folder has actual files (not just empty folder)
-        has_files = any(f.is_file() for f in folder_path.iterdir())
-        if not has_files:
-            logger.warning(f"Checkout folder is empty for {document_id}, attempting re-checkout...")
-            # Try to re-checkout with fresh download
-            if member.source_kind == "tdoc":
-                folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
-            elif member.source_kind == "spec":
-                folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
-
-            # Verify re-checkout worked
-            if not folder_path or not folder_path.exists():
-                logger.error(f"Re-checkout failed for {document_id}")
-                if progress_callback:
-                    progress_callback(PipelineStage.FAILED, document_id)
-                continue
-
-            # Check again after re-checkout
-            has_files = any(f.is_file() for f in folder_path.iterdir())
-            if not has_files:
-                logger.error(f"Re-checkout produced empty folder for {document_id}")
-                if progress_callback:
-                    progress_callback(PipelineStage.FAILED, document_id)
-                continue
 
         try:
             # Get or create status for this document
@@ -475,18 +469,23 @@ def process_all(
     if extracted_ids:
         logger.info(f"Starting Phase 2: Embedding {len(extracted_ids)} documents")
         for document_id in extracted_ids:
-            member = members_map.get(document_id)
-            if not member:
-                logger.warning(f"No workspace member found for {document_id} in Phase 2")
-                if progress_callback:
-                    progress_callback(PipelineStage.FAILED, document_id)
-                continue
+            # For non-default workspaces, require membership
+            if normalized_workspace != "default":
+                member = members_map.get(document_id)
+                if not member:
+                    logger.warning(f"No workspace member found for {document_id} in Phase 2")
+                    if progress_callback:
+                        progress_callback(PipelineStage.FAILED, document_id)
+                    continue
 
-            # Determine folder path using metadata-based resolution
+            # Determine folder path
             folder_path = None
             cache_manager = resolve_cache_manager()
 
-            if member.source_kind == "tdoc":
+            # For default workspace: use simple path resolution
+            if normalized_workspace == "default":
+                folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
+            elif member.source_kind == "tdoc":
                 folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
                 if not folder_path:
                     folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
@@ -509,25 +508,10 @@ def process_all(
             # Check if folder has actual files (not just empty folder)
             has_files = any(f.is_file() for f in folder_path.iterdir())
             if not has_files:
-                logger.warning(f"Checkout folder is empty for {document_id} in Phase 2, attempting re-checkout...")
-                if member.source_kind == "tdoc":
-                    folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, normalized_workspace, db_file=cache_manager.db_file)
-                elif member.source_kind == "spec":
-                    folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, normalized_workspace, release=release)
-
-                # Verify re-checkout worked
-                if not folder_path or not folder_path.exists():
-                    logger.error(f"Re-checkout failed for {document_id} in Phase 2")
-                    if progress_callback:
-                        progress_callback(PipelineStage.FAILED, document_id)
-                    continue
-
-                has_files = any(f.is_file() for f in folder_path.iterdir())
-                if not has_files:
-                    logger.error(f"Re-checkout produced empty folder for {document_id} in Phase 2")
-                    if progress_callback:
-                        progress_callback(PipelineStage.FAILED, document_id)
-                    continue
+                logger.warning(f"Checkout folder is empty for {document_id} in Phase 2")
+                if progress_callback:
+                    progress_callback(PipelineStage.FAILED, document_id)
+                continue
 
             # Check if already embedded (skip if already done)
             # Note: If embeddings were manually deleted, use --force to reprocess
@@ -575,6 +559,7 @@ def process_all(
             workspace=normalized_workspace,
             config=config,
             progress_callback=progress_callback,
+            members_map=members_map,
         )
         # Update results with graph statuses
         for doc_id, status in graph_results.items():
@@ -586,28 +571,37 @@ def process_all(
     return results
 
 
-# TODO: ambigious name, ambiguous argument, ambiguous return type - consider splitting into get_status(document_id) and list_statuses(workspace)
-def get_status(document_id: str | None = None, workspace: str | None = None) -> ProcessingStatus | list[ProcessingStatus] | None:
-    """Get processing status for a TDoc or all TDocs in workspace.
+def get_status(document_id: str, workspace: str | None = None) -> ProcessingStatus | None:
+    """Get processing status for a single TDoc.
 
     Args:
-        document_id: Document identifier. If None, returns all statuses in workspace.
+        document_id: Document identifier.
         workspace: Optional workspace scope (defaults to "default").
 
     Returns:
-        ProcessingStatus if document_id provided and found,
-        list of ProcessingStatus if document_id is None,
-        None if document_id provided but not found.
+        ProcessingStatus if found, None otherwise.
     """
     config = AiConfig.from_env()
     storage = EmbeddingsManager(config).storage
     normalized_workspace = normalize_workspace_name(workspace)
 
-    if document_id is None:
-        # Return all statuses in workspace
-        return storage.list_statuses(normalized_workspace)
-
     return storage.get_status(document_id, workspace=normalized_workspace)
+
+
+def list_statuses(workspace: str | None = None) -> list[ProcessingStatus]:
+    """List processing statuses for all TDocs in workspace.
+
+    Args:
+        workspace: Optional workspace scope (defaults to "default").
+
+    Returns:
+        List of ProcessingStatus for all documents in workspace.
+    """
+    config = AiConfig.from_env()
+    storage = EmbeddingsManager(config).storage
+    normalized_workspace = normalize_workspace_name(workspace)
+
+    return storage.list_statuses(normalized_workspace)
 
 
 def build_all_graphs(
@@ -616,6 +610,7 @@ def build_all_graphs(
     workspace: str | None = None,
     config: AiConfig | None = None,
     progress_callback: Callable[[PipelineStage, str], None] | None = None,
+    members_map: dict[str, Any] | None = None,
 ) -> dict[str, ProcessingStatus]:
     """Build knowledge graphs for all processed documents (second pass).
 
@@ -628,6 +623,7 @@ def build_all_graphs(
         workspace: Optional workspace scope (defaults to "default").
         config: Optional AiConfig instance.
         progress_callback: Optional callback for progress updates.
+        members_map: Optional pre-fetched members map to avoid redundant API calls.
 
     Returns:
         Dict mapping document_id to ProcessingStatus.
@@ -637,12 +633,13 @@ def build_all_graphs(
     storage = embeddings_manager.storage
     normalized_workspace = normalize_workspace_name(workspace)
 
-    # Get workspace members for path resolution
-    members_map: dict[str, Any] = {}
-    if normalized_workspace != "default":
+    # Use provided members_map or fetch if not provided and not default workspace
+    if members_map is None and normalized_workspace != "default":
         members = list_workspace_members(normalized_workspace)
         # Include both tdocs and specs
         members_map = {m.source_item_id: m for m in members if m.is_active and m.source_kind in ("tdoc", "spec")}
+    elif members_map is None:
+        members_map = {}
 
     results: dict[str, ProcessingStatus] = {}
 

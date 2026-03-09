@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, auto
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -12,6 +12,7 @@ from tdoc_ai.config import AiConfig
 from tdoc_crawler.utils.misc import utc_now
 
 
+# TODO: the same functions is re-defined in operations/extract.py, src/tdoc_crawler/tdocs/models.py and src/tdoc_crawler/tdocs/utils.py - should exist only at a single location!
 def _normalize_document_id(value: str) -> str:
     return value.strip().upper()
 
@@ -71,6 +72,7 @@ class ProcessingFailureType(StrEnum):
     GRAPH_FAILED = "graph_failed"
 
 
+# TODO: Unnecessary? We can infer from presence of WorkspaceMember records and their is_active flag - or simply use a bool variable?
 class WorkspaceStatus(StrEnum):
     """Lifecycle state of a workspace."""
 
@@ -79,6 +81,10 @@ class WorkspaceStatus(StrEnum):
 
 class SourceKind(StrEnum):
     """Kinds of source items that can be part of a workspace corpus."""
+
+    TDOC = auto()
+    SPEC = auto()
+    OTHER = auto()  # catch-all for any other source types
 
 
 class AiError(Exception):

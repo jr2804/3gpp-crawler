@@ -17,7 +17,7 @@ from tdoc_ai.models import (
 from tdoc_ai.operations.convert import convert_tdoc as convert_document
 from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.operations.graph import query_graph
-from tdoc_ai.operations.pipeline import get_status, process_all
+from tdoc_ai.operations.pipeline import get_status, list_statuses, process_all
 from tdoc_ai.operations.pipeline import process_tdoc as process_document
 from tdoc_ai.operations.summarize import SummarizeResult
 from tdoc_ai.operations.summarize import summarize_tdoc as summarize_document
@@ -120,6 +120,7 @@ __all__ = [
     "get_workspace",
     "get_workspace_member_counts",
     "is_default_workspace",
+    "list_statuses",
     "list_workspace_members",
     "list_workspaces",
     "make_workspace_member",

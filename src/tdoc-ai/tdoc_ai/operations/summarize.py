@@ -25,6 +25,27 @@ _ = None
 _ = 150
 _ = 250
 
+# Input size limits for LLM prompts
+ABSTRACT_INPUT_LIMIT = 5000
+SUMMARY_INPUT_LIMIT = 8000
+KEYWORDS_INPUT_LIMIT = 5000
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    """Truncate text to maximum character limit.
+
+    Args:
+        text: Text to truncate.
+        max_chars: Maximum number of characters.
+
+    Returns:
+        Truncated text with ellipsis if truncated.
+    """
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3] + "..."
+
+
 # Prompt templates
 SUMMARY_SYSTEM_PROMPT = """You are a technical document analyzer specializing in 3GPP TDoc documents.
 Generate concise, informative summaries following the specified structure."""
@@ -223,17 +244,19 @@ def summarize_document(
     client = _get_llm_client()
 
     # Generate abstract
-    abstract_prompt = ABSTRACT_PROMPT.format(content=markdown)  # TODO: Limit input (5000?)
+    truncated_markdown = _truncate_text(markdown, ABSTRACT_INPUT_LIMIT)
+    abstract_prompt = ABSTRACT_PROMPT.format(content=truncated_markdown)
     try:
         abstract = client.complete(abstract_prompt, model=config.llm_model)
     except Exception as exc:
         msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
         raise LlmConfigError(msg) from exc
 
-    # TODO: Limit input (5000?)
+    # Generate structured summary
+    truncated_for_structured = _truncate_text(markdown, SUMMARY_INPUT_LIMIT)
     structured_prompt = STRUCTURED_SUMMARY_PROMPT.format(
         abstract=abstract,
-        content=markdown,
+        content=truncated_for_structured,
     )
     try:
         structured_payload = client.complete(structured_prompt)
@@ -452,9 +475,10 @@ def summarize_tdoc(
     client = _get_llm_client()
 
     # Generate summary
+    truncated_for_summary = _truncate_text(content, SUMMARY_INPUT_LIMIT)
     summary_prompt = CONCISE_SUMMARY_PROMPT.format(
         target_words=words,
-        content=content,  # TODO: Limit input size (8000)?
+        content=truncated_for_summary,
     )
     try:
         summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=words * 4)
@@ -463,7 +487,8 @@ def summarize_tdoc(
         raise LlmConfigError(msg) from exc
 
     # Extract keywords
-    keywords_prompt = KEYWORDS_PROMPT.format(content=content)  # TODO: limit content size for keyword extraction as well, maybe 5000 chars?
+    truncated_for_keywords = _truncate_text(content, KEYWORDS_INPUT_LIMIT)
+    keywords_prompt = KEYWORDS_PROMPT.format(content=truncated_for_keywords)
     try:
         keywords_raw = client.complete(keywords_prompt, model=config.llm_model, max_tokens=200)
         keywords = _parse_keywords(keywords_raw)

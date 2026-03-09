@@ -351,41 +351,16 @@ def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None
     return None
 
 
-# TODO: This function is doing a lot - consider breaking it up into smaller steps or helper functions for clarity and testability.
-def checkout_tdoc_to_workspace(
-    tdoc_id: str,
-    checkout_base: Path,
-    workspace: str | None,
-    db_file: Path | None = None,
-) -> Path | None:
-    """Checkout a TDoc and add it to a workspace.
-
-    Uses a fallback chain to resolve TDoc metadata:
-    1. Check if already checked out to disk
-    2. Check local database for existing metadata with URL
-    3. Try WhatTheSpec API (unauthenticated)
-    4. Try 3GPP Portal (requires credentials)
+def _resolve_tdoc_metadata(tdoc_id: str, db_file: Path | None = None) -> TDocMetadata | None:
+    """Resolve TDoc metadata via fallback chain: Database → WhatTheSpec → 3GPP Portal.
 
     Args:
-        tdoc_id: TDoc identifier
-        checkout_base: Base checkout directory
-        workspace: Workspace name
-        db_file: Optional path to database file for metadata lookup
+        tdoc_id: TDoc identifier.
+        db_file: Optional database file for metadata lookup.
 
     Returns:
-        Path to the checked out TDoc folder, or None if checkout failed
+        TDocMetadata if found, None otherwise.
     """
-    # First check if already checked out with actual files
-    existing_path = resolve_tdoc_checkout_path(tdoc_id, checkout_base)
-    if existing_path:
-        # Check if folder has actual document files (not just .ai subfolder)
-        has_files = any(f.is_file() for f in existing_path.iterdir())
-        if has_files:
-            _logger.info(f"TDoc {tdoc_id} already checked out at {existing_path}")
-            return existing_path
-        _logger.info(f"TDoc {tdoc_id} folder exists but is empty at {existing_path}, re-downloading...")
-
-    # Need to checkout the TDoc - use fallback chain
     metadata: TDocMetadata | None = None
 
     # Step 1: Check database for existing metadata
@@ -420,10 +395,32 @@ def checkout_tdoc_to_workspace(
         except Exception as e:
             _logger.debug(f"Portal lookup failed for {tdoc_id}: {e}")
 
-    # Check if we successfully resolved metadata
     if metadata is None:
         _logger.warning(f"Could not resolve TDoc {tdoc_id} via any source")
-        return None
+
+    return metadata
+
+
+def _checkout_tdoc_if_needed(tdoc_id: str, metadata: TDocMetadata, checkout_base: Path) -> Path | None:
+    """Checkout a TDoc if not already checked out.
+
+    Args:
+        tdoc_id: TDoc identifier.
+        metadata: Resolved TDoc metadata.
+        checkout_base: Base checkout directory.
+
+    Returns:
+        Path to the checked out TDoc folder, or None if checkout failed.
+    """
+    # Check if already checked out with actual files
+    existing_path = resolve_tdoc_checkout_path(tdoc_id, checkout_base)
+    if existing_path:
+        # Check if folder has actual document files (not just .ai subfolder)
+        has_files = any(f.is_file() for f in existing_path.iterdir())
+        if has_files:
+            _logger.info(f"TDoc {tdoc_id} already checked out at {existing_path}")
+            return existing_path
+        _logger.info(f"TDoc {tdoc_id} folder exists but is empty at {existing_path}, re-downloading...")
 
     # Checkout the TDoc - returns Path directly or raises exception
     try:
@@ -440,6 +437,38 @@ def checkout_tdoc_to_workspace(
     except Exception as e:
         _logger.warning(f"Error checking out TDoc {tdoc_id}: {e}")
         return None
+
+
+def checkout_tdoc_to_workspace(
+    tdoc_id: str,
+    checkout_base: Path,
+    workspace: str | None,
+    db_file: Path | None = None,
+) -> Path | None:
+    """Checkout a TDoc and add it to a workspace.
+
+    Uses a fallback chain to resolve TDoc metadata:
+    1. Check if already checked out to disk
+    2. Check local database for existing metadata with URL
+    3. Try WhatTheSpec API (unauthenticated)
+    4. Try 3GPP Portal (requires credentials)
+
+    Args:
+        tdoc_id: TDoc identifier.
+        checkout_base: Base checkout directory.
+        workspace: Workspace name.
+        db_file: Optional path to database file for metadata lookup.
+
+    Returns:
+        Path to the checked out TDoc folder, or None if checkout failed.
+    """
+    # Resolve metadata via fallback chain
+    metadata = _resolve_tdoc_metadata(tdoc_id, db_file)
+    if metadata is None:
+        return None
+
+    # Checkout the TDoc
+    return _checkout_tdoc_if_needed(tdoc_id, metadata, checkout_base)
 
 
 def checkout_spec_to_workspace(
