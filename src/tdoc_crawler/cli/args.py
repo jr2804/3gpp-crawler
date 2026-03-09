@@ -185,8 +185,6 @@ ProcessLimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="L
 
 StatusTDocIdOption = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to check status for")]
 
-GraphQueryArgument = Annotated[str | None, typer.Argument(help="Graph query string")]
-
 WorkspaceNameArgument = Annotated[str, typer.Argument(help="Workspace name")]
 WorkspaceActivateArgument = Annotated[str, typer.Argument(help="Workspace name to activate")]
 WorkspaceAutoBuildOption = Annotated[

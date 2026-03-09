@@ -50,7 +50,6 @@ from tdoc_crawler.cli.args import (
     EmbeddingBackendOption,
     EmbeddingTopKOption,
     EndDateOption,
-    GraphQueryArgument,
     JsonOutputOption,
     ProcessAllOption,
     ProcessForceOption,
@@ -321,33 +320,6 @@ def ai_status(
                     "OK" if status_dict.get("graphed_at") else "NO",
                 )
             console.print(table)
-
-
-@ai_app.command("graph")
-def ai_graph(
-    query_text: GraphQueryArgument = None,
-    workspace: WorkspaceNameOption = None,
-    json_output: JsonOutputOption = False,
-) -> None:
-    """Query the knowledge graph for a workspace."""
-    if not query_text:
-        console.print("[red]Error: query is required (positional or --query).[/red]")
-        raise typer.Exit(1)
-
-    _get_cache_manager()  # Ensure cache manager is registered before config loads
-    # Tests expect None as default, so don't convert to "default"
-    result = query_graph(query_text, workspace=workspace)
-
-    if json_output:
-        typer.echo(json.dumps(result))
-    else:
-        answer = result.get("answer", "")
-        node_count = len(result.get("nodes", []))
-        edge_count = len(result.get("edges", []))
-
-        console.print(f"[bold]Query:[/bold] {query_text}")
-        console.print(f"[bold]Answer:[/bold] {answer}")
-        console.print(f"[dim](nodes: {node_count}, edges: {edge_count})[/dim]")
 
 
 # Workspace management subcommands
