@@ -232,6 +232,7 @@ def _register_optional_ai_commands() -> None:
         return
 
     try:
+        # Importing here to avoid hard dependency on tdoc-ai for users who don't need AI features
         from tdoc_crawler.cli.ai import ai_app  # noqa: PLC0415
     except ImportError:
         return
