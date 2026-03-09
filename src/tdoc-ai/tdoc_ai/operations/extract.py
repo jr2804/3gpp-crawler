@@ -14,19 +14,16 @@ from kreuzberg import ExtractionConfig, KeywordAlgorithm, KeywordConfig, Languag
 from tdoc_ai.models import ExtractionError, ProcessingStatus
 from tdoc_ai.operations.workspace_names import normalize_workspace_name
 from tdoc_ai.storage import AiStorage
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
 
 
-def _normalize_document_id(document_id: str) -> str:
-    return document_id.strip().upper()
-
-
 def _artifact_path(docx_path: Path, document_id: str) -> Path:
     artifact_dir = docx_path.parent / ".ai"
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    return artifact_dir / f"{_normalize_document_id(document_id)}.md"
+    return artifact_dir / f"{normalize_tdoc_id(document_id)}.md"
 
 
 def _write_markdown_artifact(docx_path: Path, document_id: str, markdown: str) -> Path:

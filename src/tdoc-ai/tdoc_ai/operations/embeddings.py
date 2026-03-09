@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, cast
 
+import sentence_transformers
 from sentence_transformers import SentenceTransformer
 
 from tdoc_ai.config import AiConfig, Backend
@@ -204,8 +205,6 @@ class EmbeddingsManager:
     def _get_sentence_transformers_version(self) -> str:
         """Get the installed sentence-transformers version."""
         try:
-            import sentence_transformers  # noqa: PLC0415
-
             return sentence_transformers.__version__
         except ImportError:
             return "unknown"

@@ -191,7 +191,7 @@ class WorkspaceRegistry:
         Raises:
             ValueError: If workspace already exists.
         """
-        normalized_name = name.strip().lower()
+        normalized_name = normalize_workspace_name(name)
         if not normalized_name:
             raise ValueError("Workspace name cannot be empty")
 
@@ -216,7 +216,7 @@ class WorkspaceRegistry:
         Returns:
             True if deleted, False if not found or if attempting to delete default.
         """
-        normalized_name = name.strip().lower()
+        normalized_name = normalize_workspace_name(name)
         if normalized_name == DEFAULT_WORKSPACE:
             logger.warning("Cannot delete the default workspace")
             return False
@@ -243,7 +243,7 @@ class WorkspaceRegistry:
         Returns:
             WorkspaceMetadata if found, None otherwise.
         """
-        normalized_name = name.strip().lower() if name else DEFAULT_WORKSPACE
+        normalized_name = normalize_workspace_name(name)
         return self.workspaces.get(normalized_name)
 
     def list_workspaces(self) -> list[WorkspaceDisplayInfo]:
@@ -279,7 +279,7 @@ class WorkspaceRegistry:
         Raises:
             ValueError: If workspace doesn't exist.
         """
-        normalized_name = name.strip().lower()
+        normalized_name = normalize_workspace_name(name)
         if normalized_name not in self.workspaces:
             raise ValueError(f"Workspace '{normalized_name}' does not exist")
 
