@@ -152,8 +152,7 @@ NoProgressOption = Annotated[
 
 # Options - AI
 SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
-SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target word count (default: 200)")]
-SummarizeFormatOption = Annotated[str, typer.Option("--format", "-f", help="Output format (markdown, json, yaml)")]
+SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count (default: 200)")]
 JsonOutputOption = Annotated[bool, typer.Option("--json", help="Output as JSON")]
 
 ConvertDocumentArgument = Annotated[str, typer.Argument(help="Document ID to convert")]
@@ -163,9 +162,9 @@ ConvertOutputOption = Annotated[
 ]
 
 QueryArgument = Annotated[str | None, typer.Argument(help="Semantic search query")]
-QueryOption = Annotated[str | None, typer.Option("--query", help="Semantic search query")]
 WorkspaceNameOption = Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")]
 EmbeddingTopKOption = Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")]
+QueryMaxWordsOption = Annotated[int, typer.Option("--words", help="Maximum word count for LLM answer (default: 300)")]
 
 _ = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")]
 EmbeddingBackendOption = Annotated[
@@ -182,11 +181,11 @@ CheckoutBaseOption = Annotated[str | None, typer.Option("--checkout-base", help=
 ProcessAllOption = Annotated[bool, typer.Option("--all", help="Process all documents in workspace")]
 ProcessNewOnlyOption = Annotated[bool, typer.Option("--new-only", help="Process only new documents")]
 ProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing")]
+ProcessLimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Limit number of documents to process (for testing)")]
 
 StatusTDocIdOption = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to check status for")]
 
 GraphQueryArgument = Annotated[str | None, typer.Argument(help="Graph query string")]
-GraphQueryOption = Annotated[str | None, typer.Option("--query", help="Graph query string")]
 
 WorkspaceNameArgument = Annotated[str, typer.Argument(help="Workspace name")]
 WorkspaceActivateArgument = Annotated[str, typer.Argument(help="Workspace name to activate")]

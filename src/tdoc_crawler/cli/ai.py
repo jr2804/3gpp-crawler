@@ -8,10 +8,8 @@ import platform
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
-from typing import Annotated
 
 import typer
-from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeRemainingColumn
 from rich.table import Table
 from tdoc_ai import (
@@ -53,19 +51,18 @@ from tdoc_crawler.cli.args import (
     EmbeddingTopKOption,
     EndDateOption,
     GraphQueryArgument,
-    GraphQueryOption,
     JsonOutputOption,
     ProcessAllOption,
     ProcessForceOption,
+    ProcessLimitOption,
     ProcessNewOnlyOption,
     QueryArgument,
-    QueryOption,
+    QueryMaxWordsOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
     StatusTDocIdOption,
     SummarizeDocumentArgument,
-    SummarizeFormatOption,
     SummarizeWordsOption,
     TitlePatternExcludeOption,
     TitlePatternOption,
@@ -86,12 +83,13 @@ from tdoc_crawler.cli.args import (
 )
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.logging import get_console
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.normalization import resolve_release_to_full_version
 
 ai_app = typer.Typer(help="AI document processing commands")
-console = Console()
+console = get_console()
 _logger = logging.getLogger(__name__)
 
 
@@ -120,26 +118,15 @@ def resolve_workspace(workspace: str | None) -> str:
 @ai_app.command("summarize")
 def ai_summarize(
     document_id: SummarizeDocumentArgument,
-    words: SummarizeWordsOption = 200,
-    output_format: SummarizeFormatOption = "markdown",
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON (overrides --format)")] = False,
+    max_words: SummarizeWordsOption = 200,
 ) -> None:
     """Summarize a single document with specified word count."""
     try:
-        result = summarize_document(document_id=document_id, words=words, fetch_remote=True)
-
-        if json_output or output_format == "json":
-            typer.echo(result.to_json())
-        elif output_format == "yaml":
-            typer.echo(result.to_yaml())
-        else:
-            console.print(f"## Summary for {document_id}")
-            console.print(result.summary)
+        result = summarize_document(document_id=document_id, max_words=max_words, fetch_remote=True)
+        console.print(f"## Summary for {document_id}")
+        console.print(result.summary)
     except Exception as exc:
-        if json_output:
-            typer.echo(json.dumps({"error": str(exc)}), err=True)
-        else:
-            console.print(f"[red]Error: {exc}[/red]")
+        console.print(f"[red]Error: {exc}[/red]")
         raise typer.Exit(1) from exc
 
 
@@ -173,18 +160,16 @@ def ai_convert(
 
 @ai_app.command("query")
 def ai_query(
-    query_arg: QueryArgument = None,
-    query: QueryOption = None,
+    query_text: QueryArgument,
     workspace: WorkspaceNameOption = None,
-    top_k: EmbeddingTopKOption = 5,
-    words: int = typer.Option(300, "--words", help="Target word count for LLM answer (default: 300)"),
+    top_k: EmbeddingTopKOption = 8,
+    max_words: QueryMaxWordsOption = 300,
     json_output: JsonOutputOption = False,
 ) -> None:
     """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG).
 
     Uses LLM to synthesize an answer from embedding and graph context.
     """
-    query_text = query or query_arg
     if not query_text:
         console.print("[red]Error: query is required (positional or --query).[/red]")
         raise typer.Exit(1)
@@ -200,7 +185,7 @@ def ai_query(
         query_text,
         workspace=resolved_workspace,
         embedding_chunks=embedding_results,
-        max_words=words,
+        max_words=max_words,
         query_level="advanced",  # Always use LLM synthesis
     )
 
@@ -249,7 +234,7 @@ def ai_process(
     force: ProcessForceOption = False,
     accelerate: EmbeddingBackendOption = "torch",
     json_output: JsonOutputOption = False,
-    limit: int | None = typer.Option(None, "--limit", "-l", help="Limit number of documents to process (for testing)"),
+    limit: ProcessLimitOption = None,
 ) -> None:
     """Process all documents in a workspace through the AI pipeline.
 
@@ -340,13 +325,11 @@ def ai_status(
 
 @ai_app.command("graph")
 def ai_graph(
-    query_arg: GraphQueryArgument = None,
-    query: GraphQueryOption = None,
+    query_text: GraphQueryArgument = None,
     workspace: WorkspaceNameOption = None,
     json_output: JsonOutputOption = False,
 ) -> None:
     """Query the knowledge graph for a workspace."""
-    query_text = query or query_arg
     if not query_text:
         console.print("[red]Error: query is required (positional or --query).[/red]")
         raise typer.Exit(1)
@@ -721,7 +704,7 @@ def workspace_process(
     new_only: WorkspaceProcessNewOnlyOption = True,
     force_rerun: WorkspaceProcessForceOption = False,
     json_output: JsonOutputOption = False,
-    limit: int | None = typer.Option(None, "--limit", "-l", help="Limit number of documents to process (for testing)"),
+    limit: ProcessLimitOption = None,
 ) -> None:
     """Process all active document members in a workspace through the AI pipeline.
 
