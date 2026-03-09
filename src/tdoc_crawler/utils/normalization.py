@@ -1,7 +1,7 @@
 """Normalization helpers for spec identifiers."""
 
 import re
-from collections.abc import Generator, Iterable
+from collections.abc import Generator
 
 _DOTTED_BODY_PATTERN = re.compile(r"^(?P<series>\d{2})\s*\.\s*(?P<increment>\d{1,3})$")
 _UNDOTTED_BODY_PATTERN = re.compile(r"^(?P<series>\d{2})(?P<increment>\d{1,3})$")
@@ -12,48 +12,6 @@ _RELEASE_PREFIX_PATTERN = re.compile(r"^(?:v|rel|rel[-])", re.IGNORECASE)
 
 class NormalizationError(ValueError):
     """Raised when spec identifier normalization or expansion fails."""
-
-
-# TODO is already defined in src/tdoc_crawler/tdocs/utils.py - should exist only at a single location!
-def normalize_tdoc_ids(ids: Iterable[str]) -> list[str]:
-    """Uppercase and strip whitespace from TDoc identifiers."""
-    return [str(value).strip().upper() for value in ids]
-
-
-# TODO is already defined in src/tdoc_crawler/meetings/models.py - should exist only at a single location!
-def normalize_portal_meeting_name(portal_meeting: str | None) -> str:
-    """Normalize portal meeting name to database format.
-
-    The portal uses format like "SA4#133-e" while the database uses "S4-133-e".
-    This function converts portal format to database format.
-
-    Args:
-        portal_meeting: Meeting name from portal (e.g., "SA4#133-e")
-
-    Returns:
-        Normalized meeting name (e.g., "S4-133-e")
-    """
-    if not portal_meeting:
-        return ""
-
-    # Replace "SA4#" with "S4-", "RAN1#" with "R1-", etc.
-    normalized = portal_meeting.replace("#", "-")
-
-    # Handle full working group names (SA, RAN, CT)
-    for full_name, short_prefix in [("SA", "S"), ("RAN", "R"), ("CT", "C")]:
-        # Match patterns like "SA4-" and replace with "S4-"
-        if normalized.startswith(f"{full_name}"):
-            # Extract subgroup number if present
-            for i, char in enumerate(normalized[len(full_name) :]):
-                if not char.isdigit():
-                    subgroup_num = normalized[len(full_name) : len(full_name) + i] if i > 0 else ""
-                    rest = normalized[len(full_name) + i :]
-                    if subgroup_num:
-                        normalized = f"{short_prefix}{subgroup_num}{rest}"
-                    break
-            break
-
-    return normalized
 
 
 def _strip_prefixes(value: str) -> str:
@@ -299,6 +257,8 @@ def resolve_release_to_full_version(release: str, available_versions: list[str])
 
     if release_type == "prefix":
         # Match by prefix (major or major.minor)
+        if release_value is None or specificity is None:
+            raise ValueError(f"Invalid release format: '{release}'.")
         prefix_parts = release_value.split(".")
         for version in sorted_versions:
             version_parts = version.split(".")

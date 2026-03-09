@@ -28,4 +28,4 @@ class DefaultHttpClientProvider:
             self._session = None
 
 
-__all__ = ["DefaultHttpClientProvider", "HttpClientProvider"]
+__all__ = ["DefaultHttpClientProvider"]

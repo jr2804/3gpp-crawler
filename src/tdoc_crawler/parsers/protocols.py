@@ -40,4 +40,4 @@ class ClientProtocol(Protocol):
         ...
 
 
-__all__ = ["ClientProtocol", "ParserProtocol"]
+__all__ = ["ClientProtocol"]
