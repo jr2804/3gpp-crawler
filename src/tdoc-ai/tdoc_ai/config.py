@@ -101,6 +101,7 @@ class AiConfig(BaseConfigModel):
         description="LLM model in <provider>/<model_name> format",
     )
     llm_api_base: str | None = Field(None, description="Override LLM API base URL")
+    llm_api_key: str | None = Field(None, description="Override LLM API key (takes precedence over provider-specific env vars)")
 
     abstract_min_words: int = Field(150, ge=1, description="Minimum abstract word count")
     abstract_max_words: int = Field(250, ge=1, description="Maximum abstract word count")
@@ -135,6 +136,9 @@ class AiConfig(BaseConfigModel):
             data["llm_model"] = llm_model
         if llm_api_base := os.getenv("TDC_AI_LLM_API_BASE"):
             data["llm_api_base"] = llm_api_base
+
+        # Check for TDC_AI_LLM_API_KEY - takes precedence over provider-specific keys
+        data["llm_api_key"] = os.environ.get("TDC_AI_LLM_API_KEY")
 
         max_chunk_size = _env_int("TDC_AI_MAX_CHUNK_SIZE")
         if max_chunk_size is not None:

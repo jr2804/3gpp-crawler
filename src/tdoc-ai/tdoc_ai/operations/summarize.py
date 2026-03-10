@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 
 import litellm
@@ -19,11 +18,6 @@ from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.misc import utc_now
 
 logger = logging.getLogger(__name__)
-_ = None
-
-# Summary settings
-_ = 150
-_ = 250
 
 # Input size limits for LLM prompts
 ABSTRACT_INPUT_LIMIT = 5000
@@ -124,18 +118,21 @@ class LiteLLMClient:
         Returns:
             Generated text.
         """
-        try:
-            # Check for TDC_AI_LLM_API_KEY - takes precedence over provider-specific keys
-            api_key = os.environ.get("TDC_AI_LLM_API_KEY")
+        cfg = AiConfig.from_env()
+        if cfg.llm_api_base is not None and cfg.llm_api_key is None:
+            msg = f"LLM API base URL is set ({cfg.llm_api_base}) but API key is missing. Please set TDC_AI_LLM_API_KEY environment variable."
+            logger.warning(msg)
 
+        try:
             response = litellm.completion(
-                model=model or AiConfig.from_env().llm_model,
+                model=model or cfg.llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 max_tokens=max_tokens,
-                api_key=api_key,  # Pass TDC_AI_LLM_API_KEY if set, otherwise None (LiteLLM uses provider-specific env vars)
+                api_key=cfg.llm_api_key,
+                base_url=cfg.llm_api_base,
             )
             return response.choices[0].message.content
         except Exception as e:
