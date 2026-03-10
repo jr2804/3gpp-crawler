@@ -15,8 +15,8 @@ from rich.progress import (
     SpinnerColumn,
     TaskProgressColumn,
     TextColumn,
+    TimeElapsedColumn,
     TimeRemainingColumn,
-    TransferSpeedColumn,
 )
 from rich.table import Table
 from tdoc_ai import (
@@ -88,7 +88,7 @@ from tdoc_crawler.cli.args import (
     WorkspaceReleaseOption,
 )
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
-from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database import SpecDatabase, TDocDatabase
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
@@ -602,7 +602,7 @@ def workspace_add_members(
         if source_kind == SourceKind.SPEC and release:
             try:
                 # Get available versions for this spec from database
-                with TDocDatabase(manager.db_file) as db:
+                with SpecDatabase(manager.db_file) as db:
                     available_versions = db.get_spec_versions(item)
                     if available_versions:
                         version_list = [v.version for v in available_versions]
@@ -716,7 +716,7 @@ def workspace_process(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
-        TransferSpeedColumn(),
+        TimeElapsedColumn(),
         TimeRemainingColumn(),
         console=console,
         refresh_per_second=10,
@@ -729,6 +729,7 @@ def workspace_process(
             force_rerun=force_rerun,
             workspace=workspace,
             progress_callback=lambda _: progress.advance(extract_task),
+            limit=limit,
         )
 
         embed_task = progress.add_task("[cyan]Phase 2: Embedding", total=len(extracted_ids))
@@ -738,6 +739,7 @@ def workspace_process(
             force_rerun=force_rerun,
             workspace=workspace,
             progress_callback=lambda _: progress.advance(embed_task),
+            limit=limit,
         )
 
         graph_task = progress.add_task("[cyan]Phase 3: Building Graph", total=len(embedded_ids))
@@ -746,6 +748,7 @@ def workspace_process(
             checkout_base=manager.root,
             workspace=workspace,
             progress_callback=lambda _: progress.advance(graph_task),
+            limit=limit,
         )
 
         results = {**extract_results, **embed_results, **graph_results}
