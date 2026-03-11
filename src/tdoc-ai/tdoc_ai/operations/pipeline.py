@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from tdoc_ai.config import AiConfig
-from tdoc_ai.models import DocumentClassification, PipelineStage, ProcessingFailureType, ProcessingStatus
+from tdoc_ai.context import DocumentContext
+from tdoc_ai.models import (
+    DocumentClassification,
+    PipelineStage,
+    ProcessingFailureType,
+    ProcessingStatus,
+    SourceKind,
+)
 from tdoc_ai.operations.classify import classify_document_files
 from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.operations.extract import extract_from_folder
@@ -335,7 +342,6 @@ def process_all(
         workspace=normalized_workspace,
         config=config,
         embeddings_manager=embeddings_manager,
-        limit=limit,
     )
     results.update(extract_results)
 
@@ -347,7 +353,6 @@ def process_all(
         workspace=normalized_workspace,
         config=config,
         embeddings_manager=embeddings_manager,
-        limit=limit,
     )
     results.update(embed_results)
 
@@ -358,7 +363,6 @@ def process_all(
         workspace=normalized_workspace,
         config=config,
         embeddings_manager=embeddings_manager,
-        limit=limit,
     )
     results.update(graph_results)
     return results
@@ -411,14 +415,13 @@ def process_extract_phase(
     """Run the classify and extract phase for all documents.
 
     This phase identifies the primary document in each folder, then converts it
-    to Markdown and records status updates in storage. Documents with completed
-    extraction are skipped unless force_rerun is set. Failures are logged and do
+    to Markdown and records status updates in storage. Failures are logged and do
     not interrupt processing of other documents.
 
     Args:
         document_ids: Document identifiers to process.
         checkout_base: Base checkout directory for document folders.
-        new_only: Whether to return already-extracted documents in results.
+        new_only: Whether to process only documents without existing extraction.
         force_rerun: Whether to re-run classification/extraction regardless of status.
         progress_callback: Optional callback invoked after each document.
         workspace: Optional workspace name (defaults to "default").
@@ -436,45 +439,46 @@ def process_extract_phase(
     results: dict[str, ProcessingStatus] = {}
     extracted_ids: list[str] = []
 
-    # Apply limit for testing
     if limit is not None and limit > 0:
         document_ids = document_ids[:limit]
 
     for document_id in document_ids:
-        existing_status = storage.get_status(document_id, workspace=normalized_workspace)
-        if not force_rerun and existing_status and existing_status.extracted_at is not None:
-            logger.debug(f"Skipping {document_id} - already extracted")
-            if not new_only:
-                results[document_id] = existing_status
-                extracted_ids.append(document_id)
-            if progress_callback:
-                progress_callback(document_id)
-            continue
+        if new_only and not force_rerun:
+            existing_status = storage.get_status(document_id, workspace=normalized_workspace)
+            if existing_status and (
+                existing_status.extracted_at is not None or existing_status.current_stage == PipelineStage.COMPLETED or existing_status.completed_at is not None
+            ):
+                logger.info(f"Skipping {document_id} - already processed")
+                if progress_callback:
+                    progress_callback(document_id)
+                continue
 
-        folder_path = _resolve_document_folder(
+        ctx = _resolve_document_folder(
             document_id=document_id,
             checkout_base=checkout_base,
             workspace=normalized_workspace,
             members_map=members_map,
         )
-        if not folder_path or not folder_path.exists():
+        if ctx is None or not ctx.folder_path.exists():
             logger.warning(f"Checkout folder not found for {document_id}")
             if progress_callback:
                 progress_callback(document_id)
             continue
 
         try:
-            status = existing_status or ProcessingStatus(document_id=document_id)
+            status = storage.get_status(document_id, workspace=normalized_workspace)
+            if status is None:
+                status = ProcessingStatus(document_id=document_id)
 
             if not force_rerun and status.classified_at:
                 logger.info(f"Skipping classification for {document_id} - already classified")
             else:
-                _run_classify_stage(document_id, folder_path, storage, status, workspace=normalized_workspace)
+                _run_classify_stage(document_id, ctx.folder_path, storage, status, workspace=normalized_workspace)
 
             if not force_rerun and status.extracted_at:
                 logger.info(f"Skipping extraction for {document_id} - already extracted")
             else:
-                _run_extract_stage(document_id, folder_path, storage, status, workspace=normalized_workspace)
+                _run_extract_stage(document_id, ctx.folder_path, storage, status, workspace=normalized_workspace)
 
             results[document_id] = status
             if status.extracted_at is not None:
@@ -523,24 +527,23 @@ def process_embed_phase(
     results: dict[str, ProcessingStatus] = {}
     embedded_ids: list[str] = []
 
-    # Apply limit for testing
     if limit is not None and limit > 0:
         document_ids = document_ids[:limit]
 
     for document_id in document_ids:
-        folder_path = _resolve_document_folder(
+        ctx = _resolve_document_folder(
             document_id=document_id,
             checkout_base=checkout_base,
             workspace=normalized_workspace,
             members_map=members_map,
         )
-        if not folder_path or not folder_path.exists():
+        if ctx is None or not ctx.folder_path.exists():
             logger.warning(f"Checkout folder not found for {document_id} in Phase 2")
             if progress_callback:
                 progress_callback(document_id)
             continue
 
-        if not any(f.is_file() for f in folder_path.iterdir()):
+        if not any(f.is_file() for f in ctx.folder_path.iterdir()):
             logger.warning(f"Checkout folder is empty for {document_id} in Phase 2")
             if progress_callback:
                 progress_callback(document_id)
@@ -561,7 +564,7 @@ def process_embed_phase(
 
             _run_embedding_stage(
                 document_id,
-                folder_path,
+                ctx.folder_path,
                 storage,
                 status,
                 workspace=normalized_workspace,
@@ -613,7 +616,6 @@ def process_graph_phase(
     results: dict[str, ProcessingStatus] = {}
     graphed_ids: list[str] = []
 
-    # Apply limit for testing
     if limit is not None and limit > 0:
         document_ids = document_ids[:limit]
 
@@ -632,20 +634,20 @@ def process_graph_phase(
                 progress_callback(document_id)
             continue
 
-        folder_path = _resolve_document_folder(
+        ctx = _resolve_document_folder(
             document_id=document_id,
             checkout_base=checkout_base,
             workspace=normalized_workspace,
             members_map=members_map,
         )
-        if not folder_path or not folder_path.exists():
+        if ctx is None or not ctx.folder_path.exists():
             logger.warning(f"Checkout folder not found for {document_id} in graph phase")
             if progress_callback:
                 progress_callback(document_id)
             continue
 
         try:
-            _build_graph_for_document(document_id, folder_path, storage, status, normalized_workspace)
+            _build_graph_for_document(document_id, ctx.folder_path, storage, status, normalized_workspace)
             results[document_id] = status
             graphed_ids.append(document_id)
         except Exception as exc:
@@ -681,7 +683,7 @@ def _resolve_workspace_document_ids(
         resolved_ids = document_ids
     else:
         members = list_workspace_members(workspace)
-        member_ids = {m.source_item_id for m in members if m.is_active and m.source_kind in ("tdoc", "spec")}
+        member_ids = {m.source_item_id for m in members if m.is_active and m.source_kind in (SourceKind.TDOC, SourceKind.SPEC)}
         resolved_ids = list(member_ids) if not document_ids else [tid for tid in document_ids if tid in member_ids]
 
     if limit is not None and limit > 0:
@@ -703,7 +705,7 @@ def _resolve_members_map(workspace: str) -> dict[str, Any]:
     if workspace == "default":
         return {}
     members = list_workspace_members(workspace)
-    return {m.source_item_id: m for m in members if m.is_active and m.source_kind in ("tdoc", "spec")}
+    return {m.source_item_id: m for m in members if m.is_active and m.source_kind in (SourceKind.TDOC, SourceKind.SPEC)}
 
 
 def _resolve_storage(config: AiConfig | None, embeddings_manager: EmbeddingsManager | None = None) -> AiStorage:
@@ -727,8 +729,8 @@ def _resolve_document_folder(
     checkout_base: Path,
     workspace: str,
     members_map: dict[str, Any],
-) -> Path | None:
-    """Resolve a document folder path for the given workspace.
+) -> DocumentContext | None:
+    """Resolve a document context for the given workspace.
 
     Handles default workspace lookups and workspace members for TDocs and
     specifications. Performs checkouts when necessary.
@@ -740,24 +742,50 @@ def _resolve_document_folder(
         members_map: Mapping of workspace members keyed by source_item_id.
 
     Returns:
-        Document folder path if found, otherwise None.
+        DocumentContext with folder path and metadata if found, otherwise None.
     """
     cache_manager = resolve_cache_manager()
     if workspace == "default":
-        return _resolve_default_document_folder(document_id, checkout_base, cache_manager.checkout_dir)
+        folder_path = _resolve_default_document_folder(document_id, checkout_base, cache_manager.checkout_dir)
+        if folder_path is None:
+            return None
+        meeting_id = _extract_meeting_id(folder_path)
+        return DocumentContext(
+            document_id=document_id,
+            source_kind=SourceKind.TDOC,
+            folder_path=folder_path,
+            workspace=workspace,
+            meeting_id=meeting_id,
+        )
 
     member = members_map.get(document_id)
     if not member:
         return None
 
-    if member.source_kind == "tdoc":
+    folder_path: Path | None = None
+    source_kind = member.source_kind
+
+    if source_kind == SourceKind.TDOC:
         folder_path = resolve_tdoc_checkout_path(document_id, cache_manager.checkout_dir)
         if not folder_path:
             folder_path = checkout_tdoc_to_workspace(document_id, cache_manager.checkout_dir, workspace, db_file=cache_manager.db_file)
-        return folder_path
+    elif source_kind == SourceKind.SPEC:
+        base_spec, release = _parse_spec_release(member.source_item_id)
+        folder_path = checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, workspace, release=release)
 
-    base_spec, release = _parse_spec_release(member.source_item_id)
-    return checkout_spec_to_workspace(base_spec, cache_manager.checkout_dir, workspace, release=release)
+    if folder_path is None:
+        return None
+
+    meeting_id = _extract_meeting_id(folder_path) if source_kind == SourceKind.TDOC else None
+
+    return DocumentContext(
+        document_id=document_id,
+        source_kind=source_kind,
+        folder_path=folder_path,
+        workspace=workspace,
+        meeting_id=meeting_id,
+        member=member,
+    )
 
 
 def _resolve_default_document_folder(document_id: str, checkout_base: Path, checkout_dir: Path) -> Path | None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import litellm
 
 from tdoc_ai.config import AiConfig
+from tdoc_ai.context import DocumentContext
 from tdoc_ai.models import (
     DocumentChunk,
     DocumentClassification,
@@ -13,6 +14,7 @@ from tdoc_ai.models import (
     GraphNode,
     PipelineStage,
     ProcessingStatus,
+    SourceKind,
 )
 from tdoc_ai.operations.convert import convert_tdoc as convert_document
 from tdoc_ai.operations.embeddings import EmbeddingsManager
@@ -96,11 +98,13 @@ __all__ = [
     "CacheManager",
     "DocumentChunk",
     "DocumentClassification",
+    "DocumentContext",
     "DocumentSummary",
     "GraphEdge",
     "GraphNode",
     "PipelineStage",
     "ProcessingStatus",
+    "SourceKind",
     "SummarizeResult",
     "WorkspaceDisplayInfo",
     "WorkspaceRegistry",

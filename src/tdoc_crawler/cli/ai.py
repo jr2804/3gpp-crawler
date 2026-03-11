@@ -111,13 +111,23 @@ def _get_cache_manager() -> CacheManager:
 
 
 def resolve_workspace(workspace: str | None) -> str:
-    """Resolve workspace name from option or active workspace."""
+    """Resolve workspace name from option or active workspace.
+
+    Returns normalized workspace name, falling back to active workspace
+    if not specified. Exits with error if neither is available.
+    """
+    # If workspace provided, normalize and return it
     if workspace:
         return normalize_workspace_name(workspace)
+
+    # Fall back to active workspace
     active = get_active_workspace()
     if active:
         return active
-    console.print("[red]No workspace specified and no active workspace set. Use -w <name> or 'ai workspace activate <name>'[/red]")
+
+    # No workspace available - show error and exit
+    console.print("[red]No workspace specified and no active workspace set.[/red]")
+    console.print("[red]Use -w <name> or 'ai workspace activate <name>'[/red]")
     raise typer.Exit(1)
 
 
@@ -180,16 +190,18 @@ def ai_query(
         console.print("[red]Error: query is required (positional or --query).[/red]")
         raise typer.Exit(1)
 
-    resolved_workspace = resolve_workspace(workspace)
+    # Resolve workspace (from option, active workspace, or error)
+    normalized_workspace = resolve_workspace(workspace)
+
     _get_cache_manager()  # Ensure cache manager is registered before config loads
     embeddings_manager = EmbeddingsManager(AiConfig.from_env())
 
-    embedding_results = embeddings_manager.query_embeddings(query_text, resolved_workspace, top_k)
+    embedding_results = embeddings_manager.query_embeddings(query_text, normalized_workspace, top_k)
 
     # Pass embedding chunks to query_graph for LLM synthesis
     graph_result = query_graph(
         query_text,
-        workspace=resolved_workspace,
+        workspace=normalized_workspace,
         embedding_chunks=embedding_results,
         max_words=max_words,
         query_level="advanced",  # Always use LLM synthesis
@@ -205,7 +217,7 @@ def ai_query(
         typer.echo(json.dumps(payload))
     else:
         if embedding_results:
-            table = Table(title=f"Embedding results for '{query_text}' (workspace: {resolved_workspace})")
+            table = Table(title=f"Embedding results for '{query_text}' (workspace: {normalized_workspace})")
             table.add_column("TDoc", style="cyan")
             table.add_column("Section", style="green")
             table.add_column("Score", style="magenta")
