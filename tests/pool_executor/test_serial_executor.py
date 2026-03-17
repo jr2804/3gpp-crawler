@@ -12,8 +12,7 @@ except ImportError, AttributeError:
     InterpreterPoolExecutor = None  # type: ignore[misc]
 
 import pytest
-
-from pool_executors.pool_executors import ExecutorType, SerialPoolExecutor, create_executor
+from pool_executors import ExecutorType, SerialPoolExecutor, create_executor
 
 
 class TestSerialFuture:

@@ -34,6 +34,8 @@ dependencies = [
     "xlsxwriter>=3.2.9",
     "zipinspect>=0.1.2",
     "lxml>=6.0.2",
+    "pool-executors",
+    "convert-lo",
 ]
 
 [project.optional-dependencies]
@@ -63,7 +65,7 @@ dev = [
     "undersort>=0.1.5",
     "specify-cli",
     "pydeps>=3.0.2",
-    "ruff>=0.15.0",
+    "ruff>=0.15.0"
 ]
 
 [build-system]
@@ -114,7 +116,12 @@ source = "uv-dynamic-versioning"
 vcs = "git"
 style = "semver"
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [tool.uv.sources]
 specify-cli = { git = "https://github.com/github/spec-kit.git" }
-tdoc-ai = { path = "src/tdoc-ai", editable = true }
-teddi-mcp = { path = "src/teddi-mcp", editable = true }
+tdoc-ai = { workspace = true }
+teddi-mcp = { workspace = true }
+convert-lo = { workspace = true }
+pool-executors = { workspace = true }

@@ -5,8 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
-from pool_executors.pool_executors import Runner
+from pool_executors import Runner
 
 
 class TestRunner:

@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from pool_executors.pool_executors import create_executor
+from pool_executors import create_executor
+
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig

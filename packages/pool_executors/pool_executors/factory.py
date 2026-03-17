@@ -6,8 +6,8 @@ import logging
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any
 
-from pool_executors.pool_executors.serial import SerialPoolExecutor
-from pool_executors.pool_executors.types import ExecutorType
+from pool_executors.serial import SerialPoolExecutor
+from pool_executors.types import ExecutorType
 
 try:
     from concurrent.futures import InterpreterPoolExecutor
