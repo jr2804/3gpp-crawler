@@ -1,8 +1,8 @@
 # Testability Approach
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -18,7 +18,7 @@ From the analysis, current challenges include:
 | Mocks per test | 4.2 average | 1-2 |
 | Setup/logic ratio | 3.1 | 1.0 |
 | Global state tests | 18% | 0% |
-| Test execution time | 120ms avg | <50ms |
+| Test execution time | 120ms avg | \<50ms |
 
 ## Design for Testability
 

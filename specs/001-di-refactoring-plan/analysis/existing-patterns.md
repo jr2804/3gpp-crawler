@@ -50,7 +50,7 @@ with MeetingDatabase(manager.db_file) as db:
 
 **Verdict:** Service Locator anti-pattern variant. Provides some benefits of DI but with global state drawbacks.
 
----
+______________________________________________________________________
 
 ## Pattern 2: Factory Function
 
@@ -98,7 +98,7 @@ with create_cached_session() as session:
 
 **Verdict:** Simple factory pattern. Better than direct instantiation but still requires caller to invoke factory.
 
----
+______________________________________________________________________
 
 ## Pattern 3: Context Manager Injection
 
@@ -139,7 +139,7 @@ with TDocDatabase(db_file) as database:
 
 **Verdict:** Resource management pattern, not true DI. Helps with lifecycle but not decoupling.
 
----
+______________________________________________________________________
 
 ## Pattern 4: Configuration Injection
 
@@ -178,7 +178,7 @@ config = AiConfig.from_env(parallelism=8)
 
 **Verdict:** Configuration pattern. Useful for externalizing config but not full DI.
 
----
+______________________________________________________________________
 
 ## Pattern 5: Test Fixtures as DI
 
@@ -226,7 +226,7 @@ def test_query_tdocs(populated_db: TDocDatabase):
 
 **Verdict:** **This is the closest to proper DI in the codebase!** Pytest fixtures demonstrate how DI should work, but pattern is not applied to production code.
 
----
+______________________________________________________________________
 
 ## Pattern 6: Constructor Parameter
 
@@ -261,7 +261,7 @@ with TDocDatabase(db_file) as db:
 
 **Verdict:** Constructor injection attempt, but undermined by concrete type dependency and type checking.
 
----
+______________________________________________________________________
 
 ## Summary: DI Maturity Assessment
 
@@ -278,18 +278,18 @@ with TDocDatabase(db_file) as db:
 
 1. **Tests use DI patterns that production code doesn't**: Pytest fixtures demonstrate proper injection, but this pattern isn't applied to production code.
 
-2. **Global state undermines DI benefits**: Registry pattern provides some decoupling but introduces hidden dependencies.
+1. **Global state undermines DI benefits**: Registry pattern provides some decoupling but introduces hidden dependencies.
 
-3. **No interface-based programming**: All dependencies are concrete classes, not protocols or interfaces.
+1. **No interface-based programming**: All dependencies are concrete classes, not protocols or interfaces.
 
-4. **Mixed patterns create inconsistency**: Some code uses registry, some uses factories, some uses direct construction.
+1. **Mixed patterns create inconsistency**: Some code uses registry, some uses factories, some uses direct construction.
 
 ## Recommendations
 
 1. **Formalize the Registry**: Convert to proper DI container with explicit lifecycle management
-2. **Introduce Protocols**: Define interfaces for Database, HTTP client, Cache
-3. **Extend Constructor Injection**: Apply consistently across all layers
-4. **Learn from Tests**: Apply pytest fixture patterns to production code via dependency injection container
+1. **Introduce Protocols**: Define interfaces for Database, HTTP client, Cache
+1. **Extend Constructor Injection**: Apply consistently across all layers
+1. **Learn from Tests**: Apply pytest fixture patterns to production code via dependency injection container
 
 ## Related Documents
 

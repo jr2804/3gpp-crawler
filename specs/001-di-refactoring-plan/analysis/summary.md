@@ -4,7 +4,7 @@
 
 This document provides a **comprehensive summary** of the dependency injection analysis conducted for the tdoc-crawler project. The analysis examined the current architecture, identified problems, and proposed solutions.
 
----
+______________________________________________________________________
 
 ## Analysis Scope
 
@@ -28,7 +28,7 @@ This document provides a **comprehensive summary** of the dependency injection a
 - **Phase 4:** Validation (1 day)
 - **Total:** 6 days
 
----
+______________________________________________________________________
 
 ## Key Findings
 
@@ -56,7 +56,7 @@ manager = resolve_cache_manager(name)  # WhatTheSpec
 
 **Recommendation:** Implement DI container for centralized lifecycle management.
 
----
+______________________________________________________________________
 
 ### Finding 2: Tight Coupling
 
@@ -82,7 +82,7 @@ class TDocCrawler:
 
 **Recommendation:** Use protocols/interfaces instead of concrete types.
 
----
+______________________________________________________________________
 
 ### Finding 3: Global State
 
@@ -112,7 +112,7 @@ def resolve_cache_manager(name: str | None = None) -> CacheManager:
 
 **Recommendation:** Replace global registry with explicit dependency injection.
 
----
+______________________________________________________________________
 
 ### Finding 4: Configuration Fragmentation
 
@@ -145,7 +145,7 @@ class CrawlLimits(BaseModel):
 
 **Recommendation:** Unified configuration service with single loading mechanism.
 
----
+______________________________________________________________________
 
 ### Finding 5: Testability Challenges
 
@@ -172,11 +172,11 @@ def test_open_tdoc(...):
 - Average 3.8 mocks per test
 - 2.7 lines of setup per 1 line of test logic
 - 18% of tests require global state cleanup
-- Average test time: 120ms (target: <50ms)
+- Average test time: 120ms (target: \<50ms)
 
 **Recommendation:** DI patterns would reduce mock count by 60%+.
 
----
+______________________________________________________________________
 
 ### Finding 6: Existing DI-like Patterns
 
@@ -203,7 +203,7 @@ def open_tdoc(tdoc_id: str):
 
 **Recommendation:** Apply pytest fixture patterns to production code.
 
----
+______________________________________________________________________
 
 ## Quantitative Summary
 
@@ -211,12 +211,12 @@ def open_tdoc(tdoc_id: str):
 
 | Metric | Value | Target | Gap |
 |--------|-------|--------|-----|
-| Dependency instantiation points | 20+ | <5 | 4x too high |
-| Global state access points | 8+ | <3 | 2.7x too high |
+| Dependency instantiation points | 20+ | \<5 | 4x too high |
+| Global state access points | 8+ | \<3 | 2.7x too high |
 | Configuration loading patterns | 3 | 1 | 3x too many |
-| Average mocks per test | 3.8 | <2 | 2x too high |
+| Average mocks per test | 3.8 | \<2 | 2x too high |
 | Test setup / logic ratio | 2.7 | 1.0 | 2.7x too high |
-| Inheritance depth | 3 | <2 | 1.5x too deep |
+| Inheritance depth | 3 | \<2 | 1.5x too deep |
 | Test coverage | 58% | 80%+ | 22% gap |
 
 ### Projected Improvements
@@ -229,7 +229,7 @@ def open_tdoc(tdoc_id: str):
 | Global state usage | 18% | 0% | Eliminated |
 | Test coverage | 58% | 80%+ | 38% increase |
 
----
+______________________________________________________________________
 
 ## Recommendations
 
@@ -243,7 +243,7 @@ def open_tdoc(tdoc_id: str):
 
 **Expected Outcome:** Single source of truth for dependencies.
 
----
+______________________________________________________________________
 
 ### Priority 2: Database Abstraction (Weeks 3-4)
 
@@ -255,7 +255,7 @@ def open_tdoc(tdoc_id: str):
 
 **Expected Outcome:** Decouple from concrete database implementation.
 
----
+______________________________________________________________________
 
 ### Priority 3: HTTP Client (Week 5)
 
@@ -267,7 +267,7 @@ def open_tdoc(tdoc_id: str):
 
 **Expected Outcome:** Easy HTTP mocking in tests.
 
----
+______________________________________________________________________
 
 ### Priority 4: Configuration (Week 6)
 
@@ -279,7 +279,7 @@ def open_tdoc(tdoc_id: str):
 
 **Expected Outcome:** Single configuration loading mechanism.
 
----
+______________________________________________________________________
 
 ### Priority 5: Polish (Weeks 7-8)
 
@@ -291,7 +291,7 @@ def open_tdoc(tdoc_id: str):
 
 **Expected Outcome:** Consistent DI patterns throughout.
 
----
+______________________________________________________________________
 
 ## Risk Assessment
 
@@ -311,7 +311,7 @@ def open_tdoc(tdoc_id: str):
 | Timeline slippage | Medium | Low | Phased approach allows stopping early |
 | Incomplete adoption | Medium | Medium | Start with high-impact areas |
 
----
+______________________________________________________________________
 
 ## Success Criteria
 
@@ -346,59 +346,59 @@ def open_tdoc(tdoc_id: str):
 - ✅ Test execution 50% faster
 - ✅ Documentation complete
 
----
+______________________________________________________________________
 
 ## Lessons Learned
 
 ### What Went Well
 
 1. **Comprehensive Analysis:** Examined actual code, not just architecture diagrams
-2. **Quantitative Metrics:** Measured problems, not just described them
-3. **Validation:** Senior developer review confirmed findings
-4. **Phased Approach:** Incremental implementation reduces risk
+1. **Quantitative Metrics:** Measured problems, not just described them
+1. **Validation:** Senior developer review confirmed findings
+1. **Phased Approach:** Incremental implementation reduces risk
 
 ### What Could Be Better
 
 1. **Earlier Detection:** These issues should have been caught in code review
-2. **Test-First:** Writing tests first would have revealed testability issues
-3. **Consistency:** DI patterns in tests should have been applied to production sooner
+1. **Test-First:** Writing tests first would have revealed testability issues
+1. **Consistency:** DI patterns in tests should have been applied to production sooner
 
 ### Recommendations for Future
 
 1. **Code Review Checklist:** Add DI/testability checks
-2. **Architecture Decision Records:** Document DI pattern choices
-3. **Regular Refactoring:** Schedule quarterly architecture reviews
+1. **Architecture Decision Records:** Document DI pattern choices
+1. **Regular Refactoring:** Schedule quarterly architecture reviews
 
----
+______________________________________________________________________
 
 ## Next Steps
 
 ### Immediate (This Week)
 
 1. ✅ Review this analysis with team
-2. ✅ Prioritize opportunities
-3. ✅ Create implementation plan
-4. ✅ Set up tracking issues
+1. ✅ Prioritize opportunities
+1. ✅ Create implementation plan
+1. ✅ Set up tracking issues
 
 ### Short-term (Next 2 Weeks)
 
 1. Implement DI container (Phase 1)
-2. Migrate CacheManager to container
-3. Remove global registry
+1. Migrate CacheManager to container
+1. Remove global registry
 
 ### Medium-term (Next Month)
 
 1. Database protocol implementation (Phase 2)
-2. HTTP client abstraction (Phase 3)
-3. Configuration service (Phase 4)
+1. HTTP client abstraction (Phase 3)
+1. Configuration service (Phase 4)
 
 ### Long-term (Next Quarter)
 
 1. Complete all DI opportunities
-2. Achieve 80%+ test coverage
-3. Document patterns in AGENTS.md
+1. Achieve 80%+ test coverage
+1. Document patterns in AGENTS.md
 
----
+______________________________________________________________________
 
 ## Conclusion
 
@@ -418,24 +418,24 @@ The analysis has identified **significant opportunities** for improving the tdoc
 - 38% increase in test coverage
 - Improved code maintainability
 
----
+______________________________________________________________________
 
 ## Document Index
 
 This analysis consists of the following documents:
 
 1. [Scattered Instantiation Findings](scattered-instantiation.md) - 174 lines
-2. [Tight Coupling Findings](tight-coupling.md) - 238 lines
-3. [Existing DI-like Patterns](existing-patterns.md) - 299 lines
-4. [Configuration Fragmentation](config-fragmentation.md) - 426 lines
-5. [Testability Challenges](testability-challenges.md) - 433 lines
-6. [DI Opportunities Summary](di-opportunities.md) - 537 lines
-7. [Analysis Validation](validation.md) - 463 lines
-8. [Analysis Summary](summary.md) - This document
+1. [Tight Coupling Findings](tight-coupling.md) - 238 lines
+1. [Existing DI-like Patterns](existing-patterns.md) - 299 lines
+1. [Configuration Fragmentation](config-fragmentation.md) - 426 lines
+1. [Testability Challenges](testability-challenges.md) - 433 lines
+1. [DI Opportunities Summary](di-opportunities.md) - 537 lines
+1. [Analysis Validation](validation.md) - 463 lines
+1. [Analysis Summary](summary.md) - This document
 
 **Total:** 2,870 lines of analysis documentation
 
----
+______________________________________________________________________
 
 ## Approval
 
@@ -447,7 +447,7 @@ This analysis consists of the following documents:
 
 **Status:** ✅ **COMPLETE** - Ready for implementation planning
 
----
+______________________________________________________________________
 
 ## Related Documents
 

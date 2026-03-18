@@ -16,10 +16,10 @@ This phase integrates core modules into the Dependency Injection (DI) framework 
 
 The migration follows a "Wrap then Replace" approach to maintain stability:
 
-1.  **Service Registration**: Register existing singleton patterns as providers in the `ServiceContainer`.
-2.  **Factory Implementation**: Create factory methods for transient resources like database connections.
-3.  **Parameter Injection**: Update module entry points to accept dependencies via parameters while maintaining default values (using `Provide`) for backward compatibility.
-4.  **Verification**: Execute existing integration tests to ensure no regressions in side effects (e.g., file system writes, network caching).
+1. **Service Registration**: Register existing singleton patterns as providers in the `ServiceContainer`.
+1. **Factory Implementation**: Create factory methods for transient resources like database connections.
+1. **Parameter Injection**: Update module entry points to accept dependencies via parameters while maintaining default values (using `Provide`) for backward compatibility.
+1. **Verification**: Execute existing integration tests to ensure no regressions in side effects (e.g., file system writes, network caching).
 
 ## Timeline (MVP Scope: Days 2-3)
 

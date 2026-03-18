@@ -1,8 +1,8 @@
 # Error Handling Approach
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview

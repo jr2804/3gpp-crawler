@@ -1,8 +1,8 @@
 # AppConfig Class Design
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -21,6 +21,7 @@ Current configuration fragmentation (from analysis):
 | `cli/args.py` | Typer options | 10+ | Typer decorators |
 
 **Issues identified:**
+
 - 23+ environment variables with 4 different loading mechanisms
 - Duplicated parsing logic across modules
 - Inconsistent validation approaches
@@ -29,10 +30,10 @@ Current configuration fragmentation (from analysis):
 ## Design Goals
 
 1. **Single Loading Mechanism**: All config loaded via one method
-2. **Consistent Defaults**: Centralized default values
-3. **Testability**: Easy to mock/configure in tests
-4. **Backward Compatibility**: Existing config classes remain functional
-5. **Optional Usage**: Can use individual configs or unified AppConfig
+1. **Consistent Defaults**: Centralized default values
+1. **Testability**: Easy to mock/configure in tests
+1. **Backward Compatibility**: Existing config classes remain functional
+1. **Optional Usage**: Can use individual configs or unified AppConfig
 
 ## Unified Configuration Classes
 

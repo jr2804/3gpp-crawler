@@ -3,8 +3,8 @@
 ## Quick Start
 
 1. **General TDD patterns**: Use the `test-driven-development` skill for pytest, mocking, fixtures, and coverage
-2. **Standard locations**: Cache `./tests/test-cache`, DB `./tests/test-cache/tdoc_crawler.db`
-3. **Run tests**: `uv run pytest -v`
+1. **Standard locations**: Cache `./tests/test-cache`, DB `./tests/test-cache/tdoc_crawler.db`
+1. **Run tests**: `uv run pytest -v`
 
 ## Pool Executor Tests
 
@@ -48,6 +48,7 @@ from tdoc_crawler.specs import SpecDatabase
 **CRITICAL:** Do not re-implement or copy logic from `src/` into `tests/`. Tests should import and verify actual implementation. If code is hard to test, refactor it to be more testable.
 
 **Use fixtures** from `conftest.py` to avoid duplicating setup code:
+
 - `test_db_path`: Path to test database
 - `credentials`: Mock PortalCredentials
 - `mock_session`: Mock HTTP session

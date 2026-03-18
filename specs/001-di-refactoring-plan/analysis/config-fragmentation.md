@@ -41,7 +41,7 @@ class CacheManager:
 - Defaults scattered as module-level constants
 - Environment variable parsing inline in constructor
 
----
+______________________________________________________________________
 
 ### 2. AI Configuration (`src/tdoc_crawler/ai/config.py`)
 
@@ -87,7 +87,7 @@ class AiConfig(BaseConfigModel):
 - Validator has side effects (resolves paths via CacheManager)
 - Comment admits TODO: "This constructor is actually useless"
 
----
+______________________________________________________________________
 
 ### 3. HTTP Cache Configuration (`src/tdoc_crawler/models/crawl_limits.py`)
 
@@ -127,7 +127,7 @@ class HttpCacheConfig(BaseModel):
 - Manual type conversion (int(), bool parsing)
 - Duplicates pattern from AiConfig.from_env()
 
----
+______________________________________________________________________
 
 ### 4. Crawl Limits Configuration (`src/tdoc_crawler/models/crawl_limits.py`)
 
@@ -147,7 +147,7 @@ class CrawlLimits(BaseModel):
 - Must be constructed programmatically
 - Inconsistent with other config classes
 
----
+______________________________________________________________________
 
 ### 5. TDoc Crawl Configuration (`src/tdoc_crawler/tdocs/models.py`)
 
@@ -174,7 +174,7 @@ class TDocCrawlConfig(BaseModel):
 - No unified loading mechanism
 - Must construct entire tree manually
 
----
+______________________________________________________________________
 
 ### 6. CLI Arguments as Configuration (`src/tdoc_crawler/cli/args.py`)
 
@@ -208,7 +208,7 @@ EolUsernameOption = Annotated[
 - Duplication: same env vars defined in multiple places
 - CLI args must be manually mapped to config objects
 
----
+______________________________________________________________________
 
 ## Fragmentation Metrics
 
@@ -251,7 +251,7 @@ DEFAULT_LLM_MODEL = "openrouter/openrouter/free"
 # Defaults in Field() definitions
 ```
 
----
+______________________________________________________________________
 
 ## Impact Analysis
 
@@ -293,7 +293,7 @@ class CrawlLimits(BaseModel):
 
 **Problem:** Developers must learn 4 different patterns for configuration loading.
 
----
+______________________________________________________________________
 
 ### 2. Duplication
 
@@ -323,7 +323,7 @@ http_cache_enabled = env_enabled not in ("false", "0", "no", "off", "f", "n")
 # ai/config.py: Similar logic would be needed if bool env vars added
 ```
 
----
+______________________________________________________________________
 
 ### 3. Validation Inconsistency
 
@@ -353,7 +353,7 @@ else:
 # TTL and refresh are independent, no validation of relationship
 ```
 
----
+______________________________________________________________________
 
 ## Recommendations
 
@@ -416,7 +416,7 @@ class ConfigLoader:
         # Handles all parsing, validation, defaults
 ```
 
----
+______________________________________________________________________
 
 ## Related Documents
 

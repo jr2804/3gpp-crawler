@@ -54,7 +54,7 @@ manager = container.get("cache_manager")
 - `ai/config.py` (path resolution)
 - `tdocs/sources/whatthespec.py` (meeting resolution)
 
----
+______________________________________________________________________
 
 ### Opportunity 2: Database Protocol Abstraction
 
@@ -101,7 +101,7 @@ class TDocCrawler:
 - `database/meetings.py`
 - `specs/operations/crawl.py`
 
----
+______________________________________________________________________
 
 ### Opportunity 3: HTTP Client Interface
 
@@ -153,7 +153,7 @@ class WhatTheSpecSource(TDocSource):
 - `specs/sources/3gpp.py`
 - `http_client.py`
 
----
+______________________________________________________________________
 
 ### Opportunity 4: Configuration Service
 
@@ -203,7 +203,7 @@ config = config_service.load()
 - `models/crawl_limits.py`
 - `cli/args.py`
 
----
+______________________________________________________________________
 
 ### Opportunity 5: Factory Pattern for Sources
 
@@ -250,7 +250,7 @@ source = factory.create_source("whatthespec")
 - `tdocs/sources/`
 - `specs/sources/`
 
----
+______________________________________________________________________
 
 ### Opportunity 6: CLI Command Injection
 
@@ -312,7 +312,7 @@ def open_tdoc(
 - `cli/crawl.py`
 - `cli/query.py`
 
----
+______________________________________________________________________
 
 ## Priority Matrix
 
@@ -332,11 +332,13 @@ def open_tdoc(
 **Goal:** Establish DI container and remove global state
 
 1. **Create Container Class** (Opportunity 1)
+
    - Implement basic service container
    - Migrate CacheManager registry to container
    - Update all `resolve_cache_manager()` calls
 
-2. **Add Tests for Container**
+1. **Add Tests for Container**
+
    - Test service registration
    - Test service resolution
    - Test lifecycle management
@@ -347,22 +349,25 @@ def open_tdoc(
 - Updated `config.py` without global registry
 - All tests passing
 
----
+______________________________________________________________________
 
 ### Phase 2: Database Abstraction (Week 3-4)
 
 **Goal:** Decouple database operations from concrete implementation
 
 1. **Define Database Protocols** (Opportunity 2)
+
    - Create `DatabaseProtocol` with required methods
    - Make `TDocDatabase` implement protocol
    - Create `InMemoryDatabase` for testing
 
-2. **Refactor TDocCrawler**
+1. **Refactor TDocCrawler**
+
    - Change constructor to accept `DatabaseProtocol`
    - Update tests to use `InMemoryDatabase`
 
-3. **Refactor Other Database Users**
+1. **Refactor Other Database Users**
+
    - Apply same pattern to `SpecCrawler`, `MeetingCrawler`
 
 **Deliverables:**
@@ -371,17 +376,19 @@ def open_tdoc(
 - `tests/database/in_memory.py`
 - Refactored crawler classes
 
----
+______________________________________________________________________
 
 ### Phase 3: HTTP Client Abstraction (Week 5)
 
 **Goal:** Make HTTP clients testable
 
 1. **Define HTTP Client Protocol** (Opportunity 3)
+
    - Create `HttpClientProtocol`
    - Wrap `create_cached_session()` in adapter
 
-2. **Update Source Classes**
+1. **Update Source Classes**
+
    - Inject HTTP client via constructor
    - Update tests to use mock HTTP client
 
@@ -391,17 +398,19 @@ def open_tdoc(
 - Updated source classes
 - Improved test coverage
 
----
+______________________________________________________________________
 
 ### Phase 4: Configuration Unification (Week 6)
 
 **Goal:** Centralize configuration loading
 
 1. **Create Config Service** (Opportunity 4)
+
    - Implement `ConfigService` class
    - Consolidate environment parsing
 
-2. **Migrate Configuration Users**
+1. **Migrate Configuration Users**
+
    - Update code to use config service
    - Remove duplicate env parsing
 
@@ -410,21 +419,24 @@ def open_tdoc(
 - `src/tdoc_crawler/config/service.py`
 - Consolidated configuration loading
 
----
+______________________________________________________________________
 
 ### Phase 5: Polish & Extension (Week 7-8)
 
 **Goal:** Complete DI pattern adoption
 
 1. **Source Factory** (Opportunity 5)
+
    - Implement factory pattern
    - Add configuration-driven source selection
 
-2. **CLI Refactoring** (Opportunity 6)
+1. **CLI Refactoring** (Opportunity 6)
+
    - Extract command classes
    - Inject dependencies via container
 
-3. **Documentation**
+1. **Documentation**
+
    - Update AGENTS.md with DI patterns
    - Add examples for testing with DI
 
@@ -434,7 +446,7 @@ def open_tdoc(
 - Comprehensive documentation
 - All tests passing with improved coverage
 
----
+______________________________________________________________________
 
 ## Expected Outcomes
 
@@ -464,7 +476,7 @@ def open_tdoc(
 - ✅ More confident refactoring
 - ✅ Better IDE support (type hints)
 
----
+______________________________________________________________________
 
 ## Risks & Mitigations
 
@@ -492,7 +504,7 @@ def open_tdoc(
 - Provide code examples
 - Pair programming for complex refactors
 
----
+______________________________________________________________________
 
 ## Success Criteria
 
@@ -526,7 +538,7 @@ def open_tdoc(
 - Test coverage >80%
 - Documentation complete
 
----
+______________________________________________________________________
 
 ## Related Documents
 

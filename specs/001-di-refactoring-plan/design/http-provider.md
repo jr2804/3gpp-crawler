@@ -1,8 +1,8 @@
 # HttpClientProvider Abstraction Design
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -33,6 +33,7 @@ temp_session = create_cached_session(
 ```
 
 **Issues identified:**
+
 - Session lifecycle managed manually in each caller
 - Caching configuration passed redundantly
 - No session reuse across operations

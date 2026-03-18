@@ -3,6 +3,7 @@
 ## Overview
 
 This specification addresses the critical architectural issues in the AI module's storage and configuration management. The current implementation suffers from scattered instantiation of `AiStorage` and `AiConfig` across multiple locations, leading to:
+
 - Multiple LanceDB connections to the same database
 - Incorrect cache paths (missing provider/model subdirectory)
 - NaTType errors when saving processing status
@@ -28,9 +29,11 @@ Each call creates a **new LanceDB connection** to the same database, wasting res
 #### 2. AiConfig.from_env() Redundancy
 
 The `AiConfig.from_env()` method is marked as useless (TODO comment in config.py line 101):
+
 > "This constructor is actually useless; the environment variable parsing is done by the typer CLI"
 
 Yet it's called in multiple places:
+
 - pipeline.py lines 333, 366, 420
 - cli/ai.py line 355
 
@@ -39,6 +42,7 @@ Yet it's called in multiple places:
 When `AiStorage` is instantiated with `config.ai_cache_dir`, it should include the provider/model subdirectory. However, when created manually with just the base path, it doesn't.
 
 The correct path resolution happens in `AiConfig`:
+
 ```python
 # config.py lines 148-152
 if self.ai_cache_dir is None:
@@ -64,15 +68,17 @@ ERROR Classification failed for S4-241549: NaTType does not support utcoffset
 ### Architecture: Singleton Pattern with Dependency Injection
 
 Implement a **singleton** for `AiStorage` and `AiConfig` that is:
+
 1. **Created once** at application startup
-2. **Injected** into all functions/classes that need it
-3. **Properly initialized** with correct cache path (including provider/model)
+1. **Injected** into all functions/classes that need it
+1. **Properly initialized** with correct cache path (including provider/model)
 
 ### Implementation Plan
 
 #### Phase 1: Fix Critical Bug (NaTType Error)
 
 **Task**: Fix NaT handling in storage.py
+
 - Location: src/tdoc_crawler/ai/storage.py
 - Add NaT cleanup in `save_status()` method
 - Similar to existing cleanup in `get_status()` (lines 98-101)
@@ -80,6 +86,7 @@ Implement a **singleton** for `AiStorage` and `AiConfig` that is:
 #### Phase 2: Create Singleton Container
 
 **Task**: Create AiServiceContainer class
+
 - Location: src/tdoc_crawler/ai/container.py (new file)
 - Singleton pattern for AiStorage and AiConfig
 - Provides lazy initialization
@@ -124,6 +131,7 @@ class AiServiceContainer:
 #### Phase 3: Refactor Pipeline Functions
 
 **Task**: Update pipeline.py to use container
+
 - Replace inline AiStorage/AiConfig creation with container.get_storage()
 - Pass storage as parameter (already done correctly)
 - Use container for config and embeddings manager
@@ -131,12 +139,14 @@ class AiServiceContainer:
 #### Phase 4: Refactor CLI Commands
 
 **Task**: Update cli/ai.py to use container
+
 - Replace inline creation with container.get_storage()
 - Single initialization point
 
 #### Phase 5: Remove Redundant Code
 
 **Task**: Clean up AiConfig.from_env()
+
 - Remove the TODO comment about it being useless
 - Or remove the method entirely if truly redundant
 - Ensure CLI properly initializes config
@@ -150,6 +160,7 @@ class AiServiceContainer:
 ## Testability Improvements
 
 With singleton container:
+
 - Easy to mock for testing
 - Single point for test fixture injection
 - No need to mock multiple instantiation points
@@ -157,10 +168,10 @@ With singleton container:
 ## Files to Modify
 
 1. **src/tdoc_crawler/ai/storage.py** - Fix NaT handling
-2. **src/tdoc_crawler/ai/container.py** - NEW: Singleton container
-3. **src/tdoc_crawler/ai/operations/pipeline.py** - Use container
-4. **src/tdoc_crawler/cli/ai.py** - Use container
-5. **src/tdoc_crawler/ai/config.py** - Cleanup (optional)
+1. **src/tdoc_crawler/ai/container.py** - NEW: Singleton container
+1. **src/tdoc_crawler/ai/operations/pipeline.py** - Use container
+1. **src/tdoc_crawler/cli/ai.py** - Use container
+1. **src/tdoc_crawler/ai/config.py** - Cleanup (optional)
 
 ## Success Criteria
 

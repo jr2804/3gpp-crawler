@@ -1,8 +1,8 @@
 # Performance Considerations
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -230,8 +230,8 @@ class ServiceContainer:
 ### For Optimal Performance
 
 1. **Reuse containers**: Create once, reuse across operations
-2. **Close when done**: Clean up to release resources
-3. **Use context managers**: Ensures proper cleanup
+1. **Close when done**: Clean up to release resources
+1. **Use context managers**: Ensures proper cleanup
 
 ```python
 # Good: Reuse container

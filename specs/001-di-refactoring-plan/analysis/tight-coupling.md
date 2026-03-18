@@ -225,10 +225,10 @@ _cache_manager.register(force=True)
 ## Recommendations
 
 1. **Introduce Protocols**: Define interfaces for database, HTTP client, cache
-2. **Constructor Injection**: Pass dependencies explicitly, don't reach for globals
-3. **Composition over Inheritance**: Replace deep inheritance with component composition
-4. **Factory Pattern**: Abstract object creation behind interfaces
-5. **Explicit Configuration**: Make all dependencies visible in function signatures
+1. **Constructor Injection**: Pass dependencies explicitly, don't reach for globals
+1. **Composition over Inheritance**: Replace deep inheritance with component composition
+1. **Factory Pattern**: Abstract object creation behind interfaces
+1. **Explicit Configuration**: Make all dependencies visible in function signatures
 
 ## Related Documents
 

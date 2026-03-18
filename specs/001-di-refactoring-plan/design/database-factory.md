@@ -1,8 +1,8 @@
 # DatabaseFactory Protocol Design
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -29,6 +29,7 @@ with SpecDatabase(db_path) as db:
 ```
 
 **Issues identified:**
+
 - Every caller must know database file location
 - No connection pooling or lifecycle management
 - Hard to substitute mock databases in tests

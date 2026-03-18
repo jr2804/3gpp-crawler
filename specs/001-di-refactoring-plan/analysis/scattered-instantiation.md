@@ -162,9 +162,9 @@ def test_something(...):
 ## Recommendations
 
 1. **Introduce Container Pattern**: Centralize dependency creation in a DI container
-2. **Factory Abstraction**: Replace direct instantiation with factory interfaces
-3. **Configuration Unification**: Single configuration loading mechanism
-4. **Lifecycle Management**: Explicit dependency lifecycle (singleton vs. transient)
+1. **Factory Abstraction**: Replace direct instantiation with factory interfaces
+1. **Configuration Unification**: Single configuration loading mechanism
+1. **Lifecycle Management**: Explicit dependency lifecycle (singleton vs. transient)
 
 ## Related Documents
 

@@ -1,8 +1,8 @@
 # Migration Strategy
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -16,11 +16,12 @@ This document defines the migration strategy for moving from the current scatter
 **Goal**: Establish DI infrastructure without changing existing code
 
 **Tasks**:
+
 1. Create `ServiceContainer` class
-2. Implement `DatabaseFactory` protocol
-3. Implement `HttpClientProvider` class
-4. Create `AppConfig` class
-5. Add tests for new components
+1. Implement `DatabaseFactory` protocol
+1. Implement `HttpClientProvider` class
+1. Create `AppConfig` class
+1. Add tests for new components
 
 **Changes**: None to existing code
 **Risk**: Zero - all new code
@@ -30,16 +31,19 @@ This document defines the migration strategy for moving from the current scatter
 **Goal**: New code uses DI, existing code unchanged
 
 **Tasks**:
+
 1. Update internal functions to accept container
-2. Add container-based fixtures to tests
-3. Create test doubles (in-memory DB, mock HTTP)
+1. Add container-based fixtures to tests
+1. Create test doubles (in-memory DB, mock HTTP)
 
 **Changes**:
+
 - New functions can accept container
 - Tests can use fixtures
 - Existing functions unchanged
 
 **Example**:
+
 ```python
 # New internal function accepts container
 def _process_tdocs(config, container=None):
@@ -58,26 +62,29 @@ def query_tdocs(config):
 **Goal**: Migrate existing modules to use DI
 
 **Tasks**:
+
 1. Migrate one module at a time
-2. Update tests to use DI fixtures
-3. Verify no regression in functionality
+1. Update tests to use DI fixtures
+1. Verify no regression in functionality
 
 **Migration Order**:
+
 1. `ai/config.py` - Config loading
-2. `tdocs/sources/*` - Source classes
-3. `specs/sources/*` - Spec sources
-4. `http_client.py` - HTTP utilities
-5. CLI commands (last, highest risk)
+1. `tdocs/sources/*` - Source classes
+1. `specs/sources/*` - Spec sources
+1. `http_client.py` - HTTP utilities
+1. CLI commands (last, highest risk)
 
 ### Phase 4: Full Adoption (Weeks 9-10)
 
 **Goal**: Default to DI, deprecate old patterns
 
 **Tasks**:
+
 1. Set DI as default for new code
-2. Add deprecation warnings to old patterns
-3. Update documentation
-4. Finalize migration guide
+1. Add deprecation warnings to old patterns
+1. Update documentation
+1. Finalize migration guide
 
 ## Migration Checklist
 
@@ -131,8 +138,8 @@ class WhatTheSpecSource:
 If migration causes issues:
 
 1. **Immediate Rollback**: Revert to previous commit
-2. **Feature Flag**: Use flag to disable DI
-3. **Gradual Rollback**: Revert one module at a time
+1. **Feature Flag**: Use flag to disable DI
+1. **Gradual Rollback**: Revert one module at a time
 
 ```python
 # Feature flag for emergency rollback
@@ -199,13 +206,13 @@ def test_full_migration():
 ### Update Strategy
 
 1. **API Docs**: Document new container-based APIs
-2. **Migration Guide**: Step-by-step migration instructions
-3. **Examples**: Show both old and new patterns
-4. **FAQ**: Address common migration questions
+1. **Migration Guide**: Step-by-step migration instructions
+1. **Examples**: Show both old and new patterns
+1. **FAQ**: Address common migration questions
 
 ### Example Documentation
 
-```markdown
+````markdown
 ## Choosing a Pattern
 
 ### Traditional Pattern
@@ -218,10 +225,12 @@ Use when:
 manager = CacheManager(cache_dir).register()
 with TDocDatabase(manager.db_file) as db:
     results = db.query_tdocs(config)
-```
+````
 
 ### Container Pattern
+
 Use when:
+
 - Building larger applications
 - Writing tests
 - Need for multiple coordinated services
@@ -231,6 +240,7 @@ container = ServiceContainer(cache_dir)
 with container.get_tdoc_db() as db:
     results = db.query_tdocs(config)
 ```
+
 ```
 
 ## Timeline Summary
@@ -247,3 +257,4 @@ with container.get_tdoc_db() as db:
 - [ServiceContainer Interface](service-container.md)
 - [Backward Compatibility Strategy](backward-compatibility.md)
 - [Testability Approach](testability.md)
+```

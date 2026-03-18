@@ -1,8 +1,8 @@
 # ServiceContainer Interface Design
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -353,6 +353,6 @@ def safe_get_services():
 
 - [DatabaseFactory Protocol](database-factory.md)
 - [HttpClientProvider Abstraction](http-provider.md)
- Class](app-config- [AppConfig.md)
+  Class\](app-config- \[AppConfig.md)
 - [Backward Compatibility Strategy](backward-compatibility.md)
 - [Testability Approach](testability.md)

@@ -1,8 +1,8 @@
 # Backward Compatibility Strategy
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -246,11 +246,11 @@ with container.get_tdoc_db() as db:
 
 | Version | DI Container | Registry | Old Patterns |
 |---------|-------------|----------|--------------|
-| 1.x | Added | Deprecated* | Fully Supported |
-| 2.x | Standard | Removed | Deprecated* |
+| 1.x | Added | Deprecated\* | Fully Supported |
+| 2.x | Standard | Removed | Deprecated\* |
 | 3.x | Standard | N/A | Migrated |
 
-*Deprecation warnings issued but still functional.
+\*Deprecation warnings issued but still functional.
 
 ## Related Documents
 

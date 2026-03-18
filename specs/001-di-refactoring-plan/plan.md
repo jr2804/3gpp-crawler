@@ -23,7 +23,7 @@ Create comprehensive planning documents for a 4-phase dependency injection refac
 **Testing**: pytest with fixtures, mocking, parameterized tests
 **Target Platform**: Command-line tool (Linux/macOS/Windows)
 **Project Type**: Single Python library with CLI interface
-**Performance Goals**: No performance regression in existing functionality; DI overhead <5% in hot paths
+**Performance Goals**: No performance regression in existing functionality; DI overhead \<5% in hot paths
 **Constraints**: Must maintain backward compatibility; optional DI adoption; no breaking changes to public API
 **Scale/Scope**: ~10k LOC codebase; 4 core modules (database, HTTP client, cache, configuration); 15+ CLI commands
 
@@ -47,23 +47,25 @@ Create comprehensive planning documents for a 4-phase dependency injection refac
 
 **Library Module**: `tdoc_crawler.container` - ServiceContainer class managing lifecycle of core services (CacheManager, databases, HTTP sessions)
 **Public API**:
+
 - `ServiceContainer(cache_dir: Path | None = None)` - constructor
 - `cache_manager: CacheManager` - property
 - `get_tdoc_db() -> TDocDatabase` - factory method
 - `get_spec_db() -> SpecDatabase` - factory method
 - `get_session() -> requests.Session` - factory method with caching
 - `close() -> None` - cleanup
-**CLI Integration**: Optional parameter `--container` for CLI commands; backward compatibility maintained via default container creation
-**JSON Output**: Planning documents output as JSON for programmatic consumption (analysis, design, roadmap)
-**Text Output**: Human-readable markdown reports with tables, bullet points, and structured sections
-**Unit Tests**:
+  **CLI Integration**: Optional parameter `--container` for CLI commands; backward compatibility maintained via default container creation
+  **JSON Output**: Planning documents output as JSON for programmatic consumption (analysis, design, roadmap)
+  **Text Output**: Human-readable markdown reports with tables, bullet points, and structured sections
+  **Unit Tests**:
 - Test ServiceContainer creation and property access
 - Test database factory methods return correct types
 - Test session caching and reuse
 - Test backward compatibility (existing code works without container)
 - Test optional DI adoption (code can work with or without container)
-**Red Phase**: Create failing tests for each new abstraction before implementation; validate tests fail with current implementation
-**Test Strategy**: Mock external dependencies (requests, LanceDB) to isolate DI logic; use pytest fixtures for container lifecycle
+  **Red Phase**: Create failing tests for each new abstraction before implementation; validate tests fail with current implementation
+  **Test Strategy**: Mock external dependencies (requests, LanceDB) to isolate DI logic; use pytest fixtures for container lifecycle
+
 ```text
 specs/[###-feature]/
 ├── plan.md              # This file (/speckit.plan command output)

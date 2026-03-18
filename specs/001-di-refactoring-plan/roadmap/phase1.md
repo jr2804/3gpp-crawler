@@ -20,26 +20,31 @@ The goal of Phase 1 is to implement the central `ServiceContainer` and its initi
 ## Implementation Tasks
 
 ### ServiceContainer
+
 - Implement `ServiceContainer` with `register` and `resolve` methods.
 - Add support for singleton and factory-based service registration.
 - Ensure thread-safe access to the container.
 
 ### AppConfig
+
 - Create `AppConfig` class using `Pydantic` for validation.
 - Implement environment variable loading with `python-dotenv`.
 - Define core configuration parameters (database paths, API keys, cache settings).
 
 ### DatabaseFactory
+
 - Define `DatabaseFactory` protocol for database providers.
 - Implement `SqliteDatabaseFactory` for standard SQLite connections.
 - Add connection pooling or lifecycle management if required.
 
 ### HttpClientProvider
+
 - Create `HttpClientProvider` abstraction.
 - Integrate with `create_cached_session` from the existing HTTP client.
 - Ensure proper session lifecycle management.
 
 ### Testing and Documentation
+
 - Write comprehensive unit tests for `ServiceContainer` and `AppConfig`.
 - Verify `DatabaseFactory` and `HttpClientProvider` integrations.
 - Update `specs/001-di-refactoring-plan/README.md` with Phase 1 status.
@@ -47,11 +52,11 @@ The goal of Phase 1 is to implement the central `ServiceContainer` and its initi
 ## Success Criteria
 
 1. **Service Resolution**: The `ServiceContainer` correctly resolves all registered services.
-2. **Configuration Loading**: `AppConfig` successfully loads settings from both `.env` files and environment variables.
-3. **Database Connectivity**: `DatabaseFactory` provides functional database sessions.
-4. **Caching Integration**: `HttpClientProvider` returns sessions with active `hishel` caching.
-5. **Test Coverage**: Initial DI components achieve 100% unit test coverage.
-6. **Linting**: All new code passes `ruff` and `ty` type checking.
+1. **Configuration Loading**: `AppConfig` successfully loads settings from both `.env` files and environment variables.
+1. **Database Connectivity**: `DatabaseFactory` provides functional database sessions.
+1. **Caching Integration**: `HttpClientProvider` returns sessions with active `hishel` caching.
+1. **Test Coverage**: Initial DI components achieve 100% unit test coverage.
+1. **Linting**: All new code passes `ruff` and `ty` type checking.
 
 ## Dependencies and Prerequisites
 

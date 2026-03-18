@@ -1,8 +1,8 @@
 # Existing Pattern Integration
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Draft
 
 ## Overview
@@ -29,6 +29,7 @@ assert resolve_cache_manager(container._name) is container.cache_manager
 ```
 
 **Key points:**
+
 - Registry remains the source of truth
 - Container registers its own manager on first access
 - Cleanup unregisters to maintain consistency
@@ -193,9 +194,9 @@ def get_tdoc_database() -> TDocDatabase:
 ## Design Principles Applied
 
 1. **Don't break existing**: All patterns continue working
-2. **Opt-in DI**: Container is additive, not required
-3. **Consistent interface**: Same method names where possible
-4. **Clean separation**: New code can use DI, old code unchanged
+1. **Opt-in DI**: Container is additive, not required
+1. **Consistent interface**: Same method names where possible
+1. **Clean separation**: New code can use DI, old code unchanged
 
 ## Related Documents
 

@@ -1,7 +1,7 @@
 # API Contract: ServiceContainer
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
 **Branch**: `001-di-refactoring-plan`
 
 ## Overview
@@ -243,16 +243,19 @@ def safe_get_session(container: ServiceContainer) -> requests.Session | None:
 ## Performance Characteristics
 
 ### Time Complexity
+
 - Container creation: O(1)
 - Service access: O(1) for cached, O(n) for first creation
 - Cleanup: O(1)
 
 ### Memory Usage
+
 - Container: ~1KB base + service instances
 - Session cache: ~100KB per session
 - Database connections: Managed by SQLite
 
 ### Thread Safety
+
 - **Not thread-safe**: CLI tool assumed single-threaded
 - **Reentrancy**: Safe for recursive calls within same thread
 - **Concurrent access**: Not supported
@@ -260,35 +263,41 @@ def safe_get_session(container: ServiceContainer) -> requests.Session | None:
 ## Versioning & Compatibility
 
 ### Backward Compatibility
+
 - All existing CLI commands continue working without changes
 - Container parameter optional with default creation
 - Existing instantiation patterns still valid
 
 ### Forward Compatibility
+
 - New services can be added without breaking changes
 - Configuration schema versioned
 - Deprecation warnings for old patterns
 
 ### Migration Path
+
 1. **Phase 1**: Optional container parameter added
-2. **Phase 2**: Internal use of container in new code
-3. **Phase 3**: Gradual migration of existing code
-4. **Phase 4**: Container becomes recommended pattern
+1. **Phase 2**: Internal use of container in new code
+1. **Phase 3**: Gradual migration of existing code
+1. **Phase 4**: Container becomes recommended pattern
 
 ## Testing Requirements
 
 ### Unit Tests
+
 - Container creation and property access
 - Database factory methods return correct types
 - Session caching and reuse
 - Error conditions and recovery
 
 ### Integration Tests
+
 - Real container with mocked external dependencies
 - CLI commands with container parameter
 - Configuration loading from environment
 
 ### Performance Tests
-- Container overhead measurement (<5% target)
+
+- Container overhead measurement (\<5% target)
 - Memory usage profiling
 - Session caching effectiveness

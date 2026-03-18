@@ -49,11 +49,13 @@ Circular import between `database/` and `specs/` was resolved by creating neutra
 Legacy `crawlers/` package was eliminated:
 
 **Before:**
+
 ```python
 from tdoc_crawler.crawlers import TDocCrawler, MeetingCrawler
 ```
 
 **After:**
+
 ```python
 from tdoc_crawler.tdocs import TDocCrawler
 from tdoc_crawler.meetings import MeetingCrawler

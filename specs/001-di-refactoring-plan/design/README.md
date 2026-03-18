@@ -57,23 +57,23 @@ The design phase defines the target architecture, interfaces, and implementation
 ### For Implementers
 
 1. Start with the [Architecture Design](architecture-design.md) to understand the overall structure
-2. Review the [Interface Design](interface-design.md) for specific contracts to implement
-3. Follow the [Implementation Plan](implementation-plan.md) for step-by-step guidance
+1. Review the [Interface Design](interface-design.md) for specific contracts to implement
+1. Follow the [Implementation Plan](implementation-plan.md) for step-by-step guidance
 
 ### For Reviewers
 
 1. Verify design aligns with analysis findings
-2. Ensure interfaces are well-defined and testable
-3. Confirm implementation plan is realistic and complete
+1. Ensure interfaces are well-defined and testable
+1. Confirm implementation plan is realistic and complete
 
 ## Design Principles
 
 The design follows these principles:
 
 1. **Dependency Inversion**: Depend on abstractions, not concretions
-2. **Single Responsibility**: Each component has one reason to change
-3. **Interface Segregation**: Many specific interfaces over one general interface
-4. **Testability**: All components are easily testable in isolation
+1. **Single Responsibility**: Each component has one reason to change
+1. **Interface Segregation**: Many specific interfaces over one general interface
+1. **Testability**: All components are easily testable in isolation
 
 ## Templates
 
@@ -96,9 +96,9 @@ Architecture Decision Records (ADRs) for major decisions:
 When adding new design documents:
 
 1. Use the provided templates
-2. Link to related analysis documents
-3. Include diagrams where helpful
-4. Update this README with the new document
+1. Link to related analysis documents
+1. Include diagrams where helpful
+1. Update this README with the new document
 
 ## Questions?
 

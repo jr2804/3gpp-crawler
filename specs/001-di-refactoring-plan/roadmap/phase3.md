@@ -11,7 +11,7 @@ Phase 3 focuses on integrating the `ServiceContainer` into the CLI layer and ali
 | **AI** | Pattern Alignment | Refactor `tdoc_crawler.ai` operations to use DI for database and LLM provider access. |
 | **Docs** | CLI Update Guide | Document changes in command execution and how to leverage DI in custom scripts. |
 | **Tests** | CLI Integration Tests | End-to-end tests verifying CLI commands with different container configurations. |
-| **Perf** | Overhead Validation | Benchmark CLI startup time and command execution to ensure <5% DI overhead. |
+| **Perf** | Overhead Validation | Benchmark CLI startup time and command execution to ensure \<5% DI overhead. |
 
 ## 2. CLI Command Integration
 
@@ -44,7 +44,9 @@ The AI module represents a complex consumer of services:
 | Testing and validation | 1 hour | Medium |
 | **Total** | **8 hours** | **1 Day** |
 
----
+______________________________________________________________________
+
 **References:**
+
 - `cli-integration.md`
 - `pattern-integration.md`

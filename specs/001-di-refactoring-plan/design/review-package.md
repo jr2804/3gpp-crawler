@@ -1,8 +1,8 @@
 # Design Review Package
 
-**Date**: 2026-03-02  
-**Feature**: Dependency Injection Refactoring Planning  
-**Branch**: `001-di-refactoring-plan`  
+**Date**: 2026-03-02\
+**Feature**: Dependency Injection Refactoring Planning\
+**Branch**: `001-di-refactoring-plan`\
 **Status**: Ready for Review
 
 ## Executive Summary
@@ -99,7 +99,7 @@ mock_http.mock_response("GET", url, response_text='{}')
 | Mocks per test | 4.2 avg | 1-2 | 60% reduction |
 | Test setup/logic ratio | 3.1 | 1.0 | 68% reduction |
 | Global state tests | 18% | 0% | Eliminated |
-| Test execution time | 120ms | <50ms | 58% faster |
+| Test execution time | 120ms | \<50ms | 58% faster |
 | Test coverage (target) | 58% | 80%+ | 38% increase |
 
 ## Risk Assessment
@@ -107,7 +107,7 @@ mock_http.mock_response("GET", url, response_text='{}')
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Breaking existing code | High | Zero breaking changes guaranteed |
-| Performance overhead | Low | <1ms container creation |
+| Performance overhead | Low | \<1ms container creation |
 | Migration complexity | Medium | Phased approach with rollback |
 | Learning curve | Low | Optional, gradual adoption |
 
@@ -132,9 +132,9 @@ mock_http.mock_response("GET", url, response_text='{}')
 ## Next Steps
 
 1. **Stakeholder Review**: Present design to stakeholders for feedback
-2. **Technical Review**: Have developers review interfaces and implementation plans
-3. **Approval**: Receive approval to proceed with implementation
-4. **Implementation**: Begin Phase 1 - Foundation implementation
+1. **Technical Review**: Have developers review interfaces and implementation plans
+1. **Approval**: Receive approval to proceed with implementation
+1. **Implementation**: Begin Phase 1 - Foundation implementation
 
 ## Related Documents
 
@@ -154,6 +154,7 @@ mock_http.mock_response("GET", url, response_text='{}')
 ## Contact
 
 For questions about this design package:
+
 - Design Owner: [TBD]
 - Technical Lead: [TBD]
 - Project Manager: [TBD]

@@ -35,9 +35,9 @@ _cache_manager.register(force=True)
 **Problems:**
 
 1. **Order Dependency**: Tests must run in specific order or registry must be pre-initialized
-2. **Cleanup Required**: Tests that modify registry must clean up after themselves
-3. **Hidden Dependencies**: Test failures may be caused by registry state from previous tests
-4. **Parallel Test Execution**: Cannot run tests in parallel due to shared state
+1. **Cleanup Required**: Tests that modify registry must clean up after themselves
+1. **Hidden Dependencies**: Test failures may be caused by registry state from previous tests
+1. **Parallel Test Execution**: Cannot run tests in parallel due to shared state
 
 **Real Example:**
 
@@ -54,7 +54,7 @@ def test_another_thing():
     # FORGOT to clean up - affects next test!
 ```
 
----
+______________________________________________________________________
 
 ### 2. Multiple Mocking Points
 
@@ -79,12 +79,12 @@ def test_open_tdoc(...):
 **Why so many mocks?**
 
 1. `CacheManager` - instantiated in command
-2. `TDocDatabase` - instantiated in command
-3. `create_cached_session` - called for HTTP session
-4. `fetch_missing_tdocs` - module-level function
-5. `prepare_tdoc_file` - file preparation logic
-6. `launch_file` - system call to open file
-7. `_cache_managers` - global state accessed by HTTP client
+1. `TDocDatabase` - instantiated in command
+1. `create_cached_session` - called for HTTP session
+1. `fetch_missing_tdocs` - module-level function
+1. `prepare_tdoc_file` - file preparation logic
+1. `launch_file` - system call to open file
+1. `_cache_managers` - global state accessed by HTTP client
 
 **Impact:**
 
@@ -93,7 +93,7 @@ def test_open_tdoc(...):
 - Hard to understand what's actually being tested
 - Mocking errors cause false positives/negatives
 
----
+______________________________________________________________________
 
 ### 3. Database Testing Complexity
 
@@ -125,9 +125,9 @@ def populated_db(test_db_path, sample_meetings, sample_tdocs) -> TDocDatabase:
 **Problems:**
 
 1. **File I/O Overhead**: Every test creates/deletes files
-2. **Slow Tests**: Database setup adds 10-50ms per test
-3. **Real Database Logic**: Cannot mock database behavior, must use real SQLite
-4. **Connection Management**: Context managers must be properly nested
+1. **Slow Tests**: Database setup adds 10-50ms per test
+1. **Real Database Logic**: Cannot mock database behavior, must use real SQLite
+1. **Connection Management**: Context managers must be properly nested
 
 **Better Approach (with DI):**
 
@@ -141,7 +141,7 @@ def test_query_logic(mock_database: MockDatabase):
     # Test only the query logic, not database I/O
 ```
 
----
+______________________________________________________________________
 
 ### 4. HTTP Client Testing
 
@@ -160,9 +160,9 @@ temp_session = create_cached_session(
 **Test Challenges:**
 
 1. **Cache State**: Tests may pass/fail based on cache state
-2. **Network Calls**: Must mock HTTP or tests fail without network
-3. **Cache File Locking**: SQLite cache can have file locking issues
-4. **Multiple Creation Points**: `create_cached_session` called in 6+ locations
+1. **Network Calls**: Must mock HTTP or tests fail without network
+1. **Cache File Locking**: SQLite cache can have file locking issues
+1. **Multiple Creation Points**: `create_cached_session` called in 6+ locations
 
 **Current Workaround:**
 
@@ -182,7 +182,7 @@ def test_resolve_tdoc(http_client: MockHttpClient):
     metadata = resolve_via_whatthespec("S4-123", session=http_client)
 ```
 
----
+______________________________________________________________________
 
 ### 5. Configuration Testing
 
@@ -228,7 +228,7 @@ def test_ai_config():
 - Hard to test different configurations in parallel
 - pytest fixtures don't help with module-level env parsing
 
----
+______________________________________________________________________
 
 ### 6. Inheritance Hierarchy Testing
 
@@ -245,9 +245,9 @@ TDocDatabase → MeetingDatabase → DocDatabase
 When testing `TDocDatabase.query_tdocs()`:
 
 1. Inherits all `MeetingDatabase` methods
-2. Inherits all `DocDatabase` methods
-3. Constructor requires real database file
-4. Cannot test query logic without full database stack
+1. Inherits all `DocDatabase` methods
+1. Constructor requires real database file
+1. Cannot test query logic without full database stack
 
 **Code:**
 
@@ -265,7 +265,7 @@ meeting_map = meeting_db._meeting_map()
 - Test setup requires understanding full hierarchy
 - Changes to base class break child class tests
 
----
+______________________________________________________________________
 
 ### 7. File System Dependencies
 
@@ -310,7 +310,7 @@ def test_checkout_spec(tmp_path: Path):
 - Hard to test edge cases (missing files, permissions, etc.)
 - Tests can leave behind files if they fail
 
----
+______________________________________________________________________
 
 ## Quantitative Impact
 
@@ -321,8 +321,8 @@ def test_checkout_spec(tmp_path: Path):
 | Average mocks per test | 4.2 | 1-2 | 2x too high |
 | Test setup lines / test logic lines | 3.1 | 1.0 | 3x too high |
 | Tests with global state cleanup | 18% | 0% | Should be 0 |
-| Tests with file I/O | 45% | <10% | 4x too high |
-| Average test execution time | 120ms | <50ms | 2.4x too slow |
+| Tests with file I/O | 45% | \<10% | 4x too high |
+| Average test execution time | 120ms | \<50ms | 2.4x too slow |
 
 ### Test Coverage by Module
 
@@ -335,7 +335,7 @@ def test_checkout_spec(tmp_path: Path):
 | cli/app.py | 23% | ❌ Low | Too many dependencies |
 | tdocs/operations/ | 58% | ⚠️ Medium | Mixed |
 
----
+______________________________________________________________________
 
 ## Recommendations
 
@@ -423,7 +423,7 @@ class InMemoryDatabase:
         # In-memory implementation
 ```
 
----
+______________________________________________________________________
 
 ## Related Documents
 
