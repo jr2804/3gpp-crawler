@@ -86,5 +86,6 @@ run = [
     "bun x skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
     "bun x skills add https://github.com/hardikpandya/stop-slop -a universal -y",
     "bun x skills add kreuzberg-dev/kreuzberg -a universal -y",
-    "bun x skills add AlmogBaku/debug-skill -a universal -y"
+    "bun x skills add AlmogBaku/debug-skill -a universal -y",
+    "bun x skills add https://github.com/s2005/uv-skill -a universal -y"
 ]
