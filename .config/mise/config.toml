@@ -3,6 +3,7 @@
 "github:yoanbernabeu/grepai" = "latest"
 "github:djinn-soul/CytoScnPy" = "latest"
 "github:AlmogBaku/debug-skill" = "latest"
+"github:rtk-ai/rtk" = "latest"
 node = "latest"
 bun = "latest"
 
