@@ -1,4 +1,4 @@
-"""Tests for hybrid converter with unoserver support."""
+"""Tests for Converter CLI mode."""
 
 from __future__ import annotations
 
@@ -6,201 +6,266 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from convert_lo.converter import HAS_UNOSERVER, Converter
-from convert_lo.exceptions import ConversionError
+from convert_lo.converter import Converter
+from convert_lo.exceptions import ConversionError, UnsupportedConversionError
 from convert_lo.formats import LibreOfficeFormat
 
 
-class TestConverterServerMode:
-    """Tests for Converter server mode configuration."""
+class TestConverterInit:
+    """Tests for Converter initialization."""
 
-    def test_converter_init_cli_mode(self) -> None:
-        """Initialize with CLI mode forced."""
-        converter = Converter(server_mode="cli")
+    def test_converter_init_with_custom_path(self) -> None:
+        """Use provided soffice path without discovery."""
+        soffice_path = Path("C:/custom/soffice.exe")
 
-        assert converter.server_mode == "cli"
-        assert converter.is_using_server is False
+        converter = Converter(soffice_path=soffice_path)
 
-    def test_converter_init_auto_mode(self) -> None:
-        """Initialize with auto mode (default)."""
-        converter = Converter(server_mode="auto")
+        assert converter._soffice_path == soffice_path
 
-        assert converter.server_mode == "auto"
+    def test_converter_init_with_auto_discovery(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Resolve soffice path via find_soffice when not provided."""
+        expected_path = Path("C:/Program Files/LibreOffice/program/soffice.exe")
+        monkeypatch.setattr("convert_lo.converter.find_soffice", lambda: expected_path)
 
-    def test_converter_init_server_mode_no_server(self) -> None:
-        """Initialize with server mode but no server available."""
-        with patch("convert_lo.converter.is_server_running", return_value=False):
-            # Should not raise in auto mode, just use CLI
-            converter = Converter(server_mode="auto")
-            assert converter.is_using_server is False
+        converter = Converter()
 
-    def test_converter_init_server_mode_required(self) -> None:
-        """Raise error when server mode required but unavailable."""
-        with patch("convert_lo.converter.is_server_running", return_value=False):
-            with pytest.raises(ConversionError, match="Unoserver required but not available"):
-                Converter(server_mode="server")
+        assert converter._soffice_path == expected_path
 
-    def test_converter_init_with_auto_start(self) -> None:
-        """Auto-start server when configured."""
-        mock_manager = MagicMock()
+    def test_converter_init_with_timeout(self) -> None:
+        """Set custom timeout."""
+        converter = Converter(timeout=60)
 
-        with (
-            patch("convert_lo.converter.is_server_running", return_value=False),
-            patch("convert_lo.converter.ServerManager", return_value=mock_manager),
-        ):
-            Converter(
-                server_mode="auto",
-                auto_start_server=True,
-            )
-
-            mock_manager.start.assert_called_once()
-
-    def test_converter_init_auto_start_fallback_to_cli(self) -> None:
-        """Fallback to CLI when auto-start fails."""
-        mock_manager = MagicMock()
-        mock_manager.start.side_effect = ConversionError("Failed to start")
-
-        with (
-            patch("convert_lo.converter.is_server_running", return_value=False),
-            patch("convert_lo.converter.ServerManager", return_value=mock_manager),
-        ):
-            converter = Converter(
-                server_mode="auto",
-                auto_start_server=True,
-            )
-
-            # Should not raise, just use CLI
-            assert converter.is_using_server is False
+        assert converter._timeout == 60
 
 
-@pytest.mark.skipif(not HAS_UNOSERVER, reason="unoserver not installed")
-class TestConverterWithServer:
-    """Tests for Converter with unoserver client."""
+class TestConverterConvert:
+    """Tests for Converter.convert method."""
 
-    def test_convert_uses_server_when_available(self, tmp_path: Path) -> None:
-        """Use server for conversion when available."""
-        input_file = tmp_path / "test.docx"
-        input_file.write_bytes(b"test content")
-        output_dir = tmp_path / "output"
-
-        mock_client = MagicMock()
-
-        with patch("convert_lo.converter.is_server_running", return_value=True), patch("convert_lo.converter.UnoClient", return_value=mock_client):
-            converter = Converter(server_mode="server")
-
-            assert converter.is_using_server is True
-
-            converter.convert(input_file, "pdf", output_dir)
-
-            mock_client.convert.assert_called_once()
-
-    def test_convert_server_fallback_to_cli(self, tmp_path: Path) -> None:
-        """Fallback to CLI when server conversion fails."""
-        input_file = tmp_path / "test.docx"
-        input_file.write_bytes(b"test content")
-        output_dir = tmp_path / "output"
-
-        mock_client = MagicMock()
-        mock_client.convert.side_effect = Exception("Server error")
-
+    def test_convert_accepts_string_format(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Accept string format values and convert to enum."""
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = ""
         mock_result.stderr = ""
 
-        with (
-            patch("convert_lo.converter.is_server_running", return_value=True),
-            patch("convert_lo.converter.UnoClient", return_value=mock_client),
-            patch("convert_lo.converter.subprocess.run", return_value=mock_result),
-        ):
-            converter = Converter(server_mode="server")
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
+            converter = Converter(soffice_path=Path("C:/soffice.exe"))
 
-            # Should not raise, falls back to CLI
-            result = converter.convert(input_file, "pdf", output_dir)
+            result = converter.convert(example_docx_path, "pdf", output_dir)
 
-            assert result.output_format == LibreOfficeFormat.PDF
-            # Both server and CLI were attempted
-            mock_client.convert.assert_called_once()
+            assert result.output_format is LibreOfficeFormat.PDF
 
-    def test_convert_batch_uses_server(self, tmp_path: Path) -> None:
-        """Batch conversion uses server when available."""
-        input_dir = tmp_path / "input"
-        input_dir.mkdir()
-        output_dir = tmp_path / "output"
+    def test_convert_accepts_enum_format(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Accept LibreOfficeFormat enum values."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
 
-        test_files = [input_dir / f"test_{i}.docx" for i in range(3)]
-        for f in test_files:
-            f.write_bytes(b"test")
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
+            converter = Converter(soffice_path=Path("C:/soffice.exe"))
 
-        mock_client = MagicMock()
+            result = converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
 
-        with (
-            patch("convert_lo.converter.is_server_running", return_value=True),
-            patch("convert_lo.converter.UnoClient", return_value=mock_client),
-        ):
-            converter = Converter(server_mode="server")
+            assert result.output_format is LibreOfficeFormat.PDF
 
-            results = converter.convert_batch(test_files, LibreOfficeFormat.PDF, output_dir)
+    def test_convert_rejects_invalid_format(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Reject invalid format values."""
+        converter = Converter(soffice_path=Path("C:/soffice.exe"))
 
-            assert len(results) == 3
-            assert mock_client.convert.call_count == 3
+        with pytest.raises(UnsupportedConversionError):
+            converter.convert(example_docx_path, "invalid_format", output_dir)
+
+    def test_convert_raises_on_unsupported_conversion(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        output_dir: Path,
+    ) -> None:
+        """Raise when conversion pair is unsupported."""
+        converter = Converter(soffice_path=Path("C:/soffice.exe"))
+
+        input_file = output_dir / "input.pdf"
+        input_file.write_text("dummy", encoding="utf-8")
+
+        with pytest.raises(UnsupportedConversionError):
+            converter.convert(input_file, LibreOfficeFormat.DOCX, output_dir)
+
+    def test_convert_raises_on_missing_input(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        output_dir: Path,
+    ) -> None:
+        """Raise ConversionError when input file does not exist."""
+        converter = Converter(soffice_path=Path("C:/soffice.exe"))
+        missing_path = output_dir / "missing.docx"
+
+        with pytest.raises(ConversionError, match="does not exist"):
+            converter.convert(missing_path, LibreOfficeFormat.PDF, output_dir)
+
+    def test_convert_raises_on_subprocess_failure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Raise ConversionError when subprocess fails."""
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "Conversion failed"
+
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
+            converter = Converter(soffice_path=Path("C:/soffice.exe"))
+
+            with pytest.raises(ConversionError, match="conversion failed"):
+                converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
+
+    def test_convert_uses_correct_command(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Verify subprocess.run is called with correct arguments."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
+
+        soffice_path = Path("C:/soffice.exe")
+
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result) as mock_run:
+            converter = Converter(soffice_path=soffice_path)
+            converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
+
+            call_args = mock_run.call_args
+            cmd = call_args[0][0]
+
+            assert str(soffice_path) in cmd
+            assert "--headless" in cmd
+            assert "--convert-to" in cmd
+            assert "pdf" in cmd
+            assert "--outdir" in cmd
+            assert str(output_dir) in cmd
+            assert str(example_docx_path) in cmd
+
+    def test_convert_creates_output_dir(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Create output directory if it doesn't exist."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
+
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
+            converter = Converter(soffice_path=Path("C:/soffice.exe"))
+            converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
+
+            assert output_dir.exists()
 
 
-class TestConverterContextManager:
-    """Tests for Converter context manager."""
+class TestConverterBatch:
+    """Tests for Converter.convert_batch method."""
 
-    def test_converter_context_manager_auto_start(self, tmp_path: Path) -> None:
-        """Start/stop server in context manager."""
-        mock_manager = MagicMock()
+    def test_convert_batch_multiple_files(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_doc_path: Path,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Convert multiple files with mocked subprocess."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
 
-        with (
-            patch("convert_lo.converter.is_server_running", return_value=False),
-            patch("convert_lo.converter.ServerManager", return_value=mock_manager),
-        ):
-            with Converter(
-                server_mode="auto",
-                auto_start_server=True,
-            ):
-                # Server should be started
-                assert mock_manager.start.called
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
+            converter = Converter(soffice_path=Path("C:/soffice.exe"))
 
-            # Server should be stopped after context exit
-            mock_manager.stop.assert_called_once()
+            results = converter.convert_batch(
+                [example_doc_path, example_docx_path],
+                LibreOfficeFormat.PDF,
+                output_dir,
+            )
 
-    def test_converter_context_manager_no_auto_start(self, tmp_path: Path) -> None:
-        """Don't start server without auto_start."""
-        with patch("convert_lo.converter.is_server_running", return_value=False), Converter(server_mode="auto", auto_start_server=False):
-            pass
+        assert len(results) == 2
+        assert results[0].output_format is LibreOfficeFormat.PDF
+        assert results[1].output_format is LibreOfficeFormat.PDF
 
-            # No manager should be created
+    def test_convert_batch_empty_list(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        output_dir: Path,
+    ) -> None:
+        """Return empty results for empty input list."""
+        converter = Converter(soffice_path=Path("C:/soffice.exe"))
+
+        results = converter.convert_batch([], LibreOfficeFormat.PDF, output_dir)
+
+        assert results == []
+
+    def test_convert_batch_stops_on_error(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Stop batch conversion on first error."""
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "Error"
+
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
+            converter = Converter(soffice_path=Path("C:/soffice.exe"))
+
+            with pytest.raises(ConversionError):
+                converter.convert_batch(
+                    [example_docx_path],
+                    LibreOfficeFormat.PDF,
+                    output_dir,
+                )
 
 
-class TestConverterServerDetection:
-    """Tests for server detection logic."""
+class TestConversionResult:
+    """Tests for ConversionResult dataclass."""
 
-    def test_converter_detects_running_server(self) -> None:
-        """Detect and use running server in auto mode."""
-        with patch("convert_lo.converter.is_server_running", return_value=True), patch("convert_lo.converter.UnoClient") as mock_client_class:
-            converter = Converter(server_mode="auto")
+    def test_conversion_result_fields(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        example_docx_path: Path,
+        output_dir: Path,
+    ) -> None:
+        """Verify result contains correct fields."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
 
-            assert converter.is_using_server is True
-            mock_client_class.assert_called_once()
+        with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
+            converter = Converter(soffice_path=Path("C:/soffice.exe"))
+            result = converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
 
-    def test_converter_falls_back_to_cli(self) -> None:
-        """Fall back to CLI when server unavailable in auto mode."""
-        with patch("convert_lo.converter.is_server_running", return_value=False):
-            converter = Converter(server_mode="auto")
-
-            assert converter.is_using_server is False
-
-    def test_converter_unoserver_not_installed(self) -> None:
-        """Handle case when unoserver is not installed."""
-        try:
-            with patch("convert_lo.converter.HAS_UNOSERVER", False):
-                converter = Converter(server_mode="auto")
-
-                # Should use CLI mode
-                assert converter.is_using_server is False
-        finally:
-            # Restore original value
-            pass
+            assert result.input_path == example_docx_path
+            assert result.output_path == output_dir / "example_modern.pdf"
+            assert result.output_format is LibreOfficeFormat.PDF

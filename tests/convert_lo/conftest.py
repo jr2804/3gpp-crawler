@@ -13,9 +13,15 @@ def fixture_example_doc_path() -> Path:
     return Path(__file__).parent / "examples" / "example_legacy.doc"
 
 
-@pytest.fixture(name="example_docx_path")
-def fixture_example_docx_path() -> Path:
-    """Return the modern .docx example fixture path."""
+@pytest.fixture(name="example_small_docx_path")
+def fixture_example_small_docx_path() -> Path:
+    """Return the small .docx example fixture path for faster tests."""
+    return Path(__file__).parent / "examples" / "example_medium_size.docx"
+
+
+@pytest.fixture(name="example_medium_docx_path")
+def fixture_example_medium_docx_path() -> Path:
+    """Return the medium .docx example fixture path."""
     return Path(__file__).parent / "examples" / "example_modern.docx"
 
 

@@ -1,32 +1,19 @@
 # convert-lo
 
-LibreOffice document conversion with CLI and server modes.
+LibreOffice document conversion using headless CLI mode.
 
 ## Architecture
 
-### Conversion Modes
-
-| Mode | Description | Performance |
-|------|-------------|-------------|
-| **CLI** (default fallback) | `soffice --headless --convert-to` | Baseline |
-| **Server** (unoserver) | Persistent listener | 2-4x faster batch |
-
-### Hybrid Detection
-
-Default (`server_mode="auto"`):
-1. Checks for running unoserver
-2. Uses server if available
-3. Falls back to CLI silently
+Uses `soffice --headless --convert-to` for reliable, cross-platform conversion.
+No server or daemon required.
 
 ### Key Components
 
 | Module | Purpose |
 |--------|---------|
-| `converter.py` | `Converter` class with hybrid mode |
-| `server.py` | `ServerManager` lifecycle |
+| `converter.py` | `Converter` class with CLI conversion |
 | `locator.py` | LibreOffice executable discovery |
 | `formats.py` | `LibreOfficeFormat` enum |
-| `benchmark.py` | Performance comparison |
 
 ## Configuration
 
@@ -34,9 +21,8 @@ Default (`server_mode="auto"`):
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `server_mode` | `"auto"` | `"auto"`, `"server"`, or `"cli"` |
-| `server_port` | `2003` | Unoserver XML-RPC port |
-| `auto_start_server` | `False` | Auto-start if needed |
+| `soffice_path` | `None` | Path to soffice (auto-detected) |
+| `timeout` | `300` | Seconds per file conversion |
 
 ### Environment Variables
 
@@ -69,11 +55,6 @@ uv run pytest tests/convert-lo/ --cov=convert_lo
 
 ## Implementation Notes
 
-1. **Thread Safety**: LibreOffice is NOT thread-safe. Conversions run sequentially.
-2. **Server Lifecycle**: Server persists after conversion. Use context manager for cleanup.
-3. **Fallback Strategy**: Server failures trigger CLI retry.
-4. **LSP Warnings**: `unoserver.client` import may show errors (optional import pattern).
-
-## Usage Examples
-
-See `docs/convert-lo-usage.md` for detailed usage patterns.
+1. **Thread Safety**: Conversions run sequentially (LibreOffice is not thread-safe)
+2. **Timeout**: Default 5 minute timeout per file
+3. **No Server Required**: CLI mode is always available
