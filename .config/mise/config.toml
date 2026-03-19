@@ -7,6 +7,9 @@
 node = "latest"
 bun = "latest"
 
+[env]
+GITLAB_HOST = "forge.3gpp.org"
+
 [settings.npm]
 package_manager = "bun"
 
@@ -76,7 +79,6 @@ shell = "pwsh -NoProfile -Command"
 run = [
     'cls',
     'bun x add-mcp -y -a {{usage.ai_agent}} "grepai mcp-serve"',
-    'bun x add-mcp -y -a {{usage.ai_agent}} -n teddi-mcp "uv run -m teddi_mcp server"',
     'bun x add-mcp -y -a {{usage.ai_agent}} -n cytoscnpy-mcp "cytoscnpy mcp-server"'
 ]
 

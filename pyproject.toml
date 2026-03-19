@@ -42,9 +42,6 @@ dependencies = [
 ai = [
     "tdoc-ai>=0.0.0",
 ]
-teddi = [
-    "teddi-mcp>=0.1.0",
-]
 
 [project.urls]
 Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
@@ -122,6 +119,5 @@ members = ["packages/*"]
 [tool.uv.sources]
 specify-cli = { git = "https://github.com/github/spec-kit.git" }
 tdoc-ai = { workspace = true }
-teddi-mcp = { workspace = true }
 convert-lo = { workspace = true }
 pool-executors = { workspace = true }

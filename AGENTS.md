@@ -38,5 +38,5 @@ uv add <package>           # Add dependency
 | `src/tdoc_crawler/` | Core crawler library |
 | `src/tdoc_crawler/cli/` | CLI patterns |
 | `packages/tdoc-ai/` | AI document processing |
-| `packages/teddi-mcp/` | TEDDI MCP server |
+| `packages/teddi-mcp/` | ~~TEDDI MCP server~~ (moved to separate repo) |
 | `packages/convert-lo/` | LibreOffice conversion |
