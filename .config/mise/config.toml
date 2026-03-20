@@ -100,5 +100,5 @@ run = [
     "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
 
     # skill for teddi-mcp/-cli
-    "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp -a universal -y",
+    "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
 ]

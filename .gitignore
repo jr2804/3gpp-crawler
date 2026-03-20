@@ -248,3 +248,9 @@ skills-lock.json
 *.db
 .beads/dolt-*.*
 src/teddi-mcp/uv.lock
+/.agents/skills/mcp-teddi
+/.agents/skills/python-pro
+/.agents/skills/python-packaging
+/.agents/skills/python-testing-patterns
+/.agents/skills/uv
+/.agents/skills/cli-teddi
