@@ -401,6 +401,6 @@ Crawling TDocs from 5 meetings
 
 ______________________________________________________________________
 
-**Author:** TDoc-Crawler Development Team
+**Author:** 3GPP Crawler Development Team
 **Status:** ✅ Implemented and tested
 **Test Coverage:** 100% (all 63 tests passing)

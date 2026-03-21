@@ -2,11 +2,11 @@
 
 ## HTTP Caching
 
-To prevent rate-limiting and improve performance, `tdoc-crawler` caches all HTTP requests by default.
+To prevent rate-limiting and improve performance, `3gpp-crawler` caches all HTTP requests by default.
 
 ### Default Behavior
 
-- **Cache Location**: `~/.tdoc-crawler/http-cache.sqlite3`
+- **Cache Location**: `~/.3gpp-crawler/http-cache.sqlite3`
 - **TTL**: 2 hours (7200 seconds).
 - **Refresh**: TTL is extended whenever a cached item is accessed.
 
@@ -30,7 +30,7 @@ Credentials provide access to the **official 3GPP portal**, acting as a reliable
 
 ### Why Credentials?
 
-While `tdoc-crawler` primarily uses **WhatTheSpec** for its speed and lack of required authentication, EOL credentials provide a **3GPP-official fallback**:
+While `3gpp-crawler` primarily uses **WhatTheSpec** for its speed and lack of required authentication, EOL credentials provide a **3GPP-official fallback**:
 
 - **Redundancy**: Ensures functionality if the primary community source is unavailable or encounters issues.
 - **Official Verification**: Provides an alternative path to retrieve metadata directly from 3GPP endpoints.
@@ -46,7 +46,7 @@ The tool prefers unauthenticated community access first, falling back to 3GPP po
 
 ## Directory Structure
 
-By default, all data is stored in `~/.tdoc-crawler`:
+By default, all data is stored in `~/.3gpp-crawler`:
 
 - `tdoc_crawler.db`: Main metadata database.
 - `http-cache.sqlite3`: HTTP request cache.

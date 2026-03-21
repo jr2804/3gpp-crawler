@@ -260,7 +260,7 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## Integration with TDoc Crawler
+## Integration with 3GPP Crawler
 
 The `parse_tdoc_portal_page()` function is used by:
 
@@ -344,7 +344,7 @@ The `parse_tdoc_portal_page()` function has been successfully implemented follow
 
 ### Status: ✅ **PRODUCTION READY**
 
-The implementation is complete, tested, and ready for use in the TDoc crawler pipeline.
+The implementation is complete, tested, and ready for use in the 3GPP crawler pipeline.
 
 ______________________________________________________________________
 

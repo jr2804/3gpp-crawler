@@ -34,6 +34,6 @@
 
 ## Verification Results
 
-- `uv run tdoc-crawler open-spec 26132`: Successfully crawls metadata, downloads zip, and opens docx.
-- `uv run tdoc-crawler checkout-spec 26.131`: Successfully crawls metadata and downloads spec.
+- `uv run spec-crawler open-spec 26132`: Successfully crawls metadata, downloads zip, and opens docx.
+- `uv run spec-crawler checkout-spec 26.131`: Successfully crawls metadata and downloads spec.
 - Database records for specifications are now correctly stored and retrieved with full metadata payloads.

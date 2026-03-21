@@ -98,8 +98,8 @@ Crawl technical specification (TS/TR) metadata.
 
 ```bash
 # Crawl all specs from all sources
-tdoc-crawler crawl-specs
+spec-crawler crawl-specs
 
 # Crawl only RAN specs from whatthespec
-tdoc-crawler crawl-specs -w RAN -s whatthespec
+spec-crawler crawl-specs -w RAN -s whatthespec
 ```

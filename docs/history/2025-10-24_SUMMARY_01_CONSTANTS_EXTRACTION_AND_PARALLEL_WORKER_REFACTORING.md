@@ -370,7 +370,7 @@ ______________________________________________________________________
 
 ## Summary
 
-This session successfully refactored the TDoc crawler to support Python 3.14 subinterpreters with true parallelization. The key achievements:
+This session successfully refactored the 3GPP crawler to support Python 3.14 subinterpreters with true parallelization. The key achievements:
 
 1. **Modular Constants** - Extracted all shared definitions into an import-free constants module
 1. **Parallel Workers** - Implemented subinterpreter-safe worker functions with JSON serialization

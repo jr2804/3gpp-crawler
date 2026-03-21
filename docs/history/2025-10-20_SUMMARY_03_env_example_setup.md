@@ -16,7 +16,7 @@ Created `.env.example` file to provide users with a template for configuring env
 **Contents:**
 
 ```bash
-# Environment Variables for TDoc Crawler
+# Environment Variables for 3GPP Crawler
 
 # ETSI Online (EOL) Account Credentials
 # These credentials are used for accessing certain 3GPP resources that require authentication
@@ -85,7 +85,7 @@ Added new **Configuration** section explaining:
 
    ```bash
    # Credentials automatically loaded from .env
-   tdoc-crawler crawl-meetings
+    tdoc-crawler crawl-meetings
    ```
 
 ### Alternative Methods
@@ -201,7 +201,7 @@ tdoc-crawler crawl-meetings
 1. **Test authentication:**
 
    ```bash
-   tdoc-crawler crawl-meetings --limit-meetings 1
+    tdoc-crawler crawl-meetings --limit-meetings 1
    ```
 
 ## Benefits

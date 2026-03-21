@@ -51,7 +51,7 @@ HTTP_CACHE_REFRESH_ON_ACCESS=true        # Default: true
 ### 4. Cache Storage
 
 - **Location:** `{cache_dir}/http-cache.sqlite3`
-- **Default:** `~/.tdoc-crawler/http-cache.sqlite3`
+- **Default:** `~/.3gpp-crawler/http-cache.sqlite3`
 - **Customizable:** Via `--cache-dir` parameter
 
 ______________________________________________________________________
@@ -187,7 +187,7 @@ The feature is **enabled by default** with sensible defaults:
 
 - TTL: 2 hours (7200 seconds)
 - Refresh on access: Enabled
-- Cache location: `~/.tdoc-crawler/http-cache.sqlite3`
+- Cache location: `~/.3gpp-crawler/http-cache.sqlite3`
 
 ### To Customize Caching
 

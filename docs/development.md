@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide describes how to set up your environment for contributing to `tdoc-crawler`.
+This guide describes how to set up your environment for contributing to `3gpp-crawler`.
 
 ## Setup
 
@@ -9,8 +9,8 @@ This guide describes how to set up your environment for contributing to `tdoc-cr
 1. Clone the repository:
 
    ```bash
-   git clone https://forge.3gpp.org/rep/reimes/tdoc-crawler.git
-   cd tdoc-crawler
+git clone https://forge.3gpp.org/rep/reimes/3gpp-crawler.git
+cd 3gpp-crawler
    ```
 
 1. Sync dependencies:

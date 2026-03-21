@@ -1,4 +1,4 @@
-# TDoc Crawler: HTTP Migration and Meeting-Based Refactoring
+# 3GPP Crawler: HTTP Migration and Meeting-Based Refactoring
 
 **Date**: 2025-10-21
 **Type**: Major Architectural Changes
@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document describes two major interconnected changes to the TDoc crawler:
+This document describes two major interconnected changes to the 3GPP crawler:
 
 1. **Protocol Migration**: FTP → HTTP-based access
 1. **Architecture Refactoring**: Tree walking → Database-driven meeting-based crawling
@@ -716,7 +716,7 @@ The combined HTTP migration and meeting-based refactoring:
 - ✅ Supports subdirectory crawling (Docs/)
 - ✅ Uses modern HTTP patterns (sessions, retries, connection pooling)
 
-The TDoc crawler is now a fast, reliable, database-driven system that correctly accesses the 3GPP HTTP server and establishes proper data relationships.
+The 3GPP crawler is now a fast, reliable, database-driven system that correctly accesses the 3GPP HTTP server and establishes proper data relationships.
 
 ______________________________________________________________________
 

@@ -1,11 +1,11 @@
 # Git Repository Setup Summary
 
 **Date:** 2025-10-20
-**Project:** tdoc-crawler
+**Project:** 3GPP Crawler
 
 ## Summary
 
-Successfully initialized git version control for the tdoc-crawler project and created a remote repository on GitHub.
+Successfully initialized git version control for the 3GPP Crawler project and created a remote repository on GitHub.
 
 ## Steps Completed
 
@@ -15,7 +15,7 @@ Successfully initialized git version control for the tdoc-crawler project and cr
 git init
 ```
 
-Initialized empty Git repository in `D:/SVN/Projects/Standardization/tdoc-crawler/.git/`
+Initialized empty Git repository in `D:/SVN/Projects/Standardization/3gpp-crawler/.git/`
 
 ### 2. Create Main Branch ✅
 
@@ -29,7 +29,7 @@ Created and switched to the `main` branch (following modern Git conventions).
 
 ```bash
 git add .
-git commit -m "Initial commit: tdoc-crawler with comprehensive test suite and .env support"
+git commit -m "Initial commit: 3GPP Crawler with comprehensive test suite and .env support"
 ```
 
 **Files Committed:** 29 files, 6,198 insertions
@@ -42,16 +42,16 @@ git commit -m "Initial commit: tdoc-crawler with comprehensive test suite and .e
 ### 4. Create GitHub Repository ✅
 
 ```bash
-gh repo create tdoc-crawler --private --source=. --remote=origin \
+gh repo create 3gpp-crawler --private --source=. --remote=origin \
   --description="Crawl 3GPP FTP server, cache all TDocs data, return structured JSON/YAML for each TDoc - all via CLI."
 ```
 
 **Repository Details:**
 
-- **URL:** <https://forge.3gpp.org/rep/reimes/tdoc-crawler>
+- **URL:** <https://forge.3gpp.org/rep/reimes/3gpp-crawler>
 - **Visibility:** Private (Enterprise Managed User account requirement)
 - **Remote:** origin
-- **Remote URL:** <https://forge.3gpp.org/rep/reimes/tdoc-crawler.git>
+- **Remote URL:** <https://forge.3gpp.org/rep/reimes/3gpp-crawler.git>
 
 ## Repository Status
 
@@ -63,8 +63,8 @@ gh repo create tdoc-crawler --private --source=. --remote=origin \
 ### Remote Configuration
 
 ```
-origin  https://forge.3gpp.org/rep/reimes/tdoc-crawler.git (fetch)
-origin  https://forge.3gpp.org/rep/reimes/tdoc-crawler.git (push)
+origin  https://forge.3gpp.org/rep/reimes/3gpp-crawler.git (fetch)
+origin  https://forge.3gpp.org/rep/reimes/3gpp-crawler.git (push)
 ```
 
 ### Next Steps
@@ -79,7 +79,7 @@ This will:
 
 - Push the main branch to the remote repository
 - Set up upstream tracking for the main branch
-- Make the code available on GitHub at <https://forge.3gpp.org/rep/reimes/tdoc-crawler>
+- Make the code available on GitHub at <https://forge.3gpp.org/rep/reimes/3gpp-crawler>
 
 ## Git Workflow Going Forward
 

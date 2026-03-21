@@ -80,8 +80,8 @@ Query technical specification metadata from the local catalog.
 
 ```bash
 # Query specific spec
-tdoc-crawler query-specs 23.501
+spec-crawler query-specs 23.501
 
 # Filter by status
-tdoc-crawler query-specs --status "Under change control"
+spec-crawler query-specs --status "Under change control"
 ```

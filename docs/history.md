@@ -1,6 +1,6 @@
 # Product History
 
-This document provides a chronological log of all significant changes and improvements to the `tdoc-crawler` project.
+This document provides a chronological log of all significant changes and improvements to the `3gpp-crawler` project.
 
 ## Recent Changes
 
@@ -27,7 +27,7 @@ This document provides a chronological log of all significant changes and improv
 - **2025-10-21**: [Add subgroup filtering to crawl](history/2025-10-21_SUMMARY_04_ADD_SUBGROUP_FILTERING_TO_CRAWL.md)
 - **2025-10-21**: [Remove redundant files](history/2025-10-21_SUMMARY_03_REMOVE_REDUNDANT_FILES.md)
 - **2025-10-21**: [Database schema updates](history/2025-10-21_SUMMARY_02_DATABASE_SCHEMA_UPDATES.md)
-- **2025-10-21**: [TDoc crawler refactoring](history/2025-10-21_SUMMARY_01_TDOC_CRAWLER_REFACTORING.md)
+- **2025-10-21**: [3GPP crawler refactoring](history/2025-10-21_SUMMARY_01_TDOC_CRAWLER_REFACTORING.md)
 - **2025-10-20**: [Subgroup filtering implementation](history/2025-10-20_SUMMARY_04_SUBGROUP_FILTERING.md)
 - **2025-10-20**: [Env example setup](history/2025-10-20_SUMMARY_03_env_example_setup.md)
 - **2025-10-20**: [Git repository setup](history/2025-10-20_SUMMARY_02_git_repository_setup.md)

@@ -21,7 +21,7 @@ Commands involved:
 
 - `crawl-tdocs` (alias `ct`) — main command to crawl TDocs from meeting directories.
   - Options implemented/used:
-    - `--cache-dir, -c` : Directory for HTTP cache and DB (default: `~/.tdoc-crawler`).
+    - `--cache-dir, -c` : Directory for HTTP cache and DB (default: `~/.3gpp-crawler`).
     - `--working-group, -w` : Filter by working group(s).
     - `--sub-group, -s` : Filter by subgroup(s).
     - `--incremental/--full` : Incremental mode (default: incremental).
@@ -90,7 +90,7 @@ Commands involved:
 Typical crawling invocation (example):
 
 ```bash
-tdoc-crawler crawl-tdocs --cache-dir ~/.tdoc-crawler --workers 6 --limit-wgs 2 --limit-meetings-per-wg 5
+tdoc-crawler crawl-tdocs --cache-dir ~/.3gpp-crawler --workers 6 --limit-wgs 2 --limit-meetings-per-wg 5
 ```
 
 To force revalidation of known TDocs:
@@ -104,5 +104,5 @@ tdoc-crawler crawl-tdocs --incremental --force-revalidate
 - Design notes and architecture rationale located in `docs/design_meeting_doclist_architecture.md`.
 - Feature specification and user-facing behavior in `docs/MEETING_DOCUMENT_LIST_FEATURE.md`.
 
-Author: tdoc-crawler team
+Author: 3GPP Crawler team
 Date: 2025-11-11

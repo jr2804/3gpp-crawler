@@ -1,6 +1,6 @@
-# TDoc-Crawler
+# 3GPP Crawler
 
-CLI tool for querying structured 3GPP TDoc data.
+CLI tool for querying structured 3GPP document data.
 
 ## Commands
 

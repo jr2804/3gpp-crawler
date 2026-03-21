@@ -1,13 +1,13 @@
-# TDoc Crawler Documentation
+# 3GPP Crawler Documentation
 
 ![3GPP Crawler Logo](images/logo.jpg)
 
-Welcome to the documentation for **tdoc-crawler**, a command-line tool for querying structured 3GPP TDoc data.
+Welcome to the documentation for **3gpp-crawler**, a command-line tool for querying structured 3GPP document data.
 
 ## 📖 Table of Contents
 
 SS|- [**Crawl Documentation**](crawl.md) – How to fetch metadata from 3GPP servers and portal.
-QM|- [**AI Document Processing**](ai.md) – AI-powered TDoc analysis and embeddings.
+QM|- [**AI Document Processing**](ai.md) – AI-powered 3GPP document analysis and embeddings.
 PQ|- [**Query Documentation**](query.md) – How to search and display stored metadata.
 
 - [**Query Documentation**](query.md) – How to search and display stored metadata.
@@ -32,5 +32,3 @@ PQ|- [**Query Documentation**](query.md) – How to search and display stored me
   #YQ|- [**AI Workspace**](ai.md#ai-workspace) - Manage workspaces
 
 BJ|For a brief overview of all commands, see the [README.md](../README.md).
-
-For a brief overview of all commands, see the [README.md](../README.md).

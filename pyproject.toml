@@ -1,7 +1,7 @@
 [project]
-name = "tdoc-crawler"
+name = "3gpp-crawler"
 dynamic = ["version"]
-description = "Crawl 3GPP FTP server, cache all(!) TDocs data, return structured JSON/YAML for each TDoc - all via CLI."
+description = "Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI."
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
 keywords = ['python']
@@ -44,7 +44,7 @@ ai = [
 ]
 
 [project.urls]
-Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
+Repository = "https://forge.3gpp.org/rep/reimes/3gpp-crawler"
 
 
 [dependency-groups]
@@ -70,7 +70,9 @@ requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-tdoc-crawler = "tdoc_crawler.cli:app"
+tdoc-crawler = "tdoc_crawler.cli.tdoc_app:app"
+spec-crawler = "tdoc_crawler.cli.spec_app:spec_app"
+3gpp-ai = "tdoc_crawler.cli.ai_app:ai_app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -105,6 +107,9 @@ method_type_order = ["instance", "class", "static"]
 # Exclude files/directories matching these patterns (optional)
 # Patterns support glob syntax (e.g. "tests/*", "migrations/*.py", "**/generated/*")
 # exclude = ["tests/*", "migrations/*.py"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tdoc_crawler"]
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"

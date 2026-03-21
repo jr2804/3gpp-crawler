@@ -303,7 +303,7 @@ None. All tests passing, all functionality verified.
 
 ### Potential Improvements
 
-1. **Configuration file**: Support for `.tdoc-crawler.yaml` config
+1. **Configuration file**: Support for `.3gpp-crawler.yaml` config
 1. **Plugin system**: Allow custom commands and extensions
 1. **Shell completion**: Better tab completion for all shells
 1. **Interactive mode**: REPL-style interface for exploration

@@ -15,7 +15,7 @@ tdoc-crawler open R1-2400001
 
 ### `checkout`
 
-Download and extract TDoc(s) to the checkout folder (`~/.tdoc-crawler/checkout/`) for offline access.
+Download and extract TDoc(s) to the checkout folder (`~/.3gpp-crawler/checkout/`) for offline access.
 
 ```bash
 # Batch checkout
@@ -32,10 +32,10 @@ Download and open the latest document for a specification.
 
 ```bash
 # Open latest 23.501
-tdoc-crawler open-spec 23.501
+spec-crawler open-spec 23.501
 
 # Open release 17 version
-tdoc-crawler open-spec 23.501 -r 17
+spec-crawler open-spec 23.501 -r 17
 ```
 
 ### `checkout-spec` (alias: `cos`)
@@ -50,7 +50,7 @@ Batch download specification documents to the checkout folder.
 
 ```bash
 # Checkout range of specs
-tdoc-crawler checkout-spec 26130-26140
+spec-crawler checkout-spec 26130-26140
 ```
 
 ______________________________________________________________________

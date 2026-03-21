@@ -1,10 +1,10 @@
-site_name: tdoc-crawler
-repo_url: https://forge.3gpp.org/rep/reimes/tdoc-crawler
-site_url: https://Jan-Reimes_HEAD.github.io/tdoc-crawler
-site_description: Crawl 3GPP FTP server, cache all(!) TDocs data, return structured JSON/YAML for each TDoc - all via CLI.
+site_name: 3GPP Crawler
+repo_url: https://forge.3gpp.org/rep/reimes/3gpp-crawler
+site_url: https://Jan-Reimes_HEAD.github.io/3gpp-crawler
+site_description: Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI.
 site_author: Jan Reimes
 edit_uri: edit/main/docs/
-repo_name: Jan-Reimes_HEAD/tdoc-crawler
+repo_name: Jan-Reimes_HEAD/3gpp-crawler
 copyright: Maintained by <a href="https://Jan-Reimes_HEAD.com">Jan-Reimes_HEAD</a>.
 
 nav:
@@ -41,9 +41,9 @@ theme:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://forge.3gpp.org/rep/reimes/tdoc-crawler
+      link: https://forge.3gpp.org/rep/reimes/3gpp-crawler
     - icon: fontawesome/brands/python
-      link: https://pypi.org/project/tdoc-crawler
+      link: https://pypi.org/project/3gpp-crawler
 
 markdown_extensions:
   - toc:

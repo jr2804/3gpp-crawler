@@ -1,11 +1,11 @@
-# TDoc Crawler Refactoring Plan
+# 3GPP Crawler Refactoring Plan
 
 **Date:** 2025-10-21
 **Type:** Major Refactoring
 
 ## Problem Statement
 
-The current TDoc crawler has fundamental design flaws:
+The current 3GPP crawler has fundamental design flaws:
 
 1. Parses FTP directory listings expecting 9 tokens (HTML table format) when FTP LIST returns 4-5 tokens
 1. Uses brute-force FTP crawling instead of meeting-driven approach
@@ -146,7 +146,7 @@ def parse_tdoc_portal_page(html: str) -> dict | None:
     return metadata
 ```
 
-### 4. TDoc Crawler Refactoring (`src/tdoc_crawler/crawler.py`)
+### 4. 3GPP Crawler Refactoring (`src/tdoc_crawler/crawler.py`)
 
 **TODO:** Complete rewrite of `TDocCrawler.crawl()`:
 

@@ -1,10 +1,10 @@
-# tdoc-crawler
+# 3GPP Crawler
 
 ![3GPP Crawler Logo](docs/images/logo.jpg)
 
-A command-line tool for crawling the 3GPP FTP server, caching TDoc metadata in a local database, and querying structured data via JSON/YAML output.
+A command-line tool for crawling the 3GPP FTP server, caching 3GPP document metadata in a local database, and querying structured data via JSON/YAML output.
 
-**Github repository**: <https://forge.3gpp.org/rep/reimes/tdoc-crawler/>
+**Github repository**: <https://forge.3gpp.org/rep/reimes/3gpp-crawler/>
 
 ## Features
 
@@ -15,7 +15,7 @@ A command-line tool for crawling the 3GPP FTP server, caching TDoc metadata in a
 - **Case-Insensitive Queries**: Search for TDocs regardless of case
 - **Multiple Output Formats**: Export results as table, JSON, or YAML
 - **Incremental Updates**: Only fetch new data on subsequent crawls
-- **AI Document Processing** - Semantic search, knowledge graphs, and AI-powered summarization (optional, install with `tdoc-crawler[ai]`)
+- **AI Document Processing** - Semantic search, knowledge graphs, and AI-powered summarization (optional, install with `3gpp-crawler[ai]`)
 - **Rich CLI**: Beautiful terminal output with progress indicators
 
 ## Installation
@@ -23,7 +23,7 @@ A command-line tool for crawling the 3GPP FTP server, caching TDoc metadata in a
 ### Install as uv tool (recommended)
 
 ```bash
-uv tool install https://forge.3gpp.org/rep/reimes/tdoc-crawler.git
+uv tool install https://forge.3gpp.org/rep/reimes/3gpp-crawler.git
 uvx tdoc-crawler --help
 ```
 
@@ -31,10 +31,10 @@ uvx tdoc-crawler --help
 
 ```bash
 # Install from PyPI (publication pending)
-uv add tdoc-crawler
+uv add 3gpp-crawler
 
 # Install with AI features (optional)
-uv add tdoc-crawler[ai]
+uv add 3gpp-crawler[ai]
 
 # AI features are provided by the optional `tdoc-ai` extension package
 # and installed automatically via the extra above.
@@ -45,7 +45,7 @@ uv add tdoc-crawler[ai]
 ### Using pip (not recommended)
 
 ```bash
-pip install tdoc-crawler
+pip install 3gpp-crawler
 ```
 
 ## Configuration
@@ -122,7 +122,7 @@ tdoc-crawler crawl-meetings
 tdoc-crawler crawl
 
 # Populate spec catalog
-tdoc-crawler crawl-specs
+spec-crawler crawl-specs
 ```
 
 ### 2. Query Metadata
@@ -134,7 +134,7 @@ Search and filter stored information:
 tdoc-crawler query R1-2400001
 
 # Query specifications
-tdoc-crawler query-specs 23.501
+spec-crawler query-specs 23.501
 
 # List recent meetings
 tdoc-crawler query-meetings --limit 10
@@ -149,13 +149,13 @@ Open documents, batch download (checkout), and check database status:
 tdoc-crawler open R1-2400001
 
 # Download and open latest version of a spec
-tdoc-crawler open-spec 23.501
+spec-crawler open-spec 23.501
 
 # Batch download (checkout) TDocs to local folder
 tdoc-crawler checkout R1-2400001 S2-2400567
 
 # Batch checkout specifications
-tdoc-crawler checkout-spec 26130-26140
+spec-crawler checkout-spec 26130-26140
 
 # View database statistics
 tdoc-crawler stats
