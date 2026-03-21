@@ -101,4 +101,7 @@ run = [
 
     # skill for teddi-mcp/-cli
     "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
+
+    # 3GPP skills (TODO: fix - requires well-known endpoint)
+    "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
 ]

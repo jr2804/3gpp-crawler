@@ -242,6 +242,14 @@ skills-lock.json
 /.agents/skills/stop-slop
 /.agents/skills/kreuzberg
 /.agents/skills/debugging-code
+/.agents/skills/3gpp-basics
+/.agents/skills/3gpp-change-request
+/.agents/skills/3gpp-meetings
+/.agents/skills/3gpp-portal-authentication
+/.agents/skills/3gpp-releases
+/.agents/skills/3gpp-specifications
+/.agents/skills/3gpp-tdocs
+/.agents/skills/3gpp-working-groups
 
 # Dolt database files (added by bd init)
 .dolt/
