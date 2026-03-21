@@ -37,9 +37,14 @@ from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 
+try:
+    from tdoc_crawler.cli.ai import ai_app
+except ImportError:  # pragma: no cover - optional dependency
+    ai_app = None
+
 load_dotenv()
 
-app = typer.Typer(help="TDoc crawler - crawl and query structured 3GPP metadata")
+app = typer.Typer(help="3GPP crawler - crawl and query structured 3GPP metadata")
 
 HELP_PANEL_MAIN = "Main Commands"
 HELP_PANEL_CRAWLING = "Crawling Commands"
@@ -230,11 +235,7 @@ def _register_optional_ai_commands() -> None:
         version("tdoc-ai")
     except PackageNotFoundError:
         return
-
-    try:
-        # Importing here to avoid hard dependency on tdoc-ai for users who don't need AI features
-        from tdoc_crawler.cli.ai import ai_app  # noqa: PLC0415
-    except ImportError:
+    if ai_app is None:
         return
     app.add_typer(ai_app, name="ai", help="AI document processing")
 

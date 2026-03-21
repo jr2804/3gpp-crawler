@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from tdoc_crawler.cli.app import app
+from tdoc_crawler.cli.tdoc_app import app
 
 __all__ = ["app"]
