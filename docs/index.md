@@ -1,5 +1,7 @@
 # TDoc Crawler Documentation
 
+![3GPP Crawler Logo](images/logo.jpg)
+
 Welcome to the documentation for **tdoc-crawler**, a command-line tool for querying structured 3GPP TDoc data.
 
 ## 📖 Table of Contents

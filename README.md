@@ -1,5 +1,7 @@
 # tdoc-crawler
 
+![3GPP Crawler Logo](docs/images/logo.jpg)
+
 A command-line tool for crawling the 3GPP FTP server, caching TDoc metadata in a local database, and querying structured data via JSON/YAML output.
 
 **Github repository**: <https://forge.3gpp.org/rep/reimes/tdoc-crawler/>
