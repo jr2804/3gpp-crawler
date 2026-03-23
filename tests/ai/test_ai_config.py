@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 import pytest
-from tdoc_ai.config import AiConfig
-from tdoc_ai.models import DocumentSummary
+from threegpp_ai.config import AiConfig
+from threegpp_ai.models import DocumentSummary
 
 from tdoc_crawler.config import CacheManager
 

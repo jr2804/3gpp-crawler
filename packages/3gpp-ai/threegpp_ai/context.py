@@ -10,13 +10,13 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from tdoc_ai.models import (
+from threegpp_ai.models import (
     DocumentClassification,
     ProcessingStatus,
     SourceKind,
     WorkspaceMember,
 )
-from tdoc_ai.operations.workspace_names import normalize_workspace_name
+from threegpp_ai.operations.workspace_names import normalize_workspace_name
 
 logger = logging.getLogger(__name__)
 

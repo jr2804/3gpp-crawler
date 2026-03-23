@@ -20,7 +20,7 @@ Added an `--accelerate` option for `ai process` so callers can select the senten
 
 ### Dependencies
 
-- Updated `tdoc-ai` dependencies to ensure all requested backends can be installed.
+- Updated `3gpp-ai` dependencies to ensure all requested backends can be installed.
 
 ## Verification
 

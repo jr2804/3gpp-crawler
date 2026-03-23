@@ -7,11 +7,11 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
-from tdoc_ai.storage import AiStorage
+from threegpp_ai.storage import AiStorage
 
 
 def _load_workspaces_module() -> ModuleType:
-    file_path = Path(__file__).resolve().parents[2] / "packages" / "tdoc-ai" / "tdoc_ai" / "operations" / "workspaces.py"
+    file_path = Path(__file__).resolve().parents[2] / "packages" / "3gpp-ai" / "threegpp_ai" / "operations" / "workspaces.py"
     spec = importlib.util.spec_from_file_location("workspace_ops", file_path)
     if spec is None or spec.loader is None:
         raise RuntimeError("Failed to load workspace operations module")

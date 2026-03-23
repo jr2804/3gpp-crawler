@@ -10,11 +10,11 @@ from typing import Any, cast
 import sentence_transformers
 from sentence_transformers import SentenceTransformer
 
-from tdoc_ai.config import AiConfig, Backend
-from tdoc_ai.models import DocumentChunk
-from tdoc_ai.operations.workspace_names import normalize_workspace_name
-from tdoc_ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
+from threegpp_ai.config import AiConfig, Backend
+from threegpp_ai.models import DocumentChunk
+from threegpp_ai.operations.workspace_names import normalize_workspace_name
+from threegpp_ai.storage import AiStorage
 
 logger = logging.getLogger(__name__)
 

@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import MagicMock
 
-from tdoc_ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType
-from tdoc_ai.operations import graph
-from tdoc_ai.operations.graph import (
+from threegpp_ai.models import GraphEdge, GraphEdgeType, GraphNode, GraphNodeType
+from threegpp_ai.operations import graph
+from threegpp_ai.operations.graph import (
     extract_company_entities,
     extract_work_items,
 )

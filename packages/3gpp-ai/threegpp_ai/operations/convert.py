@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
+
+from convert_lo import LibreOfficeFormat
+from convert_lo.converter import Converter
+from kreuzberg import extract_file_sync
 
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from threegpp_ai.models import ExtractionError
+from threegpp_ai.operations.fetch_tdoc import fetch_tdoc_files
 
 logger = get_logger(__name__)
 
@@ -132,6 +139,75 @@ def convert_tdoc(
     return markdown_content
 
 
+def convert_tdoc_to_markdown(
+    document_id: str,
+    output_path: Path | None = None,
+    force: bool = False,
+) -> str:
+    """Convert TDoc to markdown using full pipeline.
+
+    Pipeline:
+    1. Fetch TDoc files (DOCX, DOC, or PDF)
+    2. Convert to PDF if needed (via convert-lo / LibreOffice)
+    3. Extract text using kreuzberg
+    4. Return markdown content
+
+    Caching:
+    - Checks for existing .md file in .ai subdirectory
+    - Only re-converts if force=True or cache miss
+
+    Args:
+        document_id: TDoc identifier (e.g., "S4-260001")
+        output_path: Optional path to write markdown file
+        force: Force reconversion even if cached
+
+    Returns:
+        Markdown content string
+
+    Raises:
+        TDocNotFoundError: If TDoc cannot be found
+        ExtractionError: If conversion fails
+    """
+    tdoc_files = fetch_tdoc_files(document_id, force_download=force)
+
+    primary = tdoc_files.primary_path
+    if primary is None:
+        raise ExtractionError(f"No document files found for {document_id}")
+
+    ai_dir = tdoc_files.checkout_dir / ".ai"
+    md_path = ai_dir / f"{document_id.strip().upper()}.md"
+
+    if md_path.exists() and not force:
+        cached = md_path.read_text(encoding="utf-8")
+        if len(cached) > 100:
+            if output_path:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(cached, encoding="utf-8")
+                return str(output_path)
+            return cached
+
+    if primary.suffix.lower() == ".pdf":
+        result = extract_file_sync(str(primary))
+        markdown = result.content
+    else:
+        converter = Converter()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_path = converter.convert(primary, LibreOfficeFormat.PDF, Path(tmpdir))
+            result = extract_file_sync(str(pdf_path))
+            markdown = result.content
+
+    ai_dir.mkdir(parents=True, exist_ok=True)
+    md_path.write_text(markdown, encoding="utf-8")
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(markdown, encoding="utf-8")
+        return str(output_path)
+
+    return markdown
+
+
 __all__ = [
     "convert_tdoc",
+    "convert_tdoc_to_markdown",
 ]

@@ -26,7 +26,7 @@ run = ["mise install", "mise up", "mise prune"]
 
 [tasks.env-sync]
 description = "Sync the virtual environment with pyproject.toml dependencies"
-run = "uv sync -U --dev --all-extras --all-groups"
+run = "uv sync -U --dev --all-extras --all-groups --all-packages"
 
 [tasks.format]
 description = "Format source code and tests"

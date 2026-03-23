@@ -1,4 +1,4 @@
-"""LightRAG wrapper for tdoc-ai with Ollama integration.
+"""LightRAG wrapper for 3gpp-ai with Ollama integration.
 
 This module provides a thin wrapper around LightRAG with:
 - Ollama LLM and embedding support

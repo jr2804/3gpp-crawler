@@ -6,10 +6,10 @@ import json
 from unittest.mock import patch
 
 import pytest
-from tdoc_ai.models import DocumentSummary, LlmConfigError
-from tdoc_ai.operations import summarize
-from tdoc_ai.operations.summarize import _count_words, _should_skip_summary
-from tdoc_ai.storage import AiStorage
+from threegpp_ai.models import DocumentSummary, LlmConfigError
+from threegpp_ai.operations import summarize
+from threegpp_ai.operations.summarize import _count_words, _should_skip_summary
+from threegpp_ai.storage import AiStorage
 
 
 class TestSummarization:
@@ -66,7 +66,7 @@ class TestSummarization:
             }
         )
 
-        with patch("tdoc_ai.operations.summarize._get_llm_client") as get_client:
+        with patch("threegpp_ai.operations.summarize._get_llm_client") as get_client:
             mock_client = get_client.return_value
             mock_client.complete.side_effect = [abstract, structured_json]
 
@@ -81,7 +81,7 @@ class TestSummarization:
 
     def test_unreachable_llm_endpoint_raises_error(self, ai_storage: AiStorage) -> None:
         """Connection failures must surface as LlmConfigError."""
-        with patch("tdoc_ai.operations.summarize._get_llm_client") as get_client:
+        with patch("threegpp_ai.operations.summarize._get_llm_client") as get_client:
             mock_client = get_client.return_value
             mock_client.complete.side_effect = ConnectionError("endpoint unreachable")
 

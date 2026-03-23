@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import litellm
 
-from tdoc_ai.context import DocumentContext
+from tdoc_crawler.config import CacheManager
+from threegpp_ai.context import DocumentContext
 
 # Import LightRAG integration
-from tdoc_ai.lightrag import (
+from threegpp_ai.lightrag import (
     DatabaseConfig,
     EmbeddingConfig,
     LightRAGConfig,
@@ -28,22 +29,23 @@ from tdoc_ai.lightrag import (
     create_metadata_from_dict,
     enrich_text,
 )
-from tdoc_ai.models import (
+from threegpp_ai.models import (
     PipelineStage,
     ProcessingStatus,
     SourceKind,
     SummarizeResult,
 )
-from tdoc_ai.operations.convert import convert_tdoc as convert_document
-from tdoc_ai.operations.summarize import summarize_tdoc as summarize_document
-from tdoc_ai.operations.workspace_registry import (
+from threegpp_ai.operations.convert import convert_tdoc as convert_document
+from threegpp_ai.operations.convert import convert_tdoc_to_markdown
+from threegpp_ai.operations.summarize import summarize_tdoc as summarize_document
+from threegpp_ai.operations.workspace_registry import (
     DEFAULT_WORKSPACE,
     WorkspaceDisplayInfo,
     WorkspaceRegistry,
     get_active_workspace,
     set_active_workspace,
 )
-from tdoc_ai.operations.workspaces import (
+from threegpp_ai.operations.workspaces import (
     add_workspace_members,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
@@ -62,7 +64,6 @@ from tdoc_ai.operations.workspaces import (
     resolve_tdoc_checkout_path,
     resolve_workspace,
 )
-from tdoc_crawler.config import CacheManager
 
 litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
 
@@ -98,6 +99,7 @@ __all__ = [
     "checkout_tdoc_to_workspace",
     # Document operations
     "convert_document",
+    "convert_tdoc_to_markdown",
     "create_metadata_from_dict",
     "create_workspace",
     "delete_workspace",

@@ -2,7 +2,7 @@
 
 import os
 
-from tdoc_ai.lightrag.config import (
+from threegpp_ai.lightrag.config import (
     DatabaseConfig,
     EmbeddingConfig,
     LightRAGConfig,

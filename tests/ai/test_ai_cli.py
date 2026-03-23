@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from tdoc_ai.models import PipelineStage, ProcessingStatus
+from threegpp_ai.models import PipelineStage, ProcessingStatus
 from typer.testing import CliRunner
 
 import tdoc_crawler.cli.ai as ai_cli

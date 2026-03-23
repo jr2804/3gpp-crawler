@@ -1,6 +1,6 @@
 """Unit tests for 3GPP metadata enrichment."""
 
-from tdoc_ai.lightrag.metadata import RAGMetadata, create_metadata_from_dict, enrich_text
+from threegpp_ai.lightrag.metadata import RAGMetadata, create_metadata_from_dict, enrich_text
 
 
 class TestRAGMetadata:

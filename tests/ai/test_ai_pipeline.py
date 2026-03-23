@@ -6,12 +6,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from tdoc_ai import get_status, process_tdoc
-from tdoc_ai import process_all as process_all_api
-from tdoc_ai.models import PipelineStage, ProcessingStatus
-from tdoc_ai.operations import pipeline
-from tdoc_ai.operations.pipeline import process_all, run_pipeline
-from tdoc_ai.storage import AiStorage
+from threegpp_ai import get_status, process_tdoc
+from threegpp_ai import process_all as process_all_api
+from threegpp_ai.models import PipelineStage, ProcessingStatus
+from threegpp_ai.operations import pipeline
+from threegpp_ai.operations.pipeline import process_all, run_pipeline
+from threegpp_ai.storage import AiStorage
 
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.utils.misc import utc_now
@@ -31,8 +31,8 @@ class TestRunPipeline:
             status = run_pipeline("S4-251003", tdoc_folder, mock_storage)
             assert status is not None
 
-    @patch("tdoc_ai.operations.pipeline.AiStorage")
-    @patch("tdoc_ai.operations.pipeline.run_pipeline")
+    @patch("threegpp_ai.operations.pipeline.AiStorage")
+    @patch("threegpp_ai.operations.pipeline.run_pipeline")
     def test_batch_processing(self, mock_run_pipeline: MagicMock, mock_ai_storage: MagicMock, mock_storage: MagicMock, test_data_dir: Path) -> None:
         """Test processing multiple TDocs."""
         mock_ai_storage.return_value = mock_storage
@@ -56,8 +56,8 @@ class TestRunPipeline:
             status = run_pipeline("S4-251003", tdoc_folder, mock_storage)
             assert status is not None
 
-    @patch("tdoc_ai.operations.pipeline.EmbeddingsManager")
-    @patch("tdoc_ai.operations.pipeline.run_pipeline")
+    @patch("threegpp_ai.operations.pipeline.EmbeddingsManager")
+    @patch("threegpp_ai.operations.pipeline.run_pipeline")
     def test_incremental_new_only_mode(
         self,
         mock_run_pipeline: MagicMock,
@@ -78,8 +78,8 @@ class TestRunPipeline:
             assert "S4-251003" not in results  # Should be skipped
             mock_run_pipeline.assert_not_called()
 
-    @patch("tdoc_ai.operations.pipeline.AiStorage")
-    @patch("tdoc_ai.operations.pipeline.run_pipeline")
+    @patch("threegpp_ai.operations.pipeline.AiStorage")
+    @patch("threegpp_ai.operations.pipeline.run_pipeline")
     def test_failed_tdoc_does_not_block_others(
         self, mock_run_pipeline: MagicMock, mock_ai_storage: MagicMock, mock_storage: MagicMock, test_data_dir: Path
     ) -> None:
@@ -95,8 +95,8 @@ class TestRunPipeline:
         results = process_all(tdoc_ids, base_path)
         assert isinstance(results, dict)
 
-    @patch("tdoc_ai.operations.pipeline.list_workspace_members")
-    @patch("tdoc_ai.operations.pipeline.run_pipeline")
+    @patch("threegpp_ai.operations.pipeline.list_workspace_members")
+    @patch("threegpp_ai.operations.pipeline.run_pipeline")
     def test_process_all_scopes_to_workspace_members(self, mock_run_pipeline: MagicMock, mock_list_members: MagicMock, test_data_dir: Path) -> None:
         """Test process_all filters input by workspace members."""
         mock_list_members.return_value = [
@@ -146,7 +146,7 @@ class TestProcessTdocApi:
 
         mock_manager = MagicMock()
         mock_manager.storage = mock_storage
-        monkeypatch.setattr("tdoc_ai.operations.pipeline.EmbeddingsManager", lambda _: mock_manager)
+        monkeypatch.setattr("threegpp_ai.operations.pipeline.EmbeddingsManager", lambda _: mock_manager)
 
         # Create checkout folders so the pipeline doesn't skip them
         (tmp_path / "S4-251003").mkdir()
@@ -162,8 +162,8 @@ class TestProcessTdocApi:
             status.extracted_at = utc_now()
             return "mocked markdown"
 
-        monkeypatch.setattr("tdoc_ai.operations.pipeline._run_classify_stage", mock_classify_stage)
-        monkeypatch.setattr("tdoc_ai.operations.pipeline._run_extract_stage", mock_extract_stage)
+        monkeypatch.setattr("threegpp_ai.operations.pipeline._run_classify_stage", mock_classify_stage)
+        monkeypatch.setattr("threegpp_ai.operations.pipeline._run_extract_stage", mock_extract_stage)
 
         result = process_all_api(
             document_ids=["S4-251003", "S4-260001"],

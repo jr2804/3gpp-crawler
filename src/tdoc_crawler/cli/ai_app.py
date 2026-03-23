@@ -27,6 +27,7 @@ from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
     ConvertDocumentArgument,
+    ConvertForceOption,
     ConvertOutputOption,
     EndDateOption,
     JsonOutputOption,
@@ -35,6 +36,7 @@ from tdoc_crawler.cli.args import (
     SourcePatternOption,
     StartDateOption,
     SummarizeDocumentArgument,
+    SummarizeForceOption,
     SummarizeWordsOption,
     TitlePatternExcludeOption,
     TitlePatternOption,
@@ -70,6 +72,7 @@ _ai_embeddings: Any = None
 checkout_spec_to_workspace: Any = None
 checkout_tdoc_to_workspace: Any = None
 convert_document: Any = None
+convert_tdoc_to_markdown: Any = None
 create_workspace: Any = None
 delete_workspace: Any = None
 ensure_ai_subfolder: Any = None
@@ -88,7 +91,7 @@ remove_invalid_members: Any = None
 
 _rag_app: Any = None
 try:
-    _rag_cli_module = importlib.import_module("tdoc_ai.lightrag.cli")
+    _rag_cli_module = importlib.import_module("threegpp_ai.lightrag.cli")
     _rag_app = getattr(_rag_cli_module, "app", None)
 except Exception:
     _rag_app = None
@@ -98,7 +101,7 @@ if _rag_app is not None:
 
 
 def _exit_ai_missing() -> NoReturn:
-    console.print("[red]AI features require the tdoc-ai package.[/red]")
+    console.print("[red]AI features require the 3gpp-ai package.[/red]")
     console.print("[yellow]Install with: pip install 3gpp-crawler[ai][/yellow]")
     raise typer.Exit(code=1)
 
@@ -118,12 +121,12 @@ def _load_ai() -> None:
     registry: Any | None = None
     workspaces: Any | None = None
     try:
-        tdoc_ai = importlib.import_module("tdoc_ai")
-        config = importlib.import_module("tdoc_ai.config")
-        models = importlib.import_module("tdoc_ai.models")
-        embeddings = importlib.import_module("tdoc_ai.operations.embeddings")
-        registry = importlib.import_module("tdoc_ai.operations.workspace_registry")
-        workspaces = importlib.import_module("tdoc_ai.operations.workspaces")
+        tdoc_ai = importlib.import_module("threegpp_ai")
+        config = importlib.import_module("threegpp_ai.config")
+        models = importlib.import_module("threegpp_ai.models")
+        embeddings = importlib.import_module("threegpp_ai.operations.embeddings")
+        registry = importlib.import_module("threegpp_ai.operations.workspace_registry")
+        workspaces = importlib.import_module("threegpp_ai.operations.workspaces")
     except Exception:
         _exit_ai_missing()
 
@@ -138,6 +141,7 @@ def _load_ai() -> None:
             "checkout_spec_to_workspace": tdoc_ai.checkout_spec_to_workspace,
             "checkout_tdoc_to_workspace": tdoc_ai.checkout_tdoc_to_workspace,
             "convert_document": tdoc_ai.convert_document,
+            "convert_tdoc_to_markdown": tdoc_ai.convert_tdoc_to_markdown,
             "create_workspace": tdoc_ai.create_workspace,
             "delete_workspace": tdoc_ai.delete_workspace,
             "ensure_ai_subfolder": tdoc_ai.ensure_ai_subfolder,
@@ -201,10 +205,11 @@ def resolve_workspace(workspace: str | None) -> str:
 def ai_summarize(
     document_id: SummarizeDocumentArgument,
     max_words: SummarizeWordsOption = 200,
+    force: SummarizeForceOption = False,
 ) -> None:
     """Summarize a single document with specified word count."""
     try:
-        result = summarize_document(document_id=document_id, max_words=max_words, fetch_remote=True)
+        result = summarize_document(document_id=document_id, max_words=max_words, force=force)
         console.print(f"## Summary for {document_id}")
         console.print(result.summary)
     except Exception as exc:
@@ -216,12 +221,13 @@ def ai_summarize(
 def ai_convert(
     document_id: ConvertDocumentArgument,
     output: ConvertOutputOption = None,
+    force: ConvertForceOption = False,
     json_output: JsonOutputOption = False,
 ) -> None:
     """Convert a single TDoc to markdown format."""
     try:
         output_path = Path(output) if output else None
-        markdown_content = convert_document(document_id=document_id, output_path=output_path)
+        markdown_content = convert_tdoc_to_markdown(document_id=document_id, output_path=output_path, force=force)
 
         if output_path:
             if json_output:
@@ -286,17 +292,19 @@ def workspace_list(
 
     if json_output:
         typer.echo(
-            json.dumps([
-                {
-                    "name": w.name,
-                    "is_active": w.is_active,
-                    "tdoc_count": w.tdoc_count,
-                    "spec_count": w.spec_count,
-                    "other_count": w.other_count,
-                    "created_at": w.created_at,
-                }
-                for w in workspaces
-            ])
+            json.dumps(
+                [
+                    {
+                        "name": w.name,
+                        "is_active": w.is_active,
+                        "tdoc_count": w.tdoc_count,
+                        "spec_count": w.spec_count,
+                        "other_count": w.other_count,
+                        "created_at": w.created_at,
+                    }
+                    for w in workspaces
+                ]
+            )
         )
     else:
         table = Table(title="Workspaces")

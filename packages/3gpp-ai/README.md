@@ -1,4 +1,4 @@
-# tdoc-ai
+# 3gpp-ai
 
 Optional AI extension package for `3gpp-crawler`.
 

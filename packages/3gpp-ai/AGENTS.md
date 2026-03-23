@@ -1,32 +1,13 @@
-# tdoc-ai
+# 3gpp-ai
 
-AI-powered document processing for 3GPP TDocs (knowledge graphs, semantic search, summarization).
+AI-powered document processing for 3GPP TDocs, specs and other documents (knowledge graphs, semantic search, summarization).
 
-## Package Structure
+## Project Structure
 
-```
-packages/tdoc-ai/tdoc_ai/
-├── __init__.py           # Public API exports
-├── config.py             # AiConfig (legacy, for summarize only)
-├── context.py            # DocumentContext
-├── models.py             # Pydantic models (ProcessingStatus, etc.)
-├── storage.py            # AiStorage (legacy, LanceDB-based)
-├── lightrag/             # NEW: LightRAG integration
-│   ├── __init__.py
-│   ├── cli.py            # rag query/status commands
-│   ├── config.py         # LightRAGConfig + sub-configs
-│   ├── metadata.py       # RAGMetadata, enrich_text()
-│   ├── pg0_manager.py   # Pg0Manager
-│   ├── processor.py      # TDocProcessor
-│   ├── rag.py            # TDocRAG wrapper
-│   └── seeder.py        # EntitySeeder
-└── operations/
-    ├── classify.py       # Document classification
-    ├── convert.py        # Document conversion
-    ├── embeddings.py     # EmbeddingsManager (legacy)
-    ├── extract.py        # Text extraction
-    ├── summarize.py      # LLM summarization (LiteLLM)
-    ├── workspace_*.py    # Workspace management
+The project structure can be parsed using the following command from the root of the repository:
+
+```shell
+rg --files | tree-cli --fromfile
 ```
 
 ## Key Design Patterns
@@ -58,6 +39,7 @@ summary = summarize_document("S4-250001", markdown_content)
 ### LightRAG (New)
 
 Environment-based via `LightRAGConfig`:
+
 - `LIGHTRAG_LLM_MODEL` - LLM model (default: `qwen3:8b`)
 - `LIGHTRAG_EMBEDDING_MODEL` - Embedding model (default: `qwen3-embedding:0.6b`)
 - `LIGHTRAG_WORKING_DIR` - Working directory (default: `~/.3gpp-crawler/lightrag`)
@@ -65,6 +47,7 @@ Environment-based via `LightRAGConfig`:
 ### Summarization (Legacy)
 
 Uses `AiConfig.from_env()`:
+
 - `TDC_AI_LLM_MODEL` - LLM model (default: `openrouter/openrouter/free`)
 - `TDC_AI_LLM_API_KEY` - API key for LLM
 
@@ -73,6 +56,7 @@ Uses `AiConfig.from_env()`:
 ### LightRAG (New)
 
 File-based storage by default:
+
 - NanoVectorDB for embeddings
 - JsonKVStorage for cache
 - NetworkX for knowledge graph

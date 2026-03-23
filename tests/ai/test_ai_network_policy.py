@@ -5,15 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 
 AI_MODULES = [
-    Path("src/tdoc-ai/tdoc_ai/__init__.py"),
-    Path("src/tdoc-ai/tdoc_ai/config.py"),
-    Path("src/tdoc-ai/tdoc_ai/storage.py"),
-    Path("src/tdoc-ai/tdoc_ai/operations/classify.py"),
-    Path("src/tdoc-ai/tdoc_ai/operations/extract.py"),
-    Path("src/tdoc-ai/tdoc_ai/operations/embeddings.py"),
-    Path("src/tdoc-ai/tdoc_ai/operations/summarize.py"),
-    Path("src/tdoc-ai/tdoc_ai/operations/graph.py"),
-    Path("src/tdoc-ai/tdoc_ai/operations/pipeline.py"),
+    Path("packages/3gpp-ai/threegpp_ai/__init__.py"),
+    Path("packages/3gpp-ai/threegpp_ai/config.py"),
+    Path("packages/3gpp-ai/threegpp_ai/storage.py"),
+    Path("packages/3gpp-ai/threegpp_ai/operations/classify.py"),
+    Path("packages/3gpp-ai/threegpp_ai/operations/extract.py"),
+    Path("packages/3gpp-ai/threegpp_ai/operations/embeddings.py"),
+    Path("packages/3gpp-ai/threegpp_ai/operations/summarize.py"),
+    Path("packages/3gpp-ai/threegpp_ai/operations/graph.py"),
+    Path("packages/3gpp-ai/threegpp_ai/operations/pipeline.py"),
 ]
 
 FORBIDDEN_CORE_SOURCE_REFERENCES = [

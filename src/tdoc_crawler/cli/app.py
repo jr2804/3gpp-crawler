@@ -232,7 +232,7 @@ __all__ = ["app"]
 def _register_optional_ai_commands() -> None:
     """Register AI commands only when AI extras are available."""
     try:
-        version("tdoc-ai")
+        version("3gpp-ai")
     except PackageNotFoundError:
         return
     if ai_app is None:

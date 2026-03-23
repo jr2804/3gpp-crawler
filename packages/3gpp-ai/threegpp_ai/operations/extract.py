@@ -11,11 +11,11 @@ from pathlib import Path
 from doc2txt import extract_text as doc2txt_extract
 from kreuzberg import ExtractionConfig, KeywordAlgorithm, KeywordConfig, LanguageDetectionConfig, extract_file_sync
 
-from tdoc_ai.models import ExtractionError, ProcessingStatus
-from tdoc_ai.operations.workspace_names import normalize_workspace_name
-from tdoc_ai.storage import AiStorage
 from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
+from threegpp_ai.models import ExtractionError, ProcessingStatus
+from threegpp_ai.operations.workspace_names import normalize_workspace_name
+from threegpp_ai.storage import AiStorage
 
 logger = logging.getLogger(__name__)
 

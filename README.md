@@ -36,7 +36,7 @@ uv add 3gpp-crawler
 # Install with AI features (optional)
 uv add 3gpp-crawler[ai]
 
-# AI features are provided by the optional `tdoc-ai` extension package
+# AI features are provided by the optional `3gpp-ai` extension package
 # and installed automatically via the extra above.
 
 # Or install from source

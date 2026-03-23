@@ -35,11 +35,14 @@ build-backend = "hatchling.build"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["threegpp_ai"]
+
 [tool.uv.sources]
 # doc2txt repository contains pyproject.toml AND setup.py/setup.cfg
 # this causes installation of unnecessary additional dependencies.
 # If compiler issues arise due to this, consider switching to ...
 # - the git+https installation method (commented out above).
-# - or an own local workspace package (copy/improve from doc2txt) with a simplified pyproject.toml that only includes the necessary dependencies for tdoc-ai.
+# - or an own local workspace package (copy/improve from doc2txt) with a simplified pyproject.toml that only includes the necessary dependencies for 3gpp-ai.
 doc2txt = { git = "https://github.com/Quantatirsk/doc2txt-pypi.git" }
 convert-lo = { workspace = true }

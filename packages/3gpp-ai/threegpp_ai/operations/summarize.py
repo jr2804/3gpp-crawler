@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING
 
 import litellm
 
-from tdoc_ai.config import AiConfig
+from threegpp_ai.config import AiConfig
 
 if TYPE_CHECKING:
-    from tdoc_ai.storage import AiStorage
-from tdoc_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
-from tdoc_ai.operations.workspace_names import normalize_workspace_name
-from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+    from threegpp_ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
+from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
+from threegpp_ai.operations.convert import convert_tdoc_to_markdown
+from threegpp_ai.operations.workspace_names import normalize_workspace_name
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ def _should_skip_summary(
             return existing == content_hash
 
         # Lazy import to avoid hard dependency on sentence-transformers
-        from tdoc_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
+        from threegpp_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
 
         storage_client = EmbeddingsManager(AiConfig.from_env()).storage
         existing = storage_client.get_summary_hash(document_id)
@@ -231,7 +231,7 @@ def summarize_document(
 
     if storage is None:
         # Lazy import to avoid hard dependency on sentence-transformers
-        from tdoc_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
+        from threegpp_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
 
         storage_client = EmbeddingsManager(config).storage
     else:
@@ -416,14 +416,14 @@ Example output format: ["keyword1", "keyword2", "keyword3"]"""
 def summarize_tdoc(
     document_id: str,
     max_words: int = 200,
-    fetch_remote: bool = True,
+    force: bool = False,
 ) -> SummarizeResult:
     """Summarize a TDoc by ID.
 
     Args:
         document_id: Document identifier (e.g., "R1-2400001").
         max_words: Maximum word count for summary (default: 200).
-        fetch_remote: If True, fetch TDoc metadata from WhatTheSpec if not local.
+        force: Force reconversion even if cached.
 
     Returns:
         SummarizeResult containing summary, keywords, metadata, and word count.
@@ -432,48 +432,8 @@ def summarize_tdoc(
         LlmConfigError: If LLM endpoint is unreachable or misconfigured.
         ValueError: If format is not supported.
     """
-    # Normalize TDoc ID
     normalized_id = document_id.strip().upper()
-
-    # Try to get metadata from WhatTheSpec
-    metadata = None
-    content = ""
-    source = "unknown"
-    meeting_id = 0
-    title = ""
-
-    try:
-        metadata = resolve_via_whatthespec(normalized_id)
-        if metadata:
-            title = metadata.title
-            meeting_id = metadata.meeting_id
-            source = "whatthespec"
-            logger.info(f"Fetched metadata for {normalized_id} from WhatTheSpec")
-    except Exception as e:
-        logger.warning(f"Failed to fetch {normalized_id} from WhatTheSpec: {e}")
-        if not fetch_remote:
-            msg = f"TDoc {normalized_id} not found and fetch_remote=False"
-            raise ValueError(msg) from e
-
-    # If we don't have metadata and fetch_remote is False, raise error
-    if metadata is None and not fetch_remote:
-        msg = f"TDoc {normalized_id} not found locally and fetch_remote=False"
-        raise ValueError(msg)
-
-    # Use metadata info as content
-    # In a full implementation, this would download and extract the actual TDoc content
-    if metadata:
-        content_parts = [
-            f"Title: {metadata.title}",
-            f"Type: {metadata.tdoc_type}",
-            f"Purpose: {metadata.for_purpose}",
-            f"Source: {metadata.source}",
-            f"Contact: {metadata.contact}",
-        ]
-        content = "\n\n".join(content_parts)
-    else:
-        # Fallback - just use the tdoc_id as content placeholder
-        content = f"TDoc ID: {normalized_id}"
+    content = convert_tdoc_to_markdown(normalized_id, force=force)
 
     # Get LLM client
     config = AiConfig.from_env()
@@ -506,12 +466,8 @@ def summarize_tdoc(
 
     # Build metadata dict
     result_metadata: dict = {
-        "meeting_id": meeting_id,
-        "source": source,
         "word_count": word_count,
     }
-    if title:
-        result_metadata["title"] = title
 
     # Create result
     result = SummarizeResult(

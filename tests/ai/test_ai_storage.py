@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from tdoc_ai.models import DocumentChunk, PipelineStage, ProcessingStatus, SourceKind
-from tdoc_ai.operations import workspaces
-from tdoc_ai.storage import AiStorage
+from threegpp_ai.models import DocumentChunk, PipelineStage, ProcessingStatus, SourceKind
+from threegpp_ai.operations import workspaces
+from threegpp_ai.storage import AiStorage
 
 
 def test_workspace_member_isolation_across_workspaces() -> None:

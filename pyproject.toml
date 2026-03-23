@@ -35,12 +35,11 @@ dependencies = [
     "zipinspect>=0.1.2",
     "lxml>=6.0.2",
     "pool-executors",
-    "convert-lo",
 ]
 
 [project.optional-dependencies]
 ai = [
-    "tdoc-ai>=0.0.0",
+    "3gpp-ai>=0.0.0",
 ]
 
 [project.urls]
@@ -61,7 +60,7 @@ dev = [
     "mdformat>=1.0.0",
     "undersort>=0.1.5",
     "pydeps>=3.0.2",
-    "ruff>=0.15.0"
+    "ruff>=0.15.0",
 ]
 
 [build-system]
@@ -121,6 +120,5 @@ style = "semver"
 members = ["packages/*"]
 
 [tool.uv.sources]
-tdoc-ai = { workspace = true }
-convert-lo = { workspace = true }
+3gpp-ai = { workspace = true }
 pool-executors = { workspace = true }

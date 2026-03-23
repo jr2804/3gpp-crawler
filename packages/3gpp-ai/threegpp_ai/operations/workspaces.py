@@ -6,11 +6,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from tdoc_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
-from tdoc_ai.operations.workspace_registry import (
-    WorkspaceMember,
-    WorkspaceRegistry,
-)
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
@@ -20,6 +15,11 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
+from threegpp_ai.operations.workspace_registry import (
+    WorkspaceMember,
+    WorkspaceRegistry,
+)
 
 _logger = logging.getLogger(__name__)
 

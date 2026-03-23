@@ -7,9 +7,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from tdoc_ai.models import ExtractionError
-from tdoc_ai.operations import extract
-from tdoc_ai.operations.extract import (
+from threegpp_ai.models import ExtractionError
+from threegpp_ai.operations import extract
+from threegpp_ai.operations.extract import (
     compute_source_hash,
     extract_docx_to_markdown,
     extract_from_folder,

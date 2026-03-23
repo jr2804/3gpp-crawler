@@ -16,9 +16,9 @@ from tdoc_crawler.tdocs.models import TDocMetadata
 
 
 def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> bool:
-    """Ignore AI tests when optional tdoc-ai package is not installed."""
+    """Ignore AI tests when optional 3gpp-ai package is not installed."""
     try:
-        version("tdoc-ai")
+        version("3gpp-ai")
     except PackageNotFoundError:
         path_text = str(collection_path).replace("\\", "/").lower()
         return "/tests/ai/" in path_text or path_text.endswith("/tests/ai")

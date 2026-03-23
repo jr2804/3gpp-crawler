@@ -1,4 +1,4 @@
-"""LightRAG integration for tdoc-ai.
+"""LightRAG integration for 3gpp-ai.
 
 This package provides a thin wrapper around LightRAG with:
 - Ollama LLM and embedding support (qwen3-embedding:0.6b)

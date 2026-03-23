@@ -153,12 +153,20 @@ NoProgressOption = Annotated[
 # Options - AI
 SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
 SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count (default: 200)")]
+SummarizeForceOption = Annotated[
+    bool,
+    typer.Option("--force", "-f", help="Force reconversion even if cached"),
+]
 JsonOutputOption = Annotated[bool, typer.Option("--json", help="Output as JSON")]
 
 ConvertDocumentArgument = Annotated[str, typer.Argument(help="Document ID to convert")]
 ConvertOutputOption = Annotated[
     Path | None,
     typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)"),
+]
+ConvertForceOption = Annotated[
+    bool,
+    typer.Option("--force", "-f", help="Force reconversion even if cached"),
 ]
 
 QueryArgument = Annotated[str | None, typer.Argument(help="Semantic search query")]

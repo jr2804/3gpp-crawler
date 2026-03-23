@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tdoc_ai.models import DocumentClassification
-from tdoc_ai.operations import classify
-from tdoc_ai.operations.classify import _score_filename, classify_document_files
+from threegpp_ai.models import DocumentClassification
+from threegpp_ai.operations import classify
+from threegpp_ai.operations.classify import _score_filename, classify_document_files
 
 
 class TestClassifyTdocFiles:

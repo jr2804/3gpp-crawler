@@ -15,10 +15,10 @@ from tdoc_crawler.http_client import download_to_file
 
 _TDOC_AI_AVAILABLE = True
 try:
-    from tdoc_ai.config import AiConfig
-    from tdoc_ai.operations import workspaces as workspace_ops
-    from tdoc_ai.operations.embeddings import EmbeddingsManager
-    from tdoc_ai.storage import AiStorage
+    from threegpp_ai.config import AiConfig
+    from threegpp_ai.operations import workspaces as workspace_ops
+    from threegpp_ai.operations.embeddings import EmbeddingsManager
+    from threegpp_ai.storage import AiStorage
 except ModuleNotFoundError:
     _TDOC_AI_AVAILABLE = False
     AiConfig = None  # type: ignore[assignment]
@@ -29,13 +29,13 @@ except ModuleNotFoundError:
 
 @pytest.fixture(autouse=True)
 def _require_tdoc_ai() -> None:
-    """Skip AI tests when the optional tdoc-ai package is unavailable."""
+    """Skip AI tests when the optional 3gpp-ai package is unavailable."""
     if not _TDOC_AI_AVAILABLE:
-        pytest.skip("tdoc-ai not installed")
+        pytest.skip("3gpp-ai not installed")
 
 
 def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> bool:
-    """Skip collecting AI tests when tdoc-ai is unavailable."""
+    """Skip collecting AI tests when 3gpp-ai is unavailable."""
     return not _TDOC_AI_AVAILABLE
 
 

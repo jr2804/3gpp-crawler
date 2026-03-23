@@ -17,8 +17,8 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from tdoc_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
-from tdoc_ai.lightrag.rag import TDocRAG
+from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
+from threegpp_ai.lightrag.rag import TDocRAG
 
 app = typer.Typer(name="rag", help="LightRAG knowledge graph commands")
 console = Console()

@@ -10,7 +10,8 @@ from typing import Any
 import lancedb
 import pyarrow as pa
 
-from tdoc_ai.models import (
+from tdoc_crawler.logging import get_logger
+from threegpp_ai.models import (
     DocumentChunk,
     DocumentClassification,
     DocumentSummary,
@@ -18,7 +19,6 @@ from tdoc_ai.models import (
     GraphNode,
     ProcessingStatus,
 )
-from tdoc_crawler.logging import get_logger
 
 _logger = get_logger(__name__)
 

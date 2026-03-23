@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from tdoc_ai.lightrag import (
+from threegpp_ai.lightrag import (
     LightRAGConfig,
     RAGMetadata,
     TDocRAG,

@@ -35,7 +35,7 @@ Notes:
 |-----------|--------------|
 | Core | Python 3.14, typer, rich, pydantic, pydantic-sqlite, requests, hishel |
 | Specs Crawling | beautifulsoup4, lxml, xlsxwriter, zipinspect |
-| AI Module | tdoc-ai (LanceDB, sentence-transformers, Docling, litellm) |
+| AI Module | 3gpp-ai (LanceDB, sentence-transformers, Docling, litellm) |
 | Conversion | convert-lo (LibreOffice headless) |
 | Database | SQLite via pydantic-sqlite |
 
@@ -49,7 +49,7 @@ Notes:
 | `src/tdoc_crawler/specs/` | Specification operations |
 | `src/tdoc_crawler/meetings/` | Meeting data handling |
 | `src/tdoc_crawler/parsers/` | Parsing logic (Excel, HTML, etc.) |
-| `packages/tdoc-ai/` | AI embeddings, graphs, search |
+| `packages/3gpp-ai/` | AI embeddings, graphs, search |
 | `packages/convert-lo/` | LibreOffice document conversion |
 | `packages/pool-executors/` | Serial/parallel executor utilities |
 | `tests/` | Test suite (see tests/AGENTS.md) |
@@ -115,7 +115,7 @@ Notes:
 |-----------|---------|
 | `src/tdoc_crawler/` | Import patterns, HTTP caching, anti-duplication |
 | `src/tdoc_crawler/cli/` | CLI patterns |
-| `packages/tdoc-ai/` | AI pipeline, embeddings, graph patterns |
+| `packages/3gpp-ai/` | AI pipeline, embeddings, graph patterns |
 | `packages/convert-lo/` | LibreOffice conversion |
 | `tests/` | Testing patterns, fixtures, coverage |
 
