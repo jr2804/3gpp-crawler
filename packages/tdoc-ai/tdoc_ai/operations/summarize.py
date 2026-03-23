@@ -6,14 +6,16 @@ import hashlib
 import json
 import logging
 import re
+from typing import TYPE_CHECKING
 
 import litellm
 
 from tdoc_ai.config import AiConfig
+
+if TYPE_CHECKING:
+    from tdoc_ai.storage import AiStorage
 from tdoc_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
-from tdoc_ai.operations.embeddings import EmbeddingsManager
 from tdoc_ai.operations.workspace_names import normalize_workspace_name
-from tdoc_ai.storage import AiStorage
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.misc import utc_now
 
@@ -100,8 +102,8 @@ class LiteLLMClient:
     def __init__(self) -> None:
         logger.info("LiteLLM client initialized")
 
+    @staticmethod
     def complete(
-        self,
         prompt: str,
         system_prompt: str = SUMMARY_SYSTEM_PROMPT,
         max_tokens: int = 256000,
@@ -159,6 +161,9 @@ def _should_skip_summary(
         if storage_client is not None:
             existing = storage_client.get_summary_hash(document_id)
             return existing == content_hash
+
+        # Lazy import to avoid hard dependency on sentence-transformers
+        from tdoc_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
 
         storage_client = EmbeddingsManager(AiConfig.from_env()).storage
         existing = storage_client.get_summary_hash(document_id)
@@ -224,7 +229,13 @@ def summarize_document(
     """
     config = AiConfig.from_env()
 
-    storage_client = storage or EmbeddingsManager(config).storage
+    if storage is None:
+        # Lazy import to avoid hard dependency on sentence-transformers
+        from tdoc_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
+
+        storage_client = EmbeddingsManager(config).storage
+    else:
+        storage_client = storage
 
     normalized_workspace = normalize_workspace_name(workspace)
 

@@ -11,6 +11,7 @@ from tdoc_ai.operations.workspace_registry import (
     WorkspaceMember,
     WorkspaceRegistry,
 )
+from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.operations.checkout import checkout_specs
@@ -476,6 +477,7 @@ def checkout_spec_to_workspace(
     checkout_base: Path,
     workspace: str | None,
     release: str = "latest",
+    db_file: Path | None = None,
 ) -> Path | None:
     """Checkout a spec and add it to a workspace.
 
@@ -484,6 +486,8 @@ def checkout_spec_to_workspace(
         checkout_base: Base checkout directory
         workspace: Workspace name
         release: Spec release version (e.g., "16.3.0", "17.0.0") or "latest"
+        db_file: Optional path to database file for spec lookup. If None, uses
+                CacheManager to resolve the default database path.
 
     Returns:
         Path to the checked out spec folder, or None if checkout failed
@@ -503,8 +507,9 @@ def checkout_spec_to_workspace(
 
     # Need to checkout the spec
     try:
-        # Open the spec database
-        db_path = checkout_base.parent / "specs.db"
+        # Resolve database path: use provided db_file or fall back to CacheManager
+        cache_manager = resolve_cache_manager("default")
+        db_path = db_file if db_file is not None else cache_manager.db_file
         with SpecDatabase(db_path) as db:
             # Checkout the spec
             checkout_paths = checkout_specs(

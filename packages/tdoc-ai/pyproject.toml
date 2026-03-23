@@ -1,7 +1,7 @@
 [project]
-name = "tdoc-ai"
+name = "3gpp-ai"
 version = "0.1.0"
-description = "Optional AI/RAG extension package for tdoc-crawler"
+description = "Optional AI/RAG extension package for 3gpp-crawler"
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
 keywords = ["python", "3gpp", "rag", "ai"]
@@ -18,16 +18,15 @@ dependencies = [
     "doc2txt>=1.0.8",
     #"doc2txt>=1.0.8 @ git+https://github.com/Quantatirsk/doc2txt-pypi.git"
     "kreuzberg[all]>=4.0.0",
-    "lancedb>=0.29.2",
     "litellm>=1.81.15",
-    "sentence-transformers[openvino] @ git+https://github.com/huggingface/sentence-transformers.git",
     "tokenizers>=0.22.2",
-    "optimum-intel[openvino]",
-    "hf_xet"
+    "lightrag-hku[api]>=1.4.9.3",
+    "pg0-embedded>=0.12.0",
+    "pydantic-settings>=2.13.1",
 ]
 
 [project.urls]
-Repository = "https://forge.3gpp.org/rep/reimes/tdoc-crawler"
+Repository = "https://forge.3gpp.org/rep/reimes/3gpp-crawler"
 
 [build-system]
 requires = ["hatchling"]

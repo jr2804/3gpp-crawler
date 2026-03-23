@@ -26,23 +26,14 @@ from rich.table import Table
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
-    CheckoutBaseOption,
     ConvertDocumentArgument,
     ConvertOutputOption,
-    EmbeddingBackendOption,
-    EmbeddingTopKOption,
     EndDateOption,
     JsonOutputOption,
-    ProcessAllOption,
-    ProcessForceOption,
     ProcessLimitOption,
-    ProcessNewOnlyOption,
-    QueryArgument,
-    QueryMaxWordsOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
-    StatusTDocIdOption,
     SummarizeDocumentArgument,
     SummarizeWordsOption,
     TitlePatternExcludeOption,
@@ -73,7 +64,9 @@ from tdoc_crawler.utils.normalization import resolve_release_to_full_version
 ai_app = typer.Typer(help="3GPP AI - Document Processing and RAG")
 console = get_console()
 _logger = logging.getLogger(__name__)
-_ai_loaded = False
+_ai_loaded: list[bool] = [False]
+_ai_config: Any = None
+_ai_embeddings: Any = None
 checkout_spec_to_workspace: Any = None
 checkout_tdoc_to_workspace: Any = None
 convert_document: Any = None
@@ -81,26 +74,27 @@ create_workspace: Any = None
 delete_workspace: Any = None
 ensure_ai_subfolder: Any = None
 get_active_workspace: Any = None
-get_status: Any = None
-list_statuses: Any = None
 make_workspace_member: Any = None
 normalize_workspace_name: Any = None
-query_graph: Any = None
 set_active_workspace: Any = None
 summarize_document: Any = None
-AiConfig: Any = None
 SourceKind: Any = None
-EmbeddingsManager: Any = None
-process_all: Any = None
-process_embed_phase: Any = None
-process_extract_phase: Any = None
-process_graph_phase: Any = None
 WorkspaceRegistry: Any = None
 add_workspace_members: Any = None
 get_workspace: Any = None
 get_workspace_member_counts: Any = None
 list_workspace_members: Any = None
 remove_invalid_members: Any = None
+
+_rag_app: Any = None
+try:
+    _rag_cli_module = importlib.import_module("tdoc_ai.lightrag.cli")
+    _rag_app = getattr(_rag_cli_module, "app", None)
+except Exception:
+    _rag_app = None
+
+if _rag_app is not None:
+    ai_app.add_typer(_rag_app, name="rag")
 
 
 def _exit_ai_missing() -> NoReturn:
@@ -110,11 +104,10 @@ def _exit_ai_missing() -> NoReturn:
 
 
 def _load_ai() -> None:
-    global _ai_loaded
-    if _ai_loaded:
+    if _ai_loaded[0]:
         return
     try:
-        importlib.metadata.version("tdoc-ai")
+        importlib.metadata.version("3gpp-ai")
     except Exception:
         _exit_ai_missing()
 
@@ -122,7 +115,6 @@ def _load_ai() -> None:
     config: Any | None = None
     models: Any | None = None
     embeddings: Any | None = None
-    pipeline: Any | None = None
     registry: Any | None = None
     workspaces: Any | None = None
     try:
@@ -130,17 +122,19 @@ def _load_ai() -> None:
         config = importlib.import_module("tdoc_ai.config")
         models = importlib.import_module("tdoc_ai.models")
         embeddings = importlib.import_module("tdoc_ai.operations.embeddings")
-        pipeline = importlib.import_module("tdoc_ai.operations.pipeline")
         registry = importlib.import_module("tdoc_ai.operations.workspace_registry")
         workspaces = importlib.import_module("tdoc_ai.operations.workspaces")
     except Exception:
         _exit_ai_missing()
 
-    if tdoc_ai is None or config is None or models is None or embeddings is None or pipeline is None or registry is None or workspaces is None:
+    if tdoc_ai is None or config is None or models is None or embeddings is None or registry is None or workspaces is None:
         _exit_ai_missing()
 
+    # TODO: This construct here is total bullshit??! Just import everything correctly?!
     globals().update(
         {
+            "_ai_config": config,
+            "_ai_embeddings": embeddings,
             "checkout_spec_to_workspace": tdoc_ai.checkout_spec_to_workspace,
             "checkout_tdoc_to_workspace": tdoc_ai.checkout_tdoc_to_workspace,
             "convert_document": tdoc_ai.convert_document,
@@ -148,29 +142,21 @@ def _load_ai() -> None:
             "delete_workspace": tdoc_ai.delete_workspace,
             "ensure_ai_subfolder": tdoc_ai.ensure_ai_subfolder,
             "get_active_workspace": tdoc_ai.get_active_workspace,
-            "get_status": tdoc_ai.get_status,
-            "list_statuses": tdoc_ai.list_statuses,
             "make_workspace_member": tdoc_ai.make_workspace_member,
             "normalize_workspace_name": tdoc_ai.normalize_workspace_name,
-            "query_graph": tdoc_ai.query_graph,
             "set_active_workspace": tdoc_ai.set_active_workspace,
             "summarize_document": tdoc_ai.summarize_document,
-            "AiConfig": config.AiConfig,
             "SourceKind": models.SourceKind,
-            "EmbeddingsManager": embeddings.EmbeddingsManager,
-            "process_all": pipeline.process_all,
-            "process_embed_phase": pipeline.process_embed_phase,
-            "process_extract_phase": pipeline.process_extract_phase,
-            "process_graph_phase": pipeline.process_graph_phase,
             "WorkspaceRegistry": registry.WorkspaceRegistry,
-            "add_workspace_members": workspaces.add_workspace_members,
-            "get_workspace": workspaces.get_workspace,
-            "get_workspace_member_counts": workspaces.get_workspace_member_counts,
-            "list_workspace_members": workspaces.list_workspace_members,
-            "remove_invalid_members": workspaces.remove_invalid_members,
-        }
+            "add_workspace_members": tdoc_ai.add_workspace_members,
+            "get_workspace": tdoc_ai.get_workspace,
+            "get_workspace_member_counts": tdoc_ai.get_workspace_member_counts,
+            "list_workspace_members": tdoc_ai.list_workspace_members,
+            "remove_invalid_members": tdoc_ai.remove_invalid_members,
+        },
     )
-    _ai_loaded = True
+
+    _ai_loaded[0] = True
 
 
 @ai_app.callback()
@@ -254,173 +240,6 @@ def ai_convert(
         raise typer.Exit(1) from exc
 
 
-@ai_app.command("query")
-def ai_query(
-    query_text: QueryArgument,
-    workspace: WorkspaceNameOption = None,
-    top_k: EmbeddingTopKOption = 8,
-    max_words: QueryMaxWordsOption = 300,
-    json_output: JsonOutputOption = False,
-) -> None:
-    """Search TDocs using semantic embeddings and knowledge graph (RAG + GraphRAG).
-
-    Uses LLM to synthesize an answer from embedding and graph context.
-    """
-    if not query_text:
-        console.print("[red]Error: query is required (positional or --query).[/red]")
-        raise typer.Exit(1)
-
-    # Resolve workspace (from option, active workspace, or error)
-    normalized_workspace = resolve_workspace(workspace)
-
-    _get_cache_manager()  # Ensure cache manager is registered before config loads
-    embeddings_manager = EmbeddingsManager(AiConfig.from_env())
-
-    embedding_results = embeddings_manager.query_embeddings(query_text, normalized_workspace, top_k)
-
-    # Pass embedding chunks to query_graph for LLM synthesis
-    graph_result = query_graph(
-        query_text,
-        workspace=normalized_workspace,
-        embedding_chunks=embedding_results,
-        max_words=max_words,
-        query_level="advanced",  # Always use LLM synthesis
-    )
-
-    # Format results as expected by tests: {"query": ..., "results": [...]}
-    formatted_results = []
-    for chunk, score in embedding_results:
-        formatted_results.append({"document_id": chunk.document_id, "section": chunk.section_heading, "content": chunk.content, "score": score})
-    payload = {"query": query_text, "results": formatted_results}
-
-    if json_output:
-        typer.echo(json.dumps(payload))
-    else:
-        if embedding_results:
-            table = Table(title=f"Embedding results for '{query_text}' (workspace: {normalized_workspace})")
-            table.add_column("TDoc", style="cyan")
-            table.add_column("Section", style="green")
-            table.add_column("Score", style="magenta")
-            table.add_column("Snippet", style="white")
-            for chunk, score in embedding_results:
-                snippet = chunk.content[:120].replace("\n", " ")
-                table.add_row(chunk.document_id, str(chunk.section_heading or ""), snippet, f"{score:.3f}")
-            console.print(table)
-        else:
-            console.print("[yellow]No embedding results found.[/yellow]")
-
-        answer = graph_result.get("answer", "")
-        node_count = len(graph_result.get("nodes", []))
-        edge_count = len(graph_result.get("edges", []))
-
-        # Print answer - handle potential encoding issues
-        console.print("[bold]Answer:[/bold]")
-        try:
-            console.print(answer)
-        except Exception:
-            # Fallback: print as plain text
-            print(answer)
-        console.print(f"[dim](nodes: {node_count}, edges: {edge_count})[/dim]")
-
-
-@ai_app.command("process")
-def ai_process(
-    workspace: WorkspaceNameOption = None,
-    checkout_base: CheckoutBaseOption = None,
-    process_all_flag: ProcessAllOption = False,
-    new_only: ProcessNewOnlyOption = False,
-    force: ProcessForceOption = False,
-    accelerate: EmbeddingBackendOption = "torch",
-    json_output: JsonOutputOption = False,
-    limit: ProcessLimitOption = None,
-) -> None:
-    """Process all documents in a workspace through the AI pipeline.
-
-    Processing runs in three phases:
-    Phase 1: CLASSIFY → EXTRACT (create markdown artifacts)
-    Phase 2: EMBED (generate vector embeddings)
-    Phase 3: GRAPH (build knowledge graph)
-
-    Failed documents in one phase are not processed in later phases,
-    keeping logs clean and errors contained.
-    """
-    workspace = workspace or "default"
-    config = AiConfig.from_env(embedding_backend=accelerate)
-
-    # Process all documents in workspace
-    manager = _get_cache_manager()
-    checkout_root = Path(checkout_base) if checkout_base else manager.root
-    result = process_all(
-        document_ids=[],
-        checkout_base=checkout_root,
-        new_only=new_only,
-        force_rerun=force,
-        workspace=workspace,
-        config=config,
-        limit=limit,
-    )
-    if json_output:
-        typer.echo(json.dumps(result))
-    else:
-        console.print(f"[green]Processed {len(result)} documents in workspace {workspace}[/green]")
-
-
-@ai_app.command("status")
-def ai_status(
-    document_id: StatusTDocIdOption = None,
-    workspace: WorkspaceNameOption = None,
-    json_output: JsonOutputOption = False,
-) -> None:
-    """Check the processing status of documents in a workspace."""
-    workspace = workspace or "default"
-
-    if document_id:
-        # Get status for single document
-        result = get_status(document_id, workspace)
-        if json_output:
-            # Handle both dict and ProcessingStatus objects
-            if hasattr(result, "model_dump"):
-                typer.echo(json.dumps(result.model_dump()))
-            else:
-                typer.echo(json.dumps(result))
-        else:
-            # Convert ProcessingStatus to dict if needed
-            status_dict = result.model_dump() if hasattr(result, "model_dump") else result
-            console.print(f"[green]Status for {document_id}:[/green]")
-            for stage, completed in status_dict.items():
-                status = "OK" if completed else "NO"
-                console.print(f"  {status} {stage}")
-    else:
-        # Get status for all documents in workspace
-        # Ensure cache manager is registered before calling list_statuses
-        _get_cache_manager()
-        # list_statuses returns all statuses in workspace
-        statuses = list_statuses(workspace=workspace)
-
-        if json_output:
-            # Convert all ProcessingStatus objects to dicts
-            status_list = [s.model_dump() if hasattr(s, "model_dump") else s for s in statuses] if isinstance(statuses, list) else statuses
-            typer.echo(json.dumps(status_list))
-        else:
-            table = Table(title=f"Processing Status (workspace: {workspace})")
-            table.add_column("Document", style="cyan")
-            table.add_column("Extracted", style="green")
-            table.add_column("Summarized", style="yellow")
-            table.add_column("Embedded", style="blue")
-            table.add_column("Graphed", style="magenta")
-
-            for status in statuses:
-                status_dict = status.model_dump() if hasattr(status, "model_dump") else status
-                table.add_row(
-                    status_dict.get("document_id", "unknown"),
-                    "OK" if status_dict.get("extracted_at") else "NO",
-                    "OK" if status_dict.get("summarized_at") else "NO",
-                    "OK" if status_dict.get("embedded_at") else "NO",
-                    "OK" if status_dict.get("graphed_at") else "NO",
-                )
-            console.print(table)
-
-
 # Workspace management subcommands
 _workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
 
@@ -467,19 +286,17 @@ def workspace_list(
 
     if json_output:
         typer.echo(
-            json.dumps(
-                [
-                    {
-                        "name": w.name,
-                        "is_active": w.is_active,
-                        "tdoc_count": w.tdoc_count,
-                        "spec_count": w.spec_count,
-                        "other_count": w.other_count,
-                        "created_at": w.created_at,
-                    }
-                    for w in workspaces
-                ]
-            )
+            json.dumps([
+                {
+                    "name": w.name,
+                    "is_active": w.is_active,
+                    "tdoc_count": w.tdoc_count,
+                    "spec_count": w.spec_count,
+                    "other_count": w.other_count,
+                    "created_at": w.created_at,
+                }
+                for w in workspaces
+            ])
         )
     else:
         table = Table(title="Workspaces")
@@ -596,7 +413,7 @@ def workspace_clear(
 ) -> None:
     """Clear all AI artifacts (embeddings, summaries, etc.) while preserving workspace members."""
     workspace = resolve_workspace(workspace)
-    storage = EmbeddingsManager(AiConfig.from_env()).storage
+    storage = _ai_embeddings.EmbeddingsManager(_ai_config.AiConfig.from_env()).storage
 
     removed_count = storage.clear_workspace_artifacts(workspace)
 
@@ -638,78 +455,33 @@ def workspace_add_members(
     kind_normalized = kind.lower().rstrip("s")
     source_kind = SourceKind(kind_normalized) if kind_normalized in [e.value for e in SourceKind] else SourceKind.OTHER
 
-    # Query database if no items provided but filters are present
-    if items is None:
-        if source_kind == SourceKind.TDOC:
-            config = TDocQueryConfig(
-                output_format=OutputFormat.TABLE,
-                tdoc_ids=None,
-                working_groups=None,
-                start_date=datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None,
-                end_date=datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None,
-                meeting_start_date=None,
-                meeting_end_date=None,
-                source_pattern=source,
-                source_pattern_exclude=source_ex,
-                title_pattern=title,
-                title_pattern_exclude=title_ex,
-                agenda_pattern=agenda,
-                agenda_pattern_exclude=agenda_ex,
-                limit=limit,
-                order=SortOrder.DESC,
-            )
-            with TDocDatabase(manager.db_file) as db:
-                results = db.query_tdocs(config)
-                items = [tdoc.tdoc_id for tdoc in results]
-        else:
-            console.print("[red]Error: No items provided and filtering is only supported for TDocs[/red]")
-            raise typer.Exit(1)
+    items = _resolve_workspace_items(
+        items=items,
+        source_kind=source_kind,
+        manager=manager,
+        start_date=start_date,
+        end_date=end_date,
+        source=source,
+        source_ex=source_ex,
+        title=title,
+        title_ex=title_ex,
+        agenda=agenda,
+        agenda_ex=agenda_ex,
+        limit=limit,
+    )
 
     if not items:
         console.print("[yellow]No items match the provided filters[/yellow]")
         return
 
-    # Build members with actual paths
-    members = []
-    checkout_base = manager.checkout_dir
-    skipped_items = []
-    for item in items:
-        source_path = item
-
-        # For TDocs and specs, try to resolve/checkout to get actual path
-        if checkout:
-            checkout_path = None
-            if source_kind == SourceKind.TDOC:
-                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, workspace, db_file=manager.db_file)
-                if checkout_path is None:
-                    skipped_items.append((item, "TDoc not found in database or meeting not crawled"))
-                    continue
-            elif source_kind == SourceKind.SPEC:
-                checkout_path = checkout_spec_to_workspace(item, checkout_base, workspace, release or "latest")
-                if checkout_path is None:
-                    skipped_items.append((item, "Spec not found in database"))
-                    continue
-            if checkout_path:
-                source_path = str(checkout_path)
-                # Ensure .ai subfolder exists
-                ensure_ai_subfolder(checkout_path)
-
-        # For specs, include release version in source_item_id to allow multiple versions
-        # Resolve release to full 3-digit version (e.g., "17.0.0" instead of "latest" or "17")
-        resolved_release: str | None = release
-        if source_kind == SourceKind.SPEC and release:
-            try:
-                # Get available versions for this spec from database
-                with SpecDatabase(manager.db_file) as db:
-                    available_versions = db.get_spec_versions(item)
-                    if available_versions:
-                        version_list = [v.version for v in available_versions]
-                        resolved_release = resolve_release_to_full_version(release, version_list)
-            except Exception as e:
-                _logger.debug(f"Could not resolve release version for {item}: {e}")
-                resolved_release = release
-        source_item_id = f"{item}-REL{resolved_release}" if source_kind == SourceKind.SPEC and release else item
-        members.append(make_workspace_member(workspace, source_item_id, source_path, source_kind))
+    members, skipped_items = _build_workspace_members(
+        items=items,
+        source_kind=source_kind,
+        checkout=checkout,
+        release=release,
+        workspace=workspace,
+        manager=manager,
+    )
 
     # Report skipped items
     if skipped_items:
@@ -726,6 +498,105 @@ def workspace_add_members(
         typer.echo(json.dumps({"workspace": normalize_workspace_name(workspace), "added": count}))
     else:
         console.print(f"[green]Added {count} member(s) to workspace '{normalize_workspace_name(workspace)}'[/green]")
+
+
+def _resolve_workspace_items(
+    *,
+    items: list[str] | None,
+    source_kind: Any,
+    manager: CacheManager,
+    start_date: str | None,
+    end_date: str | None,
+    source: str | None,
+    source_ex: str | None,
+    title: str | None,
+    title_ex: str | None,
+    agenda: str | None,
+    agenda_ex: str | None,
+    limit: int | None,
+) -> list[str]:
+    if items is not None:
+        return items
+    if source_kind != SourceKind.TDOC:
+        console.print("[red]Error: No items provided and filtering is only supported for TDocs[/red]")
+        raise typer.Exit(1)
+    config = TDocQueryConfig(
+        output_format=OutputFormat.TABLE,
+        tdoc_ids=None,
+        working_groups=None,
+        start_date=datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None,
+        end_date=datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None,
+        meeting_start_date=None,
+        meeting_end_date=None,
+        source_pattern=source,
+        source_pattern_exclude=source_ex,
+        title_pattern=title,
+        title_pattern_exclude=title_ex,
+        agenda_pattern=agenda,
+        agenda_pattern_exclude=agenda_ex,
+        limit=limit,
+        order=SortOrder.DESC,
+    )
+    with TDocDatabase(manager.db_file) as db:
+        results = db.query_tdocs(config)
+    return [tdoc.tdoc_id for tdoc in results]
+
+
+def _build_workspace_members(
+    *,
+    items: list[str],
+    source_kind: Any,
+    checkout: bool,
+    release: str | None,
+    workspace: str,
+    manager: CacheManager,
+) -> tuple[list[Any], list[tuple[str, str]]]:
+    members: list[Any] = []
+    skipped_items: list[tuple[str, str]] = []
+    checkout_base = manager.checkout_dir
+    for item in items:
+        source_path = item
+
+        # For TDocs and specs, try to resolve/checkout to get actual path
+        if checkout:
+            checkout_path = None
+            if source_kind == SourceKind.TDOC:
+                checkout_path = checkout_tdoc_to_workspace(item, checkout_base, workspace, db_file=manager.db_file)
+                if checkout_path is None:
+                    skipped_items.append((item, "TDoc not found in database or meeting not crawled"))
+                    continue
+            elif source_kind == SourceKind.SPEC:
+                checkout_path = checkout_spec_to_workspace(item, checkout_base, workspace, release or "latest", db_file=manager.db_file)
+                if checkout_path is None:
+                    skipped_items.append((item, "Spec not found in database"))
+                    continue
+            if checkout_path:
+                source_path = str(checkout_path)
+                # Ensure .ai subfolder exists
+                ensure_ai_subfolder(checkout_path)
+
+        # For specs, include release version in source_item_id to allow multiple versions
+        # Resolve release to full 3-digit version (e.g., "17.0.0" instead of "latest" or "17")
+        resolved_release: str | None = release
+        if source_kind == SourceKind.SPEC and release:
+            resolved_release = _resolve_spec_release(manager, item, release)
+        source_item_id = f"{item}-REL{resolved_release}" if source_kind == SourceKind.SPEC and release else item
+        members.append(make_workspace_member(workspace, source_item_id, source_path, source_kind))
+    return members, skipped_items
+
+
+def _resolve_spec_release(manager: CacheManager, item: str, release: str) -> str:
+    resolved_release = release
+    try:
+        # Get available versions for this spec from database
+        with SpecDatabase(manager.db_file) as db:
+            available_versions = db.get_spec_versions(item)
+            if available_versions:
+                version_list = [v.version for v in available_versions]
+                resolved_release = resolve_release_to_full_version(release, version_list)
+    except Exception as exc:
+        _logger.debug(f"Could not resolve release version for {item}: {exc}")
+    return resolved_release
 
 
 @_workspace_app.command("list-members")
@@ -783,13 +654,7 @@ def workspace_process(
     json_output: JsonOutputOption = False,
     limit: ProcessLimitOption = None,
 ) -> None:
-    """Process all active document members in a workspace through the AI pipeline.
-
-    Processing runs in three sequential phases:
-    Phase 1: CLASSIFY → EXTRACT (create markdown artifacts)
-    Phase 2: EMBED (generate vector embeddings)
-    Phase 3: GRAPH (build knowledge graph)
-    """
+    """Process all active document members in a workspace through the AI pipeline."""
     workspace = resolve_workspace(workspace)
     manager = _get_cache_manager()
 
@@ -809,6 +674,10 @@ def workspace_process(
             console.print(f"[yellow]No active members found in workspace '{normalize_workspace_name(workspace)}'[/yellow]")
         return
 
+    process_extract = _ai_embeddings.process_extract_phase
+    process_embed = _ai_embeddings.process_embed_phase
+    process_graph = _ai_embeddings.process_graph_phase
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -820,7 +689,7 @@ def workspace_process(
         refresh_per_second=10,
     ) as progress:
         extract_task = progress.add_task("[cyan]Phase 1: Classifying/Extracting", total=len(document_ids))
-        extracted_ids, extract_results = process_extract_phase(
+        extracted_ids, extract_results = process_extract(
             document_ids=document_ids,
             checkout_base=manager.root,
             new_only=new_only,
@@ -831,7 +700,7 @@ def workspace_process(
         )
 
         embed_task = progress.add_task("[cyan]Phase 2: Embedding", total=len(extracted_ids))
-        embedded_ids, embed_results = process_embed_phase(
+        embedded_ids, embed_results = process_embed(
             document_ids=extracted_ids,
             checkout_base=manager.root,
             force_rerun=force_rerun,
@@ -841,7 +710,7 @@ def workspace_process(
         )
 
         graph_task = progress.add_task("[cyan]Phase 3: Building Graph", total=len(embedded_ids))
-        _, graph_results = process_graph_phase(
+        _, graph_results = process_graph(
             document_ids=embedded_ids,
             checkout_base=manager.root,
             workspace=workspace,
@@ -895,4 +764,4 @@ def workspace_delete(
 ai_app.add_typer(_workspace_app, name="workspace")
 
 
-__all__ = ["ai_app", "ai_query"]
+__all__ = ["ai_app"]

@@ -1,68 +1,126 @@
 # tdoc-ai
 
-AI-powered document processing for 3GPP TDocs (embeddings, knowledge graphs, semantic search).
+AI-powered document processing for 3GPP TDocs (knowledge graphs, semantic search, summarization).
 
 ## Package Structure
 
-See `src/tdoc-ai/tdoc_ai/` for full module layout.
+```
+packages/tdoc-ai/tdoc_ai/
+├── __init__.py           # Public API exports
+├── config.py             # AiConfig (legacy, for summarize only)
+├── context.py            # DocumentContext
+├── models.py             # Pydantic models (ProcessingStatus, etc.)
+├── storage.py            # AiStorage (legacy, LanceDB-based)
+├── lightrag/             # NEW: LightRAG integration
+│   ├── __init__.py
+│   ├── cli.py            # rag query/status commands
+│   ├── config.py         # LightRAGConfig + sub-configs
+│   ├── metadata.py       # RAGMetadata, enrich_text()
+│   ├── pg0_manager.py   # Pg0Manager
+│   ├── processor.py      # TDocProcessor
+│   ├── rag.py            # TDocRAG wrapper
+│   └── seeder.py        # EntitySeeder
+└── operations/
+    ├── classify.py       # Document classification
+    ├── convert.py        # Document conversion
+    ├── embeddings.py     # EmbeddingsManager (legacy)
+    ├── extract.py        # Text extraction
+    ├── summarize.py      # LLM summarization (LiteLLM)
+    ├── workspace_*.py    # Workspace management
+```
 
 ## Key Design Patterns
 
-### Factory Pattern for EmbeddingsManager
+### LightRAG Integration (New)
 
-Breaks circular dependency between config, storage, and embeddings:
+The new pipeline uses LightRAG for knowledge graph construction:
 
 ```python
-from tdoc_ai import create_embeddings_manager
-manager = create_embeddings_manager()
-storage = manager.storage  # Access via property
+from tdoc_ai import LightRAGConfig, TDocRAG, TDocProcessor
+
+config = LightRAGConfig()
+rag = TDocRAG(config)
+await rag.start("my-workspace")
 ```
 
-### Pipeline Stages
+### Summarization (Legacy, Still Active)
 
-Order: **CLASSIFY** → **EXTRACT** → **EMBED** → **GRAPH**
+Uses LiteLLM directly for on-demand summaries:
 
-**Note:** Summarization is NOT in pipeline. Use `ai summarize <doc_id>` for on-demand LLM summaries.
+```python
+from tdoc_ai import summarize_document
 
-### Separation: Pipeline vs CLI Summarize
-
-| Command | Purpose | LLM Required |
-|---------|---------|--------------|
-| `ai workspace process` | Embed documents | No |
-| `ai summarize <doc>` | Generate LLM summary | Yes |
+summary = summarize_document("S4-250001", markdown_content)
+```
 
 ## Configuration
 
-Environment-based via `AiConfig.from_env()`:
-- `EMBEDDING_MODEL` - Sentence transformer (default: `all-MiniLM-L6-v2`)
-- `EMBEDDING_DIMENSION` - Vector dimension (default: 384)
-- `LLM_MODEL` - LLM for summarization (default: `openai/gpt-4o-mini`)
+### LightRAG (New)
+
+Environment-based via `LightRAGConfig`:
+- `LIGHTRAG_LLM_MODEL` - LLM model (default: `qwen3:8b`)
+- `LIGHTRAG_EMBEDDING_MODEL` - Embedding model (default: `qwen3-embedding:0.6b`)
+- `LIGHTRAG_WORKING_DIR` - Working directory (default: `~/.3gpp-crawler/lightrag`)
+
+### Summarization (Legacy)
+
+Uses `AiConfig.from_env()`:
+- `TDC_AI_LLM_MODEL` - LLM model (default: `openrouter/openrouter/free`)
+- `TDC_AI_LLM_API_KEY` - API key for LLM
 
 ## Storage Layer
 
-AiStorage uses LanceDB:
-- Embeddings with document metadata
-- Workspace-scoped storage
-- Status tracking (classified, extracted, embedded, graphed)
+### LightRAG (New)
+
+File-based storage by default:
+- NanoVectorDB for embeddings
+- JsonKVStorage for cache
+- NetworkX for knowledge graph
+
+Optionally use pg0 for PostgreSQL-backed storage.
+
+### Legacy (Still Active)
+
+AiStorage uses LanceDB for status tracking in extract/summarize pipelines.
 
 ## CLI Integration
 
-Exposed via `tdoc-crawler ai` commands. See `src/tdoc_crawler/cli/ai.py`.
+Exposed via `3gpp-ai` commands:
+
+```bash
+3gpp-ai rag query "your query"
+3gpp-ai rag status
+3gpp-ai summarize S4-250001
+```
 
 ## Import Guidelines
 
 ```python
-# Public API (preferred)
-from tdoc_ai import create_embeddings_manager, process_document, query_graph
+# LightRAG integration (preferred)
+from tdoc_ai import (
+    LightRAGConfig,
+    TDocRAG,
+    TDocProcessor,
+    RAGMetadata,
+    enrich_text,
+)
 
-# Internal operations when needed
-from tdoc_ai.operations.embeddings import EmbeddingsManager
-from tdoc_ai.operations.pipeline import run_pipeline
+# Document operations (still used)
+from tdoc_ai import convert_document, summarize_document
+
+# Workspace management (still used)
+from tdoc_ai import create_workspace, list_workspaces
 ```
 
-## Lessons Learned
+## Pipeline Stages (Legacy)
 
-1. **No LLM in Pipeline**: Runs completely locally with sentence transformers
-2. **Factory Pattern**: `from_config()` loads model once, extracts dimension, creates storage
-3. **Workspace Isolation**: All operations support optional `workspace` parameter
-4. **Status Tracking**: `ProcessingStatus` tracks completed stages for resume capability
+Order: **CLASSIFY** → **EXTRACT** → **EMBED** → **GRAPH**
+
+LightRAG handles embedding and graph construction automatically.
+
+## Deprecated/Removed
+
+- `create_embeddings_manager()` - Removed from public API
+- `AiStorage` - Legacy, still used internally by extract/summarize
+- `EmbeddingsManager` - Legacy, still used internally
+- LanceDB-based storage - Replaced by LightRAG native storage

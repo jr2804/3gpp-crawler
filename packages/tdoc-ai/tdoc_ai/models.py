@@ -1,5 +1,4 @@
 """Pydantic models for the AI document processing pipeline."""
-# TODO: Consider splitting into multiple files if this grows too large, e.g. models.py for core data models, exceptions.py for error classes, enums.py for enums, etc.
 
 from __future__ import annotations
 

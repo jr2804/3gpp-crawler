@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Self
 
 # Fallback path if no argument or env var is provided
-DEFAULT_CACHE_DIR = Path.home() / ".tdoc-crawler"
-DEFAULT_DATABASE_FILENAME = "tdoc_crawler.db"
+DEFAULT_CACHE_DIR = Path.home() / ".3gpp-crawler"
+DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
 DEFAULT_MANAGER = "default"

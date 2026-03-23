@@ -202,7 +202,8 @@ class EmbeddingsManager:
         # Search in storage
         return storage.search_chunks(query_vector, top_k, workspace=normalized_workspace)
 
-    def _get_sentence_transformers_version(self) -> str:
+    @staticmethod
+    def _get_sentence_transformers_version() -> str:
         """Get the installed sentence-transformers version."""
         try:
             return sentence_transformers.__version__
