@@ -60,7 +60,6 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "mdformat>=1.0.0",
     "undersort>=0.1.5",
-    "specify-cli",
     "pydeps>=3.0.2",
     "ruff>=0.15.0"
 ]
@@ -122,7 +121,6 @@ style = "semver"
 members = ["packages/*"]
 
 [tool.uv.sources]
-specify-cli = { git = "https://github.com/github/spec-kit.git" }
 tdoc-ai = { workspace = true }
 convert-lo = { workspace = true }
 pool-executors = { workspace = true }
