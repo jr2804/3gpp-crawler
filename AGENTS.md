@@ -27,7 +27,17 @@ Notes:
 | Coverage | `uv run pytest --cov=src --cov-report=term-missing` | ~2m |
 | Add dependency | `uv add <package>` | ~10s |
 
-> If commands fail, verify against pyproject.toml or ask user to update.
+> All commands use **Python 3.14**. If commands fail, verify against pyproject.toml or ask user to update.
+
+## Technology Stack
+
+| Component | Technologies |
+|-----------|--------------|
+| Core | Python 3.14, typer, rich, pydantic, pydantic-sqlite, requests, hishel |
+| Specs Crawling | beautifulsoup4, lxml, xlsxwriter, zipinspect |
+| AI Module | tdoc-ai (LanceDB, sentence-transformers, Docling, litellm) |
+| Conversion | convert-lo (LibreOffice headless) |
+| Database | SQLite via pydantic-sqlite |
 
 ## File Map
 
