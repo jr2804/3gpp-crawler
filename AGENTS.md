@@ -61,6 +61,7 @@ Notes:
 | CLI command | `src/tdoc_crawler/cli/tdoc_app.py` | Typer app, Rich console |
 | Pydantic model | `src/tdoc_crawler/models/` | Data validation, serialization |
 | HTTP caching | `src/tdoc_crawler/http_client.py` | `create_cached_session()` |
+| Path management | `src/tdoc_crawler/config/__init__.py` | `CacheManager`, `resolve_cache_manager()` |
 | Test structure | `tests/test_crawler.py` | Fixtures, mocking, isolation |
 
 ## Heuristics (quick decisions)
@@ -68,6 +69,7 @@ Notes:
 | When | Do |
 |------|-----|
 | Adding HTTP request | Use `create_cached_session()` |
+| Need file/directory paths | Use `CacheManager` (NEVER hardcode `~/.3gpp-crawler`) |
 | Unsure import path | Check scoped AGENTS.md for domain |
 | Circular import detected | Extract shared types to `models/` |
 | Adding dependency | Ask first - minimize deps |
@@ -98,6 +100,8 @@ Notes:
 - Commit `.env` files
 - Run `git commit` or `git push` autonomously
 - Duplicate code (search first, refactor if needed)
+- **Hardcode paths** like `~/.3gpp-crawler` - always use `CacheManager`
+- **Define duplicate path constants** - check `src/tdoc_crawler/config/__init__.py` first
 
 ## Terminology
 
@@ -108,6 +112,51 @@ Notes:
 | WG | Working Group (e.g., S4, RAN1, CT3) |
 | TSG | Technical Specification Group (SA, RAN, CT) |
 | Portal | 3GPP EOL authenticated portal |
+
+## CacheManager Pattern (CRITICAL)
+
+**Single Source of Truth:** All file paths MUST use `CacheManager` from `src/tdoc_crawler/config/__init__.py`.
+
+### Usage
+
+```python
+from tdoc_crawler.config import resolve_cache_manager, CacheManager
+
+# Get registered manager (preferred)
+manager = resolve_cache_manager()
+
+# Or create new (auto-registers)
+manager = CacheManager().register()
+
+# Access paths (NEVER hardcode these)
+manager.root              # ~/.3gpp-crawler/
+manager.db_file           # ~/.3gpp-crawler/3gpp_crawler.db
+manager.http_cache_file   # ~/.3gpp-crawler/http-cache.sqlite3
+manager.checkout_dir      # ~/.3gpp-crawler/checkout/
+manager.ai_cache_dir      # ~/.3gpp-crawler/lightrag/
+manager.ai_workspace_file # ~/.3gpp-crawler/lightrag/workspaces.json
+manager.ai_embed_dir(model)  # ~/.3gpp-crawler/lightrag/{model}/
+```
+
+### Why This Matters
+
+- **DRY principle:** Path logic defined once, used everywhere
+- **Configurability:** Users can override via `TDC_CACHE_DIR` and `TDC_AI_STORE_PATH` env vars
+- **Consistency:** All components use identical paths
+- **Testability:** Easy to swap in test directories
+
+### Common Mistakes to Avoid
+
+```python
+# ❌ WRONG - Never hardcode paths
+Path.home() / ".3gpp-crawler" / "lightrag"
+os.path.expanduser("~/.3gpp-crawler")
+
+# ✅ CORRECT - Always use CacheManager
+manager = resolve_cache_manager()
+manager.ai_cache_dir
+manager.ai_embed_dir("qwen3-embedding-0.6b")
+```
 
 ## Scoped AGENTS.md (MUST read when working in these directories)
 
