@@ -60,13 +60,13 @@ bd update bd-42 --priority 1 --json
 bd close bd-42 --reason "Completed" --json
 ```
 
-### Sync (CRITICAL at end of session!)
+### Commit (CRITICAL at end of session!)
 
 ```bash
-bd sync
+bd vc commit -m "session changes"
 ```
 
-Flushes changes to git immediately. Always run at end of work session.
+Commits changes to Dolt immediately. Always run at end of work session.
 
 ## Why bd?
 
@@ -100,13 +100,14 @@ Flushes changes to git immediately. Always run at end of work session.
    - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
 5. **Complete**: `bd close <id> --reason "Done"`
 
-## Auto-Sync
+## Version Control
 
-bd automatically syncs via Dolt:
+bd uses Dolt for version control:
 
+- **Commit changes:** `bd vc commit -m "message"`
+- **Push to remote:** `bd vc push`
+- **Pull from remote:** `bd vc pull`
 - Each write auto-commits to Dolt history
-- Use `bd dolt push`/`bd dolt pull` for remote sync
-- No manual export/import needed!
 
 ## Important Rules
 
@@ -114,7 +115,7 @@ bd automatically syncs via Dolt:
 - ✅ Always use `--json` flag for programmatic use
 - ✅ Link discovered work with `discovered-from` dependencies
 - ✅ Check `bd ready` before asking "what should I work on?"
-- ✅ Run `bd sync` at end of session
+- ✅ Run `bd vc commit -m "session changes"` at end of session
 - ✅ Test with `BEADS_DB=/tmp/test.db` (don't create test issues in production)
 - ❌ Do NOT create markdown TODO lists
 - ❌ Do NOT use external issue trackers

@@ -244,3 +244,6 @@ skills-lock.json
 *.db
 .beads/dolt-*.*
 src/teddi-mcp/uv.lock
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key
