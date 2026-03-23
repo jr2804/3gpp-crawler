@@ -4,6 +4,10 @@
 "github:djinn-soul/CytoScnPy" = "latest"
 "github:AlmogBaku/debug-skill" = "latest"
 "github:rtk-ai/rtk" = "latest"
+
+ripgrep = "latest"
+"github:peteretelej/tree" = { version = "latest", rename_exe = "tree-cli" }
+
 node = "latest"
 bun = "latest"
 
@@ -93,15 +97,23 @@ run = [
     "bun x skills add https://github.com/hardikpandya/stop-slop -a universal -y",
 
     # development tool skills
-    "bun x skills add https://github.com/AlmogBaku/debug-skill -a universal -y", # for dab tool -> AlmogBaku/debug-skill
-    "bun x skills add https://github.com/s2005/uv-skill -a universal -y",
+	"bun x skills add https://github.com/s2005/uv-skill -a universal -y",
+	"bun x skills add https://github.com/netresearch/agent-rules-skill -a universal -y",
 
     # skills for other tools
     "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
+	"bun x skills add https://github.com/FlorianBruniaux/claude-code-ultimate-guide/tree/main/examples -s rtk-optimizer -a universal -y",
 
     # skill for teddi-mcp/-cli
     "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
 
+    # skill for project-specific tools/MCP servers
+    "bun x skills add https://github.com/AlmogBaku/debug-skill -a universal -y", # for dab tool -> AlmogBaku/debug-skill
+	"bun x skills add yoanbernabeu/grepai-skills -a universal -y",
+	"bun x skills add AlmogBaku/debug-skill -a universal -y",
+
     # 3GPP skills (TODO: fix - requires well-known endpoint)
     "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
+
+
 ]
