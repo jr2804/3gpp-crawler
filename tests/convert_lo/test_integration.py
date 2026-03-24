@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
+import os
 from pathlib import Path
 
 import pytest
@@ -13,34 +13,27 @@ from convert_lo.locator import find_soffice
 
 
 def _is_libreoffice_available() -> bool:
-    """Check if LibreOffice is available and can actually convert.
-
-    This goes beyond just finding the executable - it verifies that
-    LibreOffice can perform a basic conversion.
-    """
+    """Check whether LibreOffice executable can be resolved."""
     try:
-        soffice_path = find_soffice()
+        find_soffice()
     except SofficeNotFoundError:
         return False
+    return True
 
-    # Try a quick test to see if LibreOffice can run
-    # This catches cases where soffice exists but can't run properly
-    try:
-        result = subprocess.run(
-            [str(soffice_path), "--headless", "--help"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        # If --help works, LibreOffice is functional
-        return result.returncode == 0 or "LibreOffice" in result.stdout
-    except subprocess.TimeoutExpired, FileNotFoundError, OSError:
-        return False
+
+def _is_opted_in() -> bool:
+    """Return True when integration tests are explicitly enabled.
+
+    Integration tests invoke real LibreOffice conversions and may open OS-level
+    processes. Keep them disabled unless explicitly requested.
+    """
+    value = os.getenv("RUN_LIBREOFFICE_TESTS", "")
+    return value.lower() in {"1", "true", "yes", "on"}
 
 
 requires_libreoffice = pytest.mark.skipif(
-    not _is_libreoffice_available(),
-    reason="LibreOffice not installed or not functional",
+    not (_is_opted_in() and _is_libreoffice_available()),
+    reason="Set RUN_LIBREOFFICE_TESTS=1 and install LibreOffice to run integration conversions",
 )
 
 

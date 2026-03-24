@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -131,6 +132,11 @@ class Converter:
         cmd: list[str] = [
             str(self._soffice_path),
             "--headless",
+            "--invisible",
+            "--nologo",
+            "--nodefault",
+            "--norestore",
+            "--nofirststartwizard",
             "--convert-to",
             output_format,
             "--outdir",
@@ -138,12 +144,22 @@ class Converter:
             str(input_file),
         ]
 
+        startupinfo: subprocess.STARTUPINFO | None = None
+        creationflags = 0
+        if sys.platform == "win32":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
         result = subprocess.run(  # noqa: S603
             cmd,
             capture_output=True,
             text=True,
             timeout=self._timeout,
             check=False,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
         )
 
         if result.returncode != 0:
