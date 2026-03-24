@@ -1,12 +1,12 @@
 # PLAN: Adapt `summarize` and `convert` Commands
 
-**Status:** ✅ All Phases Complete  
+**Status:** ✅ All Phases Complete\
 **Last Updated:** 2026-03-24
 
-**Completion:** All phases implemented.  
+**Completion:** All phases implemented.\
 **NOTE:** See "Known Limitations" section for current constraints and "Planned Improvements" for roadmap.
 
----
+______________________________________________________________________
 
 ## Known Limitations
 
@@ -19,25 +19,29 @@
 
 ### Current Mitigations
 
-1. **Large Document Handling**: 
+1. **Large Document Handling**:
+
    - Documents >500K tokens are truncated to `MAX_TOKENS` (default 100K)
    - Truncation may lose important content at the end of documents
    - Cache stored in `.ai/` subdirectory
 
-2. **Rate Limiting**: 
+1. **Rate Limiting**:
+
    - 3GPP FTP may rate-limit requests
    - `fetch_tdoc_files()` implements retry logic with exponential backoff
    - Max 3 retries with 5-second delays
 
-3. **LibreOffice Dependency**: 
+1. **LibreOffice Dependency**:
+
    - `convert-lo` requires LibreOffice installed on the system
    - Graceful error message if not available
 
-4. **Memory Pressure**: 
+1. **Memory Pressure**:
+
    - Large PDFs may consume significant memory during extraction
    - `kreuzberg` handles this internally but large documents (>100 pages) may be slow
 
----
+______________________________________________________________________
 
 ## Planned Improvements
 
@@ -46,6 +50,7 @@
 **Goal:** Preserve context across document boundaries instead of simple truncation.
 
 **Design:**
+
 ```python
 from enum import Enum
 from dataclasses import dataclass
@@ -69,13 +74,14 @@ class ChunkingConfig:
 
 **Dependencies:** `tiktoken` for token counting
 
----
+______________________________________________________________________
 
 ### 2. Connection Pooling for HTTP Requests
 
 **Goal:** Improve throughput and reduce rate-limiting for batch operations.
 
 **Design:**
+
 ```python
 from dataclasses import dataclass
 import aiohttp
@@ -94,7 +100,7 @@ class PoolConfig:
 
 **Dependencies:** `aiohttp` for async pooling
 
----
+______________________________________________________________________
 
 ### 3. PDF Remote Converter (LibreOffice Alternative)
 
@@ -103,6 +109,7 @@ class PoolConfig:
 **Repository:** https://forge.3gpp.org/rep/reimes/pdf-remote-converter
 
 **Design:**
+
 ```python
 from enum import Enum
 from dataclasses import dataclass
@@ -126,6 +133,7 @@ class ConverterConfig:
 **Dependencies:** Add `pdf-remote-converter` as optional extra
 
 **Installation:**
+
 ```bash
 # Users without LibreOffice can install:
 uv sync --extra pdf-remote
@@ -134,7 +142,7 @@ uv sync --extra pdf-remote
 export PDF_REMOTE_API_KEY="your-api-key"
 ```
 
----
+______________________________________________________________________
 
 ## Error Handling Patterns
 
@@ -173,7 +181,7 @@ class ClassificationError(TDocError):
 | Conversion failed | `[red]Error: Failed to convert S4-260001: LibreOffice not available[/red]` | 1 |
 | Classification failed | `[red]Error: Cannot determine primary file for 'S4-260001'[/red]` | 1 |
 
----
+______________________________________________________________________
 
 ## Rollback Plan
 
@@ -199,7 +207,7 @@ rm ~/.3gpp-crawler/checkout/TSG_SA/WG4_CODEC/TSGS4_131-bis-e/Docs/S4-260001/.ai/
 3gpp-ai workspace clear
 ```
 
----
+______________________________________________________________________
 
 ## CLI Examples
 
@@ -252,7 +260,7 @@ echo "## Summary" && 3gpp-ai summarize S4-260001 --words 100
 3gpp-ai rag query "What are the codec requirements?"
 ```
 
----
+______________________________________________________________________
 
 ## Performance Metrics
 
@@ -331,7 +339,7 @@ except Exception as e:
     ))
 ```
 
----
+______________________________________________________________________
 
 ## Test Results
 
@@ -352,38 +360,42 @@ except Exception as e:
 | `3gpp-ai summarize S4-260001 --words 100` | 100-word summary | ⏳ Ready to run |
 | `3gpp-ai workspace create test-ws` | Workspace created | ⏳ Ready to run |
 
----
+______________________________________________________________________
 
 ## Context
 
 This plan addresses the adaptation of `summarize` and `convert` commands for the 3GPP AI document processing pipeline. The goal is to provide robust, user-friendly commands for document conversion and summarization with proper caching, error handling, and integration with the LightRAG knowledge graph.
 
----
+______________________________________________________________________
 
 ## Phases
 
 1. **Phase 1: Core Implementation** ✅
+
    - Implement `convert_tdoc_to_markdown()` with caching
    - Implement `summarize_document()` with LLM integration
    - Add CLI commands with proper options
 
-2. **Phase 2: Error Handling** ✅
+1. **Phase 2: Error Handling** ✅
+
    - Define exception hierarchy
    - Add CLI error messages
    - Implement rollback patterns
 
-3. **Phase 3: Performance** ✅
+1. **Phase 3: Performance** ✅
+
    - Implement semantic chunking
    - Add connection pooling
    - Integrate pdf-remote-converter
    - Fix soffice.exe console window on Windows
 
-4. **Phase 4: Metrics & Monitoring** ✅
+1. **Phase 4: Metrics & Monitoring** ✅
+
    - Implement MetricsTracker
    - Add performance logging
    - Create dashboard/reporting
 
----
+______________________________________________________________________
 
 ## Key Files to Create/Modify
 
@@ -396,7 +408,7 @@ This plan addresses the adaptation of `summarize` and `convert` commands for the
 | `src/tdoc_crawler/http_client/session.py` | Add connection pooling | ✅ Implemented |
 | `packages/convert-lo/convert_lo/converter.py` | soffice.exe window fix | ✅ Fixed |
 
----
+______________________________________________________________________
 
 ## Dependencies
 
@@ -408,7 +420,7 @@ This plan addresses the adaptation of `summarize` and `convert` commands for the
 | `aiohttp` | Connection pooling | ✅ (via requests adapter) |
 | `pdf-remote-converter` | Remote PDF conversion | ✅ Implemented |
 
----
+______________________________________________________________________
 
 ## Risks and Unknowns
 
@@ -420,16 +432,16 @@ This plan addresses the adaptation of `summarize` and `convert` commands for the
 | Memory pressure on large PDFs | Keep kreuzberg approach | ✅ Current |
 | soffice.exe console popup on Windows | CREATE_NO_WINDOW flag | ✅ Fixed |
 
----
+______________________________________________________________________
 
 ## Decisions
 
 1. **Caching Strategy:** Store converted markdown in `.ai/` subdirectory per document
-2. **Error Handling:** Custom exception hierarchy with specific error types
-3. **PDF Conversion:** LibreOffice primary, remote converter fallback
-4. **Chunking:** Semantic chunking for large documents (Phase 3)
+1. **Error Handling:** Custom exception hierarchy with specific error types
+1. **PDF Conversion:** LibreOffice primary, remote converter fallback
+1. **Chunking:** Semantic chunking for large documents (Phase 3)
 
----
+______________________________________________________________________
 
 ## Progress
 
@@ -443,7 +455,7 @@ This plan addresses the adaptation of `summarize` and `convert` commands for the
 - [x] soffice.exe console window fix
 - [x] Performance metrics tracking
 
----
+______________________________________________________________________
 
 ## Implementation Status
 
@@ -459,20 +471,23 @@ This plan addresses the adaptation of `summarize` and `convert` commands for the
 | soffice.exe window fix | ✅ Fixed | - |
 | Metrics tracking | ✅ Implemented | - |
 
----
+______________________________________________________________________
 
 ## References
 
 ### Core Implementation
+
 - `packages/3gpp-ai/threegpp_ai/operations/convert.py` - Convert operations
 - `packages/3gpp-ai/threegpp_ai/operations/summarize.py` - Summarize operations
 - `src/tdoc_crawler/cli/ai_app.py` - CLI commands
 
 ### Dependencies
+
 - [kreuzberg](https://github.com/Goldziher/kreuzberg) - Text extraction
 - [convert-lo](https://github.com/monim67/convert-lo) - LibreOffice conversion
 - [pdf-remote-converter](https://forge.3gpp.org/rep/reimes/pdf-remote-converter) - Remote PDF conversion
 
 ### Related Work
+
 - LightRAG integration for knowledge graph
 - Workspace management for batch processing

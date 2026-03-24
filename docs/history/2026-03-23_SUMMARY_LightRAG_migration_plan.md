@@ -43,20 +43,23 @@ Replace the existing 3gpp-ai pipeline with **LightRAG** (Python GraphRAG framewo
 ### Key Components
 
 1. **LightRAG** (Python library)
+
    - `pip install lightrag-hku` / `uv add lightrag-hku`
    - Async-first API (`await rag.ainsert()`, `await rag.aquery()`)
    - LLM-powered entity-relationship extraction with gleaning
    - 6 query modes, citation tracking, workspace isolation
    - Optional REST API server via `lightrag-server`
 
-2. **pg0** (Embedded PostgreSQL)
+1. **pg0** (Embedded PostgreSQL)
+
    - Zero-config, single binary (~50MB)
    - PostgreSQL 18 + pgvector 0.8.1 bundled
    - Python SDK: `from pg0 import Pg0`
    - Data stored in `~/.pg0/instances/<name>/data/`
    - Note: Does NOT include Apache AGE (graph extension)
 
-3. **Storage Split**
+1. **Storage Split**
+
    - **pg0 handles:** KV cache, vector embeddings, doc status (3 of 4 storage types)
    - **NetworkX handles:** Entity-relationship graph (file-based, LightRAG default)
    - This avoids the Apache AGE dependency entirely
@@ -546,12 +549,14 @@ Replace the existing 3gpp-ai pipeline with **LightRAG** (Python GraphRAG framewo
 The existing tdoc-crawler already stores structured 3GPP metadata (TDoc IDs, spec references, meeting codes, companies) in SQLite. Since the LightRAG stage receives converted PDF files plus fixed-key metadata dictionaries, enrichment should be schema-first and deterministic instead of ad hoc dictionary lookups.
 
 - [ ] Define a typed metadata contract (Pydantic model) for enrichment with at least:
+
   - `tdoc_id` (required)
   - `title`, `source`, `meeting` (optional)
   - `spec_refs` (list[str], default empty list)
   - `release`, `wg` (optional, if available from SQLite)
 
 - [ ] Add normalization before enrichment:
+
   - `tdoc_id` uppercased and stripped
   - `spec_refs` normalized into stable display form
   - missing required fields cause explicit skip/error status
@@ -618,11 +623,13 @@ LightRAG supports `edit_entity()` and `create_entity()` APIs. For known 3GPP ent
 #### 5.2 Update Dependencies
 
 - [ ] Remove from `pyproject.toml`:
+
   - `lancedb` (replaced by pg0/pgvector)
   - `sentence-transformers` (handled by LightRAG embedding functions)
   - `edgequake-sdk` (dropped)
 
 - [ ] Add to `pyproject.toml`:
+
   - `lightrag-hku`
   - `pg0-embedded`
 
@@ -673,18 +680,23 @@ OpenSearch runs on Windows via zip archive (no Docker). See investigation report
 ## Open Questions
 
 1. **LLM Provider Selection:** Default to Ollama (local, free) or require cloud provider?
+
    - Recommendation: Ollama for development. LightRAG recommends 32B+ models for quality entity extraction. Qwen3-30B or similar.
 
-2. **Embedding Provider:** Use Ollama (local) or sentence-transformers?
+1. **Embedding Provider:** Use Ollama (local) or sentence-transformers?
+
    - Recommendation: Ollama with qwen3-embedding:0.6b (available in 3gpp-ai workspace)
 
-3. **Graph Storage Scaling:** NetworkX (file-based) vs. PostgreSQL AGE vs. OpenSearch?
+1. **Graph Storage Scaling:** NetworkX (file-based) vs. PostgreSQL AGE vs. OpenSearch?
+
    - Recommendation: Start with NetworkX. For typical 3GPP meeting scope (100-500 TDocs), file-based graph is sufficient. Migrate to OpenSearch only if performance becomes an issue.
 
-4. **Metadata Contract Strictness:** Which metadata keys are required to proceed with insertion?
-    - Recommendation: Require `tdoc_id`; treat all other fields as optional but normalized. On missing required fields, emit explicit skip/error result.
+1. **Metadata Contract Strictness:** Which metadata keys are required to proceed with insertion?
 
-5. **LightRAG WebUI:** Deploy alongside CLI?
+   - Recommendation: Require `tdoc_id`; treat all other fields as optional but normalized. On missing required fields, emit explicit skip/error result.
+
+1. **LightRAG WebUI:** Deploy alongside CLI?
+
    - Recommendation: Optional. `lightrag-server` provides an Ollama-compatible REST API + React WebUI for graph visualization. Useful for debugging, not required for pipeline.
 
 ## Progress
@@ -714,10 +726,10 @@ OpenSearch runs on Windows via zip archive (no Docker). See investigation report
 - [x] (2026-03-23) Phase 5.4 complete: Removed broken CLI commands (ai query/process/status)
 - [x] (2026-03-23) Phase 6.1 complete: Unit tests (test_lightrag_config.py: 11 tests, test_metadata.py: 11 tests)
 - [x] (2026-03-23) Phase 6.2 complete: Integration tests (test_integration.py: 4 async tests)
-- [x] (2026-03-23) Phase 6.3 validation: Startup <10s ✓, Insert/query works ✓, Workspace isolation ✓
+- [x] (2026-03-23) Phase 6.3 validation: Startup \<10s ✓, Insert/query works ✓, Workspace isolation ✓
 - [x] (2026-03-23) Rename fix: Updated PLAN.md defaults from `tdoc-crawler` to `3gpp-crawler`
 - [ ] Phase 7: 3gpp-ai package cleanup (dead code removal, linter issues)
-- [ ] Phase 6.3 validation: Query latency <2s (manual validation needed)
+- [ ] Phase 6.3 validation: Query latency \<2s (manual validation needed)
 - [ ] Phase 6.3 validation: Idempotency (manual validation needed)
 
 ### Phase 7: 3gpp-ai Package Cleanup
@@ -744,6 +756,7 @@ The following modules are obsolete (replaced by LightRAG pipeline):
 Current state exports 40+ symbols including legacy ones. Target: clean separation.
 
 **Remove from exports:**
+
 - `AiConfig` (replaced by `LightRAGConfig`)
 - `AiStorage` (LanceDB, dead)
 - `EmbeddingsManager` (sentence-transformers, dead)
@@ -752,6 +765,7 @@ Current state exports 40+ symbols including legacy ones. Target: clean separatio
 - `GraphNode`, `GraphEdge` (custom graph schema, dead)
 
 **Keep exports:**
+
 ```python
 # Document operations (still used by both pipelines)
 from tdoc_ai.operations.convert import convert_tdoc as convert_document
@@ -805,6 +819,7 @@ Due to `tdoc-crawler` → `3gpp-crawler` rename:
 #### 7.5 Verify No Regressions
 
 Before declaring Phase 7 complete, verify:
+
 - [ ] `3gpp-ai --help` shows all commands
 - [ ] `3gpp-ai rag status` works
 - [ ] `3gpp-ai rag query "test"` works

@@ -9,15 +9,18 @@ This guide describes how to set up your environment for contributing to `3gpp-cr
 1. Clone the repository:
 
    ```bash
+   ```
+
 git clone https://forge.3gpp.org/rep/reimes/3gpp-crawler.git
 cd 3gpp-crawler
-   ```
+
+````
 
 1. Sync dependencies:
 
-   ```bash
-   uv sync --all-extras
-   ```
+```bash
+uv sync --all-extras
+````
 
 1. Install pre-commit hooks:
 
