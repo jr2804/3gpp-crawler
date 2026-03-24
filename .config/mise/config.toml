@@ -5,6 +5,11 @@
 "github:AlmogBaku/debug-skill" = "latest"
 "github:rtk-ai/rtk" = "latest"
 
+"ruff" = "latest"
+"ty" = "latest"
+"pipx:mdformat" = "latest"
+"pipx:undersort" = "latest"
+
 ripgrep = "latest"
 "github:peteretelej/tree" = { version = "latest", rename_exe = "tree-cli" }
 
@@ -31,22 +36,22 @@ run = "uv sync -U --dev --all-extras --all-groups --all-packages"
 [tasks.format]
 description = "Format source code and tests"
 run = [
-    "uv run undersort src/ tests/ --exclude .config/",
+    "uv run undersort src/ packages/ tests/ --exclude .config/",
     "ruff check --select I --fix", # isort-equivalent sorting of imports
-    "ruff format src/ tests/ --exclude .config",
+    "ruff format src/ packages/ tests/ --exclude .config",
 ]
 
 [tasks.format-md]
 description = "Format Markdown files"
-run = "mdformat src/ docs/ tests/ .specify/ specs/ --exclude .config/"
+run = "mdformat src/ docs/ tests/ packages/ --exclude .config/"
 
 [tasks.lint]
 description = "Lint source code and tests"
-run = "ruff check src tests"
+run = "ruff check src/ packages/ tests/"
 
 [tasks.lint-fix]
 description = "Lint source code and tests and fix simple issues"
-run = "ruff check --fix src tests"
+run = "ruff check --fix src/ packages/ tests/"
 
 [tasks.lint-fix-unsafe]
 description = "Lint source code and tests and fix simple issues"
@@ -62,15 +67,7 @@ run = "uv run pytest tests/ -v --tb=short"
 
 [tasks.test-coverage]
 description = "Run all tests with coverage report"
-run = "uv run pytest tests/ -v --cov=src/tdoc_crawler --cov-report=html"
-
-[tasks.spec-init]
-description = "Initialize Github Spec Kit in the current directory"
-usage = '''
-arg "<ai_agent>" help="AI assistant to use: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, amp, shai, q, bob, or qoder"
-arg "[script]" help="Script variant to use: sh (bash/zsh) or ps (PowerShell)" default="ps"
-'''
-run = ["cls", "uv run specify init --here --ai {{usage.ai_agent}} --script {{usage.script}}", "uv run specify check"]
+run = "uv run pytest tests/ -v --cov=src/3gpp_crawler --cov-report=html"
 
 [tasks.add-mcp-servers]
 

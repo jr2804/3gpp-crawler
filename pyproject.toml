@@ -57,10 +57,7 @@ dev = [
     "mkdocs-material>=8.5.10",
     "mkdocstrings[python]>=0.26.1",
     "pytest-asyncio>=1.2.0",
-    "mdformat>=1.0.0",
-    "undersort>=0.1.5",
     "pydeps>=3.0.2",
-    "ruff>=0.15.0",
 ]
 
 [build-system]
