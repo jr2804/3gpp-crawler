@@ -7,7 +7,6 @@ import importlib.metadata
 import json
 import logging
 from datetime import UTC, datetime
-from functools import cache
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -54,7 +53,7 @@ from tdoc_crawler.cli.args import (
     WorkspaceProcessNewOnlyOption,
     WorkspaceReleaseOption,
 )
-from tdoc_crawler.config import CacheManager, resolve_cache_manager
+from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import SpecDatabase, TDocDatabase
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.models.base import OutputFormat, SortOrder
@@ -65,8 +64,17 @@ from tdoc_crawler.utils.normalization import resolve_release_to_full_version
 ai_app = typer.Typer(help="3GPP AI - Document Processing and RAG")
 console = get_console()
 _logger = logging.getLogger(__name__)
+
+# TODO: This is a really hacky way to handle optional AI dependencies. Refactor to a proper plugin system or separate module if it grows.
+# TODO: The whole module is fucked-up with circular imports and dynamic loading. Refactor to a cleaner structure if more commands are added.
+# TODO: The whole module is fucked-up with redundant global variables and repeated/dynamic imports.
+# TODO: CacheManager handling is fucked up and absolute mess. Not even an different cache directory is considered!
+
 _ai_loaded: list[bool] = [False]
 _ai_config: Any = None
+
+# Register CacheManager once at module load time (CLI is the entry point)
+_cache_manager: CacheManager | None = None
 checkout_spec_to_workspace: Any = None
 checkout_tdoc_to_workspace: Any = None
 convert_document: Any = None
@@ -155,6 +163,11 @@ def _load_ai() -> None:
 
     _ai_loaded[0] = True
 
+    # Register CacheManager once when AI module is loaded
+    global _cache_manager
+    if _cache_manager is None:
+        _cache_manager = CacheManager().register()
+
 
 @ai_app.callback()
 def _check_ai_installed() -> None:
@@ -162,15 +175,19 @@ def _check_ai_installed() -> None:
     _load_ai()
 
 
-@cache
 def _get_cache_manager() -> CacheManager:
-    """Get or create the default cache manager (avoids repeated register() calls)."""
-    # Check if already registered
-    try:
-        return resolve_cache_manager("default")
-    except ValueError:
-        # Not registered yet, create and register
+    """Get the registered cache manager.
+
+    Returns:
+        The registered CacheManager instance.
+
+    Raises:
+        ValueError: If CacheManager was not registered (should not happen in CLI).
+    """
+    if _cache_manager is None:
+        # Fallback: register now (should have happened in _load_ai)
         return CacheManager().register()
+    return _cache_manager
 
 
 def resolve_workspace(workspace: str | None) -> str:
@@ -230,7 +247,10 @@ def ai_convert(
         elif json_output:
             typer.echo(json.dumps({"markdown": markdown_content}))
         else:
-            typer.echo(markdown_content)
+            # Write raw UTF-8 to stdout (avoid Rich markup/encoding issues)
+            import sys
+
+            sys.stdout.buffer.write(markdown_content.encode("utf-8"))
     except Exception as exc:
         if json_output:
             typer.echo(json.dumps({"error": str(exc)}), err=True)
@@ -688,7 +708,7 @@ def workspace_process(
     import asyncio
 
     workspace = resolve_workspace(workspace)
-    manager = _get_cache_manager()
+    _get_cache_manager()
 
     # Get workspace members
     members = list_workspace_members(workspace, include_inactive=False)
@@ -712,8 +732,6 @@ def workspace_process(
         config = LightRAGConfig()
         processor = TDocProcessor(config)
         results = []
-
-        import asyncio
 
         from threegpp_ai.lightrag.config import LightRAGConfig
         from threegpp_ai.lightrag.metadata import RAGMetadata
@@ -776,8 +794,8 @@ def workspace_process(
                 metadata = None
                 if member.source_item_id.startswith(("S", "R", "C", "T")):  # TDoc ID pattern
                     try:
-                        from tdoc_crawler.database import TDocDatabase
                         from tdoc_crawler.config import resolve_cache_manager
+                        from tdoc_crawler.database import TDocDatabase
 
                         manager = resolve_cache_manager()
                         with TDocDatabase(manager.db_file) as db:

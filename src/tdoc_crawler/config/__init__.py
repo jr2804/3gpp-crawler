@@ -13,7 +13,7 @@ DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
 DEFAULT_MANAGER = "default"
 
-DEFAULT_AI_CACHE_DIRNAME = "lightrag" # subdirectory under root cache dir for AI-related files
+DEFAULT_AI_CACHE_DIRNAME = "lightrag"  # subdirectory under root cache dir for AI-related files
 
 WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 

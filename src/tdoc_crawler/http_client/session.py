@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import requests
 from hishel import SyncBaseStorage, SyncSqliteStorage
 from hishel.requests import CacheAdapter
+from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from tdoc_crawler.config import resolve_cache_manager
@@ -19,6 +21,25 @@ from tdoc_crawler.models import HttpCacheConfig
 logger = get_logger(__name__)
 
 
+@dataclass
+class PoolConfig:
+    """HTTP connection pool configuration.
+
+    Attributes:
+        max_connections: Maximum number of connection pools to cache
+        max_per_host: Maximum number of connections per host
+        connection_timeout: Connection timeout in seconds
+        enable_retry: Whether to enable retry logic
+        retry_attempts: Number of retry attempts for failed requests
+    """
+
+    max_connections: int = 10
+    max_per_host: int = 5
+    connection_timeout: float = 30.0
+    enable_retry: bool = True
+    retry_attempts: int = 3
+
+
 def download_to_file(
     url: str,
     destination: Path,
@@ -27,6 +48,7 @@ def download_to_file(
     http_cache: HttpCacheConfig | None = None,
     cache_manager_name: str | None = None,
     http_cache_enabled: bool | None = None,
+    pool_config: PoolConfig | None = None,
 ) -> requests.Session | None:
     """Download a file from URL to destination path.
 
@@ -38,6 +60,7 @@ def download_to_file(
         http_cache: Optional HTTP cache configuration
         cache_manager_name: Optional cache manager name to determine cache directory when creating a temporary session.
         http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
+        pool_config: Optional connection pool configuration.
 
     Raises:
         ValueError: If URL scheme is not supported
@@ -52,13 +75,19 @@ def download_to_file(
     # Use provided session or create a new one (might be used for multiple downloads, so we don't want to create a new session for each)
     temp_session: requests.Session | None = None
     if session is None:
-        temp_session = create_cached_session(http_cache=http_cache, cache_manager_name=cache_manager_name, http_cache_enabled=http_cache_enabled)
+        temp_session = create_cached_session(
+            http_cache=http_cache,
+            cache_manager_name=cache_manager_name,
+            http_cache_enabled=http_cache_enabled,
+            pool_config=pool_config,
+        )
         active_session = temp_session
     else:
         active_session = session
 
     try:
-        response = active_session.get(url, timeout=60, stream=True)
+        timeout = pool_config.connection_timeout if pool_config is not None else 60
+        response = active_session.get(url, timeout=timeout, stream=True)
         response.raise_for_status()
         with destination.open("wb") as target:
             for chunk in response.iter_content(chunk_size=8192):
@@ -79,6 +108,7 @@ def create_cached_session(
     http_cache: HttpCacheConfig | None = None,
     cache_manager_name: str | None = None,
     http_cache_enabled: bool | None = None,
+    pool_config: PoolConfig | None = None,
 ) -> requests.Session:
     """Create a requests.Session with hishel caching enabled.
 
@@ -87,6 +117,9 @@ def create_cached_session(
         cache_manager_name: Optional cache manager name to determine cache configuration.
         http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
                          Can be set via HTTP_CACHE_ENABLED environment variable.
+        pool_config: Optional connection pool configuration.
+                When provided, pool settings are applied to the active adapter
+                (cache adapter when caching is enabled, HTTPAdapter otherwise).
 
     Returns:
         Configured requests.Session with caching enabled (unless disabled)
@@ -100,8 +133,24 @@ def create_cached_session(
         env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
         http_cache_enabled = env_enabled not in ("false", "0", "no", "off", "f", "n")
 
-    # If caching is disabled, return a plain session without caching
+    # If caching is disabled, optionally configure a pooled HTTP adapter and return.
     if not http_cache_enabled:
+        if pool_config is not None:
+            retry_strategy = Retry(
+                total=pool_config.retry_attempts if pool_config.enable_retry else 0,
+                backoff_factor=1,
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=["HEAD", "GET", "OPTIONS"],
+            )
+            adapter = HTTPAdapter(
+                pool_connections=pool_config.max_connections,
+                pool_maxsize=pool_config.max_per_host,
+                max_retries=retry_strategy,
+            )
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+            logger.debug(f"Configured connection pool without caching: max_connections={pool_config.max_connections}, max_per_host={pool_config.max_per_host}")
+
         logger.debug("Creating plain HTTP session (caching disabled)")
         return session
 
@@ -122,22 +171,32 @@ def create_cached_session(
     )
     storage = cast(SyncBaseStorage, storage)
 
-    # Configure retry strategy for the session
+    # Configure retry strategy for the cache adapter.
+    # If pool_config is set, reuse its retry settings so caching + pooling share one adapter.
+    retry_attempts = pool_config.retry_attempts if pool_config and pool_config.enable_retry else http_cache.max_retries
     max_retries = Retry(
-        total=http_cache.max_retries,
+        total=retry_attempts,
         backoff_factor=1,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["HEAD", "GET", "OPTIONS"],
     )
 
-    # Create cache adapter
-    cache_adapter = CacheAdapter(storage=storage, max_retries=max_retries)  # ty:ignore[invalid-argument-type]
+    # Create a single cache adapter with pool settings so both behaviors are active.
+    cache_adapter = CacheAdapter(
+        pool_connections=pool_config.max_connections if pool_config is not None else 10,
+        pool_maxsize=pool_config.max_per_host if pool_config is not None else 10,
+        max_retries=max_retries,
+        storage=storage,
+    )
 
     # Mount the cache adapter
     session.mount("http://", cache_adapter)
     session.mount("https://", cache_adapter)
 
+    if pool_config is not None:
+        logger.debug(f"Configured cache + pool adapter: max_connections={pool_config.max_connections}, max_per_host={pool_config.max_per_host}")
+
     return session
 
 
-__all__ = ["create_cached_session"]
+__all__ = ["PoolConfig", "create_cached_session", "download_to_file"]

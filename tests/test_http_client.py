@@ -10,9 +10,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from hishel.requests import CacheAdapter
+from requests.adapters import HTTPAdapter
 
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME, CacheManager, reset_cache_managers
-from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.http_client import PoolConfig, create_cached_session, download_to_file
 from tdoc_crawler.models.base import HttpCacheConfig
 
 
@@ -108,6 +109,50 @@ class TestCreateCachedSession:
         # Check that the adapters are CacheAdapter instances
         assert isinstance(session.adapters["http://"], CacheAdapter)
         assert isinstance(session.adapters["https://"], CacheAdapter)
+
+        session.close()
+
+    def test_cache_adapter_keeps_pool_settings(self, test_cache_dir: Path) -> None:
+        """Regression: cache + pool settings are active on the same adapter."""
+        CacheManager(root_path=test_cache_dir, name="cache_pool").register()
+
+        pool_config = PoolConfig(max_connections=7, max_per_host=11, retry_attempts=4)
+        session = create_cached_session(
+            cache_manager_name="cache_pool",
+            pool_config=pool_config,
+        )
+
+        http_adapter = session.adapters["http://"]
+        https_adapter = session.adapters["https://"]
+
+        assert isinstance(http_adapter, CacheAdapter)
+        assert isinstance(https_adapter, CacheAdapter)
+        assert http_adapter._pool_connections == 7
+        assert http_adapter._pool_maxsize == 11
+        assert https_adapter._pool_connections == 7
+        assert https_adapter._pool_maxsize == 11
+
+        session.close()
+
+    def test_pool_only_session_uses_http_adapter(self) -> None:
+        """When caching is disabled, pooling should still be configured."""
+        pool_config = PoolConfig(max_connections=4, max_per_host=9, retry_attempts=2)
+        session = create_cached_session(
+            http_cache_enabled=False,
+            pool_config=pool_config,
+        )
+
+        http_adapter = session.adapters["http://"]
+        https_adapter = session.adapters["https://"]
+
+        assert isinstance(http_adapter, HTTPAdapter)
+        assert isinstance(https_adapter, HTTPAdapter)
+        assert not isinstance(http_adapter, CacheAdapter)
+        assert not isinstance(https_adapter, CacheAdapter)
+        assert http_adapter._pool_connections == 4
+        assert http_adapter._pool_maxsize == 9
+        assert https_adapter._pool_connections == 4
+        assert https_adapter._pool_maxsize == 9
 
         session.close()
 
@@ -236,6 +281,30 @@ class TestCachingBehavior:
         assert manager.http_cache_file.name == DEFAULT_HTTP_CACHE_FILENAME
 
         session.close()
+
+
+class TestDownloadToFilePooling:
+    """Tests for pooled timeout usage in download helper."""
+
+    def test_uses_pool_timeout_for_download(self, tmp_path: Path) -> None:
+        """Regression: download_to_file should use pool connection timeout."""
+        destination = tmp_path / "download.bin"
+        session = MagicMock(spec=requests.Session)
+        response = MagicMock()
+        response.iter_content.return_value = [b"abc", b"def"]
+        response.raise_for_status.return_value = None
+        session.get.return_value = response
+
+        pool_config = PoolConfig(connection_timeout=7.5)
+        download_to_file(
+            "https://example.com/test.bin",
+            destination,
+            session=session,
+            pool_config=pool_config,
+        )
+
+        session.get.assert_called_once_with("https://example.com/test.bin", timeout=7.5, stream=True)
+        assert destination.read_bytes() == b"abcdef"
 
 
 class TestResolveHttpCacheConfig:
