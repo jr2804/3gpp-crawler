@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
+import requests
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
 from kreuzberg import extract_file_sync
@@ -14,10 +18,41 @@ from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from threegpp_ai.models import ExtractionError
+from threegpp_ai.models import ConversionError, ExtractionError
 from threegpp_ai.operations.fetch_tdoc import fetch_tdoc_files
+from threegpp_ai.operations.metrics import MetricType, get_metrics_tracker, timed_operation
 
 logger = get_logger(__name__)
+
+
+class ConverterBackend(Enum):
+    """PDF conversion backends."""
+
+    LIBREOFFICE = "libreoffice"  # Local LibreOffice (current)
+    REMOTE = "remote"  # pdf-remote-converter API
+    AUTO = "auto"  # Try local, fallback to remote
+
+
+@dataclass
+class ConverterConfig:
+    """PDF converter configuration."""
+
+    backend: ConverterBackend = ConverterBackend.AUTO
+    api_key: str | None = None  # For remote backend
+    api_base: str = "https://pdf-convert.3gpp.org"  # Default API endpoint
+
+    @classmethod
+    def from_env(cls) -> ConverterConfig:
+        """Build converter config from environment variables.
+
+        Supported variables:
+        - PDF_REMOTE_API_KEY
+        - PDF_REMOTE_API_BASE
+        """
+        return cls(
+            api_key=os.getenv("PDF_REMOTE_API_KEY"),
+            api_base=os.getenv("PDF_REMOTE_API_BASE", "https://pdf-convert.3gpp.org"),
+        )
 
 
 def _get_meeting_info(meeting_id: int) -> str | None:
@@ -139,16 +174,79 @@ def convert_tdoc(
     return markdown_content
 
 
+def _convert_via_remote(
+    input_path: Path,
+    output_dir: Path,
+    config: ConverterConfig,
+) -> Path:
+    """Convert document to PDF via remote API.
+
+    Args:
+        input_path: Source document path (DOCX, DOC, etc.)
+        output_dir: Output directory for PDF
+        config: Converter configuration with api_base and optional api_key
+
+    Returns:
+        Path to converted PDF
+
+    Raises:
+        ConversionError: If remote conversion fails
+    """
+    output_path = output_dir / f"{input_path.stem}.pdf"
+
+    # Prepare multipart form upload
+    api_key = config.api_key or os.getenv("PDF_REMOTE_API_KEY")
+    api_base = config.api_base or os.getenv("PDF_REMOTE_API_BASE", "https://pdf-convert.3gpp.org")
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    url = f"{api_base.rstrip('/')}/convert"
+    logger.debug(f"Converting {input_path.name} via remote API: {url}")
+
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        with input_path.open("rb") as source_handle:
+            files = {"file": (input_path.name, source_handle, "application/octet-stream")}
+            with requests.post(url, files=files, headers=headers, stream=True, timeout=120) as response:
+                response.raise_for_status()
+
+                # Stream response to output file
+                with output_path.open("wb") as output_handle:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            output_handle.write(chunk)
+
+        logger.info(f"Remote conversion complete: {output_path}")
+        return output_path
+
+    except requests.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else "unknown"
+        msg = f"Remote conversion failed for {input_path.name}: HTTP {status}"
+        logger.error(msg)
+        raise ConversionError(msg) from e
+    except requests.exceptions.RequestException as e:
+        msg = f"Remote conversion failed for {input_path.name}: {e}"
+        logger.error(msg)
+        raise ConversionError(msg) from e
+    except OSError as e:
+        msg = f"Remote conversion failed for {input_path.name}: {e}"
+        logger.error(msg)
+        raise ConversionError(msg) from e
+
+
 def convert_tdoc_to_markdown(
     document_id: str,
     output_path: Path | None = None,
     force: bool = False,
+    converter_config: ConverterConfig | None = None,
 ) -> str:
     """Convert TDoc to markdown using full pipeline.
 
     Pipeline:
     1. Fetch TDoc files (DOCX, DOC, or PDF)
-    2. Convert to PDF if needed (via convert-lo / LibreOffice)
+    2. Convert to PDF if needed (via convert-lo / LibreOffice or remote API)
     3. Extract text using kreuzberg
     4. Return markdown content
 
@@ -160,54 +258,119 @@ def convert_tdoc_to_markdown(
         document_id: TDoc identifier (e.g., "S4-260001")
         output_path: Optional path to write markdown file
         force: Force reconversion even if cached
+        converter_config: Optional converter configuration for backend selection
 
     Returns:
         Markdown content string
 
     Raises:
         TDocNotFoundError: If TDoc cannot be found
-        ExtractionError: If conversion fails
+        ExtractionError: If no document files found
+        ConversionError: If conversion fails (both LibreOffice and remote)
     """
-    tdoc_files = fetch_tdoc_files(document_id, force_download=force)
+    normalized_id = document_id.strip().upper()
+    config = converter_config or ConverterConfig.from_env()
 
-    primary = tdoc_files.primary_path
-    if primary is None:
-        raise ExtractionError(f"No document files found for {document_id}")
+    with timed_operation(get_metrics_tracker(), normalized_id, MetricType.CONVERSION):
+        tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)
 
-    ai_dir = tdoc_files.checkout_dir / ".ai"
-    md_path = ai_dir / f"{document_id.strip().upper()}.md"
+        primary = tdoc_files.primary_path
+        if primary is None:
+            raise ExtractionError(f"No document files found for {normalized_id}")
 
-    if md_path.exists() and not force:
-        cached = md_path.read_text(encoding="utf-8")
-        if len(cached) > 100:
-            if output_path:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(cached, encoding="utf-8")
-                return str(output_path)
-            return cached
+        ai_dir = tdoc_files.checkout_dir / ".ai"
+        md_path = ai_dir / f"{normalized_id}.md"
 
-    if primary.suffix.lower() == ".pdf":
-        result = extract_file_sync(str(primary))
-        markdown = result.content
-    else:
+        if md_path.exists() and not force:
+            cached = md_path.read_text(encoding="utf-8")
+            if len(cached) > 100:
+                if output_path:
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_text(cached, encoding="utf-8")
+                    return str(output_path)
+                return cached
+
+        if primary.suffix.lower() == ".pdf":
+            result = extract_file_sync(str(primary))
+            markdown = result.content
+        else:
+            # Non-PDF: need to convert to PDF first
+            markdown = _convert_document_to_markdown(primary, config)
+
+        ai_dir.mkdir(parents=True, exist_ok=True)
+        md_path.write_text(markdown, encoding="utf-8")
+
+        if output_path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(markdown, encoding="utf-8")
+            return str(output_path)
+
+        return markdown
+
+
+def _convert_document_to_markdown(primary: Path, config: ConverterConfig) -> str:
+    """Convert non-PDF document to markdown via configured backend.
+
+    Args:
+        primary: Path to source document (DOCX, DOC, etc.)
+        config: Converter configuration
+
+    Returns:
+        Extracted markdown content
+
+    Raises:
+        ConversionError: If all conversion attempts fail
+    """
+    if config.backend == ConverterBackend.REMOTE:
+        # Remote only - no fallback
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_path = _convert_via_remote(primary, Path(tmpdir), config)
+            result = extract_file_sync(str(pdf_path))
+            return result.content
+
+    if config.backend == ConverterBackend.LIBREOFFICE:
+        # LibreOffice only - no fallback
+        return _convert_via_libreoffice(primary)
+
+    # AUTO: Try LibreOffice first, fallback to remote on failure
+    try:
+        return _convert_via_libreoffice(primary)
+    except Exception as e:
+        logger.warning(f"LibreOffice conversion failed for {primary.name}: {e}")
+        logger.info(f"Falling back to remote converter for {primary.name}")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_path = _convert_via_remote(primary, Path(tmpdir), config)
+            result = extract_file_sync(str(pdf_path))
+            return result.content
+
+
+def _convert_via_libreoffice(primary: Path) -> str:
+    """Convert document to markdown via LibreOffice.
+
+    Args:
+        primary: Path to source document (DOCX, DOC, etc.)
+
+    Returns:
+        Extracted markdown content
+
+    Raises:
+        ConversionError: If LibreOffice conversion fails
+    """
+    try:
         converter = Converter()
         with tempfile.TemporaryDirectory() as tmpdir:
-            pdf_path = converter.convert(primary, LibreOfficeFormat.PDF, Path(tmpdir))
-            result = extract_file_sync(str(pdf_path))
-            markdown = result.content
-
-    ai_dir.mkdir(parents=True, exist_ok=True)
-    md_path.write_text(markdown, encoding="utf-8")
-
-    if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(markdown, encoding="utf-8")
-        return str(output_path)
-
-    return markdown
+            conversion_result = converter.convert(primary, LibreOfficeFormat.PDF, Path(tmpdir))
+            result = extract_file_sync(str(conversion_result.output_path))
+            return result.content
+    except Exception as e:
+        msg = f"LibreOffice conversion failed for {primary.name}: {e}"
+        logger.error(msg)
+        raise ConversionError(msg) from e
 
 
 __all__ = [
+    "ConverterBackend",
+    "ConverterConfig",
     "convert_tdoc",
     "convert_tdoc_to_markdown",
 ]

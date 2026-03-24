@@ -15,7 +15,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .config import LightRAGConfig
 from .shared_storage import SharedNanoVectorDBStorage, WorkspaceIndex
 
 logger = logging.getLogger(__name__)
@@ -59,9 +58,8 @@ async def migrate_to_shared_storage(
     # Find all workspace directories (exclude _shared)
     workspaces = []
     for item in embedding_dir.iterdir():
-        if item.is_dir() and not item.name.startswith("_"):
-            if workspace is None or item.name == workspace:
-                workspaces.append(item)
+        if item.is_dir() and not item.name.startswith("_") and (workspace is None or item.name == workspace):
+            workspaces.append(item)
 
     logger.info("Found %d workspace(s) to migrate", len(workspaces))
 
@@ -82,7 +80,7 @@ async def migrate_to_shared_storage(
             continue
 
         try:
-            with open(vdb_file, "r", encoding="utf-8") as f:
+            with open(vdb_file, encoding="utf-8") as f:
                 ws_data = json.load(f)
         except Exception as e:
             logger.error("Failed to load %s: %s", vdb_file, e)

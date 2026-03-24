@@ -96,6 +96,10 @@ class ExtractionError(AiError):
     """DOCX extraction failed (corrupt, password-protected, etc.)."""
 
 
+class ConversionError(AiError):
+    """Document conversion failed (LibreOffice or remote converter error)."""
+
+
 class LlmConfigError(AiError):
     """LLM endpoint not configured or unreachable."""
 
@@ -377,6 +381,7 @@ __all__ = [
     "AiConfigError",
     "AiError",
     "ArtifactScope",
+    "ConversionError",
     "DocumentChunk",
     "DocumentClassification",
     "DocumentSummary",

@@ -36,10 +36,11 @@ LLM Summarization
 Fetches TDoc files from checkout directory or downloads from 3GPP FTP.
 
 **Pipeline:**
+
 1. Resolve TDoc ID to metadata via WhatTheSpec
-2. Calculate checkout path
-3. Download via `checkout_tdoc()` if not in checkout
-4. Find available file types (PDF, DOCX, DOC)
+1. Calculate checkout path
+1. Download via `checkout_tdoc()` if not in checkout
+1. Find available file types (PDF, DOCX, DOC)
 
 **Returns:** `TDocFiles` dataclass with paths to available documents
 
@@ -50,12 +51,14 @@ Fetches TDoc files from checkout directory or downloads from 3GPP FTP.
 Converts TDoc to markdown using full pipeline.
 
 **Pipeline:**
+
 1. Fetch TDoc files via `fetch_tdoc_files()`
-2. Convert to PDF if needed (via convert-lo / LibreOffice)
-3. Extract text using kreuzberg
-4. Cache markdown to `.ai/<id>.md`
+1. Convert to PDF if needed (via convert-lo / LibreOffice)
+1. Extract text using kreuzberg
+1. Cache markdown to `.ai/<id>.md`
 
 **Caching:**
+
 - Checks for existing `.md` file in `.ai` subdirectory
 - Only re-converts if `force=True` or cache miss
 
@@ -66,11 +69,12 @@ Converts TDoc to markdown using full pipeline.
 Generates LLM-powered summary of TDoc content.
 
 **Pipeline:**
+
 1. Get markdown via `convert_tdoc_to_markdown()`
-2. Truncate to `SUMMARY_INPUT_LIMIT` (8000 chars)
-3. Generate summary via LiteLLM
-4. Extract keywords via LiteLLM
-5. Return `SummarizeResult`
+1. Truncate to `SUMMARY_INPUT_LIMIT` (8000 chars)
+1. Generate summary via LiteLLM
+1. Extract keywords via LiteLLM
+1. Return `SummarizeResult`
 
 ## File Type Priority
 
@@ -92,6 +96,7 @@ Converted markdown files are cached in the TDoc checkout directory:
 ```
 
 To force re-conversion:
+
 ```bash
 3gpp-ai convert S4-250001 --force
 3gpp-ai summarize S4-250001 --force

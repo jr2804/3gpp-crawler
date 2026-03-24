@@ -118,10 +118,10 @@ dim = _get_embedding_dimension(model_name, provider)
 ### Why This Matters
 
 1. **Maintainability**: Change once, update everywhere automatically
-2. **Consistency**: No drift between different parts of the code
-3. **Testability**: Easy to swap values in tests
-4. **Security**: Secrets live in environment variables, not code
-5. **DRY**: Eliminates duplicated logic and magic strings/numbers
+1. **Consistency**: No drift between different parts of the code
+1. **Testability**: Easy to swap values in tests
+1. **Security**: Secrets live in environment variables, not code
+1. **DRY**: Eliminates duplicated logic and magic strings/numbers
 
 ## Storage Layer
 

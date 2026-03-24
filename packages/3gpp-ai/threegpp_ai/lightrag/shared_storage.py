@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Any
 
 from lightrag.base import BaseVectorStorage, EmbeddingFunc
-from lightrag.kg.shared_storage import get_namespace_data, initialize_pipeline_status
 from lightrag.utils import compute_mdhash_id
 
 logger = logging.getLogger(__name__)
@@ -78,7 +77,7 @@ class WorkspaceIndex:
         """Load index from disk if it exists."""
         if self._file_path.exists():
             try:
-                with open(self._file_path, "r", encoding="utf-8") as f:
+                with open(self._file_path, encoding="utf-8") as f:
                     self._data = json.load(f)
                 logger.debug(
                     "Loaded workspace index for '%s' (%d docs, %d chunks)",
@@ -267,7 +266,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
         """Load shared storage from disk."""
         if self._db_file.exists():
             try:
-                with open(self._db_file, "r", encoding="utf-8") as f:
+                with open(self._db_file, encoding="utf-8") as f:
                     self._data = json.load(f)
                 logger.info(
                     "Loaded shared %s storage (%d chunks)",

@@ -1,3 +1,5 @@
 """AI processing operations package."""
 
-__all__: list[str] = []
+from threegpp_ai.operations import metrics
+
+__all__ = ["metrics"]

@@ -50,7 +50,7 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
     if metadata is None:
         raise TDocNotFoundError(f"TDoc {document_id} not found via WhatTheSpec")
 
-    manager = resolve_cache_manager("default")
+    manager = resolve_cache_manager()
     checkout_dir = manager.checkout_dir
     checkout_path = get_checkout_path(metadata, checkout_dir)
 

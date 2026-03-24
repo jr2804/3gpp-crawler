@@ -12,6 +12,7 @@ from tdoc_crawler.utils.misc import utc_now
 from threegpp_ai.config import AiConfig
 from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
+from threegpp_ai.operations.metrics import MetricType, get_metrics_tracker, timed_operation
 
 logger = logging.getLogger(__name__)
 
@@ -370,52 +371,54 @@ def summarize_tdoc(
         ValueError: If format is not supported.
     """
     normalized_id = document_id.strip().upper()
-    content = convert_tdoc_to_markdown(normalized_id, force=force)
 
-    # Get LLM client
-    config = AiConfig.from_env()
-    client = _get_llm_client()
+    with timed_operation(get_metrics_tracker(), normalized_id, MetricType.SUMMARIZATION):
+        content = convert_tdoc_to_markdown(normalized_id, force=force)
 
-    # Generate summary
-    truncated_for_summary = _truncate_text(content, SUMMARY_INPUT_LIMIT)
-    summary_prompt = CONCISE_SUMMARY_PROMPT.format(
-        max_words=max_words,
-        content=truncated_for_summary,
-    )
-    try:
-        summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=max_words * 4)
-    except Exception as exc:
-        msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
-        raise LlmConfigError(msg) from exc
+        # Get LLM client
+        config = AiConfig.from_env()
+        client = _get_llm_client()
 
-    # Extract keywords
-    truncated_for_keywords = _truncate_text(content, KEYWORDS_INPUT_LIMIT)
-    keywords_prompt = KEYWORDS_PROMPT.format(content=truncated_for_keywords)
-    try:
-        keywords_raw = client.complete(keywords_prompt, model=config.llm_model, max_tokens=200)
-        keywords = _parse_keywords(keywords_raw)
-    except Exception as e:
-        logger.warning(f"Keyword extraction failed: {e}")
-        keywords = []
+        # Generate summary
+        truncated_for_summary = _truncate_text(content, SUMMARY_INPUT_LIMIT)
+        summary_prompt = CONCISE_SUMMARY_PROMPT.format(
+            max_words=max_words,
+            content=truncated_for_summary,
+        )
+        try:
+            summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=max_words * 4)
+        except Exception as exc:
+            msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
+            raise LlmConfigError(msg) from exc
 
-    # Count actual words
-    word_count = _count_words(summary)
+        # Extract keywords
+        truncated_for_keywords = _truncate_text(content, KEYWORDS_INPUT_LIMIT)
+        keywords_prompt = KEYWORDS_PROMPT.format(content=truncated_for_keywords)
+        try:
+            keywords_raw = client.complete(keywords_prompt, model=config.llm_model, max_tokens=200)
+            keywords = _parse_keywords(keywords_raw)
+        except Exception as e:
+            logger.warning(f"Keyword extraction failed: {e}")
+            keywords = []
 
-    # Build metadata dict
-    result_metadata: dict = {
-        "word_count": word_count,
-    }
+        # Count actual words
+        word_count = _count_words(summary)
 
-    # Create result
-    result = SummarizeResult(
-        summary=summary,
-        keywords=keywords,
-        metadata=result_metadata,
-        word_count=word_count,
-    )
+        # Build metadata dict
+        result_metadata: dict = {
+            "word_count": word_count,
+        }
 
-    logger.info(f"Generated summary for {normalized_id}: {word_count} words, {len(keywords)} keywords")
-    return result
+        # Create result
+        result = SummarizeResult(
+            summary=summary,
+            keywords=keywords,
+            metadata=result_metadata,
+            word_count=word_count,
+        )
+
+        logger.info(f"Generated summary for {normalized_id}: {word_count} words, {len(keywords)} keywords")
+        return result
 
 
 def _parse_keywords(payload: str) -> list[str]:
