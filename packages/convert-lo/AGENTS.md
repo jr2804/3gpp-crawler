@@ -33,6 +33,7 @@ No server or daemon required.
 ## Supported Formats
 
 See `LibreOfficeFormat` enum in `formats.py`:
+
 - **Text**: ODT, DOC, DOCX, RTF, PDF, HTML, TXT, MD, EPUB
 - **Spreadsheet**: ODS, XLS, XLSX, CSV
 - **Presentation**: ODP, PPT, PPTX
@@ -56,5 +57,5 @@ uv run pytest tests/convert-lo/ --cov=convert_lo
 ## Implementation Notes
 
 1. **Thread Safety**: Conversions run sequentially (LibreOffice is not thread-safe)
-2. **Timeout**: Default 5 minute timeout per file
-3. **No Server Required**: CLI mode is always available
+1. **Timeout**: Default 5 minute timeout per file
+1. **No Server Required**: CLI mode is always available

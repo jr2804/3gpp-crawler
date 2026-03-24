@@ -55,9 +55,9 @@ result = converter.convert(
 
 ## Supported Formats
 
-**Text**: ODT, DOC, DOCX, RTF, PDF, HTML, TXT, MD, EPUB  
-**Spreadsheet**: ODS, XLS, XLSX, CSV  
-**Presentation**: ODP, PPT, PPTX  
+**Text**: ODT, DOC, DOCX, RTF, PDF, HTML, TXT, MD, EPUB\
+**Spreadsheet**: ODS, XLS, XLSX, CSV\
+**Presentation**: ODP, PPT, PPTX\
 **Graphics**: ODG, SVG
 
 ```python
