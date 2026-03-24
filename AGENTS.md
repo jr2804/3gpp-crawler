@@ -117,6 +117,8 @@ Notes:
 
 **Single Source of Truth:** All file paths MUST use `CacheManager` from `src/tdoc_crawler/config/__init__.py`.
 
+The CacheManager must be registered once at the start of the program, and then resolved wherever needed.
+
 ### Usage
 
 ```python
@@ -126,7 +128,7 @@ from tdoc_crawler.config import resolve_cache_manager, CacheManager
 manager = resolve_cache_manager()
 
 # Or create new (auto-registers)
-manager = CacheManager().register()
+manager = CacheManager(cache_dir).register()
 
 # Access paths (NEVER hardcode these)
 manager.root              # ~/.3gpp-crawler/
@@ -157,6 +159,65 @@ manager = resolve_cache_manager()
 manager.ai_cache_dir
 manager.ai_embed_dir("qwen3-embedding-0.6b")
 ```
+
+In the current framework, the `CacheManager` is instantiated only the the CLI wrapper.
+
+If used as a library, the user must create and register their own instance *as soon as possible* at the start of their program. Any method/class relies on a properly registered `CacheManager` being available - fallback/try-except-boilerplate must not be used!
+
+```python
+# ❌ WRONG - boilerplate/too much safety - just let it fail if not registered, it's a dev error that must be fixed
+try:
+    manager = resolve_cache_manager()
+except CacheManagerNotRegisteredError:
+    try:
+        manager = CacheManager(default_cache_dir).register()
+    except Exception as e:
+        raise RuntimeError("Failed to create and register CacheManager. Please ensure it's registered at the start of your program.") from e
+    raise RuntimeError("CacheManager must be registered before use. Please create and register an instance at the start of your program.")
+
+# ✅ CORRECT - simply resolve it, without an argument. Let it burn if not registered!
+manager = resolve_cache_manager()
+```
+
+## Antipaterns (what NOT to do)
+
+Errors are often masked by trying to be too clever and/or too careful with error handling or by not following the established patterns. Always prefer simplicity and clarity over complex workarounds. Examples:
+
+```python
+# ❌ WRONG - arguments and result types may be None to handle invalid inputs or to indicate failed operation
+
+def get_info(number: str|int|None, message: str|None|Any) -> InfoObject|str|None:
+
+    # This function tries to handle too many cases and returns different types, making it hard to use and error-prone. It also uses None in multiple ways, which can lead to confusion.
+    if isinstance(tdoc_id, None):
+        raise ValueError("tdoc_id cannot be None")
+    if not isinstance(tdoc_id, (str, int)):
+        raise TypeError("tdoc_id must be a string or integer")
+
+    # ... rest of the logic
+    try:
+        # some processing logic that may fail
+        ...
+        return info_object  # on success
+
+    # "encode" logic into return values, which is an antipattern. It makes it hard for users to know what to expect and how to handle different cases.
+    except SomeSpecificError:
+        return None
+    except AnotherError:
+        return "Error: Invalid input"  # on invalid input
+
+# ✅ CORRECT - keep it simple/clear, with consistent return types, minimum amount of checking. Otherwise: let it burn!
+def get_info(number: str|int, message: str) -> InfoObject:
+    if not isinstance(tdoc_id, (str, int)):
+        raise TypeError("tdoc_id must be a string or integer")
+
+    # some processing logic that may fail
+    ...
+    return info_object  # on success
+
+```
+
+let it burn if not registered
 
 ## Scoped AGENTS.md (MUST read when working in these directories)
 
