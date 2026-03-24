@@ -13,7 +13,9 @@ DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
 DEFAULT_MANAGER = "default"
 
-REGISTRY_FILENAME = "workspaces.json"
+DEFAULT_AI_CACHE_DIRNAME = "lightrag" # subdirectory under root cache dir for AI-related files
+
+WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 
 _cache_managers: dict[str, CacheManager] = {}
 
@@ -60,7 +62,7 @@ class CacheManager:
         Args:
             root_path: Explicit root path. If None, tries TDC_CACHE_DIR env var,
                        then falls back to DEFAULT_CACHE_DIR.
-            ai_cache_dir: Explicit AI cache directory path. If None, defaults to root_path/.ai
+            ai_cache_dir: Explicit AI cache directory path. If None, defaults to root_path/lightrag or TDC_AI_STORE_PATH env var if set.
             name: Optional name to register this manager under. If provided, the manager is registered upon initialization.
             ensure_paths: If True, will create the root directory if it doesn't exist.
         """
@@ -79,7 +81,7 @@ class CacheManager:
             if env_ai_cache_dir:
                 self.ai_cache_dir = Path(env_ai_cache_dir).resolve()
             else:
-                self.ai_cache_dir = (self.root / ".ai").resolve()
+                self.ai_cache_dir = (self.root / DEFAULT_AI_CACHE_DIRNAME).resolve()
 
         if ensure_paths:
             self.ensure_paths()
@@ -116,7 +118,7 @@ class CacheManager:
     @property
     def ai_workspace_file(self) -> Path:
         """Path to the workspace registry file for a specific workspace."""
-        return self.ai_cache_dir / REGISTRY_FILENAME
+        return self.ai_cache_dir / WORKSPACE_REGISTRY_FILENAME
 
     def ensure_paths(self) -> None:
         """Ensure the root cache directory exists."""

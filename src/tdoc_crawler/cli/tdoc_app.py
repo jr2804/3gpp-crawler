@@ -35,6 +35,11 @@ from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 
+try:
+    from tdoc_crawler.cli.ai import ai_app
+except ImportError:  # pragma: no cover - optional dependency
+    ai_app = None
+
 load_dotenv()
 
 app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
@@ -211,5 +216,14 @@ app.command("cm", rich_help_panel=HELP_PANEL_CRAWLING, hidden=True)(crawl_meetin
 app.command("qt", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_tdocs)
 app.command("qm", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_meetings)
 
+
+def _register_optional_ai_commands() -> None:
+    """Register AI commands only when AI extras are available."""
+    if ai_app is None:
+        return
+    app.add_typer(ai_app, name="ai", help="AI document processing")
+
+
+_register_optional_ai_commands()
 
 __all__ = ["app"]
