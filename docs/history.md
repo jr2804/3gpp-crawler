@@ -4,6 +4,8 @@ This document provides a chronological log of all significant changes and improv
 
 ## Recent Changes
 
+- **2026-03-24**: [Convert and summarize commands implementation](history/2026-03-24_SUMMARY_convert_summarize_commands_implementation.md)
+- **2026-03-23**: [LightRAG migration plan](history/2026-03-23_SUMMARY_LightRAG_migration_plan.md)
 - **2026-03-06**: [AI embeddings accelerate backend option](history/2026-03-06_SUMMARY_01_AI_EMBEDDINGS_ACCELERATE_BACKEND.md)
 - **2026-02-09**: [Align CLI options across commands](history/2026-02-09_SUMMARY_01_ALIGN_CLI_OPTIONS_ACROSS_COMMANDS.md)
 - **2026-02-07**: [Spec download auto-crawl and bug fixes](history/2026-02-07_SUMMARY_01_SPEC_DOWNLOAD_AUTO_CRAWL_AND_BUG_FIXES.md)
