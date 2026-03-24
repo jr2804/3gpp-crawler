@@ -349,62 +349,8 @@ ______________________________________________________________________
 
 ## Python API
 
-```python
-from tdoc_crawler.ai import (
-    process_tdoc,
-    process_all,
-    get_status,
-    query_embeddings,
-    query_graph,
-    create_workspace,
-    get_workspace,
-)
-
-# Create workspace
-workspace = create_workspace("my-project")
-
-# Process single TDoc
-status = process_tdoc("SP-240001", "/path/to/checkout", workspace="my-project")
-
-# Batch processing
-results = process_all(
-    ["SP-240001", "SP-240002"],
-    "/base/checkout/path",
-    workspace="my-project"
-)
-
-# Get status
-status = get_status("SP-240001")
-
-# Semantic search
-results = query_embeddings("5G architecture", top_k=5, workspace="my-project")
-
-# Query knowledge graph
-graph_data = query_graph("evolution of 5G NR", workspace="my-project")
-```
-
-### Models
-
-```python
-from tdoc_crawler.ai import (
-    ProcessingStatus,
-    PipelineStage,
-    DocumentClassification,
-    DocumentSummary,
-    DocumentChunk,
-    Workspace,
-)
-```
-
-## Pipeline Stages
-
-The AI processing pipeline consists of these stages:
-
-1. **CLASSIFY** - Identify main document among multiple files
-1. **EXTRACT** - Convert DOCX/PDF to Markdown (via Kreuzberg)
-1. **EMBED** - Generate vector embeddings
-1. **SUMMARIZE** - Create AI summaries
-1. **GRAPH** - Build knowledge graph relationships
+Legacy batch-processing helpers are removed. Use the LightRAG interfaces exposed by the
+`threegpp_ai` package for workspace processing and querying.
 
 ## Supported File Types
 
