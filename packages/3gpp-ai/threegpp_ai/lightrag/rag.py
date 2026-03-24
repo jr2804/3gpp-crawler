@@ -1,7 +1,7 @@
-"""LightRAG wrapper for 3gpp-ai with Ollama integration.
+"""LightRAG wrapper for 3gpp-ai with multi-provider support.
 
 This module provides a thin wrapper around LightRAG with:
-- Ollama LLM and embedding support
+- Multi-provider LLM and embedding support (ollama, openai, zhipu, jina, hf, etc.)
 - File-based or pg0-backed storage
 - Async context manager pattern for proper lifecycle management
 """
@@ -9,32 +9,86 @@ This module provides a thin wrapper around LightRAG with:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from lightrag import LightRAG, QueryParam
+from lightrag.kg import STORAGES
 from lightrag.kg.shared_storage import initialize_pipeline_status
+from lightrag.llm.hf import hf_embed, hf_model_complete
+from lightrag.llm.jina import jina_embed
 from lightrag.llm.ollama import ollama_embed, ollama_model_complete
+from lightrag.llm.openai import openai_complete, openai_embed
+from lightrag.llm.zhipu import zhipu_complete, zhipu_embedding
+
+from tdoc_crawler.config import resolve_cache_manager
 
 from .config import LightRAGConfig, QueryMode, StorageBackend
 from .pg0_manager import Pg0Manager
+from .shared_storage import WorkspaceIndex
 
+STORAGES["SharedNanoVectorDBStorage"] = "threegpp_ai.lightrag.shared_storage"
 logger = logging.getLogger(__name__)
 
-# Embedding dimensions by model name ( Ollama API doesn't return this)
-EMBEDDING_DIMENSIONS: dict[str, int] = {
+
+@dataclass(frozen=True)
+class ProviderConfig:
+    """Provider function mapping with optional kwargs."""
+
+    complete_func: Callable | None = None
+    embed_func: Callable | None = None
+    default_dim: int = 1024
+
+
+PROVIDERS: dict[str, ProviderConfig] = {
+    "ollama": ProviderConfig(complete_func=ollama_model_complete, embed_func=ollama_embed),
+    "openai": ProviderConfig(complete_func=openai_complete, embed_func=openai_embed),
+    "zhipu": ProviderConfig(complete_func=zhipu_complete, embed_func=zhipu_embedding),
+    "hf": ProviderConfig(complete_func=hf_model_complete, embed_func=hf_embed),
+    "jina": ProviderConfig(embed_func=jina_embed),
+}
+
+PROVIDER_ALIASES = {"zai": "zhipu"}
+EMBEDDING_DIMENSIONS = {
     "qwen3-embedding:0.6b": 1024,
     "nomic-embed-text": 768,
     "mxbai-embed-large": 1024,
+    "all-MiniLM-L6-v2": 384,
+    "all-mpnet-base-v2": 768,
 }
 
 
-def _get_embedding_dimension(model_name: str) -> int:
-    """Get embedding dimension for a model.
+def _resolve_provider(provider: str) -> str:
+    """Resolve provider alias to canonical name."""
+    resolved = PROVIDER_ALIASES.get(provider, provider)
+    if resolved not in PROVIDERS:
+        available = ", ".join(sorted(PROVIDERS.keys()))
+        raise ValueError(f"Unsupported provider '{provider}'. Available: {available}")
+    return resolved
 
-    Returns dimension from known models, or defaults to 1024.
-    """
-    return EMBEDDING_DIMENSIONS.get(model_name, 1024)
+
+def _parse_provider(model_string: str) -> tuple[str, str]:
+    """Parse provider/model from <provider>/<model> format."""
+    if "/" in model_string:
+        parts = model_string.split("/", 1)
+        return parts[0], parts[1]
+    return "", model_string
+
+
+def _get_provider(provider: str) -> ProviderConfig:
+    """Get provider config by name."""
+    return PROVIDERS[_resolve_provider(provider)]
+
+
+def _get_embedding_dimension(model_name: str, provider: str = "") -> int:
+    """Get embedding dimension for a model."""
+    if model_name in EMBEDDING_DIMENSIONS:
+        return EMBEDDING_DIMENSIONS[model_name]
+    if provider:
+        return _get_provider(provider).default_dim
+    return 1024
 
 
 class TDocRAG:
@@ -58,9 +112,11 @@ class TDocRAG:
     """
 
     def __init__(self, config: LightRAGConfig | None = None):
-        self.config = config or LightRAGConfig()
+        self.config = config or LightRAGConfig.from_env()
         self._rag: LightRAG | None = None
         self._pg0_manager = None
+        self._workspace_index: WorkspaceIndex | None = None
+        self._working_dir: Path | None = None
 
     async def __aenter__(self) -> TDocRAG:
         """Async context manager entry - starts LightRAG."""
@@ -89,9 +145,24 @@ class TDocRAG:
             self._pg0_manager.start()
             logger.info("Using pg0 at %s", self._pg0_manager.uri)
 
-        # Prepare working directory
-        working_dir = Path(self.config.working_dir).expanduser() / workspace
+        # Prepare working directory using CacheManager (single source of truth)
+        # Structure: ~/.3gpp-crawler/lightrag/{embedding_model}/
+        # LightRAG will create workspace subdirectory internally
+        manager = resolve_cache_manager()
+        embedding_model_safe = self.config.embedding.model.replace(":", "-").replace("/", "-")
+        working_dir = manager.ai_embed_dir(embedding_model_safe)
         working_dir.mkdir(parents=True, exist_ok=True)
+        self._working_dir = working_dir
+        logger.info("Using working directory: %s", working_dir)
+
+        # Initialize shared storage if enabled
+        if self.config.shared_storage:
+            logger.info("Shared storage enabled - embeddings will be deduplicated across workspaces")
+            # Initialize workspace index for this workspace
+            self._workspace_index = WorkspaceIndex(
+                workspace_name=workspace,
+                working_dir=working_dir,
+            )
 
         # Determine storage backend
         if self.config.database.backend == StorageBackend.PG0 and self._pg0_manager:
@@ -99,41 +170,41 @@ class TDocRAG:
             vector_storage = "PGVectorStorage"
             doc_status_storage = "PGDocStatusStorage"
             storage_label = "pg0"
+        elif self.config.shared_storage:
+            # Use custom shared storage classes
+            kv_storage = "JsonKVStorage"  # Keep KV storage workspace-specific for now
+            vector_storage = "SharedNanoVectorDBStorage"  # Use shared vector storage
+            doc_status_storage = "JsonDocStatusStorage"
+            storage_label = "shared file-based"
         else:
             kv_storage = "JsonKVStorage"
             vector_storage = "NanoVectorDBStorage"
             doc_status_storage = "JsonDocStatusStorage"
             storage_label = "file-based"
 
-        # Get embedding dimension for model
-        embed_dim = _get_embedding_dimension(self.config.embedding.model)
+        embed_provider, embed_model_name = _parse_provider(self.config.embedding.model)
+        llm_provider, llm_model_name = _parse_provider(self.config.llm.model)
 
-        # Create embedding function with proper dimension attribute
-        async def embed_func(texts: list[str], **kwargs: Any) -> list[list[float]]:
-            return await ollama_embed(
-                texts,
-                embed_model=self.config.embedding.model,
-                host=self.config.embedding.host,
-                **kwargs,
-            )
+        embed_config = _get_provider(embed_provider)
+        llm_config = _get_provider(llm_provider)
 
-        # LightRAG requires embedding_dim on the function
-        embed_func.embedding_dim = embed_dim
+        embed_dim = _get_embedding_dimension(embed_model_name, embed_provider)
 
-        # Initialize LightRAG
+        embed_kwargs = self._build_provider_kwargs(embed_provider, embed_model_name, is_embedding=True)
+        llm_kwargs = self._build_provider_kwargs(llm_provider, llm_model_name)
+
+        async def wrapped_embed_func(texts: list[str], **kwargs: Any) -> list[list[float]]:
+            return await embed_config.embed_func(texts, **embed_kwargs, **kwargs)  # type: ignore[call-arg]
+
+        wrapped_embed_func.embedding_dim = embed_dim  # type: ignore[attr-defined]
+
         self._rag = LightRAG(
             working_dir=str(working_dir),
             workspace=workspace,
-            # LLM configuration
-            llm_model_func=ollama_model_complete,
-            llm_model_name=self.config.llm.model,
-            llm_model_kwargs={
-                "host": self.config.llm.host,
-                "api_key": self.config.llm.api_key,
-            },
-            # Embedding configuration
-            embedding_func=embed_func,
-            # Storage backend
+            llm_model_func=llm_config.complete_func,
+            llm_model_name=llm_model_name,
+            llm_model_kwargs=llm_kwargs,
+            embedding_func=wrapped_embed_func,
             kv_storage=kv_storage,
             vector_storage=vector_storage,
             doc_status_storage=doc_status_storage,
@@ -195,9 +266,13 @@ class TDocRAG:
         elif isinstance(mode, str):
             mode = QueryMode(mode)
 
+        llm_provider, _ = _parse_provider(self.config.llm.model)
+        query_llm_func = _get_provider(llm_provider).complete_func
+        query_kwargs = self._build_provider_kwargs(llm_provider, "")
+
         return await self._rag.aquery(
             query,
-            param=QueryParam(mode=mode.value, model_func=ollama_model_complete),
+            param=QueryParam(mode=mode.value, model_func=query_llm_func, model_kwargs=query_kwargs),
             **kwargs,
         )
 
@@ -205,3 +280,28 @@ class TDocRAG:
     def is_started(self) -> bool:
         """Check if LightRAG is currently running."""
         return self._rag is not None
+
+    @property
+    def workspace_index(self) -> WorkspaceIndex | None:
+        """Get the workspace index for tracking chunks."""
+        return self._workspace_index
+
+    def _build_provider_kwargs(self, provider: str, model_name: str, is_embedding: bool = False) -> dict[str, Any]:
+        """Build provider-specific kwargs for LLM/embedding functions."""
+        config = self.config.embedding if is_embedding else self.config.llm
+        if provider == "ollama":
+            # Ollama uses different kwargs for embedding vs completion
+            kwargs = {"host": config.api_base}
+            if is_embedding:
+                kwargs["embed_model"] = model_name
+            return kwargs
+        if provider in ("openai", "zhipu"):
+            return {"api_key": config.api_key, "api_base": config.api_base}
+        if provider == "jina":
+            return {"api_key": config.api_key}
+        return {}
+
+    @property
+    def working_dir(self) -> Path | None:
+        """Get the working directory."""
+        return self._working_dir

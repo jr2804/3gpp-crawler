@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from threegpp_ai.models import PipelineStage, ProcessingStatus
 from typer.testing import CliRunner
 
 import tdoc_crawler.cli.ai as ai_cli
@@ -21,29 +20,13 @@ class TestAiCli:
         """Test --help lists all AI subcommands."""
         result = runner.invoke(app, ["ai", "--help"])
         assert result.exit_code == 0
-        assert "process" in result.output
-        assert "status" in result.output
-        assert "query" in result.output
-        assert "graph" in result.output
+        assert "summarize" in result.output
+        assert "convert" in result.output
+        assert "workspace" in result.output
 
-    def test_process_command_exists(self, runner: CliRunner) -> None:
-        """Test process command is available."""
-        result = runner.invoke(app, ["ai", "process", "--help"])
-        assert result.exit_code == 0
-
-    def test_status_command_exists(self, runner: CliRunner) -> None:
-        """Test status command is available."""
-        result = runner.invoke(app, ["ai", "status", "--help"])
-        assert result.exit_code == 0
-
-    def test_query_command_exists(self, runner: CliRunner) -> None:
-        """Test query command is available."""
-        result = runner.invoke(app, ["ai", "query", "--help"])
-        assert result.exit_code == 0
-
-    def test_graph_command_exists(self, runner: CliRunner) -> None:
-        """Test graph command is available."""
-        result = runner.invoke(app, ["ai", "graph", "--help"])
+    def test_summarize_command_exists(self, runner: CliRunner) -> None:
+        """Test summarize command is available."""
+        result = runner.invoke(app, ["ai", "summarize", "--help"])
         assert result.exit_code == 0
 
     def test_workspace_command_group_exists(self, runner: CliRunner) -> None:
@@ -72,193 +55,14 @@ class TestAiCli:
         result = runner.invoke(app, ["ai", "workspace", "add-members", "--help"])
         assert result.exit_code == 0
 
-    def test_process_delegates_to_library(self, runner: CliRunner, tmp_path: Path) -> None:
-        """Test process delegates to process_all."""
-        with patch("tdoc_crawler.cli.ai.process_all") as mock:
-            mock.return_value = []
-            result = runner.invoke(
-                app,
-                ["ai", "process", "--checkout-base", str(tmp_path)],
-            )
-            # Should not fail at CLI level
-            assert result.exit_code == 0
-
-    def test_process_all_mode_delegates_to_process_all(self, runner: CliRunner, tmp_path: Path) -> None:
-        """Process command supports --all and delegates to process_all API."""
-        with patch("tdoc_crawler.cli.ai.process_all") as mock_process_all:
-            mock_process_all.return_value = []
-            result = runner.invoke(
-                app,
-                ["ai", "process", "--all", "--checkout-base", str(tmp_path), "--new-only", "--json"],
-            )
-            assert result.exit_code == 0
-            payload = json.loads(result.output)
-            assert isinstance(payload, list)
-            mock_process_all.assert_called_once()
-
-    def test_status_delegates_to_get_status(self, runner: CliRunner) -> None:
-        """Test status delegates to get_status."""
-        with patch("tdoc_crawler.cli.ai.get_status") as mock:
-            mock.return_value = ProcessingStatus(
-                document_id="SP-123456",
-                current_stage=PipelineStage.COMPLETED,
-                classified_at=None,
-                extracted_at=None,
-                embedded_at=None,
-                summarized_at=None,
-                graphed_at=None,
-                completed_at=None,
-                error_message=None,
-                failure_type=None,
-                source_hash=None,
-                keywords=None,
-                detected_language=None,
-            )
-            result = runner.invoke(app, ["ai", "status", "--tdoc-id", "SP-123456"])
-            assert result.exit_code == 0
-
-    def test_status_without_tdoc_id_lists_all(self, runner: CliRunner) -> None:
-        """Status command supports listing all statuses without --tdoc-id."""
-        statuses = [
-            ProcessingStatus(
-                document_id="SP-123456",
-                current_stage=PipelineStage.COMPLETED,
-                classified_at=None,
-                extracted_at=None,
-                embedded_at=None,
-                summarized_at=None,
-                graphed_at=None,
-                completed_at=None,
-                error_message=None,
-                failure_type=None,
-                source_hash=None,
-                keywords=None,
-                detected_language=None,
-            ),
-            ProcessingStatus(
-                document_id="SP-123457",
-                current_stage=PipelineStage.EXTRACTING,
-                classified_at=None,
-                extracted_at=None,
-                embedded_at=None,
-                summarized_at=None,
-                graphed_at=None,
-                completed_at=None,
-                error_message=None,
-                failure_type=None,
-                source_hash=None,
-                keywords=None,
-                detected_language=None,
-            ),
-        ]
-        with patch("tdoc_crawler.cli.ai.list_statuses") as mock_list_statuses:
-            mock_list_statuses.return_value = statuses
-            result = runner.invoke(app, ["ai", "status", "--json"])
-            assert result.exit_code == 0
-            payload = json.loads(result.output)
-            assert isinstance(payload, list)
-            assert len(payload) == 2
-
-    def test_json_flag_produces_valid_json(self, runner: CliRunner) -> None:
-        """Test --json flag produces valid JSON output."""
-        with patch("tdoc_crawler.cli.ai.get_status") as mock:
-            mock.return_value = ProcessingStatus(
-                document_id="SP-123456",
-                current_stage=PipelineStage.COMPLETED,
-                classified_at=None,
-                extracted_at=None,
-                embedded_at=None,
-                summarized_at=None,
-                graphed_at=None,
-                completed_at=None,
-                error_message=None,
-                failure_type=None,
-                source_hash=None,
-                keywords=None,
-                detected_language=None,
-            )
-            result = runner.invoke(app, ["ai", "status", "--tdoc-id", "SP-123456", "--json"])
-            assert result.exit_code == 0
-            # Should be valid JSON
-            try:
-                json.loads(result.output)
-            except json.JSONDecodeError:
-                pytest.fail("Output is not valid JSON")
-
-    @pytest.mark.skip(reason="Requires full mocking chain - tested in test_embeddings.py")
-    def test_query_delegates_to_query_embeddings(self, runner: CliRunner) -> None:
-        """Query command delegates to query_graph API."""
-        pass
-
-    def test_graph_delegates_to_query_graph(self, runner: CliRunner) -> None:
-        """Graph command delegates to query_graph API."""
-        with patch("tdoc_crawler.cli.ai.query_graph") as mock_query_graph:
-            mock_query_graph.return_value = {"nodes": [], "edges": [], "answer": "ok"}
-            result = runner.invoke(app, ["ai", "graph", "--query", "codec history", "--json"])
-            assert result.exit_code == 0
-            payload = json.loads(result.output)
-            assert payload["answer"] == "ok"
-            mock_query_graph.assert_called_once_with("codec history", workspace=None)
-
-    def test_errors_go_to_stderr(self, runner: CliRunner) -> None:
-        """Test errors are printed to stderr."""
-        result = runner.invoke(app, ["ai", "status", "--tdoc-id", "NONEXISTENT"])
-        # Should handle error gracefully
-        assert result.exit_code in (0, 1)
-
-    def test_process_without_workspace_uses_default(self, runner: CliRunner, tmp_path: Path) -> None:
-        with patch("tdoc_crawler.cli.ai.process_all") as mock:
-            mock.return_value = []
-            result = runner.invoke(app, ["ai", "process", "--checkout-base", str(tmp_path)])
-            assert result.exit_code == 0
-            kwargs = mock.call_args.kwargs
-            assert kwargs.get("workspace") is None or kwargs.get("workspace") == "default"
-
-    def test_status_without_workspace_uses_default(self, runner: CliRunner) -> None:
-        with patch("tdoc_crawler.cli.ai.get_status") as mock:
-            mock.return_value = ProcessingStatus(
-                document_id="SP-123456",
-                current_stage=PipelineStage.COMPLETED,
-                classified_at=None,
-                extracted_at=None,
-                embedded_at=None,
-                summarized_at=None,
-                graphed_at=None,
-                completed_at=None,
-                error_message=None,
-                failure_type=None,
-                source_hash=None,
-                keywords=None,
-                detected_language=None,
-            )
-            result = runner.invoke(app, ["ai", "status", "--tdoc-id", "SP-123456"])
-            assert result.exit_code == 0
-            kwargs = mock.call_args.kwargs
-            assert kwargs.get("workspace") is None or kwargs.get("workspace") == "default"
-
-    def test_process_with_explicit_workspace_uses_it(self, runner: CliRunner, tmp_path: Path) -> None:
-        with patch("tdoc_crawler.cli.ai.process_all") as mock:
-            mock.return_value = []
-            result = runner.invoke(app, ["ai", "process", "--workspace", "myws", "--checkout-base", str(tmp_path)])
-            assert result.exit_code == 0
-            kwargs = mock.call_args.kwargs
-            assert kwargs.get("workspace") == "myws"
-
-    def test_process_with_accelerate_passes_backend(self, runner: CliRunner, tmp_path: Path) -> None:
-        with patch("tdoc_crawler.cli.ai.process_all") as mock:
-            mock.return_value = []
-            result = runner.invoke(
-                app,
-                [
-                    "ai",
-                    "process",
-                    "--accelerate",
-                    "onnx",
-                    "--checkout-base",
-                    str(tmp_path),
-                ],
-            )
-            assert result.exit_code == 0
+    def test_ai_help_excludes_removed_commands(self, runner: CliRunner) -> None:
+        """Test removed commands are not listed in help."""
+        result = runner.invoke(app, ["ai", "--help"])
+        assert result.exit_code == 0
+        assert "process" not in result.output
+        assert "status" not in result.output
+        assert "query" not in result.output
+        assert "graph" not in result.output
 
 
 class TestAiModuleExports:
@@ -378,38 +182,13 @@ class TestCliRedesign:
         assert result.exit_code == 0, f"convert --help failed: {result.output}"
         assert "Convert a single TDoc to markdown format" in result.output
 
-    def test_query_workspace_required(self, runner: CliRunner) -> None:
-        """T010 [US4]: ai query can resolve workspace from active workspace.
-
-        Expected: PASS - query may work without explicit --workspace.
-        """
-        result = runner.invoke(
-            app,
-            ["ai", "query", "test query"],
-        )
-        assert result.exit_code in (0, 1)
-
-    @pytest.mark.skip(reason="Requires mocking LLM layer - tested in test_embeddings.py")
-    def test_query_merged_rag_graphrag(self, runner: CliRunner, test_workspace: str) -> None:
-        """T011 [US4]: ai query merges RAG embeddings + GraphRAG relationships.
-
-        Expected: PASS - merged output structure exists.
-
-        Note: This integration test requires full LLM mocking chain.
-        Unit tests in test_embeddings.py cover the functionality.
-        """
-        pass  # Skipped - covered by unit tests
-
     def test_removed_commands_unavailable(self, runner: CliRunner) -> None:
-        """T012 [US4]: ai process, ai status, ai graph commands exist.
-
-        These commands were added to support the new CLI design.
-        """
+        """T012 [US4]: removed ai process/status/graph commands are unavailable."""
         result_process = runner.invoke(app, ["ai", "process", "--help"])
-        assert result_process.exit_code == 0, "ai process should exist"
+        assert result_process.exit_code != 0, "ai process should be removed"
 
         result_status = runner.invoke(app, ["ai", "status", "--help"])
-        assert result_status.exit_code == 0, "ai status should exist"
+        assert result_status.exit_code != 0, "ai status should be removed"
 
         result_graph = runner.invoke(app, ["ai", "graph", "--help"])
-        assert result_graph.exit_code == 0, "ai graph should exist"
+        assert result_graph.exit_code != 0, "ai graph should be removed"

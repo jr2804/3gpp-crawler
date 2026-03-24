@@ -8,9 +8,6 @@ from __future__ import annotations
 
 import litellm
 
-from tdoc_crawler.config import CacheManager
-from threegpp_ai.context import DocumentContext
-
 # Import LightRAG integration
 from threegpp_ai.lightrag import (
     DatabaseConfig,
@@ -29,18 +26,12 @@ from threegpp_ai.lightrag import (
     create_metadata_from_dict,
     enrich_text,
 )
-from threegpp_ai.models import (
-    PipelineStage,
-    ProcessingStatus,
-    SourceKind,
-    SummarizeResult,
-)
+from threegpp_ai.models import SourceKind, SummarizeResult
 from threegpp_ai.operations.convert import convert_tdoc as convert_document
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
 from threegpp_ai.operations.summarize import summarize_tdoc as summarize_document
 from threegpp_ai.operations.workspace_registry import (
     DEFAULT_WORKSPACE,
-    WorkspaceDisplayInfo,
     WorkspaceRegistry,
     get_active_workspace,
     set_active_workspace,
@@ -71,20 +62,15 @@ litellm.suppress_debug_info = True  # Suppress provider/model info logs from lit
 __all__ = [
     # Workspace management
     "DEFAULT_WORKSPACE",
-    # Shared types
-    "CacheManager",
     # LightRAG integration
     "DatabaseConfig",
-    "DocumentContext",
     "EmbeddingConfig",
     "LLMConfig",
     "LightRAGConfig",
     "Pg0Error",
     "Pg0Manager",
-    "PipelineStage",
     "ProcessingResult",
     "ProcessingResultStatus",
-    "ProcessingStatus",
     "QueryMode",
     "RAGMetadata",
     "SourceKind",
@@ -92,7 +78,6 @@ __all__ = [
     "SummarizeResult",
     "TDocProcessor",
     "TDocRAG",
-    "WorkspaceDisplayInfo",
     "WorkspaceRegistry",
     "add_workspace_members",
     "checkout_spec_to_workspace",

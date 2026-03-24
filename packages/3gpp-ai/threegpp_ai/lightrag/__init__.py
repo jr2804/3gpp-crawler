@@ -1,10 +1,14 @@
 """LightRAG integration for 3gpp-ai.
 
 This package provides a thin wrapper around LightRAG with:
-- Ollama LLM and embedding support (qwen3-embedding:0.6b)
+- Multi-provider LLM and embedding support (ollama, openai, zhipu, jina, hf, etc.)
 - File-based or pg0-backed storage
 - Async context manager pattern
 - TDoc document processing with kreuzberg extraction
+
+Supported providers:
+- LLM: ollama, openai, zhipu, hf, lollms, azure_openai, nvidia_openai
+- Embedding: ollama, openai, zhipu, jina, hf, siliconcloud
 
 Example:
     >>> import asyncio
@@ -25,10 +29,12 @@ from .config import (
     StorageBackend,
 )
 from .metadata import RAGMetadata, create_metadata_from_dict, enrich_text
+from .migration import consolidate_workspaces, migrate_to_shared_storage
 from .pg0_manager import Pg0Error, Pg0Manager
 from .processor import ProcessingResult, ProcessingResultStatus, TDocProcessor
 from .rag import TDocRAG
 from .seeder import EntitySeed, EntitySeeder, EntityType
+from .shared_storage import SharedNanoVectorDBStorage, WorkspaceIndex, initialize_shared_storage
 
 __all__ = [
     "DatabaseConfig",
@@ -44,9 +50,14 @@ __all__ = [
     "ProcessingResultStatus",
     "QueryMode",
     "RAGMetadata",
+    "SharedNanoVectorDBStorage",
     "StorageBackend",
     "TDocProcessor",
     "TDocRAG",
+    "WorkspaceIndex",
+    "consolidate_workspaces",
     "create_metadata_from_dict",
     "enrich_text",
+    "initialize_shared_storage",
+    "migrate_to_shared_storage",
 ]

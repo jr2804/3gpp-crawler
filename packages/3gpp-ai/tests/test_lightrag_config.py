@@ -40,20 +40,19 @@ class TestLLMConfig:
     def test_llm_config_defaults(self) -> None:
         """Test LLM config default values."""
         config = LLMConfig()
-        assert config.provider == "ollama"
-        assert config.model == "qwen3:8b"
-        assert config.host == "http://localhost:11434"
+        assert config.model == "openrouter/openrouter/free"
+        assert config.api_base == "http://localhost:11434"
         assert config.api_key is None
 
     def test_llm_config_custom(self) -> None:
         """Test LLM config with custom values."""
         config = LLMConfig(
-            provider="openai",
-            model="gpt-4o-mini",
+            model="openai/gpt-4o-mini",
+            api_base="https://api.openai.com",
             api_key="sk-test123",
         )
-        assert config.provider == "openai"
-        assert config.model == "gpt-4o-mini"
+        assert config.model == "openai/gpt-4o-mini"
+        assert config.api_base == "https://api.openai.com"
         assert config.api_key == "sk-test123"
 
 
@@ -63,17 +62,20 @@ class TestEmbeddingConfig:
     def test_embedding_config_defaults(self) -> None:
         """Test embedding config default values."""
         config = EmbeddingConfig()
-        assert config.model == "qwen3-embedding:0.6b"
-        assert config.host == "http://localhost:11434"
+        assert config.model == "ollama/qwen3-embedding:0.6b"
+        assert config.api_base == "http://localhost:11434"
+        assert config.api_key is None
 
     def test_embedding_config_custom(self) -> None:
         """Test embedding config with custom values."""
         config = EmbeddingConfig(
-            model="text-embedding-3-small",
-            host="https://api.openai.com",
+            model="openai/text-embedding-3-small",
+            api_base="https://api.openai.com",
+            api_key="sk-test123",
         )
-        assert config.model == "text-embedding-3-small"
-        assert config.host == "https://api.openai.com"
+        assert config.model == "openai/text-embedding-3-small"
+        assert config.api_base == "https://api.openai.com"
+        assert config.api_key == "sk-test123"
 
 
 class TestDatabaseConfig:
@@ -103,17 +105,15 @@ class TestLightRAGConfig:
     def test_lightrag_config_defaults(self) -> None:
         """Test LightRAG config default values."""
         config = LightRAGConfig()
-        assert config.llm.provider == "ollama"
-        assert config.llm.model == "qwen3:8b"
-        assert config.embedding.model == "qwen3-embedding:0.6b"
+        assert config.llm.model == "openrouter/openrouter/free"
+        assert config.embedding.model == "ollama/qwen3-embedding:0.6b"
         assert config.database.backend == StorageBackend.FILE
-        assert config.working_dir.endswith(".3gpp-crawler/lightrag")
         assert config.default_query_mode == QueryMode.HYBRID
 
     def test_lightrag_config_with_subconfigs(self) -> None:
         """Test LightRAG config with sub-configs."""
-        llm = LLMConfig(provider="openai", model="gpt-4o")
-        embedding = EmbeddingConfig(model="text-embedding-3-small")
+        llm = LLMConfig(model="openai/gpt-4o")
+        embedding = EmbeddingConfig(model="openai/text-embedding-3-small")
         database = DatabaseConfig(backend=StorageBackend.PG0)
 
         config = LightRAGConfig(
@@ -121,8 +121,8 @@ class TestLightRAGConfig:
             embedding=embedding,
             database=database,
         )
-        assert config.llm.provider == "openai"
-        assert config.embedding.model == "text-embedding-3-small"
+        assert config.llm.model == "openai/gpt-4o"
+        assert config.embedding.model == "openai/text-embedding-3-small"
         assert config.database.backend == StorageBackend.PG0
 
     def test_lightrag_config_env_prefix(self) -> None:
@@ -134,3 +134,15 @@ class TestLightRAGConfig:
             assert config.working_dir == "/custom/path"
         finally:
             del os.environ["LIGHTRAG_WORKING_DIR"]
+
+    def test_lightrag_config_from_env(self) -> None:
+        """Test LightRAGConfig.from_env() with TDC_AI_* variables."""
+        os.environ["TDC_AI_LLM_MODEL"] = "openai/gpt-4o"
+        os.environ["TDC_AI_EMBEDDING_MODEL"] = "openai/text-embedding-3-small"
+        try:
+            config = LightRAGConfig.from_env()
+            assert config.llm.model == "openai/gpt-4o"
+            assert config.embedding.model == "openai/text-embedding-3-small"
+        finally:
+            del os.environ["TDC_AI_LLM_MODEL"]
+            del os.environ["TDC_AI_EMBEDDING_MODEL"]

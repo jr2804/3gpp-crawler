@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import re
-from typing import TYPE_CHECKING
 
 import litellm
 
-from threegpp_ai.config import AiConfig
-
-if TYPE_CHECKING:
-    from threegpp_ai.storage import AiStorage
 from tdoc_crawler.utils.misc import utc_now
+from threegpp_ai.config import AiConfig
 from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
-from threegpp_ai.operations.workspace_names import normalize_workspace_name
 
 logger = logging.getLogger(__name__)
 
@@ -142,36 +136,6 @@ class LiteLLMClient:
             raise
 
 
-def _should_skip_summary(
-    document_id: str,
-    content_hash: str,
-    storage_client: AiStorage | None = None,
-) -> bool:
-    """Check if summary should be skipped based on content hash.
-
-    Args:
-        document_id: Document identifier.
-        content_hash: Hash of content.
-        storage_client: Storage client instance.
-
-    Returns:
-        True if summary exists and is current.
-    """
-    try:
-        if storage_client is not None:
-            existing = storage_client.get_summary_hash(document_id)
-            return existing == content_hash
-
-        # Lazy import to avoid hard dependency on sentence-transformers
-        from threegpp_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
-
-        storage_client = EmbeddingsManager(AiConfig.from_env()).storage
-        existing = storage_client.get_summary_hash(document_id)
-        return existing == content_hash
-    except Exception:
-        return False
-
-
 def _strip_code_fences(payload: str | None) -> str:
     """Strip optional markdown code fences from LLM payloads."""
     if payload is None:
@@ -213,40 +177,17 @@ def _parse_structured_summary(payload: str) -> dict[str, list[str]]:
 def summarize_document(
     document_id: str,
     markdown: str,
-    storage: AiStorage | None = None,
-    workspace: str | None = None,
 ) -> DocumentSummary:
     """Generate summary for a document.
 
     Args:
         document_id: Document identifier.
         markdown: Markdown content.
-        storage: Optional storage instance.
-        workspace: Optional workspace scope (defaults to "default").
 
     Returns:
         DocumentSummary object.
     """
     config = AiConfig.from_env()
-
-    if storage is None:
-        # Lazy import to avoid hard dependency on sentence-transformers
-        from threegpp_ai.operations.embeddings import EmbeddingsManager  # noqa: PLC0415
-
-        storage_client = EmbeddingsManager(config).storage
-    else:
-        storage_client = storage
-
-    normalized_workspace = normalize_workspace_name(workspace)
-
-    # Compute content hash
-    content_hash = hashlib.sha256(markdown.encode()).hexdigest()
-
-    if _should_skip_summary(document_id, content_hash, storage_client=storage_client):
-        logger.info(f"Skipping summary for {document_id} - content unchanged")
-        existing = storage_client.get_summary(document_id, workspace=normalized_workspace)
-        if existing:
-            return existing
 
     # Get LLM client
     client = _get_llm_client()
@@ -315,10 +256,6 @@ def summarize_document(
         prompt_version="v2",
         generated_at=utc_now(),
     )
-
-    # Save to storage
-    storage_client.save_summary(summary, workspace=normalized_workspace)
-    storage_client.save_summary_hash(document_id, content_hash)
 
     logger.info(f"Generated summary for {document_id}")
     return summary

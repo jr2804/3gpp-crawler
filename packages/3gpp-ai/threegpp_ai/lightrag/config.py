@@ -2,7 +2,7 @@
 
 This module defines configuration dataclasses for LightRAG with:
 - Storage backend selection (file-based, pg0, etc.)
-- LLM and embedding model settings
+- LLM and embedding model settings with TDC_AI_* environment variable support
 - Query mode options
 
 All constants are defined at module level in CAPS.
@@ -11,6 +11,7 @@ All choice/option types use StrEnum.
 
 from __future__ import annotations
 
+import os
 from enum import StrEnum
 
 from pydantic import Field
@@ -20,17 +21,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Constants (defaults and allowed values)
 # =============================================================================
 
-# LLM defaults
-DEFAULT_LLM_MODEL: str = "qwen3:8b"
-DEFAULT_LLM_HOST: str = "http://localhost:11434"
-DEFAULT_LLM_PROVIDER: str = "ollama"
+# LLM defaults (read from TDC_AI_LLM_MODEL or use default)
+DEFAULT_LLM_MODEL: str = os.getenv("TDC_AI_LLM_MODEL", "openrouter/openrouter/free")
+DEFAULT_LLM_API_BASE: str = os.getenv("TDC_AI_LLM_API_BASE", "http://localhost:11434")
 
-# Embedding defaults
-DEFAULT_EMBEDDING_MODEL: str = "qwen3-embedding:0.6b"
-DEFAULT_EMBEDDING_HOST: str = "http://localhost:11434"
+# Embedding defaults (read from TDC_AI_EMBEDDING_MODEL or use default)
+DEFAULT_EMBEDDING_MODEL: str = os.getenv("TDC_AI_EMBEDDING_MODEL", "qwen3-embedding:0.6b")
+DEFAULT_EMBEDDING_API_BASE: str = os.getenv("TDC_AI_EMBEDDING_API_BASE", "http://localhost:11434")
 
-# Storage defaults
-DEFAULT_WORKING_DIR: str = "~/.3gpp-crawler/lightrag"
+# Workspace default
 DEFAULT_WORKSPACE: str = "default"
 
 # pg0 defaults
@@ -68,38 +67,46 @@ class QueryMode(StrEnum):
 
 
 class LLMConfig(BaseSettings):
-    """LLM configuration for LightRAG."""
+    """LLM configuration for LightRAG.
 
-    provider: str = Field(
-        default=DEFAULT_LLM_PROVIDER,
-        description="LLM provider (ollama, openai, etc.)",
-    )
+    Supports <provider>/<model> syntax via TDC_AI_LLM_MODEL environment variable.
+    Examples: openrouter/openrouter/free, ollama/qwen3:8b, anthropic/claude-3-sonnet
+    """
+
     model: str = Field(
         default=DEFAULT_LLM_MODEL,
-        description="LLM model name",
+        description="LLM model name in <provider>/<model> format",
+    )
+    api_base: str = Field(
+        default=DEFAULT_LLM_API_BASE,
+        description="LLM API base URL",
     )
     api_key: str | None = Field(
         default=None,
-        description="API key for cloud LLM providers",
-    )
-    host: str = Field(
-        default=DEFAULT_LLM_HOST,
-        description="LLM API host URL",
+        description="API key for cloud LLM providers (overrides TDC_AI_LLM_API_KEY)",
     )
 
     model_config = SettingsConfigDict(env_prefix="LIGHTRAG_LLM_")
 
 
 class EmbeddingConfig(BaseSettings):
-    """Embedding model configuration for LightRAG."""
+    """Embedding model configuration for LightRAG.
+
+    Supports <provider>/<model> syntax via TDC_AI_EMBEDDING_MODEL environment variable.
+    Examples: sentence-transformers/all-MiniLM-L6-v2, ollama/qwen3-embedding:0.6b
+    """
 
     model: str = Field(
         default=DEFAULT_EMBEDDING_MODEL,
-        description="Embedding model name",
+        description="Embedding model name in <provider>/<model> format",
     )
-    host: str = Field(
-        default=DEFAULT_EMBEDDING_HOST,
-        description="Embedding API host URL",
+    api_base: str = Field(
+        default=DEFAULT_EMBEDDING_API_BASE,
+        description="Embedding API base URL",
+    )
+    api_key: str | None = Field(
+        default=None,
+        description="API key for cloud embedding providers (overrides TDC_AI_EMBEDDING_API_KEY)",
     )
 
     model_config = SettingsConfigDict(env_prefix="LIGHTRAG_EMBEDDING_")
@@ -154,6 +161,13 @@ class LightRAGConfig(BaseSettings):
 
     Uses file-based storage (NanoVectorDB, JsonKVStorage, NetworkX) by default.
     Set LIGHTRAG_DB_BACKEND=pg0 to use PostgreSQL via pg0.
+    Set LIGHTRAG_SHARED_STORAGE=true to enable cross-workspace embedding deduplication.
+
+    Reads from TDC_AI_* environment variables for compatibility with legacy AiConfig:
+    - TDC_AI_LLM_MODEL: LLM model in <provider>/<model> format
+    - TDC_AI_LLM_API_BASE: LLM API base URL
+    - TDC_AI_LLM_API_KEY: LLM API key
+    - TDC_AI_EMBEDDING_MODEL: Embedding model in <provider>/<model> format
     """
 
     llm: LLMConfig = Field(
@@ -169,10 +183,6 @@ class LightRAGConfig(BaseSettings):
         description="Storage backend configuration",
     )
 
-    working_dir: str = Field(
-        default=DEFAULT_WORKING_DIR,
-        description="LightRAG working directory",
-    )
     workspace: str = Field(
         default=DEFAULT_WORKSPACE,
         description="Default workspace name",
@@ -181,5 +191,55 @@ class LightRAGConfig(BaseSettings):
         default=QueryMode.HYBRID,
         description="Default query mode",
     )
+    shared_storage: bool = Field(
+        default=False,
+        description="Enable shared embedding storage across workspaces (deduplication). "
+        "Note: Requires custom LightRAG integration - disable if using standard LightRAG.",
+    )
 
     model_config = SettingsConfigDict(env_prefix="LIGHTRAG_")
+
+    @classmethod
+    def from_env(cls, **overrides) -> LightRAGConfig:
+        """Create LightRAGConfig from TDC_AI_* environment variables.
+
+        This method reads the legacy TDC_AI_* environment variables and maps them
+        to LightRAG configuration, ensuring compatibility with the existing .env.example.
+
+        Args:
+            **overrides: Additional overrides that take precedence over env vars
+
+        Returns:
+            LightRAGConfig instance configured from environment
+        """
+        # Read TDC_AI_* environment variables
+        llm_model = os.getenv("TDC_AI_LLM_MODEL")
+        llm_api_base = os.getenv("TDC_AI_LLM_API_BASE")
+        llm_api_key = os.getenv("TDC_AI_LLM_API_KEY")
+        embedding_model = os.getenv("TDC_AI_EMBEDDING_MODEL")
+        embedding_api_base = os.getenv("TDC_AI_EMBEDDING_API_BASE")
+        embedding_api_key = os.getenv("TDC_AI_EMBEDDING_API_KEY")
+
+        # Build configuration dictionary
+        config_data = {}
+
+        # Configure LLM if TDC_AI_LLM_MODEL is set
+        if llm_model:
+            config_data["llm"] = {
+                "model": llm_model,
+                "api_base": llm_api_base or DEFAULT_LLM_API_BASE,
+                "api_key": llm_api_key,
+            }
+
+        # Configure embedding if TDC_AI_EMBEDDING_MODEL is set
+        if embedding_model:
+            config_data["embedding"] = {
+                "model": embedding_model,
+                "api_base": embedding_api_base or DEFAULT_EMBEDDING_API_BASE,
+                "api_key": embedding_api_key,
+            }
+
+        # Apply overrides
+        config_data.update(overrides)
+
+        return cls(**config_data)

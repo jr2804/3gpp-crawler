@@ -19,8 +19,7 @@ dependencies = [
     #"doc2txt>=1.0.8 @ git+https://github.com/Quantatirsk/doc2txt-pypi.git"
     "kreuzberg[all]>=4.0.0",
     "litellm>=1.81.15",
-    "tokenizers>=0.22.2",
-    "lightrag-hku[api]>=1.4.9.3",
+    "lightrag-hku[offline]>=1.4.9.3",
     "pg0-embedded>=0.12.0",
     "pydantic-settings>=2.13.1",
 ]
