@@ -40,7 +40,6 @@ class ProviderConfig:
 
     complete_func: Callable | None = None
     embed_func: Callable | None = None
-    default_dim: int = 1024
 
 
 PROVIDERS: dict[str, ProviderConfig] = {
@@ -52,15 +51,6 @@ PROVIDERS: dict[str, ProviderConfig] = {
 }
 
 PROVIDER_ALIASES = {"zai": "zhipu"}
-EMBEDDING_DIMENSIONS = {
-    "qwen3-embedding:0.6b": 1024,
-    "nomic-embed-text": 768,
-    "mxbai-embed-large": 1024,
-    "all-MiniLM-L6-v2": 384,
-    "all-mpnet-base-v2": 768,
-}
-
-
 def _resolve_provider(provider: str) -> str:
     """Resolve provider alias to canonical name."""
     resolved = PROVIDER_ALIASES.get(provider, provider)
@@ -81,15 +71,6 @@ def _parse_provider(model_string: str) -> tuple[str, str]:
 def _get_provider(provider: str) -> ProviderConfig:
     """Get provider config by name."""
     return PROVIDERS[_resolve_provider(provider)]
-
-
-def _get_embedding_dimension(model_name: str, provider: str = "") -> int:
-    """Get embedding dimension for a model."""
-    if model_name in EMBEDDING_DIMENSIONS:
-        return EMBEDDING_DIMENSIONS[model_name]
-    if provider:
-        return _get_provider(provider).default_dim
-    return 1024
 
 
 class TDocRAG:
@@ -189,13 +170,16 @@ class TDocRAG:
         embed_config = _get_provider(embed_provider)
         llm_config = _get_provider(llm_provider)
 
-        embed_dim = _get_embedding_dimension(embed_model_name, embed_provider)
-
         embed_kwargs = self._build_provider_kwargs(embed_provider, embed_model_name, is_embedding=True)
         llm_kwargs = self._build_provider_kwargs(llm_provider, llm_model_name)
 
         async def wrapped_embed_func(texts: list[str], **kwargs: Any) -> list[list[float]]:
             return await embed_config.embed_func(texts, **embed_kwargs, **kwargs)  # type: ignore[call-arg]
+
+        # Probe the model to detect the actual embedding dimension — never assume.
+        probe = await wrapped_embed_func(["probe"])
+        embed_dim = len(probe[0])
+        logger.info("Detected embedding dimension: %d for model '%s'", embed_dim, self.config.embedding.model)
 
         embedding_func = EmbeddingFunc(embedding_dim=embed_dim, func=wrapped_embed_func)
 

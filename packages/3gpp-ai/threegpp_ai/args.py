@@ -9,6 +9,10 @@ import typer
 
 # Common
 JsonOutputOption = Annotated[bool, typer.Option("--json", help="Output as JSON")]
+CacheDirOption = Annotated[
+    Path | None,
+    typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR"),
+]
 
 # Summarize
 SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
@@ -59,26 +63,26 @@ EndDateOption = Annotated[
     typer.Option("--end-date", help="Filter until ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)"),
 ]
 SourcePatternOption = Annotated[
-    str | None,
-    typer.Option("--source", help="Glob/regex pattern for source field"),
+    list[str] | None,
+    typer.Option("--source", help="Glob pattern for source field (repeatable, values are OR'd)"),
 ]
 SourcePatternExcludeOption = Annotated[
-    str | None,
-    typer.Option("--source-ex", help="Pattern to exclude source field"),
+    list[str] | None,
+    typer.Option("--source-ex", help="Glob pattern to exclude source field (repeatable)"),
 ]
 TitlePatternOption = Annotated[
-    str | None,
-    typer.Option("--title", help="Glob/regex pattern for title field"),
+    list[str] | None,
+    typer.Option("--title", help="Glob pattern for title field (repeatable, values are OR'd)"),
 ]
 TitlePatternExcludeOption = Annotated[
-    str | None,
-    typer.Option("--title-ex", help="Pattern to exclude title field"),
+    list[str] | None,
+    typer.Option("--title-ex", help="Glob pattern to exclude title field (repeatable)"),
 ]
 AgendaPatternOption = Annotated[
-    str | None,
-    typer.Option("--agenda", help="Glob/regex pattern for agenda field"),
+    list[str] | None,
+    typer.Option("--agenda", help="Glob pattern for agenda field (repeatable, values are OR'd)"),
 ]
 AgendaPatternExcludeOption = Annotated[
-    str | None,
-    typer.Option("--agenda-ex", help="Pattern to exclude agenda field"),
+    list[str] | None,
+    typer.Option("--agenda-ex", help="Glob pattern to exclude agenda field (repeatable)"),
 ]

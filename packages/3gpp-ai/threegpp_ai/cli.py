@@ -17,7 +17,7 @@ import typer
 from rich.progress import Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.database import SpecDatabase, TDocDatabase
 from tdoc_crawler.logging import get_console, get_logger
 from tdoc_crawler.models.base import OutputFormat, SortOrder
@@ -46,6 +46,7 @@ from threegpp_ai import (
 from threegpp_ai.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
+    CacheDirOption,
     ConvertDocumentArgument,
     ConvertForceOption,
     ConvertOutputOption,
@@ -87,6 +88,12 @@ console = get_console()
 _logger = get_logger(__name__)
 
 
+@app.callback()
+def _app_init(cache_dir: CacheDirOption = None) -> None:
+    """Register a CacheManager so all sub-commands can resolve file paths."""
+    CacheManager(cache_dir).register(force=True)
+
+
 def _resolve_workspace_name(workspace: str | None) -> str:
     if workspace:
         return normalize_workspace_name(workspace)
@@ -106,12 +113,12 @@ def _resolve_workspace_items(
     source_kind: SourceKind,
     start_date: str | None,
     end_date: str | None,
-    source: str | None,
-    source_ex: str | None,
-    title: str | None,
-    title_ex: str | None,
-    agenda: str | None,
-    agenda_ex: str | None,
+    source: list[str] | None,
+    source_ex: list[str] | None,
+    title: list[str] | None,
+    title_ex: list[str] | None,
+    agenda: list[str] | None,
+    agenda_ex: list[str] | None,
     limit: int | None,
 ) -> list[str]:
     if items is not None:
