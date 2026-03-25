@@ -9,10 +9,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from .rag import TDocRAG
+from .rag import TDocRAG
 
 logger = logging.getLogger(__name__)
 
