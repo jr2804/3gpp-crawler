@@ -18,31 +18,37 @@ Implemented a comprehensive enhancement to the RAG pipeline enabling extraction,
 ## Implementation Phases
 
 ### Phase 0: Compatibility and Unification Design
+
 - Defined reusable structured models (`ExtractedTableElement`, `ExtractedFigureElement`, `ExtractedEquationElement`)
 - Added extraction feature toggles to `LightRAGConfig`
 - Established provider compatibility matrix for vision capabilities
 
 ### Phase 1: Shared Structured Extraction Core
+
 - Created unified extraction function returning `StructuredExtractionResult`
 - Integrated with `processor.py`, `convert.py`, and `summarize.py`
 - Established consistent `.ai/` artifact layout
 
 ### Phase 2: Table Preservation
+
 - Converted `result.tables` into structured elements with IDs, page numbers, dimensions
 - Added stable table markers in markdown output
 - Created JSON sidecars for machine-readable structure
 
 ### Phase 3: Figure/Image Extraction
+
 - Persisted extracted figures under `.ai/figures/`
 - Implemented caption matching heuristics
 - Added cached figure description via `LiteLLMClient` with graceful non-vision fallback
 
 ### Phase 4: Equation Handling and Structural Chunking
+
 - Detected and preserved equation blocks (`$$`, `\[ ... \]`, `\begin{equation} ...`)
 - Introduced structural chunking respecting table/figure/equation boundaries
 - Standardized metadata propagation through `TDocRAG.insert()`
 
 ### Phase 5: Single-Command Query Enhancement
+
 - Maintained `tdoc-crawler ai rag query` as the single query command
 - Improved retrieval context using enriched chunks from all element types
 - Enhanced citation formatting with element type and location
@@ -75,6 +81,7 @@ Implemented a comprehensive enhancement to the RAG pipeline enabling extraction,
 ## Validation
 
 All PRs validated through:
+
 - Unit tests: `uv run pytest packages/3gpp-ai/tests/test_*.py -v`
 - End-to-end workflow: workspace create → add-members → process → rag query
 - Artifact verification: `.ai/` folder contains markdown, JSON sidecars, and figures
