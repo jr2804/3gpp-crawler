@@ -15,6 +15,7 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.utils.normalization import normalize_spec_number
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
 from threegpp_ai.operations.workspace_registry import (
     WorkspaceMember,
@@ -492,18 +493,26 @@ def checkout_spec_to_workspace(
     Returns:
         Path to the checked out spec folder, or None if checkout failed
     """
+    # Normalize spec number for consistent directory naming
+    normalized = normalize_spec_number(spec_number)
+    undotted = normalized.replace(".", "")  # e.g., "26.260" -> "26260"
+
     # First check if already checked out with the SAME release version
     specs_dir = checkout_base / "Specs"
     if specs_dir.exists():
-        # Search for spec with matching release version
-        for spec_dir in specs_dir.rglob(f"*{spec_number}*"):
-            if spec_dir.is_dir():
-                # Check if release version matches
-                dir_name = spec_dir.name
-                if release != "latest" and release not in dir_name:
-                    continue
-                _logger.debug(f"Spec {spec_number} (release {release}) already checked out at {spec_dir}")
-                return spec_dir
+        # Search for spec with matching release version using both normalized and undotted forms
+        for spec_dir in specs_dir.rglob("*"):
+            if not spec_dir.is_dir():
+                continue
+            dir_name = spec_dir.name
+            # Check if this directory matches our spec (normalized or undotted form)
+            if normalized not in dir_name and undotted not in dir_name:
+                continue
+            # Check if release version matches (only for non-latest)
+            if release != "latest" and release not in dir_name:
+                continue
+            _logger.debug(f"Spec {spec_number} (release {release}) already checked out at {spec_dir}")
+            return spec_dir
 
     # Need to checkout the spec
     try:
