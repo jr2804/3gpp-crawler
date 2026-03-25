@@ -16,11 +16,13 @@ Added a new CLI command `3gpp-ai providers list` to the `3gpp-ai` package that d
 ## Technical Changes
 
 ### `packages/3gpp-ai/threegpp_ai/lightrag/rag.py`
+
 - Added `ProviderAlias` dataclass with `canonical` and `base_url` fields
 - Extended `PROVIDER_ALIASES` to `dict[str, ProviderAlias]` with base URL support
 - Updated `_resolve_provider()` to handle the new structure
 
 ### `packages/3gpp-ai/threegpp_ai/cli.py`
+
 - Added `providers_app = typer.Typer(...)` subcommand
 - Implemented `providers_list` command with all output formats
 
