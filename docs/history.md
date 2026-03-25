@@ -4,6 +4,7 @@ This document provides a chronological log of all significant changes and improv
 
 ## Recent Changes
 
+- **2026-03-25**: [Enhanced RAG pipeline with tables, figures, and equations](history/2026-03-25_SUMMARY_enhanced_rag_pipeline_tables_figures_equations.md)
 - **2026-03-24**: [Convert and summarize commands implementation](history/2026-03-24_SUMMARY_convert_summarize_commands_implementation.md)
 - **2026-03-23**: [LightRAG migration plan](history/2026-03-23_SUMMARY_LightRAG_migration_plan.md)
 - **2026-03-06**: [AI embeddings accelerate backend option](history/2026-03-06_SUMMARY_01_AI_EMBEDDINGS_ACCELERATE_BACKEND.md)
