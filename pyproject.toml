@@ -37,11 +37,6 @@ dependencies = [
     "pool-executors",
 ]
 
-[project.optional-dependencies]
-ai = [
-    "3gpp-ai>=0.0.0",
-]
-
 [project.urls]
 Repository = "https://forge.3gpp.org/rep/reimes/3gpp-crawler"
 
@@ -67,7 +62,6 @@ build-backend = "hatchling.build"
 [project.scripts]
 tdoc-crawler = "tdoc_crawler.cli.tdoc_app:app"
 spec-crawler = "tdoc_crawler.cli.spec_app:spec_app"
-3gpp-ai = "tdoc_crawler.cli.ai_app:ai_app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -117,5 +111,4 @@ style = "semver"
 members = ["packages/*"]
 
 [tool.uv.sources]
-3gpp-ai = { workspace = true }
 pool-executors = { workspace = true }

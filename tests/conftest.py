@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import pytest
@@ -16,13 +15,9 @@ from tdoc_crawler.tdocs.models import TDocMetadata
 
 
 def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> bool:
-    """Ignore AI tests when optional 3gpp-ai package is not installed."""
-    try:
-        version("3gpp-ai")
-    except PackageNotFoundError:
-        path_text = str(collection_path).replace("\\", "/").lower()
-        return "/tests/ai/" in path_text or path_text.endswith("/tests/ai")
-    return False
+    """Ignore legacy tests/ai suite in the core tdoc_crawler package."""
+    path_text = str(collection_path).replace("\\", "/").lower()
+    return "/tests/ai/" in path_text or path_text.endswith("/tests/ai")
 
 
 @pytest.fixture

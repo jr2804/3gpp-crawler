@@ -17,12 +17,12 @@ from typing import Any
 from lightrag import LightRAG, QueryParam
 from lightrag.kg import STORAGES
 from lightrag.kg.shared_storage import initialize_pipeline_status
-from lightrag.utils import EmbeddingFunc
 from lightrag.llm.hf import hf_embed, hf_model_complete
 from lightrag.llm.jina import jina_embed
 from lightrag.llm.ollama import ollama_embed, ollama_model_complete
 from lightrag.llm.openai import openai_complete, openai_embed
 from lightrag.llm.zhipu import zhipu_complete, zhipu_embedding
+from lightrag.utils import EmbeddingFunc
 
 from tdoc_crawler.config import resolve_cache_manager
 

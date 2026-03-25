@@ -27,6 +27,9 @@ dependencies = [
 [project.urls]
 Repository = "https://forge.3gpp.org/rep/reimes/3gpp-crawler"
 
+[project.scripts]
+3gpp-ai = "threegpp_ai.cli:app"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

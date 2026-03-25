@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import zipfile
-from importlib.metadata import PackageNotFoundError, version
 from typing import Any, cast
 
 import typer
@@ -36,11 +35,6 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
-
-try:
-    from tdoc_crawler.cli.ai import ai_app
-except ImportError:  # pragma: no cover - optional dependency
-    ai_app = None
 
 load_dotenv()
 
@@ -227,17 +221,3 @@ app.command("qm", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_meetings)
 
 
 __all__ = ["app"]
-
-
-def _register_optional_ai_commands() -> None:
-    """Register AI commands only when AI extras are available."""
-    try:
-        version("3gpp-ai")
-    except PackageNotFoundError:
-        return
-    if ai_app is None:
-        return
-    app.add_typer(ai_app, name="ai", help="AI document processing")
-
-
-_register_optional_ai_commands()
