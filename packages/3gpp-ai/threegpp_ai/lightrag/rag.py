@@ -50,7 +50,9 @@ PROVIDERS: dict[str, ProviderConfig] = {
     "jina": ProviderConfig(embed_func=jina_embed),
 }
 
-PROVIDER_ALIASES = {"zai": "zhipu"}
+PROVIDER_ALIASES = {"zai": "zhipu"} # workaround for "typical" vs "actual" provider names
+
+
 def _resolve_provider(provider: str) -> str:
     """Resolve provider alias to canonical name."""
     resolved = PROVIDER_ALIASES.get(provider, provider)
