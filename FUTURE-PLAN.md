@@ -1,6 +1,6 @@
 # Future Plan: 3GPP AI Pipeline Enhancements
 
-**Status:** Backlog  
+**Status:** Backlog
 **Last Updated:** 2026-03-24
 
 This document captures future enhancements that are not currently prioritized but may be valuable in future development cycles.
