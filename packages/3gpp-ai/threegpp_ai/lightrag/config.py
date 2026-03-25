@@ -26,7 +26,7 @@ DEFAULT_LLM_MODEL: str = os.getenv("TDC_AI_LLM_MODEL", "openrouter/openrouter/fr
 DEFAULT_LLM_API_BASE: str = os.getenv("TDC_AI_LLM_API_BASE", "http://localhost:11434")
 
 # Embedding defaults (read from TDC_AI_EMBEDDING_MODEL or use default)
-DEFAULT_EMBEDDING_MODEL: str = os.getenv("TDC_AI_EMBEDDING_MODEL", "qwen3-embedding:0.6b")
+DEFAULT_EMBEDDING_MODEL: str = os.getenv("TDC_AI_EMBEDDING_MODEL", "ollama/qwen3-embedding:0.6b")
 DEFAULT_EMBEDDING_API_BASE: str = os.getenv("TDC_AI_EMBEDDING_API_BASE", "http://localhost:11434")
 
 # Workspace default
@@ -36,6 +36,24 @@ DEFAULT_WORKSPACE: str = "default"
 DEFAULT_PG0_INSTANCE_NAME: str = "3gpp-crawler"
 DEFAULT_PG0_PORT: int = 15432
 DEFAULT_PG0_DATABASE: str = "tdoc"
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def _env_bool(key: str, default: bool = True) -> bool:
+    """Parse a boolean environment variable.
+
+    Returns True for: "1", "true", "yes", "on"
+    Returns False for: "0", "false", "no", "off"
+    Returns default if the variable is not set.
+    """
+    value = os.getenv(key)
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}
 
 
 # =============================================================================
@@ -228,54 +246,33 @@ class LightRAGConfig(BaseSettings):
         Returns:
             LightRAGConfig instance configured from environment
         """
-        # Read TDC_AI_* environment variables
-        llm_model = os.getenv("TDC_AI_LLM_MODEL")
-        llm_api_base = os.getenv("TDC_AI_LLM_API_BASE")
-        llm_api_key = os.getenv("TDC_AI_LLM_API_KEY")
-        embedding_model = os.getenv("TDC_AI_EMBEDDING_MODEL")
-        embedding_api_base = os.getenv("TDC_AI_EMBEDDING_API_BASE")
-        embedding_api_key = os.getenv("TDC_AI_EMBEDDING_API_KEY")
-        extract_tables = os.getenv("LIGHTRAG_EXTRACT_TABLES")
-        extract_figures = os.getenv("LIGHTRAG_EXTRACT_FIGURES")
-        extract_equations = os.getenv("LIGHTRAG_EXTRACT_EQUATIONS")
-        figure_description_enabled = os.getenv("LIGHTRAG_FIGURE_DESCRIPTION_ENABLED")
+        config_data: dict = {}
 
-        # Build configuration dictionary
-        config_data = {}
+        # LLM config - pass through any set values, filter None
+        llm_config = {
+            "model": os.getenv("TDC_AI_LLM_MODEL"),
+            "api_base": os.getenv("TDC_AI_LLM_API_BASE"),
+            "api_key": os.getenv("TDC_AI_LLM_API_KEY"),
+        }
+        llm_config = {k: v for k, v in llm_config.items() if v is not None}
+        if llm_config:
+            config_data["llm"] = llm_config
 
-        # Configure LLM if TDC_AI_LLM_MODEL is set
-        if llm_model:
-            config_data["llm"] = {
-                "model": llm_model,
-                "api_base": llm_api_base or DEFAULT_LLM_API_BASE,
-                "api_key": llm_api_key,
-            }
+        # Embedding config - pass through any set values, filter None
+        embedding_config = {
+            "model": os.getenv("TDC_AI_EMBEDDING_MODEL"),
+            "api_base": os.getenv("TDC_AI_EMBEDDING_API_BASE"),
+            "api_key": os.getenv("TDC_AI_EMBEDDING_API_KEY"),
+        }
+        embedding_config = {k: v for k, v in embedding_config.items() if v is not None}
+        if embedding_config:
+            config_data["embedding"] = embedding_config
 
-        # Configure embedding if TDC_AI_EMBEDDING_MODEL is set
-        if embedding_model:
-            config_data["embedding"] = {
-                "model": embedding_model,
-                "api_base": embedding_api_base or DEFAULT_EMBEDDING_API_BASE,
-                "api_key": embedding_api_key,
-            }
+        # Extraction toggles default to True
+        config_data["extract_tables"] = _env_bool("LIGHTRAG_EXTRACT_TABLES", True)
+        config_data["extract_figures"] = _env_bool("LIGHTRAG_EXTRACT_FIGURES", True)
+        config_data["extract_equations"] = _env_bool("LIGHTRAG_EXTRACT_EQUATIONS", True)
+        config_data["figure_description_enabled"] = _env_bool("LIGHTRAG_FIGURE_DESCRIPTION_ENABLED", True)
 
-        # Extraction toggles are part of LightRAGConfig itself.
-        # Keep explicit mapping here so from_env behavior is predictable.
-        if extract_tables is not None:
-            config_data["extract_tables"] = extract_tables.lower() in {"1", "true", "yes", "on"}
-        if extract_figures is not None:
-            config_data["extract_figures"] = extract_figures.lower() in {"1", "true", "yes", "on"}
-        if extract_equations is not None:
-            config_data["extract_equations"] = extract_equations.lower() in {"1", "true", "yes", "on"}
-        if figure_description_enabled is not None:
-            config_data["figure_description_enabled"] = figure_description_enabled.lower() in {
-                "1",
-                "true",
-                "yes",
-                "on",
-            }
-
-        # Apply overrides
         config_data.update(overrides)
-
         return cls(**config_data)

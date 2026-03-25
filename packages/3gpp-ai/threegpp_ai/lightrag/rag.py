@@ -11,9 +11,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
 from typing import Any
 
+# Monkey-patch zhipu functions to filter out base_url
+import lightrag.llm.zhipu as zhipu_module
 from lightrag import LightRAG, QueryParam
 from lightrag.kg import STORAGES
 from lightrag.kg.shared_storage import initialize_pipeline_status
@@ -23,6 +26,62 @@ from lightrag.llm.ollama import ollama_embed, ollama_model_complete
 from lightrag.llm.openai import openai_complete, openai_embed
 from lightrag.llm.zhipu import zhipu_complete, zhipu_embedding
 from lightrag.utils import EmbeddingFunc
+
+# Patch zhipu_complete_if_cache
+original_zhipu_complete_if_cache = zhipu_module.zhipu_complete_if_cache
+
+
+@wraps(original_zhipu_complete_if_cache)
+async def patched_zhipu_complete_if_cache(
+    prompt,
+    model="glm-4-flashx",
+    api_key=None,
+    system_prompt=None,
+    history_messages=None,
+    enable_cot=False,
+    **kwargs,
+):
+    # Remove unsupported kwargs including base_url
+    if history_messages is None:
+        history_messages = []
+    kwargs = {k: v for k, v in kwargs.items() if k not in ["hashing_kv", "keyword_extraction", "base_url"]}
+    return await original_zhipu_complete_if_cache(
+        prompt=prompt,
+        model=model,
+        api_key=api_key,
+        system_prompt=system_prompt,
+        history_messages=history_messages,
+        enable_cot=enable_cot,
+        **kwargs,
+    )
+
+
+# Patch zhipu_embedding
+original_zhipu_embedding = zhipu_module.zhipu_embedding
+
+
+@wraps(original_zhipu_embedding)
+async def patched_zhipu_embedding(
+    texts: list[str],
+    model: str = "embedding-3",
+    api_key: str = None,
+    **kwargs,
+):
+    # Remove unsupported kwargs including base_url
+    kwargs = {k: v for k, v in kwargs.items() if k not in ["base_url"]}
+    return await original_zhipu_embedding(
+        texts=texts,
+        model=model,
+        api_key=api_key,
+        **kwargs,
+    )
+
+
+# Apply the patches
+zhipu_module.zhipu_complete_if_cache = patched_zhipu_complete_if_cache
+zhipu_module.zhipu_embedding = patched_zhipu_embedding
+zhipu_complete_if_cache = patched_zhipu_complete_if_cache
+zhipu_embedding = patched_zhipu_embedding
 
 from tdoc_crawler.config import resolve_cache_manager
 
@@ -59,8 +118,8 @@ PROVIDERS: dict[str, ProviderConfig] = {
 }
 
 PROVIDER_ALIASES: dict[str, ProviderAlias] = {
-    "zai": ProviderAlias(canonical="zhipu"),
-    "zai-coding-plan": ProviderAlias(canonical="zhipu", base_url="https://api.z.ai/api/paas/v4"),
+    "zai": ProviderAlias(canonical="openai", base_url="https://api.z.ai/api/paas/v4"),
+    "zai-coding-plan": ProviderAlias(canonical="openai", base_url="https://api.z.ai/api/coding/paas/v4"),
     "openrouter": ProviderAlias(canonical="openai", base_url="https://openrouter.ai/api/v1"),
     "nvidia": ProviderAlias(canonical="openai", base_url="https://integrate.api.nvidia.com/v1/"),
 }
@@ -318,15 +377,26 @@ class TDocRAG:
     def _build_provider_kwargs(self, provider: str, model_name: str, is_embedding: bool = False) -> dict[str, Any]:
         """Build provider-specific kwargs for LLM/embedding functions."""
         config = self.config.embedding if is_embedding else self.config.llm
-        if provider == "ollama":
+
+        # Resolve alias to canonical provider name
+        canonical_provider = _resolve_provider(provider)
+
+        if canonical_provider == "ollama":
             # Ollama uses different kwargs for embedding vs completion
             kwargs = {"host": config.api_base}
             if is_embedding:
                 kwargs["embed_model"] = model_name
             return kwargs
-        if provider in ("openai", "zhipu"):
-            # LightRAG's openai_complete/zhipu_complete expect base_url, not api_base
-            return {"api_key": config.api_key, "base_url": config.api_base}
-        if provider == "jina":
+        if canonical_provider == "openai":
+            # LightRAG's openai_complete expects base_url, not api_base
+            # Check for alias-specific base URL override
+            base_url = config.api_base
+            if provider in PROVIDER_ALIASES and PROVIDER_ALIASES[provider].base_url:
+                base_url = PROVIDER_ALIASES[provider].base_url
+            return {"api_key": config.api_key, "base_url": base_url}
+        if canonical_provider == "zhipu":
+            # zhipu_complete_if_cache only accepts api_key, not base_url
+            return {"api_key": config.api_key}
+        if canonical_provider == "jina":
             return {"api_key": config.api_key}
         return {}
