@@ -50,7 +50,7 @@ PROVIDERS: dict[str, ProviderConfig] = {
     "jina": ProviderConfig(embed_func=jina_embed),
 }
 
-PROVIDER_ALIASES = {"zai": "zhipu"} # workaround for "typical" vs "actual" provider names
+PROVIDER_ALIASES = {"zai": "zhipu"}  # workaround for "typical" vs "actual" provider names
 
 
 def _resolve_provider(provider: str) -> str:
@@ -311,7 +311,8 @@ class TDocRAG:
                 kwargs["embed_model"] = model_name
             return kwargs
         if provider in ("openai", "zhipu"):
-            return {"api_key": config.api_key, "api_base": config.api_base}
+            # LightRAG's openai_complete/zhipu_complete expect base_url, not api_base
+            return {"api_key": config.api_key, "base_url": config.api_base}
         if provider == "jina":
             return {"api_key": config.api_key}
         return {}

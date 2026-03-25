@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -99,17 +101,16 @@ def list_workspaces() -> list[WorkspaceRegistry]:
 
 
 def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> bool:
-    """Delete a workspace while preserving artifacts from other workspaces.
+    """Delete a workspace and optionally remove its LightRAG artifacts.
 
-    Note: Artifacts in LanceDB are now scoped by workspace name in the document_id.
-    When a workspace is deleted, its artifacts become orphaned (not associated with
-    any active workspace) but are preserved.
+    When preserve_artifacts=False, only deletes LightRAG embeddings and workspace index
+    from ~/.3gpp-crawler/lightrag/{model}/{workspace}/. Does NOT delete document artifacts
+    (PDFs, markdown) in the .ai subfolder of each document checkout.
 
     Args:
         workspace: Workspace name to delete.
-        preserve_artifacts: If True (default), keep artifacts. If False, also delete
-                          artifacts for this workspace (not implemented - artifacts are
-                          always preserved to prevent data loss).
+        preserve_artifacts: If True (default), keep LightRAG artifacts. If False, delete
+                          embeddings and workspace index for this workspace only.
 
     Returns:
         True if deleted, False if not found or if attempting to delete default.
@@ -121,11 +122,29 @@ def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> 
 
     registry = _get_registry()
     deleted = registry.delete_workspace(normalized_workspace)
-    if deleted:
-        registry.save()
-        _logger.info(f"Deleted workspace '{normalized_workspace}' (artifacts preserved)")
-        return True
-    return False
+    if not deleted:
+        return False
+
+    registry.save()
+
+    # Delete LightRAG artifacts if requested
+    if not preserve_artifacts:
+        try:
+            # Get embedding model from environment to locate artifacts
+            embedding_model = os.getenv("TDC_AI_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+            manager = resolve_cache_manager()
+            workspace_artifacts_dir = manager.ai_embed_dir(embedding_model) / normalized_workspace
+
+            if workspace_artifacts_dir.exists():
+                shutil.rmtree(workspace_artifacts_dir)
+                _logger.info(f"Deleted LightRAG artifacts for '{normalized_workspace}' from {workspace_artifacts_dir}")
+            else:
+                _logger.debug(f"No LightRAG artifacts found for '{normalized_workspace}'")
+        except Exception as e:
+            _logger.warning(f"Failed to delete LightRAG artifacts for '{normalized_workspace}': {e}")
+
+    _logger.info(f"Deleted workspace '{normalized_workspace}' (preserve_artifacts={preserve_artifacts})")
+    return True
 
 
 def get_active_workspace() -> str:

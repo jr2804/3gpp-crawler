@@ -51,6 +51,7 @@ from threegpp_ai.args import (
     ConvertDocumentArgument,
     ConvertForceOption,
     ConvertOutputOption,
+    ConvertPdfOption,
     EndDateOption,
     JsonOutputOption,
     SourcePatternExcludeOption,
@@ -77,7 +78,7 @@ from threegpp_ai.args import (
 from threegpp_ai.lightrag.cli import app as rag_app
 from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata
-from threegpp_ai.lightrag.processor import TDocProcessor
+from threegpp_ai.lightrag.processor import OFFICE_FORMATS, TDocProcessor
 from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
 
 app = typer.Typer(help="3GPP AI - Document Processing and RAG")
@@ -165,6 +166,68 @@ def _resolve_spec_release(item: str, release: str) -> str:
     return resolved
 
 
+def _process_single_item(
+    *,
+    item: str,
+    workspace: str,
+    source_kind: SourceKind,
+    checkout: bool,
+    release: str | None,
+    convert_pdf: bool,
+    manager: CacheManager,
+) -> tuple[Any | None, str | None, bool]:
+    """Process a single workspace item (checkout + optional PDF conversion).
+
+    Args:
+        item: Item ID to process
+        workspace: Workspace name
+        source_kind: Type of source (TDOC, SPEC, OTHER)
+        checkout: Whether to checkout documents
+        release: Spec release version
+        convert_pdf: Whether to convert to PDF
+        manager: CacheManager for paths
+
+    Returns:
+        Tuple of (member, skip_reason, was_converted)
+        - member: WorkspaceMember if successful, None if skipped
+        - skip_reason: Reason if skipped, None if successful
+        - was_converted: True if PDF conversion was performed
+    """
+    source_path = item
+    if checkout:
+        checkout_path = None
+        if source_kind == SourceKind.TDOC:
+            checkout_path = checkout_tdoc_to_workspace(item, manager.checkout_dir, workspace, db_file=manager.db_file)
+            if checkout_path is None:
+                return None, "TDoc not found in database or meeting not crawled", False
+        elif source_kind == SourceKind.SPEC:
+            checkout_path = checkout_spec_to_workspace(
+                item,
+                manager.checkout_dir,
+                workspace,
+                release or "latest",
+                db_file=manager.db_file,
+            )
+            if checkout_path is None:
+                return None, "Spec not found in database", False
+
+        if checkout_path is not None:
+            source_path = str(checkout_path)
+            ensure_ai_subfolder(checkout_path)
+
+    # Optional PDF conversion
+    was_converted = False
+    if convert_pdf:
+        member_for_convert = make_workspace_member(workspace, item, source_path, source_kind)
+        pdf_path = _convert_member_to_pdf(member_for_convert)
+        was_converted = pdf_path is not None
+
+    resolved_release = _resolve_spec_release(item, release) if source_kind == SourceKind.SPEC and release else None
+    source_item_id = f"{item}-REL{resolved_release}" if resolved_release else item
+    member = make_workspace_member(workspace, source_item_id, source_path, source_kind)
+    return member, None, was_converted
+
+
 def _build_workspace_members(
     *,
     workspace: str,
@@ -178,33 +241,19 @@ def _build_workspace_members(
     skipped: list[tuple[str, str]] = []
 
     for item in items:
-        source_path = item
-        if checkout:
-            checkout_path = None
-            if source_kind == SourceKind.TDOC:
-                checkout_path = checkout_tdoc_to_workspace(item, manager.checkout_dir, workspace, db_file=manager.db_file)
-                if checkout_path is None:
-                    skipped.append((item, "TDoc not found in database or meeting not crawled"))
-                    continue
-            elif source_kind == SourceKind.SPEC:
-                checkout_path = checkout_spec_to_workspace(
-                    item,
-                    manager.checkout_dir,
-                    workspace,
-                    release or "latest",
-                    db_file=manager.db_file,
-                )
-                if checkout_path is None:
-                    skipped.append((item, "Spec not found in database"))
-                    continue
-
-            if checkout_path is not None:
-                source_path = str(checkout_path)
-                ensure_ai_subfolder(checkout_path)
-
-        resolved_release = _resolve_spec_release(item, release) if source_kind == SourceKind.SPEC and release else None
-        source_item_id = f"{item}-REL{resolved_release}" if resolved_release else item
-        members.append(make_workspace_member(workspace, source_item_id, source_path, source_kind))
+        member, skip_reason, _ = _process_single_item(
+            item=item,
+            workspace=workspace,
+            source_kind=source_kind,
+            checkout=checkout,
+            release=release,
+            convert_pdf=False,  # Conversion handled separately in CLI
+            manager=manager,
+        )
+        if skip_reason:
+            skipped.append((item, skip_reason))
+        else:
+            members.append(member)
 
     return members, skipped
 
@@ -220,6 +269,39 @@ def _resolve_process_file(path: Path) -> Path | None:
         if matches:
             return matches[0]
     return None
+
+
+def _convert_member_to_pdf(member: Any) -> Path | None:
+    """Convert a workspace member's document to PDF if it's an office format.
+
+    Args:
+        member: WorkspaceMember with source_path to the document.
+
+    Returns:
+        Path to converted PDF in .ai subfolder, or None if conversion not needed/failed.
+    """
+    source_path = Path(member.source_path)
+
+    # Find the document file
+    doc_file = _resolve_process_file(source_path)
+    if doc_file is None:
+        _logger.debug("No document file found for %s", member.source_item_id)
+        return None
+
+    # Check if it's an office format that needs conversion
+    if doc_file.suffix.lower() not in OFFICE_FORMATS:
+        _logger.debug("Document %s is not an office format, skipping PDF conversion", doc_file.name)
+        return None
+
+    # Check if PDF already exists in .ai folder
+    ai_dir = ensure_ai_subfolder(doc_file.parent)
+    existing_pdf = ai_dir / f"{doc_file.stem}.pdf"
+    if existing_pdf.exists():
+        _logger.debug("PDF already exists for %s at %s", doc_file.name, existing_pdf)
+        return existing_pdf
+
+    # Convert to PDF using TDocProcessor's static method
+    return TDocProcessor._convert_to_pdf(doc_file)
 
 
 def _try_build_tdoc_metadata(source_item_id: str) -> RAGMetadata | None:
@@ -468,6 +550,7 @@ def workspace_add_members(
     items: WorkspaceItemsArgument = None,
     kind: WorkspaceKindOption = "tdoc",
     checkout: WorkspaceCheckoutOption = True,
+    convert_pdf: ConvertPdfOption = False,
     release: WorkspaceReleaseOption = None,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
@@ -483,35 +566,79 @@ def workspace_add_members(
     kind_normalized = kind.lower().rstrip("s")
     source_kind = SourceKind(kind_normalized) if kind_normalized in {entry.value for entry in SourceKind} else SourceKind.OTHER
 
-    resolved_items = _resolve_workspace_items(
-        items=items,
-        source_kind=source_kind,
-        start_date=start_date,
-        end_date=end_date,
-        source=source,
-        source_ex=source_ex,
-        title=title,
-        title_ex=title_ex,
-        agenda=agenda,
-        agenda_ex=agenda_ex,
-        limit=limit,
-    )
-    if not resolved_items:
-        console.print("[yellow]No items match the provided filters[/yellow]")
-        return
+    # Phase 1: Resolve items - either directly provided or via database query
+    if items is not None:
+        resolved_items = items
+    else:
+        # Database query can be slow - show spinner only
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("[cyan]Querying database...", total=None)
+            resolved_items = _resolve_workspace_items(
+                items=None,
+                source_kind=source_kind,
+                start_date=start_date,
+                end_date=end_date,
+                source=source,
+                source_ex=source_ex,
+                title=title,
+                title_ex=title_ex,
+                agenda=agenda,
+                agenda_ex=agenda_ex,
+                limit=limit,
+            )
+        if not resolved_items:
+            console.print("[yellow]No items match the provided filters[/yellow]")
+            return
 
-    members, skipped = _build_workspace_members(
-        workspace=workspace_name,
-        items=resolved_items,
-        source_kind=source_kind,
-        checkout=checkout,
-        release=release,
-    )
+    # Phase 2: Checkout + optional PDF conversion - single progress bar, one tick per document
+    manager = resolve_cache_manager()
+    members: list[Any] = []
+    skipped: list[tuple[str, str]] = []
+    converted_count = 0
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task(
+            f"[cyan]Processing {len(resolved_items)} item(s)...",
+            total=len(resolved_items),
+        )
+        for item in resolved_items:
+            member, skip_reason, was_converted = _process_single_item(
+                item=item,
+                workspace=workspace_name,
+                source_kind=source_kind,
+                checkout=checkout,
+                release=release,
+                convert_pdf=convert_pdf,
+                manager=manager,
+            )
+            if skip_reason:
+                skipped.append((item, skip_reason))
+                progress.update(task, advance=1, description=f"[cyan]{item} (skipped)")
+            else:
+                members.append(member)
+                if was_converted:
+                    converted_count += 1
+                    progress.update(task, advance=1, description=f"[cyan]{item} (converted)")
+                else:
+                    progress.update(task, advance=1, description=f"[cyan]{item}")
 
     if skipped:
         console.print("\n[yellow]Skipped invalid items:[/yellow]")
         for item_id, reason in skipped:
             console.print(f"  - {item_id}: {reason}")
+
+    if converted_count > 0:
+        console.print(f"[green]Converted {converted_count} document(s) to PDF[/green]")
 
     added = add_workspace_members(workspace_name, members)
     console.print(f"[green]Added {added} member(s) to '{workspace_name}'[/green]")

@@ -41,6 +41,10 @@ WorkspaceAutoBuildOption = Annotated[
 WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(help="Source item IDs to add (optional if filters provided)")]
 WorkspaceKindOption = Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)")]
 WorkspaceCheckoutOption = Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present")]
+ConvertPdfOption = Annotated[
+    bool,
+    typer.Option("--convert-pdf/--no-convert-pdf", "-cp", help="Convert office documents to PDF during add-members", envvar="TDC_AI_CONVERT_PDF"),
+]
 WorkspaceReleaseOption = Annotated[
     str | None,
     typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs."),
@@ -50,7 +54,10 @@ WorkspaceIncludeInactiveOption = Annotated[bool, typer.Option("--include-inactiv
 WorkspaceProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing of all members")]
 WorkspacePreserveArtifactsOption = Annotated[
     bool,
-    typer.Option("--preserve-artifacts/--delete-artifacts", help="Preserve LightRAG artifacts"),
+    typer.Option(
+        "--preserve-artifacts/--delete-artifacts",
+        help="Preserve LightRAG artifacts (embeddings, index). --delete-artifacts removes only LightRAG data, not document artifacts (.ai folders)",
+    ),
 ]
 
 # Filter options for workspace add-members
