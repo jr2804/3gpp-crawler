@@ -67,7 +67,13 @@ Add export capabilities for the knowledge graph in formats like GraphML, RDF, or
 
 ---
 
-## 11. Non-3gpp-ai Repo Sweep Findings (2026-03-25)
+## 11. Improve list of workspace members
+
+Improve output of `3gpp-ai workspace list-members` command to include more metadata about each member, such as file type (docx, pdf, etc.), size, if converted to PDF, if Markdown-extraction is available and if extracted metadata (figures, tables, equations, etc.) is present.
+
+---
+
+## 12. Non-3gpp-ai Repo Sweep Findings (2026-03-25)
 
 Commands executed:
 
