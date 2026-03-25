@@ -250,3 +250,6 @@ src/teddi-mcp/uv.lock
 
 # kreuzberg artifacts
 .kreuzberg
+
+# GSD planning docs (local only)
+.planning/

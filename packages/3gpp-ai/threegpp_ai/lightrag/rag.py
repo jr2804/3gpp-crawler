@@ -42,6 +42,14 @@ class ProviderConfig:
     embed_func: Callable | None = None
 
 
+@dataclass(frozen=True)
+class ProviderAlias:
+    """Provider alias with optional base URL override."""
+
+    canonical: str
+    base_url: str | None = None
+
+
 PROVIDERS: dict[str, ProviderConfig] = {
     "ollama": ProviderConfig(complete_func=ollama_model_complete, embed_func=ollama_embed),
     "openai": ProviderConfig(complete_func=openai_complete, embed_func=openai_embed),
@@ -50,16 +58,22 @@ PROVIDERS: dict[str, ProviderConfig] = {
     "jina": ProviderConfig(embed_func=jina_embed),
 }
 
-PROVIDER_ALIASES = {"zai": "zhipu"}  # workaround for "typical" vs "actual" provider names
+PROVIDER_ALIASES: dict[str, ProviderAlias] = {
+    "zai": ProviderAlias(canonical="zhipu"),
+    "zai-coding-plan": ProviderAlias(canonical="zhipu", base_url="https://api.z.ai/api/paas/v4"),
+    "openrouter": ProviderAlias(canonical="openai", base_url="https://openrouter.ai/api/v1"),
+    "nvidia": ProviderAlias(canonical="openai", base_url="https://integrate.api.nvidia.com/v1/"),
+}
 
 
 def _resolve_provider(provider: str) -> str:
     """Resolve provider alias to canonical name."""
-    resolved = PROVIDER_ALIASES.get(provider, provider)
-    if resolved not in PROVIDERS:
+    if provider in PROVIDER_ALIASES:
+        return PROVIDER_ALIASES[provider].canonical
+    if provider not in PROVIDERS:
         available = ", ".join(sorted(PROVIDERS.keys()))
         raise ValueError(f"Unsupported provider '{provider}'. Available: {available}")
-    return resolved
+    return provider
 
 
 def _parse_provider(model_string: str) -> tuple[str, str]:
