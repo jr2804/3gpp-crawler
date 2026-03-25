@@ -6,6 +6,7 @@ The AI module provides intelligent document processing capabilities for 3GPP doc
 
 - **Classification** - Identify main documents in multi-file TDoc folders
 - **Extraction** - Convert DOCX/PDF to Markdown with keyword extraction and language detection (via Kreuzberg)
+- **Structured Elements** - Preserve tables, figures, and equations with stable markers and metadata
 - **Embeddings** - Generate semantic vector representations for similarity search
 - **Summarization** - Create AI-powered abstracts
 - **Knowledge Graph** - Build relationships between TDocs
@@ -99,14 +100,16 @@ ______________________________________________________________________
 
 The AI module follows a workspace-based workflow for organizing and querying your document collection:
 
+All examples below use the current CLI entrypoint: `tdoc-crawler ai ...`.
+
 ### 1. Create and Activate Workspace
 
 ```bash
 # Create a new workspace for your project
-3gpp-ai workspace create my-project
+tdoc-crawler ai workspace create my-project
 
 # Activate it so you don't need --workspace for other commands
-3gpp-ai workspace activate my-project
+tdoc-crawler ai workspace activate my-project
 ```
 
 Once activated, all workspace commands use the active workspace by default. No need to pass `-w` every time.
@@ -117,30 +120,31 @@ After adding TDocs to your workspace, process them to generate RAG/GraphRAG embe
 
 ```bash
 # Add TDocs to the active workspace
-3gpp-ai workspace add-members S4-251971 S4-251972
+tdoc-crawler ai workspace add-members --kind tdoc S4-251971 S4-251972
 
 # Process all TDocs in workspace (only new ones)
-3gpp-ai workspace process -w my-project
+tdoc-crawler ai workspace process -w my-project
 
 # Force reprocess all TDocs
-3gpp-ai workspace process -w my-project --force
+tdoc-crawler ai workspace process -w my-project --force
 ```
 
 Note: If you created the workspace with `--auto-build`, documents are processed automatically when added.
 
 ### 3. Query Your Knowledge Base
 
-Once you have a workspace with documents, query using semantic search and knowledge graph (RAG + GraphRAG):
+Once you have a workspace with documents, query using the single RAG command that searches enriched text plus preserved table/figure/equation context:
 
 ```bash
-# Query the active workspace
-3gpp-ai query "your query here"
+# Query a workspace
+tdoc-crawler ai rag query --workspace my-project "What are the bit rates in Table 3?"
 
-# Or specify a workspace explicitly
-3gpp-ai query -w my-project "your query here"
+# Same command for figure/equation questions
+tdoc-crawler ai rag query --workspace my-project "Describe the architecture figure"
+tdoc-crawler ai rag query --workspace my-project "What is the throughput equation?"
 ```
 
-Note: Uses active workspace if `-w` is not provided. Results combine vector embeddings (RAG) and knowledge graph (GraphRAG).
+Note: `ai rag query` is the only query entrypoint. Do not use separate table/figure/equation query commands.
 
 ### 4. Workspace Maintenance
 
@@ -148,16 +152,16 @@ Keep your workspace clean and manage artifacts:
 
 ```bash
 # Get detailed workspace information (member counts by type)
-3gpp-ai workspace info my-project
+tdoc-crawler ai workspace info my-project
 
 # Remove invalid/inactive members
-3gpp-ai workspace clear-invalid -w my-project
+tdoc-crawler ai workspace clear-invalid -w my-project
 
 # Clear all AI artifacts (embeddings, summaries) while preserving members
-3gpp-ai workspace clear -w my-project
+tdoc-crawler ai workspace clear -w my-project
 
 # After clearing, re-process to regenerate artifacts
-3gpp-ai workspace process -w my-project --force
+tdoc-crawler ai workspace process -w my-project --force
 ```
 
 ### 5. Single TDoc Operations
@@ -165,8 +169,15 @@ Keep your workspace clean and manage artifacts:
 Process a single TDoc through the pipeline (classification, extraction, embeddings, graph). Use `--accelerate` to choose the sentence-transformers backend.
 
 ```bash
-3gpp-ai process --tdoc-id SP-240001 --accelerate onnx
+tdoc-crawler ai convert SP-240001 --output ./SP-240001.md
+tdoc-crawler ai summarize SP-240001 --words 200
 ```
+
+When structured extraction is enabled, conversion and workspace processing may generate sidecars next to markdown artifacts:
+
+- `*_tables.json`
+- `*_figures.json`
+- `*_equations.json`
 
 ______________________________________________________________________
 
@@ -176,7 +187,7 @@ ______________________________________________________________________
 
 ````bash
 # Create a new workspace
-3gpp-ai workspace create <name> [--auto-build]
+tdoc-crawler ai workspace create <name> [--auto-build]
 
 Options:
 - `name`: Workspace name
@@ -184,48 +195,42 @@ Options:
 
 # List all workspaces
 # Shows (*) next to the active workspace
-3gpp-ai workspace list
+tdoc-crawler ai workspace list
 
 # Activate a workspace (sets as default for workspace commands)
-3gpp-ai workspace activate <name>
+tdoc-crawler ai workspace activate <name>
 
 # Deactivate the active workspace
-3gpp-ai workspace deactivate
+tdoc-crawler ai workspace deactivate
 
 # Get workspace details (name, status, member counts)
-3gpp-ai workspace info <name>
+tdoc-crawler ai workspace info <name>
 
 # Remove invalid/inactive members from workspace
-3gpp-ai workspace clear-invalid [-w <name>]
+tdoc-crawler ai workspace clear-invalid [-w <name>]
 
 # Clear all AI artifacts while preserving members
-3gpp-ai workspace clear [-w <name>]
+tdoc-crawler ai workspace clear [-w <name>]
 
 # Delete a workspace
-3gpp-ai workspace delete <name>
+tdoc-crawler ai workspace delete <name>
 ### Querying
 
 Query the knowledge base using semantic embeddings and knowledge graph (RAG + GraphRAG).
 
 ```bash
-# Query the active workspace
-3gpp-ai query "your query here"
-
-# Query a specific workspace
-3gpp-ai query -w <workspace_name> "your query here"
-
-# Specify number of results
-3gpp-ai query "your query here" -k 10
+# Query a specific workspace (single query command)
+tdoc-crawler ai rag query --workspace <workspace_name> "your query here"
 ````
 
-Note: Uses active workspace if `-w` is not provided. Combines vector embeddings (RAG) and knowledge graph (GraphRAG). The query is a **positional argument** (no `--query` flag needed).
+Note: Keep `ai rag query` as the single query interface. The query is a positional argument (no `--query` flag).
 
 #### Summarize a TDoc
 
 Summarize a single TDoc with specified word count.
 
 ```bash
-3gpp-ai summarize <tdoc_id> [--words N] [--format markdown|json|yaml] [--json-output]
+tdoc-crawler ai summarize <tdoc_id> [--words N] [--format markdown|json|yaml] [--json-output]
 ```
 
 Options:
@@ -240,7 +245,7 @@ Options:
 Convert a single TDoc to markdown format.
 
 ```bash
-3gpp-ai convert <tdoc_id> [--output FILE.md] [--json-output]
+tdoc-crawler ai convert <tdoc_id> [--output FILE.md] [--json-output]
 ```
 
 Options:
@@ -255,31 +260,31 @@ Add TDocs to workspaces and process them to generate embeddings and knowledge gr
 
 ```bash
 # Add members to the active workspace
-3gpp-ai workspace add-members S4-251971 S4-251972
+tdoc-crawler ai workspace add-members --kind tdoc S4-251971 S4-251972
 
 # Add members to a specific workspace
-3gpp-ai workspace add-members -w my-project S4-251971 S4-251972
+tdoc-crawler ai workspace add-members -w my-project --kind tdoc S4-251971 S4-251972
 
 # List members in the active workspace
-3gpp-ai workspace list-members
+tdoc-crawler ai workspace list-members
 
 # List members including inactive ones
-3gpp-ai workspace list-members --include-inactive
+tdoc-crawler ai workspace list-members --include-inactive
 
 # Process all TDocs in the active workspace
-3gpp-ai workspace process
+tdoc-crawler ai workspace process
 
 # Process with options
-3gpp-ai workspace process -w my-project --force
+tdoc-crawler ai workspace process -w my-project --force
 
 # Get workspace information with member counts
-3gpp-ai workspace info my-project
+tdoc-crawler ai workspace info my-project
 
 # Remove invalid members (failed checkouts, etc.)
-3gpp-ai workspace clear-invalid -w my-project
+tdoc-crawler ai workspace clear-invalid -w my-project
 
 # Clear AI artifacts (keep members, remove embeddings/summaries)
-3gpp-ai workspace clear -w my-project
+tdoc-crawler ai workspace clear -w my-project
 ```
 
 ______________________________________________________________________

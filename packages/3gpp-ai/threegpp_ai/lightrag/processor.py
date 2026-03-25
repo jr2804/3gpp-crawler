@@ -15,6 +15,13 @@ from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
 from kreuzberg import extract_file, extract_file_sync
 
+from threegpp_ai.operations.extraction_result import (
+    StructuredExtractionResult,
+    from_kreuzberg_result,
+    persist_figures_from_kreuzberg_result,
+)
+from threegpp_ai.operations.figure_descriptor import describe_figures
+
 from .config import LightRAGConfig
 from .metadata import RAGMetadata, enrich_text
 from .rag import TDocRAG
@@ -44,6 +51,9 @@ class ProcessingResult:
     reason: str | None = None
     error: str | None = None
     chars_extracted: int = 0
+    table_count: int = 0
+    figure_count: int = 0
+    equation_count: int = 0
     entities_extracted: int = 0
     relations_extracted: int = 0
 
@@ -53,6 +63,9 @@ class ProcessingResult:
             "file": self.file_path,
             "status": self.status.value,
             "chars_extracted": self.chars_extracted,
+            "table_count": self.table_count,
+            "figure_count": self.figure_count,
+            "equation_count": self.equation_count,
         }
         if self.reason:
             result["reason"] = self.reason
@@ -86,90 +99,6 @@ class TDocProcessor:
         self.config = config or LightRAGConfig.from_env()
         self.rag = TDocRAG(self.config)
 
-    @staticmethod
-    def is_supported(file_path: Path) -> bool:
-        """Check if a file format is supported for extraction."""
-        return file_path.suffix.lower() in SUPPORTED_FORMATS
-
-    @staticmethod
-    def _convert_to_pdf(file_path: Path) -> Path | None:
-        """Convert office document to PDF and save in .ai subfolder.
-
-        Args:
-            file_path: Path to office document.
-
-        Returns:
-            Path to converted PDF in .ai subfolder, or None if conversion failed.
-        """
-        try:
-            # Create .ai subfolder next to original file
-            ai_dir = file_path.parent / ".ai"
-            ai_dir.mkdir(parents=True, exist_ok=True)
-
-            converter = Converter()
-            with tempfile.TemporaryDirectory() as tmpdir:
-                result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
-                if result and result.output_path:
-                    # Save to .ai subfolder with same stem
-                    output_pdf = ai_dir / f"{file_path.stem}.pdf"
-                    output_pdf.write_bytes(result.output_path.read_bytes())
-                    logger.info("Converted %s to PDF: %s", file_path.name, output_pdf)
-                    return output_pdf
-                else:
-                    logger.error("PDF conversion returned empty result for %s", file_path)
-                    return None
-        except Exception as e:
-            logger.error("PDF conversion failed for %s: %s", file_path, e)
-            return None
-
-    @staticmethod
-    async def extract_text(file_path: Path) -> str | None:
-        """Extract text content from a file using kreuzberg.
-
-        For office documents, first converts to PDF using convert-lo.
-        Saves extracted content as markdown in .ai subfolder.
-
-        Args:
-            file_path: Path to the document file.
-
-        Returns:
-            Extracted text content, or None if extraction failed.
-        """
-        extracted_content: str | None = None
-        pdf_path: Path | None = None
-
-        try:
-            # Convert office documents to PDF first
-            if file_path.suffix.lower() in OFFICE_FORMATS:
-                pdf_path = TDocProcessor._convert_to_pdf(file_path)
-                if pdf_path is None:
-                    logger.error("PDF conversion failed for %s", file_path)
-                    return None
-                # Use sync extraction for PDF
-                result = extract_file_sync(str(pdf_path))
-                # Don't clean up - keep the PDF in .ai folder
-            else:
-                # Direct extraction for PDF, TXT, MD
-                result = await extract_file(file_path)
-
-            if result and result.content:
-                extracted_content = result.content
-            else:
-                logger.warning("No content extracted from %s", file_path)
-                return None
-
-            # Save extracted content as markdown in .ai subfolder
-            ai_dir = file_path.parent / ".ai"
-            ai_dir.mkdir(parents=True, exist_ok=True)
-            md_path = ai_dir / f"{file_path.stem}.md"
-            md_path.write_text(extracted_content, encoding="utf-8")
-            logger.info("Saved markdown: %s", md_path)
-
-            return extracted_content
-        except Exception as e:
-            logger.error("Extraction failed for %s: %s", file_path, e)
-            return None
-
     async def process_file(
         self,
         file_path: Path,
@@ -194,13 +123,15 @@ class TDocProcessor:
                 reason=f"unsupported format: {file_path.suffix}",
             )
 
-        text = await self.extract_text(file_path)
-        if text is None:
+        extraction = await self.extract_text(file_path)
+        if extraction is None:
             return ProcessingResult(
                 file_path=str(file_path),
                 status=ProcessingResultStatus.ERROR,
                 error="text extraction returned None",
             )
+
+        text = extraction.content
 
         # Check for minimum content
         if len(text.strip()) < 50:
@@ -209,6 +140,9 @@ class TDocProcessor:
                 status=ProcessingResultStatus.SKIPPED,
                 reason="insufficient content (less than 50 chars)",
                 chars_extracted=len(text),
+                table_count=extraction.table_count,
+                figure_count=extraction.figure_count,
+                equation_count=extraction.equation_count,
             )
 
         # Enrich text with metadata if provided
@@ -222,7 +156,26 @@ class TDocProcessor:
 
         # Insert into LightRAG
         try:
-            await self.rag.insert(text)
+            insert_metadata: dict[str, object] = {
+                "element_type": "document",
+                "table_count": extraction.table_count,
+                "figure_count": extraction.figure_count,
+                "equation_count": extraction.equation_count,
+                "table_ids": [table.element_id for table in extraction.tables],
+                "figure_ids": [figure.element_id for figure in extraction.figures],
+                "equation_ids": [equation.element_id for equation in extraction.equations],
+            }
+            if metadata is not None:
+                insert_metadata.update(
+                    {
+                        "source_doc": metadata.tdoc_id,
+                        "doc_type": "tdoc",
+                        "meeting": metadata.meeting,
+                        "wg": metadata.wg,
+                    }
+                )
+
+            await self.rag.insert(text, metadata=insert_metadata)
 
             # Track document in workspace index if shared storage is enabled
             if self.rag.workspace_index is not None and metadata is not None:
@@ -245,6 +198,9 @@ class TDocProcessor:
                 file_path=str(file_path),
                 status=ProcessingResultStatus.SUCCESS,
                 chars_extracted=len(text),
+                table_count=extraction.table_count,
+                figure_count=extraction.figure_count,
+                equation_count=extraction.equation_count,
             )
         except Exception as e:
             logger.error("Failed to insert %s into LightRAG: %s", file_path, e)
@@ -253,6 +209,9 @@ class TDocProcessor:
                 status=ProcessingResultStatus.ERROR,
                 error=str(e),
                 chars_extracted=len(text),
+                table_count=extraction.table_count,
+                figure_count=extraction.figure_count,
+                equation_count=extraction.equation_count,
             )
 
     async def process_folder(
@@ -285,3 +244,96 @@ class TDocProcessor:
             await self.rag.stop()
 
         return results
+
+    @staticmethod
+    def is_supported(file_path: Path) -> bool:
+        """Check if a file format is supported for extraction."""
+        return file_path.suffix.lower() in SUPPORTED_FORMATS
+
+    @staticmethod
+    async def extract_text(file_path: Path) -> StructuredExtractionResult | None:
+        """Extract structured content from a file using kreuzberg.
+
+        For office documents, first converts to PDF using convert-lo.
+        Saves extracted content as markdown in .ai subfolder.
+
+        Args:
+            file_path: Path to the document file.
+
+        Returns:
+            Structured extraction result, or None if extraction failed.
+        """
+        pdf_path: Path | None = None
+
+        try:
+            # Convert office documents to PDF first
+            if file_path.suffix.lower() in OFFICE_FORMATS:
+                pdf_path = TDocProcessor._convert_to_pdf(file_path)
+                if pdf_path is None:
+                    logger.error("PDF conversion failed for %s", file_path)
+                    return None
+                # Use sync extraction for PDF
+                result = extract_file_sync(str(pdf_path))
+                # Don't clean up - keep the PDF in .ai folder
+            else:
+                # Direct extraction for PDF, TXT, MD
+                result = await extract_file(file_path)
+
+            ai_dir = file_path.parent / ".ai"
+            ai_dir.mkdir(parents=True, exist_ok=True)
+            figure_paths = persist_figures_from_kreuzberg_result(result, ai_dir / "figures")
+            figure_descriptions = describe_figures(
+                figure_paths,
+                enabled=True,
+            )
+            extraction = from_kreuzberg_result(
+                result,
+                figure_paths={key: str(path) for key, path in figure_paths.items()},
+                figure_descriptions=figure_descriptions,
+            )
+            if extraction.content:
+                extracted_content = extraction.content
+            else:
+                logger.warning("No content extracted from %s", file_path)
+                return None
+
+            # Save extracted content as markdown in .ai subfolder
+            md_path = ai_dir / f"{file_path.stem}.md"
+            md_path.write_text(extracted_content, encoding="utf-8")
+            logger.info("Saved markdown: %s", md_path)
+
+            return extraction
+        except Exception as e:
+            logger.error("Extraction failed for %s: %s", file_path, e)
+            return None
+
+    @staticmethod
+    def _convert_to_pdf(file_path: Path) -> Path | None:
+        """Convert office document to PDF and save in .ai subfolder.
+
+        Args:
+            file_path: Path to office document.
+
+        Returns:
+            Path to converted PDF in .ai subfolder, or None if conversion failed.
+        """
+        try:
+            # Create .ai subfolder next to original file
+            ai_dir = file_path.parent / ".ai"
+            ai_dir.mkdir(parents=True, exist_ok=True)
+
+            converter = Converter()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
+                if result and result.output_path:
+                    # Save to .ai subfolder with same stem
+                    output_pdf = ai_dir / f"{file_path.stem}.pdf"
+                    output_pdf.write_bytes(result.output_path.read_bytes())
+                    logger.info("Converted %s to PDF: %s", file_path.name, output_pdf)
+                    return output_pdf
+                else:
+                    logger.error("PDF conversion returned empty result for %s", file_path)
+                    return None
+        except Exception as e:
+            logger.error("PDF conversion failed for %s: %s", file_path, e)
+            return None

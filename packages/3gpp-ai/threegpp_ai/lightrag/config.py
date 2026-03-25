@@ -196,6 +196,22 @@ class LightRAGConfig(BaseSettings):
         description="Enable shared embedding storage across workspaces (deduplication). "
         "Note: Requires custom LightRAG integration - disable if using standard LightRAG.",
     )
+    extract_tables: bool = Field(
+        default=True,
+        description="Enable extraction and indexing of table elements.",
+    )
+    extract_figures: bool = Field(
+        default=True,
+        description="Enable extraction and indexing of figure/image elements.",
+    )
+    extract_equations: bool = Field(
+        default=True,
+        description="Enable extraction and indexing of equation elements.",
+    )
+    figure_description_enabled: bool = Field(
+        default=True,
+        description="Enable optional figure description generation when vision-capable models are available.",
+    )
 
     model_config = SettingsConfigDict(env_prefix="LIGHTRAG_")
 
@@ -219,6 +235,10 @@ class LightRAGConfig(BaseSettings):
         embedding_model = os.getenv("TDC_AI_EMBEDDING_MODEL")
         embedding_api_base = os.getenv("TDC_AI_EMBEDDING_API_BASE")
         embedding_api_key = os.getenv("TDC_AI_EMBEDDING_API_KEY")
+        extract_tables = os.getenv("LIGHTRAG_EXTRACT_TABLES")
+        extract_figures = os.getenv("LIGHTRAG_EXTRACT_FIGURES")
+        extract_equations = os.getenv("LIGHTRAG_EXTRACT_EQUATIONS")
+        figure_description_enabled = os.getenv("LIGHTRAG_FIGURE_DESCRIPTION_ENABLED")
 
         # Build configuration dictionary
         config_data = {}
@@ -237,6 +257,22 @@ class LightRAGConfig(BaseSettings):
                 "model": embedding_model,
                 "api_base": embedding_api_base or DEFAULT_EMBEDDING_API_BASE,
                 "api_key": embedding_api_key,
+            }
+
+        # Extraction toggles are part of LightRAGConfig itself.
+        # Keep explicit mapping here so from_env behavior is predictable.
+        if extract_tables is not None:
+            config_data["extract_tables"] = extract_tables.lower() in {"1", "true", "yes", "on"}
+        if extract_figures is not None:
+            config_data["extract_figures"] = extract_figures.lower() in {"1", "true", "yes", "on"}
+        if extract_equations is not None:
+            config_data["extract_equations"] = extract_equations.lower() in {"1", "true", "yes", "on"}
+        if figure_description_enabled is not None:
+            config_data["figure_description_enabled"] = figure_description_enabled.lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
             }
 
         # Apply overrides

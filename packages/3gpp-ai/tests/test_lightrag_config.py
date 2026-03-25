@@ -3,6 +3,10 @@
 import os
 
 from threegpp_ai.lightrag.config import (
+    DEFAULT_EMBEDDING_API_BASE,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LLM_API_BASE,
+    DEFAULT_LLM_MODEL,
     DatabaseConfig,
     EmbeddingConfig,
     LightRAGConfig,
@@ -40,8 +44,8 @@ class TestLLMConfig:
     def test_llm_config_defaults(self) -> None:
         """Test LLM config default values."""
         config = LLMConfig()
-        assert config.model == "openrouter/openrouter/free"
-        assert config.api_base == "http://localhost:11434"
+        assert config.model == DEFAULT_LLM_MODEL
+        assert config.api_base == DEFAULT_LLM_API_BASE
         assert config.api_key is None
 
     def test_llm_config_custom(self) -> None:
@@ -62,8 +66,8 @@ class TestEmbeddingConfig:
     def test_embedding_config_defaults(self) -> None:
         """Test embedding config default values."""
         config = EmbeddingConfig()
-        assert config.model == "ollama/qwen3-embedding:0.6b"
-        assert config.api_base == "http://localhost:11434"
+        assert config.model == DEFAULT_EMBEDDING_MODEL
+        assert config.api_base == DEFAULT_EMBEDDING_API_BASE
         assert config.api_key is None
 
     def test_embedding_config_custom(self) -> None:
@@ -105,10 +109,14 @@ class TestLightRAGConfig:
     def test_lightrag_config_defaults(self) -> None:
         """Test LightRAG config default values."""
         config = LightRAGConfig()
-        assert config.llm.model == "openrouter/openrouter/free"
-        assert config.embedding.model == "ollama/qwen3-embedding:0.6b"
+        assert config.llm.model == DEFAULT_LLM_MODEL
+        assert config.embedding.model == DEFAULT_EMBEDDING_MODEL
         assert config.database.backend == StorageBackend.FILE
         assert config.default_query_mode == QueryMode.HYBRID
+        assert config.extract_tables is True
+        assert config.extract_figures is True
+        assert config.extract_equations is True
+        assert config.figure_description_enabled is True
 
     def test_lightrag_config_with_subconfigs(self) -> None:
         """Test LightRAG config with sub-configs."""
@@ -128,21 +136,24 @@ class TestLightRAGConfig:
     def test_lightrag_config_env_prefix(self) -> None:
         """Test environment variable prefix."""
         # LightRAGConfig uses env_prefix="LIGHTRAG_"
-        os.environ["LIGHTRAG_WORKING_DIR"] = "/custom/path"
+        os.environ["LIGHTRAG_EXTRACT_TABLES"] = "false"
         try:
             config = LightRAGConfig()
-            assert config.working_dir == "/custom/path"
+            assert config.extract_tables is False
         finally:
-            del os.environ["LIGHTRAG_WORKING_DIR"]
+            del os.environ["LIGHTRAG_EXTRACT_TABLES"]
 
     def test_lightrag_config_from_env(self) -> None:
         """Test LightRAGConfig.from_env() with TDC_AI_* variables."""
         os.environ["TDC_AI_LLM_MODEL"] = "openai/gpt-4o"
         os.environ["TDC_AI_EMBEDDING_MODEL"] = "openai/text-embedding-3-small"
+        os.environ["LIGHTRAG_EXTRACT_FIGURES"] = "0"
         try:
             config = LightRAGConfig.from_env()
             assert config.llm.model == "openai/gpt-4o"
             assert config.embedding.model == "openai/text-embedding-3-small"
+            assert config.extract_figures is False
         finally:
             del os.environ["TDC_AI_LLM_MODEL"]
             del os.environ["TDC_AI_EMBEDDING_MODEL"]
+            del os.environ["LIGHTRAG_EXTRACT_FIGURES"]

@@ -7,6 +7,7 @@ from threegpp_ai.operations.chunking import (
     ChunkingStrategy,
     chunk_document,
     chunk_semantic,
+    chunk_structural,
     chunk_with_overlap,
 )
 
@@ -73,3 +74,31 @@ def test_chunk_with_overlap_preserves_context_between_chunks() -> None:
         overlaps.append(_longest_token_overlap(a_tokens, b_tokens, config.overlap_tokens))
 
     assert all(overlap >= 5 for overlap in overlaps)
+
+
+def test_chunk_structural_preserves_equation_block() -> None:
+    """Structural chunking should keep equation blocks intact as standalone chunks."""
+    equation = "$$ E = mc^2 $$"
+    content = "# Intro\n\n" + ("text " * 200) + "\n\n" + equation + "\n\n" + ("more text " * 200)
+    config = ChunkingConfig(
+        strategy=ChunkingStrategy.STRUCTURAL,
+        max_tokens=80,
+        respect_sections=True,
+    )
+
+    chunks = chunk_structural(content, config)
+
+    assert any(equation in chunk for chunk in chunks)
+
+
+def test_chunk_document_structural_strategy() -> None:
+    """chunk_document should dispatch to structural strategy when configured."""
+    marker = "<!-- table:id=table_1,page=1,rows=1,cols=2 -->"
+    content = f"{('alpha ' * 120)}\n\n{marker}\n\n{('beta ' * 120)}"
+    config = ChunkingConfig(
+        strategy=ChunkingStrategy.STRUCTURAL,
+        max_tokens=60,
+    )
+
+    chunks = chunk_document(content, config)
+    assert any(marker in chunk for chunk in chunks)

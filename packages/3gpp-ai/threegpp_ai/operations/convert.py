@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from dataclasses import dataclass
@@ -18,8 +19,21 @@ from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from threegpp_ai.models import ConversionError, ExtractionError
+from threegpp_ai.models import (
+    ConversionError,
+    ExtractedEquationElement,
+    ExtractedFigureElement,
+    ExtractedTableElement,
+    ExtractionError,
+)
+from threegpp_ai.operations.extraction_result import (
+    StructuredExtractionResult,
+    build_structured_extraction_result,
+    from_kreuzberg_result,
+    persist_figures_from_kreuzberg_result,
+)
 from threegpp_ai.operations.fetch_tdoc import fetch_tdoc_files
+from threegpp_ai.operations.figure_descriptor import describe_figures
 from threegpp_ai.operations.metrics import MetricType, get_metrics_tracker, timed_operation
 
 logger = get_logger(__name__)
@@ -268,6 +282,40 @@ def convert_tdoc_to_markdown(
         ExtractionError: If no document files found
         ConversionError: If conversion fails (both LibreOffice and remote)
     """
+    extraction = extract_tdoc_structured(
+        document_id=document_id,
+        force=force,
+        converter_config=converter_config,
+    )
+    markdown = extraction.content
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(markdown, encoding="utf-8")
+        return str(output_path)
+
+    return markdown
+
+
+def extract_tdoc_structured(
+    document_id: str,
+    force: bool = False,
+    converter_config: ConverterConfig | None = None,
+) -> StructuredExtractionResult:
+    """Extract a TDoc into the canonical structured payload.
+
+    Args:
+        document_id: TDoc identifier (e.g., "S4-260001").
+        force: Force reconversion even if cached markdown exists.
+        converter_config: Optional converter backend configuration.
+
+    Returns:
+        Structured extraction result.
+
+    Raises:
+        ExtractionError: If no source file is available for the TDoc.
+        ConversionError: If conversion/extraction fails.
+    """
     normalized_id = document_id.strip().upper()
     config = converter_config or ConverterConfig.from_env()
 
@@ -284,39 +332,37 @@ def convert_tdoc_to_markdown(
         if md_path.exists() and not force:
             cached = md_path.read_text(encoding="utf-8")
             if len(cached) > 100:
-                if output_path:
-                    output_path.parent.mkdir(parents=True, exist_ok=True)
-                    output_path.write_text(cached, encoding="utf-8")
-                    return str(output_path)
-                return cached
+                return _read_cached_structured(ai_dir, normalized_id, cached)
 
         if primary.suffix.lower() == ".pdf":
             result = extract_file_sync(str(primary))
-            markdown = result.content
+            extraction = _build_structured_from_result(result, ai_dir=ai_dir)
         else:
-            # Non-PDF: need to convert to PDF first
-            markdown = _convert_document_to_markdown(primary, config)
+            extraction = _convert_document_to_structured(primary, config, ai_dir=ai_dir)
+
+        markdown = extraction.content
 
         ai_dir.mkdir(parents=True, exist_ok=True)
         md_path.write_text(markdown, encoding="utf-8")
+        _write_structured_sidecars(ai_dir, normalized_id, extraction)
 
-        if output_path:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(markdown, encoding="utf-8")
-            return str(output_path)
-
-        return markdown
+        return extraction
 
 
-def _convert_document_to_markdown(primary: Path, config: ConverterConfig) -> str:
-    """Convert non-PDF document to markdown via configured backend.
+def _convert_document_to_structured(
+    primary: Path,
+    config: ConverterConfig,
+    *,
+    ai_dir: Path | None = None,
+) -> StructuredExtractionResult:
+    """Convert non-PDF document to structured extraction via configured backend.
 
     Args:
         primary: Path to source document (DOCX, DOC, etc.)
         config: Converter configuration
 
     Returns:
-        Extracted markdown content
+        Structured extraction payload
 
     Raises:
         ConversionError: If all conversion attempts fail
@@ -326,11 +372,11 @@ def _convert_document_to_markdown(primary: Path, config: ConverterConfig) -> str
         with tempfile.TemporaryDirectory() as tmpdir:
             pdf_path = _convert_via_remote(primary, Path(tmpdir), config)
             result = extract_file_sync(str(pdf_path))
-            return result.content
+            return _build_structured_from_result(result, ai_dir=ai_dir)
 
     if config.backend == ConverterBackend.LIBREOFFICE:
         # LibreOffice only - no fallback
-        return _convert_via_libreoffice(primary)
+        return _convert_via_libreoffice(primary, ai_dir=ai_dir)
 
     # AUTO: Try LibreOffice first, fallback to remote on failure
     try:
@@ -341,17 +387,17 @@ def _convert_document_to_markdown(primary: Path, config: ConverterConfig) -> str
         with tempfile.TemporaryDirectory() as tmpdir:
             pdf_path = _convert_via_remote(primary, Path(tmpdir), config)
             result = extract_file_sync(str(pdf_path))
-            return result.content
+            return _build_structured_from_result(result, ai_dir=ai_dir)
 
 
-def _convert_via_libreoffice(primary: Path) -> str:
-    """Convert document to markdown via LibreOffice.
+def _convert_via_libreoffice(primary: Path, *, ai_dir: Path | None = None) -> StructuredExtractionResult:
+    """Convert document to structured extraction via LibreOffice.
 
     Args:
         primary: Path to source document (DOCX, DOC, etc.)
 
     Returns:
-        Extracted markdown content
+        Structured extraction payload
 
     Raises:
         ConversionError: If LibreOffice conversion fails
@@ -361,11 +407,84 @@ def _convert_via_libreoffice(primary: Path) -> str:
         with tempfile.TemporaryDirectory() as tmpdir:
             conversion_result = converter.convert(primary, LibreOfficeFormat.PDF, Path(tmpdir))
             result = extract_file_sync(str(conversion_result.output_path))
-            return result.content
+            return _build_structured_from_result(result, ai_dir=ai_dir)
     except Exception as e:
         msg = f"LibreOffice conversion failed for {primary.name}: {e}"
         logger.error(msg)
         raise ConversionError(msg) from e
+
+
+def _write_structured_sidecars(ai_dir: Path, doc_stem: str, extraction: StructuredExtractionResult) -> None:
+    """Write optional structured sidecars for extracted rich elements.
+
+    Args:
+        ai_dir: Destination `.ai` directory.
+        doc_stem: Base filename stem (typically normalized document ID).
+        extraction: Structured extraction payload.
+    """
+    if extraction.table_count > 0:
+        tables_path = ai_dir / f"{doc_stem}_tables.json"
+        tables_path.write_text(
+            json.dumps([table.model_dump(mode="json") for table in extraction.tables], indent=2),
+            encoding="utf-8",
+        )
+
+    if extraction.figure_count > 0:
+        figures_path = ai_dir / f"{doc_stem}_figures.json"
+        figures_path.write_text(
+            json.dumps([figure.model_dump(mode="json") for figure in extraction.figures], indent=2),
+            encoding="utf-8",
+        )
+
+    if extraction.equation_count > 0:
+        equations_path = ai_dir / f"{doc_stem}_equations.json"
+        equations_path.write_text(
+            json.dumps([equation.model_dump(mode="json") for equation in extraction.equations], indent=2),
+            encoding="utf-8",
+        )
+
+
+def _read_cached_structured(ai_dir: Path, doc_stem: str, cached_content: str) -> StructuredExtractionResult:
+    """Read cached markdown and optional sidecars into a structured payload."""
+
+    def _load_list(path: Path) -> list[dict]:
+        if not path.exists():
+            return []
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            return payload if isinstance(payload, list) else []
+        except Exception as exc:
+            logger.warning("Failed to parse sidecar %s: %s", path, exc)
+            return []
+
+    tables_raw = _load_list(ai_dir / f"{doc_stem}_tables.json")
+    figures_raw = _load_list(ai_dir / f"{doc_stem}_figures.json")
+    equations_raw = _load_list(ai_dir / f"{doc_stem}_equations.json")
+
+    tables = [ExtractedTableElement.model_validate(item) for item in tables_raw]
+    figures = [ExtractedFigureElement.model_validate(item) for item in figures_raw]
+    equations = [ExtractedEquationElement.model_validate(item) for item in equations_raw]
+    return build_structured_extraction_result(
+        cached_content,
+        tables=tables,
+        figures=figures,
+        equations=equations,
+    )
+
+
+def _build_structured_from_result(result: object, *, ai_dir: Path | None = None) -> StructuredExtractionResult:
+    figure_paths: dict[str, str] | None = None
+    figure_descriptions: dict[str, str] | None = None
+    if ai_dir is not None:
+        persisted = persist_figures_from_kreuzberg_result(result, ai_dir / "figures")
+        figure_paths = {key: str(path) for key, path in persisted.items()}
+        figure_descriptions = describe_figures(persisted, enabled=True)
+
+    return from_kreuzberg_result(
+        result,
+        figure_paths=figure_paths,
+        figure_descriptions=figure_descriptions,
+    )
 
 
 __all__ = [
@@ -373,4 +492,5 @@ __all__ = [
     "ConverterConfig",
     "convert_tdoc",
     "convert_tdoc_to_markdown",
+    "extract_tdoc_structured",
 ]

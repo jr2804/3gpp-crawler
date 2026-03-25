@@ -17,6 +17,7 @@ from typing import Any
 from lightrag import LightRAG, QueryParam
 from lightrag.kg import STORAGES
 from lightrag.kg.shared_storage import initialize_pipeline_status
+from lightrag.utils import EmbeddingFunc
 from lightrag.llm.hf import hf_embed, hf_model_complete
 from lightrag.llm.jina import jina_embed
 from lightrag.llm.ollama import ollama_embed, ollama_model_complete
@@ -196,7 +197,7 @@ class TDocRAG:
         async def wrapped_embed_func(texts: list[str], **kwargs: Any) -> list[list[float]]:
             return await embed_config.embed_func(texts, **embed_kwargs, **kwargs)  # type: ignore[call-arg]
 
-        wrapped_embed_func.embedding_dim = embed_dim  # type: ignore[attr-defined]
+        embedding_func = EmbeddingFunc(embedding_dim=embed_dim, func=wrapped_embed_func)
 
         self._rag = LightRAG(
             working_dir=str(working_dir),
@@ -204,7 +205,7 @@ class TDocRAG:
             llm_model_func=llm_config.complete_func,
             llm_model_name=llm_model_name,
             llm_model_kwargs=llm_kwargs,
-            embedding_func=wrapped_embed_func,
+            embedding_func=embedding_func,
             kv_storage=kv_storage,
             vector_storage=vector_storage,
             doc_status_storage=doc_status_storage,
@@ -238,12 +239,22 @@ class TDocRAG:
         """
         if not self._rag:
             raise RuntimeError("TDocRAG not started. Call start() first.")
-        await self._rag.ainsert(text, **kwargs)
+
+        try:
+            await self._rag.ainsert(text, **kwargs)
+        except TypeError as exc:
+            message = str(exc)
+            if "unexpected keyword argument" in message and kwargs:
+                logger.warning("LightRAG ainsert does not accept kwargs in this version; retrying without kwargs")
+                await self._rag.ainsert(text)
+                return
+            raise
 
     async def query(
         self,
         query: str,
         mode: QueryMode | str | None = None,
+        include_citation_hints: bool = True,
         **kwargs: Any,
     ) -> str:
         """Query the knowledge graph.
@@ -252,6 +263,7 @@ class TDocRAG:
             query: Query string
             mode: Query mode (naive, local, global, hybrid, mix, bypass).
                 Defaults to config.default_query_mode.
+            include_citation_hints: Whether to instruct LLM to include element-aware citations.
             **kwargs: Additional arguments passed to rag.aquery()
 
         Returns:
@@ -266,15 +278,27 @@ class TDocRAG:
         elif isinstance(mode, str):
             mode = QueryMode(mode)
 
-        llm_provider, _ = _parse_provider(self.config.llm.model)
-        query_llm_func = _get_provider(llm_provider).complete_func
-        query_kwargs = self._build_provider_kwargs(llm_provider, "")
+        query_text = query
+        if include_citation_hints:
+            query_text = (
+                f"{query}\n\n"
+                "When relevant, cite source context with available metadata fields "
+                "such as element type (table/figure/equation/text), element_id, page, and section."
+            )
 
-        return await self._rag.aquery(
-            query,
-            param=QueryParam(mode=mode.value, model_func=query_llm_func, model_kwargs=query_kwargs),
-            **kwargs,
-        )
+        query_param_kwargs: dict[str, Any] = {"mode": mode.value}
+
+        try:
+            return await self._rag.aquery(
+                query_text,
+                param=QueryParam(**query_param_kwargs),
+                **kwargs,
+            )
+        except KeyError as exc:
+            if exc.args and exc.args[0] == "hashing_kv":
+                logger.warning("Query skipped because workspace has no indexed chunks yet")
+                return ""
+            raise
 
     @property
     def is_started(self) -> bool:
@@ -285,6 +309,11 @@ class TDocRAG:
     def workspace_index(self) -> WorkspaceIndex | None:
         """Get the workspace index for tracking chunks."""
         return self._workspace_index
+
+    @property
+    def working_dir(self) -> Path | None:
+        """Get the working directory."""
+        return self._working_dir
 
     def _build_provider_kwargs(self, provider: str, model_name: str, is_embedding: bool = False) -> dict[str, Any]:
         """Build provider-specific kwargs for LLM/embedding functions."""
@@ -300,8 +329,3 @@ class TDocRAG:
         if provider == "jina":
             return {"api_key": config.api_key}
         return {}
-
-    @property
-    def working_dir(self) -> Path | None:
-        """Get the working directory."""
-        return self._working_dir

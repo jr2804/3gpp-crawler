@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
+import mimetypes
 import re
+from pathlib import Path
 
 import litellm
 
 from tdoc_crawler.utils.misc import utc_now
 from threegpp_ai.config import AiConfig
 from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
-from threegpp_ai.operations.convert import convert_tdoc_to_markdown
+from threegpp_ai.operations.convert import extract_tdoc_structured
 from threegpp_ai.operations.metrics import MetricType, get_metrics_tracker, timed_operation
 
 logger = logging.getLogger(__name__)
@@ -103,6 +106,7 @@ class LiteLLMClient:
         system_prompt: str = SUMMARY_SYSTEM_PROMPT,
         max_tokens: int = 256000,
         model: str | None = None,
+        images: list[Path] | None = None,
     ) -> str:
         """Generate completion from prompt.
 
@@ -121,11 +125,27 @@ class LiteLLMClient:
             logger.warning(msg)
 
         try:
+            user_content: str | list[dict[str, str]]
+            if images:
+                user_content = [{"type": "text", "text": prompt}]
+                for image_path in images:
+                    mime_type, _ = mimetypes.guess_type(str(image_path))
+                    mime_type = mime_type or "image/png"
+                    encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": f"data:{mime_type};base64,{encoded}",
+                        }
+                    )
+            else:
+                user_content = prompt
+
             response = litellm.completion(
                 model=model or cfg.llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": user_content},
                 ],
                 max_tokens=max_tokens,
                 api_key=cfg.llm_api_key,
@@ -373,7 +393,8 @@ def summarize_tdoc(
     normalized_id = document_id.strip().upper()
 
     with timed_operation(get_metrics_tracker(), normalized_id, MetricType.SUMMARIZATION):
-        content = convert_tdoc_to_markdown(normalized_id, force=force)
+        extraction = extract_tdoc_structured(normalized_id, force=force)
+        content = extraction.content
 
         # Get LLM client
         config = AiConfig.from_env()

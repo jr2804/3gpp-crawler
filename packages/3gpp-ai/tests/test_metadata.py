@@ -1,6 +1,11 @@
 """Unit tests for 3GPP metadata enrichment."""
 
+from __future__ import annotations
+
+import pytest
+from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata, create_metadata_from_dict, enrich_text
+from threegpp_ai.lightrag.rag import TDocRAG
 
 
 class TestRAGMetadata:
@@ -140,3 +145,86 @@ class TestCreateMetadataFromDict:
         assert metadata.tdoc_id == "S4-250001"
         assert metadata.title is None
         assert metadata.source is None
+
+
+@pytest.mark.asyncio
+async def test_rag_insert_passes_metadata_kwargs() -> None:
+    """TDocRAG.insert should pass metadata kwargs through to LightRAG ainsert."""
+
+    class _FakeRag:
+        def __init__(self) -> None:
+            self.called_with: tuple[str, dict] | None = None
+
+        async def ainsert(self, text: str, **kwargs: dict) -> None:
+            self.called_with = (text, kwargs)
+
+    rag = TDocRAG(LightRAGConfig())
+    fake = _FakeRag()
+    rag._rag = fake  # type: ignore[assignment]
+
+    await rag.insert("sample", metadata={"element_type": "table", "page": 2})
+
+    assert fake.called_with is not None
+    assert fake.called_with[0] == "sample"
+    assert fake.called_with[1]["metadata"]["element_type"] == "table"
+
+
+@pytest.mark.asyncio
+async def test_rag_query_adds_citation_hint_by_default() -> None:
+    """TDocRAG.query should augment query text with citation guidance by default."""
+
+    class _FakeRag:
+        def __init__(self) -> None:
+            self.last_query: str | None = None
+
+        async def aquery(self, query: str, **kwargs: dict) -> str:
+            self.last_query = query
+            return "ok"
+
+    rag = TDocRAG(LightRAGConfig())
+    fake = _FakeRag()
+    rag._rag = fake  # type: ignore[assignment]
+
+    result = await rag.query("What is table 3?", mode="naive")
+
+    assert result == "ok"
+    assert fake.last_query is not None
+    assert "element type" in fake.last_query
+
+
+@pytest.mark.asyncio
+async def test_rag_query_empty_workspace_returns_empty_result() -> None:
+    """TDocRAG.query should gracefully handle empty workspace storage state."""
+
+    class _FakeRag:
+        async def aquery(self, query: str, **kwargs: dict) -> str:
+            raise KeyError("hashing_kv")
+
+    rag = TDocRAG(LightRAGConfig())
+    rag._rag = _FakeRag()  # type: ignore[assignment]
+
+    result = await rag.query("any", mode="naive")
+
+    assert result == ""
+
+
+@pytest.mark.asyncio
+async def test_rag_insert_retries_without_kwargs_for_older_lightrag() -> None:
+    """TDocRAG.insert retries without kwargs when LightRAG rejects metadata args."""
+
+    class _LegacyRag:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainsert(self, text: str, **kwargs: dict) -> None:
+            self.calls += 1
+            if kwargs:
+                raise TypeError("LightRAG.ainsert() got an unexpected keyword argument 'metadata'")
+
+    rag = TDocRAG(LightRAGConfig())
+    legacy = _LegacyRag()
+    rag._rag = legacy  # type: ignore[assignment]
+
+    await rag.insert("sample", metadata={"element_type": "table"})
+
+    assert legacy.calls == 2

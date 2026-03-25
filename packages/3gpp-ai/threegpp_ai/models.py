@@ -292,6 +292,65 @@ class QueryResult(BaseModel):
         return normalized
 
 
+class ExtractedTableElement(BaseModel):
+    """Structured representation of a table extracted from a document."""
+
+    element_id: str = Field(..., description="Stable table identifier within document")
+    page_number: int | None = Field(None, ge=1, description="1-based page number if available")
+    row_count: int = Field(0, ge=0, description="Number of table rows")
+    column_count: int = Field(0, ge=0, description="Number of table columns")
+    cells: list[list[str]] = Field(default_factory=list, description="Normalized table cell matrix")
+    markdown: str | None = Field(None, description="Markdown representation of the table")
+    caption: str | None = Field(None, description="Detected table caption")
+
+
+class ExtractedFigureElement(BaseModel):
+    """Structured representation of an extracted figure/image."""
+
+    element_id: str = Field(..., description="Stable figure identifier within document")
+    page_number: int | None = Field(None, ge=1, description="1-based page number if available")
+    image_path: str | None = Field(None, description="Path to stored figure artifact")
+    image_format: str | None = Field(None, description="Image format, e.g. png, jpeg")
+    caption: str | None = Field(None, description="Detected figure caption")
+    description: str | None = Field(None, description="Optional generated figure description")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Provider/extraction metadata")
+
+
+class ExtractedEquationElement(BaseModel):
+    """Structured representation of an extracted equation."""
+
+    element_id: str = Field(..., description="Stable equation identifier within document")
+    page_number: int | None = Field(None, ge=1, description="1-based page number if available")
+    equation_number: str | None = Field(None, description="Equation label/number if available")
+    latex: str = Field(..., description="Equation content in LaTeX-compatible format")
+    raw_text: str | None = Field(None, description="Original extracted equation text")
+
+
+class StructuredExtractionResult(BaseModel):
+    """Canonical extraction payload shared by process, convert, and summarize flows."""
+
+    content: str = Field(..., description="Primary extracted text/markdown content")
+    tables: list[ExtractedTableElement] = Field(default_factory=list, description="Extracted tables")
+    figures: list[ExtractedFigureElement] = Field(default_factory=list, description="Extracted figures")
+    equations: list[ExtractedEquationElement] = Field(default_factory=list, description="Extracted equations")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Document-level extraction metadata")
+
+    @property
+    def table_count(self) -> int:
+        """Return the number of extracted tables."""
+        return len(self.tables)
+
+    @property
+    def figure_count(self) -> int:
+        """Return the number of extracted figures."""
+        return len(self.figures)
+
+    @property
+    def equation_count(self) -> int:
+        """Return the number of extracted equations."""
+        return len(self.equations)
+
+
 class DocumentSummary(BaseModel):
     """AI-generated summary for a TDoc."""
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -66,12 +67,46 @@ def test_convert_tdoc_to_markdown_records_conversion_metric(monkeypatch: pytest.
     assert conversion_metrics[0].success is True
 
 
+def test_convert_tdoc_to_markdown_writes_table_sidecar(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """convert_tdoc_to_markdown should write table sidecar when tables are extracted."""
+    pdf_path = tmp_path / "doc.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7")
+
+    monkeypatch.setattr(
+        convert_ops,
+        "fetch_tdoc_files",
+        lambda _document_id, force_download=False: SimpleNamespace(primary_path=pdf_path, checkout_dir=tmp_path),
+    )
+    monkeypatch.setattr(
+        convert_ops,
+        "extract_file_sync",
+        lambda _path: SimpleNamespace(
+            content="# markdown",
+            tables=[SimpleNamespace(cells=[["a", "b"]], markdown="|a|b|", page_number=1)],
+            images=[],
+            metadata={},
+        ),
+    )
+
+    _ = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
+
+    sidecar = tmp_path / ".ai" / "S4-260001_tables.json"
+    assert sidecar.exists()
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert isinstance(payload, list)
+    assert payload[0]["element_id"] == "table_1"
+
+
 def test_summarize_tdoc_records_summarization_metric(monkeypatch: pytest.MonkeyPatch) -> None:
     """summarize_tdoc should record summarization metrics at entrypoint level."""
     tracker = get_metrics_tracker()
     tracker.clear()
 
-    monkeypatch.setattr(summarize_ops, "convert_tdoc_to_markdown", lambda *_args, **_kwargs: "source content")
+    monkeypatch.setattr(
+        summarize_ops,
+        "extract_tdoc_structured",
+        lambda *_args, **_kwargs: SimpleNamespace(content="source content"),
+    )
     monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
     monkeypatch.setattr(
         summarize_ops.AiConfig,

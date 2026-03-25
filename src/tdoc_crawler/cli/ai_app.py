@@ -799,7 +799,14 @@ def workspace_process(
 
                         manager = resolve_cache_manager()
                         with TDocDatabase(manager.db_file) as db:
-                            tdoc_meta = db.get_tdoc(member.source_item_id)
+                            tdoc_matches = db.query_tdocs(
+                                TDocQueryConfig(
+                                    tdoc_ids=[member.source_item_id],
+                                    order=SortOrder.ASC,
+                                    limit=1,
+                                )
+                            )
+                            tdoc_meta = tdoc_matches[0] if tdoc_matches else None
                             if tdoc_meta:
                                 metadata = RAGMetadata(
                                     tdoc_id=tdoc_meta.tdoc_id,
@@ -810,7 +817,7 @@ def workspace_process(
                                     for_purpose=tdoc_meta.for_purpose or "",
                                 )
                     except Exception as e:
-                        logger.debug(f"Could not load metadata for {member.source_item_id}: {e}")
+                        _logger.debug("Could not load metadata for %s: %s", member.source_item_id, e)
 
                 result = await processor.process_file(file_path, workspace, metadata=metadata)
                 results.append(
@@ -825,8 +832,6 @@ def workspace_process(
                 )
         finally:
             await processor.rag.stop()
-
-        return results
 
         return results
 
