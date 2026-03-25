@@ -12,9 +12,10 @@ import shutil
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import typer
+import yaml
 from rich.progress import MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
@@ -50,6 +51,7 @@ from threegpp_ai.args import (
     CacheDirOption,
     ConvertDocumentArgument,
     ConvertForceOption,
+    ConvertMdOption,
     ConvertOutputOption,
     ConvertPdfOption,
     EndDateOption,
@@ -79,15 +81,106 @@ from threegpp_ai.lightrag.cli import app as rag_app
 from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata
 from threegpp_ai.lightrag.processor import OFFICE_FORMATS, TDocProcessor
+from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS
 from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
 
 app = typer.Typer(help="3GPP AI - Document Processing and RAG")
 workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
+providers_app = typer.Typer(help="List and manage AI providers")
 app.add_typer(workspace_app, name="workspace")
+app.add_typer(providers_app, name="providers")
 app.add_typer(rag_app, name="rag")
 
 console = get_console()
 _logger = get_logger(__name__)
+
+
+@providers_app.command("list", help="List all available AI providers")
+def providers_list(
+    output: Literal["table", "json", "yaml", "toon"] = "table",
+) -> None:
+    """List all supported AI providers with their capabilities and aliases.
+
+    Shows each provider's name, whether it supports LLM completion,
+    whether it supports embeddings, and any aliases.
+
+    Output is sorted alphabetically by provider name.
+    """
+    # Build provider data sorted alphabetically
+    # Each entry represents a usable provider string (canonical or alias-with-base-url)
+    providers_data = []
+    for provider_name in sorted(PROVIDERS.keys()):
+        config = PROVIDERS[provider_name]
+        has_llm = config.complete_func is not None
+        has_embedding = config.embed_func is not None
+
+        # Find aliases for this provider (only those with base URLs become separate entries)
+        # Simple aliases (no base URL) are not shown as separate entries
+        for alias, alias_info in PROVIDER_ALIASES.items():
+            if alias_info.canonical == provider_name and alias_info.base_url:
+                providers_data.append(
+                    {
+                        "name": alias,
+                        "llm": has_llm,
+                        "embedding": has_embedding,
+                        "canonical": provider_name,
+                        "base_url": alias_info.base_url,
+                    }
+                )
+
+        # Add canonical provider entry
+        providers_data.append(
+            {
+                "name": provider_name,
+                "llm": has_llm,
+                "embedding": has_embedding,
+                "canonical": None,
+                "base_url": None,
+            }
+        )
+
+    if output == "json":
+        typer.echo(json.dumps(providers_data, indent=2))
+        return
+
+    if output == "yaml":
+        typer.echo(yaml.dump(providers_data, default_flow_style=False))
+        return
+
+    if output == "toon":
+        for p in providers_data:
+            if p["canonical"]:
+                # Alias with base URL - show as "alias -> canonical (base_url)"
+                typer.echo(f"{p['name']} -> {p['canonical']}: LLM={'Y' if p['llm'] else 'N'}, EMB={'Y' if p['embedding'] else 'N'}, base_url={p['base_url']}")
+            else:
+                typer.echo(f"{p['name']}: LLM={'Y' if p['llm'] else 'N'}, EMB={'Y' if p['embedding'] else 'N'}")
+        return
+
+    # Default: table output
+    table = Table(title="AI Providers")
+    table.add_column("Provider", style="cyan")
+    table.add_column("LLM", style="green", justify="center")
+    table.add_column("Embedding", style="yellow", justify="center")
+    table.add_column("Base URL / Note", style="white")
+
+    for p in providers_data:
+        if p["canonical"]:
+            # Alias with base URL
+            table.add_row(
+                p["name"],
+                "Y" if p["llm"] else "N",
+                "Y" if p["embedding"] else "N",
+                f"via {p['canonical']} - {p['base_url']}",
+            )
+        else:
+            table.add_row(
+                p["name"],
+                "Y" if p["llm"] else "N",
+                "Y" if p["embedding"] else "N",
+                "-",
+            )
+
+    console.print(table)
 
 
 @app.callback()
@@ -174,9 +267,10 @@ def _process_single_item(
     checkout: bool,
     release: str | None,
     convert_pdf: bool,
+    convert_md: bool = False,
     manager: CacheManager,
-) -> tuple[Any | None, str | None, bool]:
-    """Process a single workspace item (checkout + optional PDF conversion).
+) -> tuple[Any | None, str | None, bool, bool]:
+    """Process a single workspace item (checkout + optional PDF conversion + optional markdown extraction).
 
     Args:
         item: Item ID to process
@@ -185,13 +279,15 @@ def _process_single_item(
         checkout: Whether to checkout documents
         release: Spec release version
         convert_pdf: Whether to convert to PDF
+        convert_md: Whether to extract markdown (implies convert_pdf)
         manager: CacheManager for paths
 
     Returns:
-        Tuple of (member, skip_reason, was_converted)
+        Tuple of (member, skip_reason, was_converted, was_md_extracted)
         - member: WorkspaceMember if successful, None if skipped
         - skip_reason: Reason if skipped, None if successful
         - was_converted: True if PDF conversion was performed
+        - was_md_extracted: True if markdown was extracted
     """
     source_path = item
     if checkout:
@@ -199,7 +295,7 @@ def _process_single_item(
         if source_kind == SourceKind.TDOC:
             checkout_path = checkout_tdoc_to_workspace(item, manager.checkout_dir, workspace, db_file=manager.db_file)
             if checkout_path is None:
-                return None, "TDoc not found in database or meeting not crawled", False
+                return None, "TDoc not found in database or meeting not crawled", False, False
         elif source_kind == SourceKind.SPEC:
             checkout_path = checkout_spec_to_workspace(
                 item,
@@ -209,11 +305,15 @@ def _process_single_item(
                 db_file=manager.db_file,
             )
             if checkout_path is None:
-                return None, "Spec not found in database", False
+                return None, "Spec not found in database", False, False
 
         if checkout_path is not None:
             source_path = str(checkout_path)
             ensure_ai_subfolder(checkout_path)
+
+    # Handle convert_md implies convert_pdf
+    if convert_md:
+        convert_pdf = True
 
     # Optional PDF conversion
     was_converted = False
@@ -222,10 +322,20 @@ def _process_single_item(
         pdf_path = _convert_member_to_pdf(member_for_convert)
         was_converted = pdf_path is not None
 
+    # Optional markdown extraction (only for TDocs)
+    was_md_extracted = False
+    if convert_md and source_kind == SourceKind.TDOC:
+        try:
+            # Extract markdown - this will save to .ai folder
+            convert_tdoc_to_markdown(document_id=item, force=False)
+            was_md_extracted = True
+        except Exception as e:
+            _logger.debug(f"Failed to extract markdown for {item}: {e}")
+
     resolved_release = _resolve_spec_release(item, release) if source_kind == SourceKind.SPEC and release else None
     source_item_id = f"{item}-REL{resolved_release}" if resolved_release else item
     member = make_workspace_member(workspace, source_item_id, source_path, source_kind)
-    return member, None, was_converted
+    return member, None, was_converted, was_md_extracted
 
 
 def _build_workspace_members(
@@ -241,7 +351,7 @@ def _build_workspace_members(
     skipped: list[tuple[str, str]] = []
 
     for item in items:
-        member, skip_reason, _ = _process_single_item(
+        member, skip_reason, _, _ = _process_single_item(
             item=item,
             workspace=workspace,
             source_kind=source_kind,
@@ -551,6 +661,7 @@ def workspace_add_members(
     kind: WorkspaceKindOption = "tdoc",
     checkout: WorkspaceCheckoutOption = True,
     convert_pdf: ConvertPdfOption = False,
+    convert_md: ConvertMdOption = False,
     release: WorkspaceReleaseOption = None,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
@@ -599,6 +710,7 @@ def workspace_add_members(
     members: list[Any] = []
     skipped: list[tuple[str, str]] = []
     converted_count = 0
+    md_extracted_count = 0
 
     with Progress(
         SpinnerColumn(),
@@ -612,13 +724,14 @@ def workspace_add_members(
             total=len(resolved_items),
         )
         for item in resolved_items:
-            member, skip_reason, was_converted = _process_single_item(
+            member, skip_reason, was_converted, was_md_extracted = _process_single_item(
                 item=item,
                 workspace=workspace_name,
                 source_kind=source_kind,
                 checkout=checkout,
                 release=release,
                 convert_pdf=convert_pdf,
+                convert_md=convert_md,
                 manager=manager,
             )
             if skip_reason:
@@ -626,7 +739,10 @@ def workspace_add_members(
                 progress.update(task, advance=1, description=f"[cyan]{item} (skipped)")
             else:
                 members.append(member)
-                if was_converted:
+                if was_md_extracted:
+                    md_extracted_count += 1
+                    progress.update(task, advance=1, description=f"[cyan]{item} (markdown extracted)")
+                elif was_converted:
                     converted_count += 1
                     progress.update(task, advance=1, description=f"[cyan]{item} (converted)")
                 else:
@@ -637,7 +753,9 @@ def workspace_add_members(
         for item_id, reason in skipped:
             console.print(f"  - {item_id}: {reason}")
 
-    if converted_count > 0:
+    if md_extracted_count > 0:
+        console.print(f"[green]Extracted markdown from {md_extracted_count} document(s)[/green]")
+    elif converted_count > 0:
         console.print(f"[green]Converted {converted_count} document(s) to PDF[/green]")
 
     added = add_workspace_members(workspace_name, members)

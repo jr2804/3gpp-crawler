@@ -45,6 +45,15 @@ ConvertPdfOption = Annotated[
     bool,
     typer.Option("--convert-pdf/--no-convert-pdf", "-cp", help="Convert office documents to PDF during add-members", envvar="TDC_AI_CONVERT_PDF"),
 ]
+ConvertMdOption = Annotated[
+    bool,
+    typer.Option(
+        "--convert-md/--no-convert-md",
+        "-cm",
+        help="Extract markdown from PDFs (implies --convert-pdf). Saves tables, figures, equations, metadata to .ai folder",
+        envvar="TDC_AI_CONVERT_MD",
+    ),
+]
 WorkspaceReleaseOption = Annotated[
     str | None,
     typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs."),
