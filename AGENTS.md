@@ -225,13 +225,11 @@ Avoid using `typing.TYPE_CHECKING` at all costs! When used for just for type ann
 
 ## Scoped AGENTS.md (MUST read when working in these directories)
 
-| Directory | Purpose |
-|-----------|---------|
-| `src/tdoc_crawler/` | Import patterns, HTTP caching, anti-duplication |
-| `src/tdoc_crawler/cli/` | CLI patterns |
-| `packages/3gpp-ai/` | AI pipeline, embeddings, graph patterns |
-| `packages/convert-lo/` | LibreOffice conversion |
-| `tests/` | Testing patterns, fixtures, coverage |
+List scoped AGENTS.md files with:
+
+```shell
+rg -l "" -g "*/**/AGENTS.md"
+```
 
 > **Agents:** When editing files in listed directories, load its AGENTS.md first. It contains directory-specific conventions that override this root file.
 

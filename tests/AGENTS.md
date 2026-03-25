@@ -1,5 +1,7 @@
 # Test Organization Guidelines
 
+Test conventions, fixtures, mocking patterns, and coverage requirements for the 3GPP Crawler test suite.
+
 ## Quick Start
 
 1. **General TDD patterns**: Use the `test-driven-development` skill for pytest, mocking, fixtures, and coverage

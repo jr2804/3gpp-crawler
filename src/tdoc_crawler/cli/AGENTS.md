@@ -1,5 +1,7 @@
 # CLI Submodule Guidelines
 
+CLI-only code conventions, classification rules, and Typer/Rich patterns for the `tdoc_crawler` CLI.
+
 ## Design Principle
 
 The `cli/` submodule contains **only CLI-related functionality**. The core `tdoc_crawler` package is a standalone library. Think of `cli/` as an optional extras package.
