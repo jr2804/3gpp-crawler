@@ -73,31 +73,6 @@ class WorkspaceIndex:
         self._file_path = self.working_dir / self.workspace_name / "workspace_index.json"
         self._load()
 
-    def _load(self) -> None:
-        """Load index from disk if it exists."""
-        if self._file_path.exists():
-            try:
-                with open(self._file_path, encoding="utf-8") as f:
-                    self._data = json.load(f)
-                logger.debug(
-                    "Loaded workspace index for '%s' (%d docs, %d chunks)",
-                    self.workspace_name,
-                    len(self._data.get("documents", {})),
-                    len(self._data.get("chunks", {})),
-                )
-            except Exception as e:
-                logger.warning("Failed to load workspace index: %s", e)
-                self._data = {"documents": {}, "chunks": {}, "metadata": {}}
-        else:
-            logger.debug("Created new workspace index for '%s'", self.workspace_name)
-
-    def _save(self) -> None:
-        """Save index to disk."""
-        self._file_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._file_path, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, indent=2, ensure_ascii=False)
-        logger.debug("Saved workspace index for '%s'", self.workspace_name)
-
     def add_document(self, doc_id: str, chunk_ids: list[str], metadata: dict[str, Any] | None = None) -> None:
         """Add a document mapping to the index.
 
@@ -205,6 +180,31 @@ class WorkspaceIndex:
         """
         return self._data.get("metadata", {}).get(chunk_id, {})
 
+    def _load(self) -> None:
+        """Load index from disk if it exists."""
+        if self._file_path.exists():
+            try:
+                with open(self._file_path, encoding="utf-8") as f:
+                    self._data = json.load(f)
+                logger.debug(
+                    "Loaded workspace index for '%s' (%d docs, %d chunks)",
+                    self.workspace_name,
+                    len(self._data.get("documents", {})),
+                    len(self._data.get("chunks", {})),
+                )
+            except Exception as e:
+                logger.warning("Failed to load workspace index: %s", e)
+                self._data = {"documents": {}, "chunks": {}, "metadata": {}}
+        else:
+            logger.debug("Created new workspace index for '%s'", self.workspace_name)
+
+    def _save(self) -> None:
+        """Save index to disk."""
+        self._file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._file_path, "w", encoding="utf-8") as f:
+            json.dump(self._data, f, indent=2, ensure_ascii=False)
+        logger.debug("Saved workspace index for '%s'", self.workspace_name)
+
 
 @dataclass
 class SharedNanoVectorDBStorage(BaseVectorStorage):
@@ -261,40 +261,6 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
 
         # Load existing data
         self._load()
-
-    def _load(self) -> None:
-        """Load shared storage from disk."""
-        if self._db_file.exists():
-            try:
-                with open(self._db_file, encoding="utf-8") as f:
-                    self._data = json.load(f)
-                logger.info(
-                    "Loaded shared %s storage (%d chunks)",
-                    self.namespace,
-                    len(self._data.get("data", {})),
-                )
-            except Exception as e:
-                logger.warning("Failed to load shared storage: %s", e)
-                self._data = {"data": {}, "index": {}}
-        else:
-            logger.info("Created new shared %s storage", self.namespace)
-
-    def _save(self) -> None:
-        """Save shared storage to disk."""
-        self._db_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._db_file, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, indent=2, ensure_ascii=False)
-
-    def _compute_text_hash(self, text: str) -> str:
-        """Compute MD5 hash for text deduplication.
-
-        Args:
-            text: Text content to hash
-
-        Returns:
-            MD5 hash string
-        """
-        return compute_mdhash_id(text.strip(), prefix="chunk-")
 
     async def upsert(self, data: dict[str, dict[str, Any]], **kwargs: Any) -> None:
         """Insert or update embeddings with deduplication.
@@ -495,6 +461,40 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
     def chunk_count(self) -> int:
         """Get total number of unique chunks in shared storage."""
         return len(self._data.get("data", {}))
+
+    def _load(self) -> None:
+        """Load shared storage from disk."""
+        if self._db_file.exists():
+            try:
+                with open(self._db_file, encoding="utf-8") as f:
+                    self._data = json.load(f)
+                logger.info(
+                    "Loaded shared %s storage (%d chunks)",
+                    self.namespace,
+                    len(self._data.get("data", {})),
+                )
+            except Exception as e:
+                logger.warning("Failed to load shared storage: %s", e)
+                self._data = {"data": {}, "index": {}}
+        else:
+            logger.info("Created new shared %s storage", self.namespace)
+
+    def _save(self) -> None:
+        """Save shared storage to disk."""
+        self._db_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._db_file, "w", encoding="utf-8") as f:
+            json.dump(self._data, f, indent=2, ensure_ascii=False)
+
+    def _compute_text_hash(self, text: str) -> str:
+        """Compute MD5 hash for text deduplication.
+
+        Args:
+            text: Text content to hash
+
+        Returns:
+            MD5 hash string
+        """
+        return compute_mdhash_id(text.strip(), prefix="chunk-")
 
 
 async def initialize_shared_storage(working_dir: Path, embedding_model: str) -> None:

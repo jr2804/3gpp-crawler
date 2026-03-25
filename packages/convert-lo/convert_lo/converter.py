@@ -110,6 +110,28 @@ class Converter:
             output_format=output_format,
         )
 
+    def convert_batch(
+        self,
+        input_files: Iterable[Path],
+        output_format: LibreOfficeFormat,
+        output_dir: Path,
+    ) -> list[ConversionResult]:
+        """Convert multiple documents sequentially.
+
+        Args:
+            input_files: Iterable of input file paths.
+            output_format: Desired output format.
+            output_dir: Directory for converted files.
+
+        Returns:
+            List of ConversionResult items.
+        """
+        results: list[ConversionResult] = []
+        for input_file in input_files:
+            result = self.convert(input_file, output_format, output_dir)
+            results.append(result)
+        return results
+
     def _run_conversion(self, input_file: Path, output_format: str, output_dir: Path) -> None:
         """Execute the LibreOffice conversion command.
 
@@ -164,25 +186,3 @@ class Converter:
 
         if result.returncode != 0:
             raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
-
-    def convert_batch(
-        self,
-        input_files: Iterable[Path],
-        output_format: LibreOfficeFormat,
-        output_dir: Path,
-    ) -> list[ConversionResult]:
-        """Convert multiple documents sequentially.
-
-        Args:
-            input_files: Iterable of input file paths.
-            output_format: Desired output format.
-            output_dir: Directory for converted files.
-
-        Returns:
-            List of ConversionResult items.
-        """
-        results: list[ConversionResult] = []
-        for input_file in input_files:
-            result = self.convert(input_file, output_format, output_dir)
-            results.append(result)
-        return results
