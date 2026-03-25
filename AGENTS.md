@@ -181,7 +181,9 @@ manager = resolve_cache_manager()
 
 ## Antipaterns (what NOT to do)
 
-Errors are often masked by trying to be too clever and/or too careful with error handling or by not following the established patterns. Always prefer simplicity and clarity over complex workarounds. Examples:
+Errors are often masked by trying to be too clever and/or too careful with error handling or by not following the established patterns. Always prefer simplicity and clarity over complex workarounds.
+
+### Overly careful error handling and inconsistent return types
 
 ```python
 # ❌ WRONG - arguments and result types may be None to handle invalid inputs or to indicate failed operation
@@ -217,7 +219,9 @@ def get_info(number: str|int, message: str) -> InfoObject:
 
 ```
 
-let it burn if not registered
+### Usage of typing.TYPE_CHECKING
+
+Avoid using `typing.TYPE_CHECKING` at all costs! When used for just for type annotations, it is unnecessary to use `typing.TYPE_CHECKING` and can easily be removed. If it is used to work around circular imports or to delay imports, this indicates a bad code structure/design. Instead, refactor the code to eliminate circular dependencies and ensure that imports are straightforward and at the top of the file.
 
 ## Scoped AGENTS.md (MUST read when working in these directories)
 
