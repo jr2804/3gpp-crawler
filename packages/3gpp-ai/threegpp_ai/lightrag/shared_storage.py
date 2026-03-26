@@ -267,6 +267,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
 
         Args:
             data: Dict of {chunk_id: {text, embedding, metadata}}
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
         """
         logger.debug("Upserting %d items to shared %s", len(data), self.namespace)
 
@@ -310,6 +311,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
 
         Args:
             ids: List of chunk IDs
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
 
         Returns:
             List of embedding data dicts
@@ -333,6 +335,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
             query: Query text (will be embedded externally)
             top_k: Number of results to return
             filter: Optional filter dict (not used in shared storage)
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
 
         Returns:
             List of (chunk_id, similarity_score) tuples
@@ -353,6 +356,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
         Args:
             query: Query string
             top_k: Number of results
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
 
         Returns:
             List of (chunk_id, score) tuples
@@ -364,6 +368,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
 
         Args:
             id: Chunk identifier
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
 
         Returns:
             Embedding data dict or None
@@ -375,6 +380,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
 
         Args:
             ids: List of chunk IDs
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
 
         Returns:
             Dict of {chunk_id: embedding_vector}
@@ -392,6 +398,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
 
         Args:
             keys: Set of keys to check
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
 
         Returns:
             Set of keys that exist in storage (will be filtered out)
@@ -430,6 +437,7 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
 
         Args:
             ids: List of chunk IDs to delete
+            **kwargs: Additional keyword arguments for compatibility with LightRAG storage interface.
         """
         for chunk_id in ids:
             if chunk_id in self._data["data"]:
