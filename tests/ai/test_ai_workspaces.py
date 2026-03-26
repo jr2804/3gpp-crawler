@@ -8,18 +8,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-
-def _load_workspaces_module() -> ModuleType:
-    file_path = Path(__file__).resolve().parents[2] / "packages" / "3gpp-ai" / "threegpp_ai" / "operations" / "workspaces.py"
-    spec = importlib.util.spec_from_file_location("workspace_ops", file_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Failed to load workspace operations module")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-workspace_ops = _load_workspaces_module()
+from threegpp_ai.operations import workspaces as workspace_ops
 
 
 def test_normalize_workspace_name_defaults_for_none() -> None:

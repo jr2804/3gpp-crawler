@@ -1,0 +1,24 @@
+.ai
+
+# AI test data (binary files that are downloaded on-demand)
+*.docx
+*.xlsx
+*.pptx
+*.pdf
+*.zip
+
+# AI test data directories
+data/
+!data/README.md
+
+# Specific AI test data files
+26253-j10/
+26260-j10/
+S4-251003/
+S4-251971/
+S4-260001/
+S4-260002/
+S4-260003/
+
+# But keep the README
+!data/README.md
