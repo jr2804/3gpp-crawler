@@ -18,6 +18,7 @@ _logger = get_logger(__name__)
 
 
 type AgendaItemNumber = str
+type SpecificationVersionNumber = str
 
 
 def parse_agenda_item_nbr(value: Any) -> AgendaItemNumber:
@@ -34,6 +35,34 @@ def parse_agenda_item_version(value: Any) -> Version:
     except (InvalidVersion, ValueError) as exc:
         _logger.warning(f"Invalid agenda item number '{value}': {exc}")
         return Version("0")
+
+
+def parse_spec_version_nbr(value: Any) -> SpecificationVersionNumber:
+    """Parse specification version as canonical three-part string with fallback."""
+    return str(parse_spec_version(value))
+
+
+def parse_spec_version(value: Any) -> Version:
+    """Parse specification version as Version, normalized to major.minor.patch."""
+    if value is None:
+        return Version("0.0.0")
+
+    raw = str(value).strip()
+    if not raw:
+        return Version("0.0.0")
+
+    try:
+        parsed = Version(raw)
+    except (InvalidVersion, ValueError) as exc:
+        _logger.warning(f"Invalid specification version '{value}': {exc}")
+        return Version("0.0.0")
+
+    release_parts = list(parsed.release)
+    if len(release_parts) >= 3:
+        return Version(".".join(str(part) for part in release_parts[:3]))
+
+    padded_parts = release_parts + [0] * (3 - len(release_parts))
+    return Version(".".join(str(part) for part in padded_parts))
 
 
 def infer_working_groups_from_subgroups(subgroups: list[str]) -> list[WorkingGroup]:

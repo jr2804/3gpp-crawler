@@ -19,6 +19,7 @@ from tdoc_crawler.specs.models import (
 )
 from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
+from tdoc_crawler.utils.parse import parse_spec_version, parse_spec_version_nbr
 
 _logger = get_logger(__name__)
 
@@ -38,7 +39,7 @@ def _build_spec_candidate(
     series = str(metadata_payload.get("series", f"{normalized.split('.', maxsplit=1)[0]}_series"))
     latest_version = metadata_payload.get("latest_version")
     if latest_version is None and versions:
-        latest_version = versions[0]
+        latest_version = max(versions, key=parse_spec_version)
 
     candidate = Specification(
         spec_number=normalized,
@@ -81,7 +82,7 @@ def _build_spec_versions(
         spec_versions.append(
             SpecificationVersion(
                 spec_number=normalized,
-                version=str(version),
+                version=parse_spec_version_nbr(version),
                 file_name=file_name,
                 source_name=source_name,
             )
@@ -92,12 +93,12 @@ def _build_spec_versions(
 def _version_matches_release(version: str, release_type: str, release_value: str, specificity: int) -> bool:
     """Check if a version string matches the release selector."""
     try:
-        v_parts = [int(p) for p in version.split(".")]
-    except ValueError:
+        v_parts = list(parse_spec_version(version).release)
+    except Exception:
         return False
 
     if release_type == "exact":
-        return version == release_value
+        return parse_spec_version_nbr(version) == parse_spec_version_nbr(release_value)
 
     # prefix match: check major (specificity=1) or major.minor (specificity=2)
     if len(v_parts) >= specificity:
@@ -334,7 +335,7 @@ class SpecDatabase(DocDatabase):
             versions = payload.get("versions")
             if not isinstance(versions, list):
                 versions = []
-            normalized_versions = [str(item) for item in versions]
+            normalized_versions = [parse_spec_version_nbr(item) for item in versions]
 
             outcomes.append(
                 SpecCrawlSourceOutcome(

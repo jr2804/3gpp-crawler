@@ -15,6 +15,7 @@ from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
+from tdoc_crawler.utils.parse import parse_spec_version, parse_spec_version_nbr
 
 _logger = get_logger(__name__)
 
@@ -148,7 +149,7 @@ class SpecDownloads:
         if not versions:
             raise ValueError(f"No versions found for spec {normalized}")
 
-        versions.sort(key=lambda version: self._parse_version(version.version), reverse=True)
+        versions.sort(key=lambda version: parse_spec_version(version.version), reverse=True)
 
         # If specific release requested, use normalize_release to handle various formats
         release_type, release_value, specificity = normalize_release(release)
@@ -167,8 +168,12 @@ class SpecDownloads:
         url = SPEC_URL_TEMPLATE.format(series=series, normalized=normalized, file_name=target.file_name)
         return url, target.file_name
 
+    def _download_full_zip(self, url: str, target_path: Path) -> None:
+        """Download full zip file, re-use session if already created for doc-only attempt."""
+        self.session = download_to_file(url, target_path, session=self.session, close_session=False, cache_manager_name=self._cache_manager.name)
+
+    @staticmethod
     def _filter_versions_by_release(
-        self,
         versions: list[Any],
         release_type: str,
         release_value: str,
@@ -184,9 +189,9 @@ class SpecDownloads:
 
         filtered_versions: list[Any] = []
         for version_entry in versions:
-            version_parts = self._parse_version(version_entry.version)
+            version_parts = parse_spec_version(version_entry.version).release
             if release_type == "exact":
-                if version_entry.version == release_value:
+                if parse_spec_version_nbr(version_entry.version) == parse_spec_version_nbr(release_value):
                     filtered_versions.append(version_entry)
                 continue
 
@@ -202,10 +207,6 @@ class SpecDownloads:
         msg = f"No versions found for spec {normalized} with release {release}"
         raise ValueError(msg)
 
-    def _download_full_zip(self, url: str, target_path: Path) -> None:
-        """Download full zip file, re-use session if already created for doc-only attempt."""
-        self.session = download_to_file(url, target_path, session=self.session, close_session=False, cache_manager_name=self._cache_manager.name)
-
     @staticmethod
     def _build_target_dir(checkout_dir: Path, normalized: str) -> Path:
         """Create and return target checkout directory for one normalized spec."""
@@ -213,14 +214,6 @@ class SpecDownloads:
         target_dir = checkout_dir / "Specs" / "archive" / series / normalized
         target_dir.mkdir(parents=True, exist_ok=True)
         return target_dir
-
-    @staticmethod
-    def _parse_version(version: str) -> tuple[int, ...]:
-        """Parse dotted version string into comparable integer tuple."""
-        try:
-            return tuple(map(int, version.split(".")))
-        except ValueError:
-            return (0,)
 
     @staticmethod
     async def _attempt_doc_only_async(url: str, normalized: str, target_dir: Path) -> bool:
