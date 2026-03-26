@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from threegpp_ai.lightrag import processor as processor_module
 from threegpp_ai.lightrag.processor import DocumentProcessor, ProcessingResultStatus
 from threegpp_ai.operations.extraction_result import (
     ExtractedTableElement,
@@ -82,8 +83,6 @@ async def test_processor_process_file_reports_structured_counts(monkeypatch: pyt
 
     # Mock extract_document_structured in the processor module where it's imported
     # This prevents actual kreuzberg extraction
-    from threegpp_ai.lightrag import processor as processor_module
-
     monkeypatch.setattr(
         processor_module,
         "extract_document_structured",

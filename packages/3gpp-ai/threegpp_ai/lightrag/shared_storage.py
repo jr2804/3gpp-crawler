@@ -493,7 +493,8 @@ class SharedNanoVectorDBStorage(BaseVectorStorage):
         with open(self._db_file, "w", encoding="utf-8") as f:
             json.dump(self._data, f, indent=2, ensure_ascii=False)
 
-    def _compute_text_hash(self, text: str) -> str:
+    @staticmethod
+    def _compute_text_hash(text: str) -> str:
         """Compute MD5 hash for text deduplication.
 
         Args:

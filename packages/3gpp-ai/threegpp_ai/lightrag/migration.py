@@ -8,7 +8,9 @@ Usage:
     >>> await migrate_to_shared_storage(working_dir, embedding_model)
 """
 
-# TODO: Is this module needed at all? No need for legacy migration if we just switch to shared storage for all new workspaces. Maybe just keep the consolidation function for users who want to merge existing workspaces into shared storage?!
+# TODO: Is this module needed at all? No need for legacy migration if we just switch
+# to shared storage for all new workspaces. Maybe just keep the consolidation function
+# for users who want to merge existing workspaces into shared storage?
 
 from __future__ import annotations
 

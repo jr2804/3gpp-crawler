@@ -57,7 +57,7 @@ def test_convert_tdoc_to_markdown_records_conversion_metric(monkeypatch: pytest.
     )
 
     # Mock extract_document_structured_from_tdoc to bypass actual extraction but still record metrics
-    def mock_extract(*args, **kwargs):
+    def mock_extract(*args, **kwargs) -> None:
         # Manually record the metric since we're bypassing timed_operation
         with timed_operation(tracker, "S4-260001", MetricType.CONVERSION):
             pass
@@ -92,7 +92,7 @@ def test_convert_tdoc_to_markdown_writes_table_sidecar(monkeypatch: pytest.Monke
 
     # Mock extract_document_structured_from_tdoc to return result with tables
     # Record the metric since we're bypassing the timed_operation wrapper
-    def mock_extract(*args, **kwargs):
+    def mock_extract(*args, **kwargs) -> None:
         with timed_operation(get_metrics_tracker(), "S4-260001", MetricType.CONVERSION):
             pass
         return SimpleNamespace(

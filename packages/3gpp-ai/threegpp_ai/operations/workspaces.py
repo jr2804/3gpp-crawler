@@ -530,11 +530,10 @@ def checkout_spec_to_workspace(
                 if versions:
                     # Filter versions that match the requested release
                     for entry in versions:
-                        if release == "latest" or release.startswith(entry.release.split(".")[0]):
+                        if (release == "latest" or release.startswith(entry.release.split(".")[0])) and "-" in entry.version:
                             # Extract version code from version string (e.g., "26.260" from "26.260-h00")
-                            if "-" in entry.version:
-                                version_code = entry.version.split("-")[1]
-                                version_codes.append(version_code)
+                            version_code = entry.version.split("-")[1]
+                            version_codes.append(version_code)
         except Exception as exc:
             _logger.debug("Could not resolve version codes for %s: %s", spec_number, exc)
 
@@ -547,10 +546,8 @@ def checkout_spec_to_workspace(
             if normalized not in dir_name and undotted not in dir_name:
                 continue
             # Check if version code matches (only for non-latest)
-            if release != "latest":
-                # Check if any resolved version code is in the directory name
-                if not any(vc in dir_name for vc in version_codes):
-                    continue
+            if release != "latest" and not any(vc in dir_name for vc in version_codes):
+                continue
             _logger.debug("Spec %s (release %s) already checked out at %s", spec_number, release, spec_dir)
             return spec_dir
 

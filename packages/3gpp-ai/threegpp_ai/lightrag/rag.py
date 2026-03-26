@@ -85,8 +85,6 @@ async def patched_zhipu_embedding(
 # Apply the patches
 zhipu_module.zhipu_complete_if_cache = patched_zhipu_complete_if_cache
 zhipu_module.zhipu_embedding = patched_zhipu_embedding
-zhipu_complete_if_cache = patched_zhipu_complete_if_cache
-zhipu_embedding = patched_zhipu_embedding
 
 STORAGES["SharedNanoVectorDBStorage"] = "threegpp_ai.lightrag.shared_storage"
 logger = logging.getLogger(__name__)

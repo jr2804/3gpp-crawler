@@ -83,7 +83,7 @@ from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata
 from threegpp_ai.lightrag.processor import DocumentProcessor
 from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS
-from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
+from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_document_to_markdown, convert_to_pdf
 from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
 
 # Load environment variables from .env file
@@ -333,8 +333,6 @@ def _process_single_item(
         try:
             # Extract markdown using unified pipeline - this will save to .ai folder
             # For TDocs: uses TDoc ID; for specs: uses spec number
-            from threegpp_ai.operations.convert import convert_document_to_markdown
-
             convert_document_to_markdown(document_id=item, output_path=None, force=False)
             was_md_extracted = True
         except Exception as e:
