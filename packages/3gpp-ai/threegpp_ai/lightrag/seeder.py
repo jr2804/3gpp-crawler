@@ -73,7 +73,7 @@ class EntitySeeder:
         ...     await rag.stop()
     """
 
-    def __init__(self, rag: TDocRAG):
+    def __init__(self, rag: TDocRAG) -> None:
         self.rag = rag
         self._created_count = 0
         self._updated_count = 0

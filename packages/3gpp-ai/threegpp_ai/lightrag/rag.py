@@ -168,7 +168,7 @@ class TDocRAG:
         >>> asyncio.run(main())
     """
 
-    def __init__(self, config: LightRAGConfig | None = None):
+    def __init__(self, config: LightRAGConfig | None = None) -> None:
         self.config = config or LightRAGConfig.from_env()
         self._rag: LightRAG | None = None
         self._pg0_manager = None

@@ -90,8 +90,7 @@ def _file_exists_and_valid(file_path: Path, expected_hash: str | None = None) ->
 
 
 def prepare_ai_test_files(data_dir: Path) -> None:
-    """
-    Prepare AI test files by copying and extracting required data.
+    """Prepare AI test files by copying and extracting required data.
 
     Only copies/extracts files that don't already exist.
     """

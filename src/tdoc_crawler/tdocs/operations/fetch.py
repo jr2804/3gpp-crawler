@@ -45,7 +45,7 @@ class FetchMissingResult:
         refreshed: list[TDocMetadata],
         fetch_result: TDocCrawlResult | None = None,
         used_whatthespec_fallback: bool = False,
-    ):
+    ) -> None:
         """Initialize fetch result.
 
         Args:

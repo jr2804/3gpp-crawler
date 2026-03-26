@@ -3,8 +3,7 @@ from datetime import date
 
 
 def parse_partial_date(value: str, is_end: bool = False) -> date:
-    """
-    Parse partial dates to full date boundaries.
+    """Parse partial dates to full date boundaries.
 
     Args:
         value: Date string (2024, 2024-10, or 2024-10-28)

@@ -35,7 +35,7 @@ class Pg0Manager:
         instance_name: str = "3gpp-crawler",
         port: int = 15432,
         database: str = "tdoc",
-    ):
+    ) -> None:
         self.instance_name = instance_name
         self.port = port
         self.database = database
