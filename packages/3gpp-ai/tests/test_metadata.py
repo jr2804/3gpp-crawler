@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata, create_metadata_from_dict, enrich_text
 from threegpp_ai.lightrag.rag import TDocRAG

@@ -26,7 +26,6 @@ from lightrag.llm.ollama import ollama_embed, ollama_model_complete
 from lightrag.llm.openai import openai_complete, openai_embed
 from lightrag.llm.zhipu import zhipu_complete, zhipu_embedding
 from lightrag.utils import EmbeddingFunc
-
 from tdoc_crawler.config import resolve_cache_manager
 
 from .config import LightRAGConfig, QueryMode, StorageBackend

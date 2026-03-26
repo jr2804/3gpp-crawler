@@ -8,7 +8,6 @@ from typing import Literal
 
 import litellm
 from pydantic import Field, field_validator, model_validator
-
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.models import BaseConfigModel
 

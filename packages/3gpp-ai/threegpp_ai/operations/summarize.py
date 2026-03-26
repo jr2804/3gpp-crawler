@@ -7,6 +7,7 @@ import logging
 import re
 
 from tdoc_crawler.utils.misc import utc_now
+
 from threegpp_ai.config import AiConfig
 from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
 

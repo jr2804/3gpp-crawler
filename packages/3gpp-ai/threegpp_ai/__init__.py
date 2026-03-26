@@ -11,6 +11,7 @@ import litellm
 # Import LightRAG integration
 from threegpp_ai.lightrag import (
     DatabaseConfig,
+    DocumentProcessor,
     EmbeddingConfig,
     LightRAGConfig,
     LLMConfig,
@@ -64,6 +65,7 @@ __all__ = [
     "DEFAULT_WORKSPACE",
     # LightRAG integration
     "DatabaseConfig",
+    "DocumentProcessor",
     "EmbeddingConfig",
     "LLMConfig",
     "LightRAGConfig",

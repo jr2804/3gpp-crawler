@@ -18,6 +18,7 @@ from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.normalization import normalize_spec_number
+
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
 from threegpp_ai.operations.workspace_registry import (
     WorkspaceMember,

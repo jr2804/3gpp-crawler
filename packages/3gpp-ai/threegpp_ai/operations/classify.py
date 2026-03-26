@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 from tdoc_crawler.utils.misc import utc_now
+
 from threegpp_ai.models import DocumentClassification
 
 logger = logging.getLogger(__name__)

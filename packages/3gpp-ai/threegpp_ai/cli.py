@@ -16,9 +16,9 @@ from typing import Any, Literal
 
 import typer
 import yaml
+from dotenv import load_dotenv
 from rich.progress import MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
-
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.database import SpecDatabase, TDocDatabase
 from tdoc_crawler.logging import get_console, get_logger
@@ -26,6 +26,7 @@ from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.normalization import resolve_release_to_full_version
+
 from threegpp_ai import (
     SourceKind,
     add_workspace_members,
@@ -80,9 +81,13 @@ from threegpp_ai.args import (
 from threegpp_ai.lightrag.cli import app as rag_app
 from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata
-from threegpp_ai.lightrag.processor import OFFICE_FORMATS, TDocProcessor
+from threegpp_ai.lightrag.processor import DocumentProcessor
 from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS
+from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = typer.Typer(help="3GPP AI - Document Processing and RAG")
 workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
@@ -369,15 +374,30 @@ def _build_workspace_members(
 
 
 def _resolve_process_file(path: Path) -> Path | None:
+    """Resolve the actual document file from a path or directory.
+
+    Args:
+        path: Path to a file or directory containing documents.
+
+    Returns:
+        Path to the document file, or None if not found.
+    """
     if path.is_file():
         return path
     if not path.is_dir():
         return None
 
-    for extension in [".docx", ".doc", ".pdf", ".ppt", ".pptx"]:
+    # Search for document files (including in subdirectories)
+    for extension in [".pdf", ".docx", ".doc", ".ppt", ".pptx"]:
+        # Search in the directory and one level of subdirectories
         matches = list(path.glob(f"*{extension}"))
+        if not matches:
+            matches = list(path.rglob(f"*{extension}"))
         if matches:
+            _logger.debug("Found document file for processing: %s", matches[0])
             return matches[0]
+
+    _logger.warning("No document file found in: %s", path)
     return None
 
 
@@ -410,8 +430,12 @@ def _convert_member_to_pdf(member: Any) -> Path | None:
         _logger.debug("PDF already exists for %s at %s", doc_file.name, existing_pdf)
         return existing_pdf
 
-    # Convert to PDF using TDocProcessor's static method
-    return TDocProcessor._convert_to_pdf(doc_file)
+    # Convert to PDF using the unified conversion module
+    try:
+        return convert_to_pdf(doc_file)
+    except Exception as e:
+        _logger.error("PDF conversion failed for %s: %s", doc_file.name, e)
+        return None
 
 
 def _try_build_tdoc_metadata(source_item_id: str) -> RAGMetadata | None:
@@ -453,7 +477,7 @@ async def _process_workspace_members(
     Returns:
         List of processing results
     """
-    processor = TDocProcessor(LightRAGConfig.from_env())
+    processor = DocumentProcessor(LightRAGConfig.from_env())
     results: list[dict[str, Any]] = []
 
     await processor.rag.start(workspace)

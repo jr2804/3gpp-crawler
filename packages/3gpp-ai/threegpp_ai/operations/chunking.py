@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 import tiktoken
-
 from tdoc_crawler.logging import get_logger
 
 logger = get_logger(__name__)

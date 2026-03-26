@@ -31,13 +31,14 @@ from .config import (
 from .metadata import RAGMetadata, create_metadata_from_dict, enrich_text
 from .migration import consolidate_workspaces, migrate_to_shared_storage
 from .pg0_manager import Pg0Error, Pg0Manager
-from .processor import ProcessingResult, ProcessingResultStatus, TDocProcessor
+from .processor import DocumentProcessor, ProcessingResult, ProcessingResultStatus, TDocProcessor
 from .rag import TDocRAG
 from .seeder import EntitySeed, EntitySeeder, EntityType
 from .shared_storage import SharedNanoVectorDBStorage, WorkspaceIndex, initialize_shared_storage
 
 __all__ = [
     "DatabaseConfig",
+    "DocumentProcessor",
     "EmbeddingConfig",
     "EntitySeed",
     "EntitySeeder",

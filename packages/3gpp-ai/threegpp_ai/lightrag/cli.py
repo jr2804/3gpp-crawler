@@ -16,8 +16,8 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-
 from tdoc_crawler.config import CacheManager
+
 from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
 from threegpp_ai.lightrag.migration import consolidate_workspaces, migrate_to_shared_storage
 from threegpp_ai.lightrag.rag import TDocRAG

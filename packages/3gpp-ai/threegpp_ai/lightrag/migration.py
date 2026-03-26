@@ -8,12 +8,16 @@ Usage:
     >>> await migrate_to_shared_storage(working_dir, embedding_model)
 """
 
+# TODO: Is this module needed at all? No need for legacy migration if we just switch to shared storage for all new workspaces. Maybe just keep the consolidation function for users who want to merge existing workspaces into shared storage?!
+
 from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
 from typing import Any
+
+from lightrag.utils import compute_mdhash_id
 
 from .shared_storage import SharedNanoVectorDBStorage, WorkspaceIndex
 
@@ -104,8 +108,6 @@ async def migrate_to_shared_storage(
                 continue
 
             # Compute hash for deduplication check
-            from lightrag.utils import compute_mdhash_id
-
             text_hash = compute_mdhash_id(text.strip(), prefix="chunk-")
 
             # Check if already in shared storage
