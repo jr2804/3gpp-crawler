@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models.base import BaseConfigModel, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
@@ -80,10 +81,7 @@ class MeetingCrawlConfig(BaseConfigModel):
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup]) -> list[WorkingGroup]:
         """Ensure the working groups list only contains valid enum members."""
-        normalized: list[WorkingGroup] = []
-        for item in value:
-            normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
-        return normalized
+        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
 
     @field_validator("subgroups", mode="before")
     @classmethod
@@ -91,7 +89,7 @@ class MeetingCrawlConfig(BaseConfigModel):
         """Normalize subgroup names (uppercase and strip whitespace)."""
         if value is None:
             return None
-        return [str(item).strip().upper() for item in value]
+        return [normalize_subgroup_alias(str(item)).value for item in value]
 
 
 class MeetingQueryConfig(BaseConfigModel):
@@ -112,10 +110,7 @@ class MeetingQueryConfig(BaseConfigModel):
         """Ensure the working group list is comprised of enum members."""
         if value is None:
             return None
-        normalized: list[WorkingGroup] = []
-        for item in value:
-            normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
-        return normalized
+        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
 
     @field_validator("subgroups", mode="before")
     @classmethod
@@ -123,7 +118,7 @@ class MeetingQueryConfig(BaseConfigModel):
         """Normalize subgroup names (uppercase and strip whitespace)."""
         if value is None:
             return None
-        return [str(item).strip().upper() for item in value]
+        return [normalize_subgroup_alias(str(item)).value for item in value]
 
 
 __all__ = [

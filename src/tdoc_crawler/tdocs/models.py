@@ -11,6 +11,7 @@ from packaging.version import Version
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models.base import (
     BaseConfigModel,
     OutputFormat,
@@ -18,7 +19,7 @@ from tdoc_crawler.models.base import (
 )
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.tdocs.utils import normalize_tdoc_ids
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id, normalize_tdoc_ids
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr, parse_agenda_item_version
 
@@ -220,7 +221,7 @@ class TDocMetadata(BaseModel):
     @classmethod
     def _normalize_tdoc_id(cls, value: str) -> str:
         """Ensure identifiers are uppercase and trimmed."""
-        return value.strip().upper()
+        return normalize_tdoc_id(value)
 
     # Optional metadata fields (from portal or determined otherwise)
     is_revision_of: str | None = Field(None, description="Reference to a previous TDoc version")
@@ -273,10 +274,7 @@ class TDocCrawlConfig(BaseConfigModel):
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup]) -> list[WorkingGroup]:
         """Ensure the working groups list only contains valid enum members."""
-        normalized: list[WorkingGroup] = []
-        for item in value:
-            normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
-        return normalized
+        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
 
     @field_validator("subgroups", mode="before")
     @classmethod
@@ -284,7 +282,7 @@ class TDocCrawlConfig(BaseConfigModel):
         """Normalize subgroup names to uppercase."""
         if value is None:
             return None
-        return [str(item).upper().strip() for item in value]
+        return [normalize_subgroup_alias(str(item)).value for item in value]
 
     @field_validator("target_ids", mode="before")
     @classmethod
@@ -329,10 +327,7 @@ class TDocQueryConfig(BaseConfigModel):
         """Ensure the working group list is comprised of enum members."""
         if value is None:
             return None
-        normalized: list[WorkingGroup] = []
-        for item in value:
-            normalized.append(WorkingGroup(item) if not isinstance(item, WorkingGroup) else item)
-        return normalized
+        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
 
 
 __all__ = [
