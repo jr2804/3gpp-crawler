@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typer.testing import CliRunner
-
 from threegpp_ai.cli import app
+from typer.testing import CliRunner
 
 
 def test_cli_help_lists_top_level_groups() -> None:

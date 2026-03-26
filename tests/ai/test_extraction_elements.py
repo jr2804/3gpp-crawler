@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 from threegpp_ai.lightrag import processor as processor_module
 from threegpp_ai.lightrag.processor import DocumentProcessor, ProcessingResultStatus
 from threegpp_ai.operations.extraction_result import (

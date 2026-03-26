@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 
 import pytest
-
 from threegpp_ai.operations import workspaces as workspace_ops
 
 

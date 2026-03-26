@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 from threegpp_ai.operations import convert as convert_ops
 from threegpp_ai.operations import summarize as summarize_ops
 from threegpp_ai.operations.metrics import (
