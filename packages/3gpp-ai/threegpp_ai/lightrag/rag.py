@@ -27,20 +27,26 @@ from lightrag.llm.openai import openai_complete, openai_embed
 from lightrag.llm.zhipu import zhipu_complete, zhipu_embedding
 from lightrag.utils import EmbeddingFunc
 
+from tdoc_crawler.config import resolve_cache_manager
+
+from .config import LightRAGConfig, QueryMode, StorageBackend
+from .pg0_manager import Pg0Manager
+from .shared_storage import WorkspaceIndex
+
 # Patch zhipu_complete_if_cache
 original_zhipu_complete_if_cache = zhipu_module.zhipu_complete_if_cache
 
 
 @wraps(original_zhipu_complete_if_cache)
 async def patched_zhipu_complete_if_cache(
-    prompt,
-    model="glm-4-flashx",
-    api_key=None,
-    system_prompt=None,
-    history_messages=None,
-    enable_cot=False,
-    **kwargs,
-):
+    prompt: str,
+    model: str = "glm-4-flashx",
+    api_key: str | None = None,
+    system_prompt: str | None = None,
+    history_messages: list | None = None,
+    enable_cot: bool = False,
+    **kwargs: Any,
+) -> Any:
     # Remove unsupported kwargs including base_url
     if history_messages is None:
         history_messages = []
@@ -64,9 +70,9 @@ original_zhipu_embedding = zhipu_module.zhipu_embedding
 async def patched_zhipu_embedding(
     texts: list[str],
     model: str = "embedding-3",
-    api_key: str = None,
-    **kwargs,
-):
+    api_key: str | None = None,
+    **kwargs: Any,
+) -> Any:
     # Remove unsupported kwargs including base_url
     kwargs = {k: v for k, v in kwargs.items() if k not in ["base_url"]}
     return await original_zhipu_embedding(
@@ -82,12 +88,6 @@ zhipu_module.zhipu_complete_if_cache = patched_zhipu_complete_if_cache
 zhipu_module.zhipu_embedding = patched_zhipu_embedding
 zhipu_complete_if_cache = patched_zhipu_complete_if_cache
 zhipu_embedding = patched_zhipu_embedding
-
-from tdoc_crawler.config import resolve_cache_manager
-
-from .config import LightRAGConfig, QueryMode, StorageBackend
-from .pg0_manager import Pg0Manager
-from .shared_storage import WorkspaceIndex
 
 STORAGES["SharedNanoVectorDBStorage"] = "threegpp_ai.lightrag.shared_storage"
 logger = logging.getLogger(__name__)
