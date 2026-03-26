@@ -307,9 +307,9 @@ Filenames MUST enable clear assignment back to the source document location (esp
 ## Progress
 
 - [x] (2026-03-26 00:30) Created PLAN.md
-- [ ] Phase 0: Quality gates defined
-- [ ] Phase 1: Implement ArtifactStorage utilities
-- [ ] Phase 2: Refactor convert.py to folder storage
-- [ ] Phase 3: Refactor processor.py to folder storage
-- [ ] Phase 4: Add skip logic for re-extraction
-- [ ] Phase 5: Integration test / end-to-end validation
+- [x] Phase 0: Quality gates defined
+- [x] Phase 1: Implement ArtifactStorage utilities (extraction_result.py)
+- [x] Phase 2: Refactor convert.py to folder storage
+- [x] Phase 3: Refactor processor.py to folder storage
+- [x] Phase 4: Add skip logic for re-extraction (extract_types parameter)
+- [x] Phase 5: Integration test / end-to-end validation (`tests/ai/test_ai_extraction_artifacts.py`, 10/10 passing)

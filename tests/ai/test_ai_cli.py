@@ -7,9 +7,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import tdoc_crawler.cli.ai as ai_cli
 from typer.testing import CliRunner
 
-import tdoc_crawler.cli.ai as ai_cli
 from tdoc_crawler.cli.app import app
 
 

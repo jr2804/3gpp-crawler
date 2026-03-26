@@ -17,14 +17,14 @@ _TDOC_AI_AVAILABLE = True
 try:
     from threegpp_ai.config import AiConfig
     from threegpp_ai.operations import workspaces as workspace_ops
-    from threegpp_ai.operations.embeddings import EmbeddingsManager
-    from threegpp_ai.storage import AiStorage
 except ModuleNotFoundError:
     _TDOC_AI_AVAILABLE = False
     AiConfig = None  # type: ignore[assignment]
     workspace_ops = None
-    AiStorage = None  # type: ignore[assignment]
-    EmbeddingsManager = None  # type: ignore[assignment]
+
+# Removed classes - keep as None so fixture type annotations don't NameError
+AiStorage = None  # type: ignore[assignment]
+EmbeddingsManager = None  # type: ignore[assignment]
 
 
 @pytest.fixture(autouse=True)
