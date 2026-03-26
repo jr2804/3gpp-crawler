@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from .llm_client import LiteLLMClient
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,8 +47,6 @@ def describe_figures(
 def _describe_figure(image_path: Path, *, caption: str | None = None, model: str | None = None) -> str | None:
     """Describe a single figure image using the summarize LiteLLM client."""
     try:
-        from threegpp_ai.operations.summarize import LiteLLMClient
-
         prompt = "Describe this technical figure in 2-3 concise sentences."
         if caption:
             prompt = f"{prompt} Caption hint: {caption}"
