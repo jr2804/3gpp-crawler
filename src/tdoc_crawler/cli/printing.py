@@ -117,7 +117,7 @@ def tdoc_to_dict(
     """
     data = result.model_dump(mode="json")
 
-    # Add agenda_item_nbr as plain value (not Decimal for JSON)
+    # Add agenda_item_nbr as plain value for JSON output
     data["agenda_item"] = str(result.agenda_item_nbr) if result.agenda_item_nbr is not None else None
 
     # Add short form of agenda item text

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterable
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 import click
 import typer
+from packaging.version import InvalidVersion, Version
 
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
@@ -17,15 +17,23 @@ from tdoc_crawler.utils.normalization import expand_spec_ranges_batch
 _logger = get_logger(__name__)
 
 
-def parse_agenda_item_nbr(value: Any) -> Decimal:
-    """Parse agenda item number as Decimal with fallback to zero."""
+type AgendaItemNumber = str
+
+
+def parse_agenda_item_nbr(value: Any) -> AgendaItemNumber:
+    """Parse agenda item number as canonical string with fallback to zero."""
+    return str(parse_agenda_item_version(value))
+
+
+def parse_agenda_item_version(value: Any) -> Version:
+    """Parse agenda item number as Version with fallback to zero."""
     if value is None:
-        return Decimal(0)
+        return Version("0")
     try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError) as exc:
+        return Version(str(value).strip())
+    except (InvalidVersion, ValueError) as exc:
         _logger.warning(f"Invalid agenda item number '{value}': {exc}")
-        return Decimal(0)
+        return Version("0")
 
 
 def infer_working_groups_from_subgroups(subgroups: list[str]) -> list[WorkingGroup]:

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, datetime
-from decimal import Decimal
 from enum import StrEnum
 
 import requests
+from packaging.version import Version
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from tdoc_crawler.logging import get_logger
@@ -20,6 +20,7 @@ from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.utils import normalize_tdoc_ids
 from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr, parse_agenda_item_version
 
 _logger = get_logger(__name__)
 
@@ -92,9 +93,14 @@ class TDocMetadata(BaseModel):
 
     tdoc_type: str = Field("unknown", description="TDoc classification as reported by the portal")
     for_purpose: str = Field("unknown", description="Purpose of the contribution (agreement, information, etc.)")
-    agenda_item_nbr: Decimal = Field(..., max_digits=3, decimal_places=1, description="Associated agenda item (numerical identifier)")
+    agenda_item_nbr: AgendaItemNumber = Field(..., description="Associated agenda item number (hierarchical identifier, e.g., 1.2.3)")
     agenda_item_text: str = Field("Unknown", description="Associated agenda item (text identifier)")
     status: str | None = Field(None, description="Document status as reported by the portal")
+
+    @property
+    def agenda_item_version(self) -> Version:
+        """Return agenda item number as comparable Version object."""
+        return parse_agenda_item_version(self.agenda_item_nbr)
 
     @property
     def is_valid(self) -> bool:
@@ -164,6 +170,18 @@ class TDocMetadata(BaseModel):
             _logger.warning(f"URL validation failed for {self.tdoc_id}: {exc}")
 
         return is_accessible
+
+    @classmethod
+    @field_serializer("agenda_item_nbr")
+    def _serialize_agenda_item_nbr(cls, value: AgendaItemNumber) -> str:
+        """Serialize agenda item version for storage and JSON output."""
+        return value
+
+    @field_validator("agenda_item_nbr", mode="before")
+    @classmethod
+    def _validate_agenda_item_nbr(cls, value: Version | AgendaItemNumber | int | float | None) -> AgendaItemNumber:
+        """Normalize agenda item numbers into Version objects."""
+        return parse_agenda_item_nbr(value)
 
     @classmethod
     @field_serializer("status")

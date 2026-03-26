@@ -9,7 +9,6 @@ from __future__ import annotations
 import io
 import re
 from datetime import UTC, datetime
-from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +18,7 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
+from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr
 
 logger = get_logger(__name__)
 
@@ -295,7 +295,7 @@ def _get_column_value(row: pd.Series, possible_names: list[str]) -> str | None:
     return None
 
 
-def _parse_agenda_item(agenda_item: str | None) -> tuple[Decimal, str]:
+def _parse_agenda_item(agenda_item: str | None) -> tuple[AgendaItemNumber, str]:
     """Parse agenda item into number and text components.
 
     Args:
@@ -305,7 +305,7 @@ def _parse_agenda_item(agenda_item: str | None) -> tuple[Decimal, str]:
         Tuple of (agenda_number, agenda_text)
     """
     if not agenda_item:
-        return Decimal("0.0"), "Unknown"
+        return parse_agenda_item_nbr("0"), "Unknown"
 
     # Try to split by " - " to get number and text
     parts = agenda_item.split(" - ", 1)
@@ -317,11 +317,7 @@ def _parse_agenda_item(agenda_item: str | None) -> tuple[Decimal, str]:
         agenda_nbr_str = agenda_item.strip()
         agenda_text = "Unknown"
 
-    # Parse agenda number as Decimal
-    try:
-        agenda_nbr = Decimal(agenda_nbr_str)
-    except Exception:
-        agenda_nbr = Decimal("0.0")
+    agenda_nbr = parse_agenda_item_nbr(agenda_nbr_str)
 
     return agenda_nbr, agenda_text
 

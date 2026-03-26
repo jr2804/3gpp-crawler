@@ -12,6 +12,7 @@ from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 _logger = get_logger(__name__)
 
@@ -187,7 +188,7 @@ class TDocDatabase(MeetingDatabase):
                         url=row[3],
                         source=row[4],
                         contact=row[5],
-                        agenda_item_nbr=row[6],
+                        agenda_item_nbr=parse_agenda_item_nbr(row[6]),
                     )
                 return None
         except sqlite3.Error:

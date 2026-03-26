@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
 
 import requests
@@ -11,6 +10,7 @@ from bs4 import BeautifulSoup
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 logger = get_logger(__name__)
 
@@ -189,7 +189,7 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         contact=str(metadata.get("contact") or ""),
         tdoc_type=str(metadata.get("tdoc_type") or "unknown"),
         for_purpose=str(metadata.get("for") or "unknown"),
-        agenda_item_nbr=Decimal(str(agenda_item_value)),
+        agenda_item_nbr=parse_agenda_item_nbr(agenda_item_value),
         agenda_item_text=str(metadata.get("agenda_item_text") or "Unknown"),
         status=metadata.get("status"),
         is_revision_of=metadata.get("is_revision_of"),

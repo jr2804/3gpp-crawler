@@ -143,7 +143,7 @@ def fetch_tdoc(
             contact="",
             tdoc_type="unknown",
             for_purpose="unknown",
-            agenda_item_nbr=Decimal("0"),
+            agenda_item_nbr=Version("0"),
             agenda_item_text="Unknown",
             status=None,
             meeting_name=None,
