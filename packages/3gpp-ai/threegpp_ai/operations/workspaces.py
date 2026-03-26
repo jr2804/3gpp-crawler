@@ -520,7 +520,25 @@ def checkout_spec_to_workspace(
     # First check if already checked out with the SAME release version
     specs_dir = checkout_base / "Specs"
     if specs_dir.exists():
-        # Search for spec with matching release version using both normalized and undotted forms
+        # Resolve release to actual version(s) to match against 3GPP version codes (e.g., "h00", "i10")
+        version_codes: list[str] = []
+        try:
+            cache_manager = resolve_cache_manager("default")
+            db_path = db_file if db_file is not None else cache_manager.db_file
+            with SpecDatabase(db_path) as db:
+                versions = db.get_spec_versions(spec_number)
+                if versions:
+                    # Filter versions that match the requested release
+                    for entry in versions:
+                        if release == "latest" or release.startswith(entry.release.split(".")[0]):
+                            # Extract version code from version string (e.g., "26.260" from "26.260-h00")
+                            if "-" in entry.version:
+                                version_code = entry.version.split("-")[1]
+                                version_codes.append(version_code)
+        except Exception as exc:
+            _logger.debug("Could not resolve version codes for %s: %s", spec_number, exc)
+
+        # Search for spec with matching version code
         for spec_dir in specs_dir.rglob("*"):
             if not spec_dir.is_dir():
                 continue
@@ -528,10 +546,12 @@ def checkout_spec_to_workspace(
             # Check if this directory matches our spec (normalized or undotted form)
             if normalized not in dir_name and undotted not in dir_name:
                 continue
-            # Check if release version matches (only for non-latest)
-            if release != "latest" and release not in dir_name:
-                continue
-            _logger.debug(f"Spec {spec_number} (release {release}) already checked out at {spec_dir}")
+            # Check if version code matches (only for non-latest)
+            if release != "latest":
+                # Check if any resolved version code is in the directory name
+                if not any(vc in dir_name for vc in version_codes):
+                    continue
+            _logger.debug("Spec %s (release %s) already checked out at %s", spec_number, release, spec_dir)
             return spec_dir
 
     # Need to checkout the spec

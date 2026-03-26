@@ -327,15 +327,18 @@ def _process_single_item(
         pdf_path = _convert_member_to_pdf(member_for_convert)
         was_converted = pdf_path is not None
 
-    # Optional markdown extraction (only for TDocs)
+    # Optional markdown extraction (for TDocs and specs)
     was_md_extracted = False
-    if convert_md and source_kind == SourceKind.TDOC:
+    if convert_md:
         try:
-            # Extract markdown - this will save to .ai folder
-            convert_tdoc_to_markdown(document_id=item, force=False)
+            # Extract markdown using unified pipeline - this will save to .ai folder
+            # For TDocs: uses TDoc ID; for specs: uses spec number
+            from threegpp_ai.operations.convert import convert_document_to_markdown
+
+            convert_document_to_markdown(document_id=item, output_path=None, force=False)
             was_md_extracted = True
         except Exception as e:
-            _logger.debug(f"Failed to extract markdown for {item}: {e}")
+            _logger.debug("Failed to extract markdown for %s: %s", item, e)
 
     resolved_release = _resolve_spec_release(item, release) if source_kind == SourceKind.SPEC and release else None
     source_item_id = f"{item}-REL{resolved_release}" if resolved_release else item
