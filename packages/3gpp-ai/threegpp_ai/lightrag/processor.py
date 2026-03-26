@@ -17,8 +17,14 @@ from kreuzberg import extract_file, extract_file_sync
 
 from threegpp_ai.operations.extraction_result import (
     StructuredExtractionResult,
+    build_structured_extraction_result,
     from_kreuzberg_result,
+    has_cached_artifacts,
+    persist_equations_from_extraction,
+    persist_figures_from_extraction,
     persist_figures_from_kreuzberg_result,
+    persist_tables_from_extraction,
+    read_cached_artifacts,
 )
 from threegpp_ai.operations.figure_descriptor import describe_figures
 
@@ -95,7 +101,7 @@ class TDocProcessor:
         ...     await processor.rag.stop()
     """
 
-    def __init__(self, config: LightRAGConfig | None = None):
+    def __init__(self, config: LightRAGConfig | None = None) -> None:
         self.config = config or LightRAGConfig.from_env()
         self.rag = TDocRAG(self.config)
 
@@ -251,7 +257,11 @@ class TDocProcessor:
         return file_path.suffix.lower() in SUPPORTED_FORMATS
 
     @staticmethod
-    async def extract_text(file_path: Path) -> StructuredExtractionResult | None:
+    async def extract_text(
+        file_path: Path,
+        force: bool = False,
+        extract_types: set[str] | None = None,
+    ) -> StructuredExtractionResult | None:
         """Extract structured content from a file using kreuzberg.
 
         For office documents, first converts to PDF using convert-lo.
@@ -259,10 +269,16 @@ class TDocProcessor:
 
         Args:
             file_path: Path to the document file.
+            force: If True, re-extract even if artifacts exist.
+            extract_types: Optional set of artifact types to extract/persist.
+                If None, extracts all types. Supported types: "tables", "figures", "equations".
 
         Returns:
             Structured extraction result, or None if extraction failed.
         """
+        if extract_types is None:
+            extract_types = {"tables", "figures", "equations"}
+
         pdf_path: Path | None = None
 
         try:
@@ -281,14 +297,38 @@ class TDocProcessor:
 
             ai_dir = file_path.parent / ".ai"
             ai_dir.mkdir(parents=True, exist_ok=True)
-            figure_paths = persist_figures_from_kreuzberg_result(result, ai_dir / "figures")
-            figure_descriptions = describe_figures(
-                figure_paths,
-                enabled=True,
-            )
+            doc_stem = file_path.stem
+
+            # Check for cached artifacts to skip re-extraction (only for types in extract_types)
+            if not force and has_cached_artifacts(ai_dir, doc_stem, extract_types):
+                md_path = ai_dir / f"{doc_stem}.md"
+                if md_path.exists():
+                    cached_content = md_path.read_text(encoding="utf-8")
+                    cached = read_cached_artifacts(ai_dir, doc_stem)
+                    if cached is not None:
+                        # Filter based on extract_types
+                        tables = cached.tables if "tables" in extract_types else []
+                        figures = cached.figures if "figures" in extract_types else []
+                        equations = cached.equations if "equations" in extract_types else []
+                        return build_structured_extraction_result(
+                            cached_content,
+                            tables=tables,
+                            figures=figures,
+                            equations=equations,
+                        )
+
+            figures_dir = ai_dir / "figures"
+            figure_paths: dict[str, Path] = {}
+            if "figures" in extract_types:
+                figure_paths = persist_figures_from_kreuzberg_result(
+                    result,
+                    figures_dir,
+                    doc_stem=doc_stem,
+                )
+            figure_descriptions = describe_figures(figure_paths, enabled=True) if figure_paths else None
             extraction = from_kreuzberg_result(
                 result,
-                figure_paths={key: str(path) for key, path in figure_paths.items()},
+                figure_paths={key: str(path) for key, path in figure_paths.items()} if figure_paths else None,
                 figure_descriptions=figure_descriptions,
             )
             if extraction.content:
@@ -297,8 +337,16 @@ class TDocProcessor:
                 logger.warning("No content extracted from %s", file_path)
                 return None
 
+            # Persist artifacts based on extract_types
+            if extraction.table_count > 0 and "tables" in extract_types:
+                persist_tables_from_extraction(extraction.tables, ai_dir, doc_stem)
+            if extraction.figure_count > 0 and "figures" in extract_types:
+                persist_figures_from_extraction(extraction.figures, figures_dir, doc_stem)
+            if extraction.equation_count > 0 and "equations" in extract_types:
+                persist_equations_from_extraction(extraction.equations, ai_dir, doc_stem)
+
             # Save extracted content as markdown in .ai subfolder
-            md_path = ai_dir / f"{file_path.stem}.md"
+            md_path = ai_dir / f"{doc_stem}.md"
             md_path.write_text(extracted_content, encoding="utf-8")
             logger.info("Saved markdown: %s", md_path)
 

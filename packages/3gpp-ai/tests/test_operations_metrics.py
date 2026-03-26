@@ -90,11 +90,11 @@ def test_convert_tdoc_to_markdown_writes_table_sidecar(monkeypatch: pytest.Monke
 
     _ = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
 
-    sidecar = tmp_path / ".ai" / "S4-260001_tables.json"
+    sidecar = tmp_path / ".ai" / "tables" / "S4-260001_table_1_1.json"
     assert sidecar.exists()
     payload = json.loads(sidecar.read_text(encoding="utf-8"))
-    assert isinstance(payload, list)
-    assert payload[0]["element_id"] == "table_1"
+    assert isinstance(payload, dict)
+    assert payload["element_id"] == "table_1"
 
 
 def test_summarize_tdoc_records_summarization_metric(monkeypatch: pytest.MonkeyPatch) -> None:
