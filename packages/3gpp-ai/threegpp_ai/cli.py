@@ -332,9 +332,16 @@ def _process_single_item(
     was_md_extracted = False
     if convert_md:
         try:
-            # Extract markdown using unified pipeline - this will save to .ai folder
-            # For TDocs: uses TDoc ID; for specs: uses spec number
-            convert_document_to_markdown(document_id=item, output_path=None, force=False)
+            if source_kind == SourceKind.TDOC:
+                # TDoc extraction - uses TDoc ID to fetch files
+                convert_document_to_markdown(document_id=item, output_path=None, force=False)
+            else:
+                # Generic extraction (specs, other) - uses file path directly
+                doc_file = _resolve_process_file(Path(source_path))
+                if doc_file:
+                    from threegpp_ai.operations.extraction import extract_document_structured
+
+                    extract_document_structured(doc_file, metadata=None, force=False)
             was_md_extracted = True
         except Exception as e:
             _logger.debug("Failed to extract markdown for %s: %s", item, e)
