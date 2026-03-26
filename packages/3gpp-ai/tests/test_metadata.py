@@ -50,6 +50,16 @@ class TestRAGMetadata:
         assert metadata.release == "Rel-18"
         assert metadata.wg == "SA4"
 
+    def test_release_normalization_variants(self) -> None:
+        """Test release normalization across selector formats."""
+        metadata_short = RAGMetadata(tdoc_id="S4-250001", release=" rel18 ")
+        metadata_full = RAGMetadata(tdoc_id="S4-250001", release="18.1.0")
+        metadata_latest = RAGMetadata(tdoc_id="S4-250001", release="LATEST")
+
+        assert metadata_short.release == "Rel-18"
+        assert metadata_full.release == "Rel-18.1.0"
+        assert metadata_latest.release == "latest"
+
 
 class TestEnrichText:
     """Test enrich_text function."""

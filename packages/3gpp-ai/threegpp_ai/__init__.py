@@ -53,6 +53,7 @@ from threegpp_ai.operations.workspaces import (
     make_workspace_member,
     normalize_workspace_name,
     remove_invalid_members,
+    resolve_spec_release_from_db,
     resolve_tdoc_checkout_path,
     resolve_workspace,
 )
@@ -102,6 +103,7 @@ __all__ = [
     "make_workspace_member",
     "normalize_workspace_name",
     "remove_invalid_members",
+    "resolve_spec_release_from_db",
     "resolve_tdoc_checkout_path",
     "resolve_workspace",
     "set_active_workspace",

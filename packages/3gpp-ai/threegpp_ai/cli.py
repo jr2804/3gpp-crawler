@@ -20,12 +20,11 @@ from dotenv import load_dotenv
 from rich.progress import MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
-from tdoc_crawler.database import SpecDatabase, TDocDatabase
+from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_console, get_logger
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
-from tdoc_crawler.utils.normalization import resolve_release_to_full_version
 
 from threegpp_ai import (
     SourceKind,
@@ -43,6 +42,7 @@ from threegpp_ai import (
     make_workspace_member,
     normalize_workspace_name,
     remove_invalid_members,
+    resolve_spec_release_from_db,
     set_active_workspace,
     summarize_document,
 )
@@ -85,6 +85,7 @@ from threegpp_ai.lightrag.processor import DocumentProcessor
 from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import convert_document_to_markdown
+from threegpp_ai.operations.extraction import extract_document_structured
 from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
 
 # Load environment variables from .env file
@@ -252,19 +253,6 @@ def _resolve_workspace_items(
     return [row.tdoc_id for row in rows]
 
 
-def _resolve_spec_release(item: str, release: str) -> str:
-    resolved = release
-    manager = resolve_cache_manager()
-    try:
-        with SpecDatabase(manager.db_file) as db:
-            versions = db.get_spec_versions(item)
-            if versions:
-                resolved = resolve_release_to_full_version(release, [entry.version for entry in versions])
-    except Exception as exc:
-        _logger.debug("Could not resolve release for %s: %s", item, exc)
-    return resolved
-
-
 def _process_single_item(
     *,
     item: str,
@@ -339,14 +327,12 @@ def _process_single_item(
                 # Generic extraction (specs, other) - uses file path directly
                 doc_file = _resolve_process_file(Path(source_path))
                 if doc_file:
-                    from threegpp_ai.operations.extraction import extract_document_structured
-
                     extract_document_structured(doc_file, metadata=None, force=False)
             was_md_extracted = True
         except Exception as e:
             _logger.debug("Failed to extract markdown for %s: %s", item, e)
 
-    resolved_release = _resolve_spec_release(item, release) if source_kind == SourceKind.SPEC and release else None
+    resolved_release = resolve_spec_release_from_db(item, release) if source_kind == SourceKind.SPEC and release else None
     source_item_id = f"{item}-REL{resolved_release}" if resolved_release else item
     member = make_workspace_member(workspace, source_item_id, source_path, source_kind)
     return member, None, was_converted, was_md_extracted

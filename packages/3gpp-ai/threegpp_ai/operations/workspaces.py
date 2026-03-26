@@ -17,7 +17,7 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from tdoc_crawler.utils.normalization import normalize_spec_number
+from tdoc_crawler.utils.normalization import normalize_spec_number, resolve_release_to_full_version
 
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
 from threegpp_ai.operations.workspace_registry import (
@@ -26,6 +26,23 @@ from threegpp_ai.operations.workspace_registry import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def resolve_spec_release_from_db(spec_number: str, requested_release: str, db_file: Path | None = None) -> str:
+    """Resolve a short release string (e.g., '16') to a full release designation (e.g., 'Rel-16') using available spec versions in the DB."""
+    resolved = requested_release
+    try:
+        manager = resolve_cache_manager("default")
+        db_path = db_file if db_file is not None else manager.db_file
+        with SpecDatabase(db_path) as db:
+            versions = db.get_spec_versions(spec_number)
+            if versions:
+                available_releases = [entry.release for entry in versions if entry.release]
+                if available_releases:
+                    resolved = resolve_release_to_full_version(requested_release, available_releases)
+    except Exception as exc:
+        _logger.debug("Could not resolve release '%s' for %s: %s", requested_release, spec_number, exc)
+    return resolved
 
 
 def _get_registry() -> WorkspaceRegistry:
@@ -516,28 +533,32 @@ def checkout_spec_to_workspace(
     # Normalize spec number for consistent directory naming
     normalized = normalize_spec_number(spec_number)
     undotted = normalized.replace(".", "")  # e.g., "26.260" -> "26260"
+    requested_release = release.strip()
 
     # First check if already checked out with the SAME release version
-    specs_dir = checkout_base / "Specs"
+    specs_dir = checkout_base / "Specs"  # TODO: resolve specs_dir from cache_manager!
     if specs_dir.exists():
         # Resolve release to actual version(s) to match against 3GPP version codes (e.g., "h00", "i10")
         version_codes: list[str] = []
         try:
+            resolved_release = resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
             cache_manager = resolve_cache_manager("default")
             db_path = db_file if db_file is not None else cache_manager.db_file
             with SpecDatabase(db_path) as db:
                 versions = db.get_spec_versions(spec_number)
                 if versions:
-                    # Filter versions that match the requested release
                     for entry in versions:
-                        if (release == "latest" or release.startswith(entry.release.split(".")[0])) and "-" in entry.version:
+                        if resolved_release is not None and entry.release != resolved_release:
+                            continue
+                        if "-" in entry.version:
                             # Extract version code from version string (e.g., "26.260" from "26.260-h00")
-                            version_code = entry.version.split("-")[1]
+                            version_code = entry.version.split("-", 1)[1]
                             version_codes.append(version_code)
         except Exception as exc:
             _logger.debug("Could not resolve version codes for %s: %s", spec_number, exc)
 
         # Search for spec with matching version code
+        require_release_match = requested_release.lower() != "latest"
         for spec_dir in specs_dir.rglob("*"):
             if not spec_dir.is_dir():
                 continue
@@ -545,10 +566,12 @@ def checkout_spec_to_workspace(
             # Check if this directory matches our spec (normalized or undotted form)
             if normalized not in dir_name and undotted not in dir_name:
                 continue
-            # Check if version code matches (only for non-latest)
-            if release != "latest" and not any(vc in dir_name for vc in version_codes):
+            # Enforce release-aware cache reuse when matching version codes are known.
+            if version_codes and not any(vc in dir_name for vc in version_codes):
                 continue
-            _logger.debug("Spec %s (release %s) already checked out at %s", spec_number, release, spec_dir)
+            if require_release_match and not version_codes:
+                continue
+            _logger.debug("Spec %s (release %s) already checked out at %s", spec_number, requested_release, spec_dir)
             return spec_dir
 
     # Need to checkout the spec
@@ -562,18 +585,18 @@ def checkout_spec_to_workspace(
                 spec_numbers=[spec_number],
                 checkout_dir=checkout_base,
                 database=db,
-                release=release,
+                release=requested_release,
             )
 
             if checkout_paths and checkout_paths[0] and checkout_paths[0].exists():
-                _logger.info(f"Checked out spec {spec_number} (release {release}) to {checkout_paths[0]}")
+                _logger.info(f"Checked out spec {spec_number} (release {requested_release}) to {checkout_paths[0]}")
                 return checkout_paths[0]
 
-        _logger.warning(f"Failed to checkout spec {spec_number} (release {release})")
+        _logger.warning(f"Failed to checkout spec {spec_number} (release {requested_release})")
         return None
 
     except Exception as e:
-        _logger.warning(f"Error checking out spec {spec_number} (release {release}): {e}")
+        _logger.warning(f"Error checking out spec {spec_number} (release {requested_release}): {e}")
         return None
 
 

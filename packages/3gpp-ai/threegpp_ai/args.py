@@ -56,7 +56,10 @@ ConvertMdOption = Annotated[
 ]
 WorkspaceReleaseOption = Annotated[
     str | None,
-    typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs."),
+    typer.Option(
+        "--release",
+        help="Spec release selector: latest, 18, 18.1, 18.1.0, Rel-18. Only applies to specs.",
+    ),
 ]
 WorkspaceLimitOption = Annotated[int | None, typer.Option("--limit", help="Maximum items to add")]
 WorkspaceIncludeInactiveOption = Annotated[bool, typer.Option("--include-inactive", help="Include inactive members")]

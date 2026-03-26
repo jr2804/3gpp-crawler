@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from .metadata import normalize_release_label
 from .rag import TDocRAG
 
 logger = logging.getLogger(__name__)
@@ -210,8 +211,9 @@ class EntitySeeder:
             description += f": {title}"
 
         metadata: dict[str, Any] = {}
-        if release:
-            metadata["release"] = release
+        normalized_release = normalize_release_label(release)
+        if normalized_release:
+            metadata["release"] = normalized_release
 
         seed = EntitySeed(
             name=spec_number,
