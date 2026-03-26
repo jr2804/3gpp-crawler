@@ -558,7 +558,6 @@ def checkout_spec_to_workspace(
             _logger.debug("Could not resolve version codes for %s: %s", spec_number, exc)
 
         # Search for spec with matching version code
-        require_release_match = requested_release.lower() != "latest"
         for spec_dir in specs_dir.rglob("*"):
             if not spec_dir.is_dir():
                 continue
@@ -568,8 +567,6 @@ def checkout_spec_to_workspace(
                 continue
             # Enforce release-aware cache reuse when matching version codes are known.
             if version_codes and not any(vc in dir_name for vc in version_codes):
-                continue
-            if require_release_match and not version_codes:
                 continue
             _logger.debug("Spec %s (release %s) already checked out at %s", spec_number, requested_release, spec_dir)
             return spec_dir
