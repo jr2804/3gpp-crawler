@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from packaging.version import Version
 
 from tdoc_crawler.database import DatabaseError, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
@@ -166,7 +166,7 @@ class TestTDocDatabase:
                 contact="Updated Contact",
                 tdoc_type="Updated Type",
                 for_purpose="Updated Purpose",
-                agenda_item_nbr=Decimal("7.2"),
+                agenda_item_nbr=Version("7.2"),
                 agenda_item_text="Updated agenda",
                 status="revised",
                 is_revision_of=None,

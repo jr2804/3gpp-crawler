@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from bs4 import BeautifulSoup
+from packaging.version import Version
 
 from tdoc_crawler.constants.patterns import EXCLUDED_DIRS, TDOC_PATTERN
 from tdoc_crawler.database import TDocDatabase
@@ -92,7 +92,7 @@ class TestTDocCrawler:
             title="Test Contribution",
             source="Test Corp",
             contact="J. Doe",
-            agenda_item_nbr=Decimal("1.0"),
+            agenda_item_nbr=Version("1.0"),
             url=None,
             tdoc_type="unknown",
             for_purpose="unknown",
@@ -149,7 +149,7 @@ class TestTDocCrawler:
             title="Wanted Contribution",
             source="Test Corp",
             contact="J. Doe",
-            agenda_item_nbr=Decimal("1.0"),
+            agenda_item_nbr=Version("1.0"),
             url=None,
             tdoc_type="unknown",
             for_purpose="unknown",
@@ -167,7 +167,7 @@ class TestTDocCrawler:
             title="Unwanted Contribution",
             source="Other Corp",
             contact="A. Smith",
-            agenda_item_nbr=Decimal("2.0"),
+            agenda_item_nbr=Version("2.0"),
             url=None,
             tdoc_type="unknown",
             for_purpose="unknown",

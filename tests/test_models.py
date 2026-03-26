@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 
 import pytest
+from packaging.version import Version
 
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models import WorkingGroup
@@ -25,7 +25,7 @@ class TestTDocMetadata:
             url="https://www.3gpp.org/test.zip",
             source="Test Source",
             contact="Test Contact",
-            agenda_item_nbr=Decimal("7.1"),
+            agenda_item_nbr=Version("7.1"),
         )
         assert metadata.tdoc_id == "R1-2301234"
         assert metadata.url == "https://www.3gpp.org/test.zip"
@@ -40,7 +40,7 @@ class TestTDocMetadata:
             url="https://www.3gpp.org/test.zip",
             source="Test Source",
             contact="Test Contact",
-            agenda_item_nbr=Decimal("7.1"),
+            agenda_item_nbr=Version("7.1"),
         )
         assert metadata.tdoc_id == "R1-2301234"
 
@@ -53,7 +53,7 @@ class TestTDocMetadata:
             url="https://www.3gpp.org/test.zip",
             source="Test Source",
             contact="Test Contact",
-            agenda_item_nbr=Decimal("7.1"),
+            agenda_item_nbr=Version("7.1"),
             file_size=256000,
         )
         assert metadata.meeting_id == 12345

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from packaging.version import Version
 
-from tdoc_crawler.config import CacheManager, register_cache_manager
+from tdoc_crawler.config import CacheManager, register_cache_manager, resolve_cache_manager
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -50,7 +50,7 @@ def test_db_path(test_cache_dir: Path) -> Path:
     Returns:
         Path to test database
     """
-    return test_cache_dir / "tdoc_crawler.db"
+    return resolve_cache_manager().db_file
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ def sample_tdocs() -> list[TDocMetadata]:
             contact="Test Contact",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Decimal("7.1"),
+            agenda_item_nbr=Version("7.1"),
             agenda_item_text="Test agenda item",
             status="approved",
             is_revision_of=None,
@@ -90,7 +90,7 @@ def sample_tdocs() -> list[TDocMetadata]:
             contact="Test Contact",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Decimal("8.1"),
+            agenda_item_nbr=Version("8.1"),
             agenda_item_text="Test agenda item",
             status="approved",
             is_revision_of=None,
@@ -109,7 +109,7 @@ def sample_tdocs() -> list[TDocMetadata]:
             contact="Test Contact",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Decimal("9.1"),
+            agenda_item_nbr=Version("9.1"),
             agenda_item_text="Test agenda item",
             status="approved",
             is_revision_of=None,

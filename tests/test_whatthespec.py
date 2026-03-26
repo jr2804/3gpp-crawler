@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -86,7 +85,7 @@ class TestWhatTheSpecResolution:
             assert result.tdoc_type == "agenda"
             assert result.for_purpose == "Approval"
             assert result.url == "https://www.3gpp.org/tsg_sa/WG4_CODEC/TSGS4_135_India/Docs/S4-260001.zip"
-            assert result.agenda_item_nbr == Decimal("2")
+            assert result.agenda_item_nbr == "2"
             assert result.agenda_item_text == "Approval of agenda and association of documents"
             assert result.status == "available"
             assert result.validated is False
@@ -247,7 +246,7 @@ class TestWhatTheSpecResolution:
             assert result.tdoc_type == "discussion"  # tdoctype -> tdoc_type
             assert result.for_purpose == "information"  # for -> for_purpose
             assert result.url == "https://example.com/doc.zip"  # link -> url
-            assert result.agenda_item_nbr == Decimal("3.5")  # ainumber -> agenda_item_nbr
+            assert result.agenda_item_nbr == "3.5"  # ainumber -> agenda_item_nbr
             assert result.agenda_item_text == "Test agenda item"  # ainame -> agenda_item_text
             assert result.status == "approved"  # status -> status
 
@@ -285,14 +284,14 @@ class TestWhatTheSpecResolution:
             assert result.for_purpose == "unknown"  # default for missing for
             assert result.source == ""  # default for missing source
             assert result.contact == ""  # default for missing contact
-            assert result.agenda_item_nbr == Decimal("0")  # default for invalid ainumber
+            assert result.agenda_item_nbr == "0"  # default for invalid ainumber
             assert result.agenda_item_text == "Unknown"  # default for missing ainame
             assert result.status is None  # None for missing status
 
     def test_invalid_agenda_item_number_defaults_to_zero(self, test_cache_dir: Path, http_cache_config: HttpCacheConfig) -> None:
         """Test that invalid agenda item numbers default to zero.
 
-        Verifies that non-numeric agenda_item_nbr values are parsed as Decimal("0")
+        Verifies that non-numeric agenda_item_nbr values are parsed as "0"
         with warning logged.
 
         Args:
@@ -319,7 +318,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec("C1-250789", http_cache=http_cache_config, cache_manager_name="test_whatspec")
 
             assert result is not None
-            assert result.agenda_item_nbr == Decimal("0")
+            assert result.agenda_item_nbr == "0"
 
     def test_meeting_id_lazy_resolution(self, test_cache_dir: Path, http_cache_config: HttpCacheConfig, populated_db: TDocDatabase) -> None:
         """Test that meeting_id is correctly resolved from meeting_name.

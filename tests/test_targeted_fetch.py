@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
+from packaging.version import Version
 
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
@@ -91,7 +91,7 @@ class TestFetchMissingTdocsBatch:
             source="Test Source",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Decimal("7.1"),
+            agenda_item_nbr=Version("7.1"),
             agenda_item_text="Test agenda",
             status="Approved",
             validated=True,
@@ -139,7 +139,7 @@ class TestFetchMissingTdocsBatch:
                 source="Test Source",
                 tdoc_type="Discussion",
                 for_purpose="Discussion",
-                agenda_item_nbr=Decimal("7.1"),
+                agenda_item_nbr=Version("7.1"),
                 agenda_item_text="Test agenda",
                 status="Approved",
                 validated=True,
@@ -157,7 +157,7 @@ class TestFetchMissingTdocsBatch:
                 source="Test Source",
                 tdoc_type="Discussion",
                 for_purpose="Discussion",
-                agenda_item_nbr=Decimal("8.2"),
+                agenda_item_nbr=Version("8.2"),
                 agenda_item_text="Test agenda",
                 status="Approved",
                 validated=True,
@@ -357,7 +357,7 @@ class TestWhatTheSpecFallback:
                 contact="Test Contact",
                 tdoc_type="agenda",
                 for_purpose="Approval",
-                agenda_item_nbr=Decimal("2"),
+                agenda_item_nbr=Version("2"),
                 agenda_item_text="Unknown",
                 status="available",
                 validated=False,
@@ -441,7 +441,7 @@ class TestWhatTheSpecFallback:
                             contact="Test Contact",
                             tdoc_type="agenda",
                             for_purpose="Approval",
-                            agenda_item_nbr=Decimal("2"),
+                            agenda_item_nbr=Version("2"),
                             agenda_item_text="Unknown",
                             status="available",
                             validated=False,
@@ -460,7 +460,7 @@ class TestWhatTheSpecFallback:
                             contact="Test Contact",
                             tdoc_type="discussion",
                             for_purpose="Discussion",
-                            agenda_item_nbr=Decimal("3"),
+                            agenda_item_nbr=Version("3"),
                             agenda_item_text="Unknown",
                             status="available",
                             validated=False,
@@ -596,7 +596,7 @@ class TestWhatTheSpecFallback:
             contact="Gilles Teniou",
             tdoc_type="agenda",
             for_purpose="Approval",
-            agenda_item_nbr=Decimal("2"),
+            agenda_item_nbr=Version("2"),
             agenda_item_text="Unknown",
             status="available",
             validated=False,

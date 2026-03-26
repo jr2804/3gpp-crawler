@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from packaging.version import Version
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import app
+from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -385,10 +386,10 @@ class TestStatsCommand:
 class TestOpenCommand:
     """Tests for open command."""
 
-    @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.query.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_open_existing_tdoc(
         self,
         mock_db_class: MagicMock,
@@ -435,10 +436,10 @@ class TestOpenCommand:
         assert result.exit_code == 1
         assert "not found" in result.stdout
 
-    @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.query.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_open_with_whatthespec_fallback(
         self,
         mock_db_class: MagicMock,
@@ -472,7 +473,7 @@ class TestOpenCommand:
             contact="Test Contact",
             tdoc_type="agenda",
             for_purpose="Approval",
-            agenda_item_nbr=Decimal("2"),
+            agenda_item_nbr=Version("2"),
             agenda_item_text="Agenda item text",
             status="available",
             validated=False,
@@ -505,10 +506,10 @@ class TestOpenCommand:
         mock_prepare.assert_called_once()
         mock_launch.assert_called_once()
 
-    @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.query.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_open_with_whatthespec_no_credentials_required(
         self,
         mock_db_class: MagicMock,
@@ -540,7 +541,7 @@ class TestOpenCommand:
             tdoc_type="discussion",
             agenda_item_text="Test agenda item text",
             for_purpose="Discussion",
-            agenda_item_nbr=Decimal("3.1"),
+            agenda_item_nbr=Version("3.1"),
             status="available",
             validated=False,
             validation_failed=False,
@@ -577,9 +578,9 @@ class TestOpenCommand:
 class TestCheckoutCommand:
     """Tests for checkout command with whatthespec fallback."""
 
-    @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.query.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_checkout_with_whatthespec_fallback(
         self,
         mock_db_class: MagicMock,
@@ -613,7 +614,7 @@ class TestCheckoutCommand:
             tdoc_type="agenda",
             agenda_item_text="Test agenda item text",
             for_purpose="Approval",
-            agenda_item_nbr=Decimal("2"),
+            agenda_item_nbr=Version("2"),
             status="available",
             validated=False,
             validation_failed=False,
@@ -631,7 +632,7 @@ class TestCheckoutCommand:
             tdoc_type="discussion",
             agenda_item_text="Test agenda item text",
             for_purpose="Discussion",
-            agenda_item_nbr=Decimal("3"),
+            agenda_item_nbr=Version("3"),
             status="available",
             validated=False,
             validation_failed=False,
@@ -660,9 +661,9 @@ class TestCheckoutCommand:
         # checkout_tdoc should have been called for both TDocs
         assert mock_checkout.call_count == 2
 
-    @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.query.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_checkout_with_whatthespec_graceful_failure(
         self,
         mock_db_class: MagicMock,
@@ -844,7 +845,7 @@ class TestEnvironmentVariables:
         mock_resolve.return_value = None
 
         # Create minimal database file for stats command
-        db_file = test_cache_dir / "tdoc_crawler.db"
+        db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
         db_file.touch()
 
         result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
@@ -867,7 +868,7 @@ class TestEnvironmentVariables:
         mock_resolve.return_value = None
 
         # Create minimal database file for stats command
-        db_file = test_cache_dir / "tdoc_crawler.db"
+        db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
         db_file.touch()
 
         result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
@@ -910,7 +911,7 @@ class TestEnvironmentVariables:
         mock_resolve.return_value = None
 
         # Create minimal database file for stats command
-        db_file = test_cache_dir / "tdoc_crawler.db"
+        db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
         db_file.touch()
 
         result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])

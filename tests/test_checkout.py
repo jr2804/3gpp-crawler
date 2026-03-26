@@ -2,11 +2,11 @@
 
 import io
 import zipfile
-from decimal import Decimal
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from packaging.version import Version
 
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checked_out_tdocs, get_checkout_path
@@ -24,7 +24,7 @@ def sample_tdoc_metadata() -> TDocMetadata:
         contact="test@example.com",
         tdoc_type="Test Type",
         for_purpose="Test Purpose",
-        agenda_item_nbr=Decimal("1.0"),
+        agenda_item_nbr=Version("1.0"),
         agenda_item_text="Test Agenda Item",
         status="available",
         meeting_name="Test Meeting",
@@ -62,7 +62,7 @@ class TestGetCheckoutPath:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Decimal("1.0"),
+            agenda_item_nbr=Version("1.0"),
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",
@@ -87,7 +87,7 @@ class TestGetCheckoutPath:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Decimal("1.0"),
+            agenda_item_nbr=Version("1.0"),
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",
@@ -183,7 +183,7 @@ class TestCheckoutTDoc:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Decimal("1.0"),
+            agenda_item_nbr=Version("1.0"),
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",

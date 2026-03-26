@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -39,7 +38,7 @@ class TestMeetingDocumentList:
         assert len(result) == 3
         assert result[0].tdoc_id == "R1-2301234"
         assert result[0].title == "Test Document 1"
-        assert result[0].agenda_item_nbr == Decimal("7.1")
+        assert result[0].agenda_item_nbr == "7.1"
         assert result[0].agenda_item_text == "Radio"
         assert result[0].meeting_id == 12345
         assert result[0].validated is True  # Direct from portal

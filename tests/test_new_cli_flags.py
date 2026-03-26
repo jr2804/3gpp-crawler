@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from packaging.version import Version
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli.app import app
@@ -30,7 +30,7 @@ def sample_tdoc_metadata() -> TDocMetadata:
         title="Sample TDoc",
         source="Qualcomm",
         contact="John Doe",
-        agenda_item_nbr=Decimal("1.1"),
+        agenda_item_nbr=Version("1.1"),
         url="https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_123/Docs/S4-260001.zip",
         tdoc_type="unknown",
         for_purpose="unknown",
