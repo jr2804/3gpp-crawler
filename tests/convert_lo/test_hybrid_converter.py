@@ -267,5 +267,5 @@ class TestConversionResult:
             result = converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
 
             assert result.input_path == example_docx_path
-            assert result.output_path == output_dir / "example_modern.pdf"
+            assert result.output_path == output_dir / "example_medium_size.pdf"
             assert result.output_format is LibreOfficeFormat.PDF

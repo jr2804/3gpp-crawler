@@ -165,7 +165,8 @@ def persist_figures_from_extraction(
     Uses temp-then-commit pattern for metadata files.
 
     Args:
-        figures: List of extracted figure elements with image bytes in metadata.
+        figures: List of extracted figure elements. Image bytes may be in metadata
+            or already saved to disk (image_path set).
         figures_dir: Target directory for figure artifacts.
         doc_stem: Document stem (e.g., "S4-250638").
 
@@ -179,21 +180,27 @@ def persist_figures_from_extraction(
     path_map: dict[str, Path] = {}
 
     for index, figure in enumerate(figures, start=1):
-        # Get image bytes from metadata
-        image_bytes = figure.metadata.get("image_bytes") if figure.metadata else None
-        if not isinstance(image_bytes, bytes):
-            continue
+        image_path: Path | None = None
 
-        image_format = figure.image_format or "png"
-        extension = "jpg" if image_format == "jpeg" else image_format
+        # Case 1: Image already saved to disk (image_path is set)
+        if figure.image_path:
+            image_path = Path(figure.image_path)
+        else:
+            # Case 2: Image bytes in metadata (legacy path)
+            image_bytes = figure.metadata.get("image_bytes") if figure.metadata else None
+            if not isinstance(image_bytes, bytes):
+                continue
 
-        # Build filename with page number
-        filename = f"{doc_stem}_figure_{figure.page_number or 'unknown'}_{index}.{extension}"
-        image_path = figures_dir / filename
-        image_path.write_bytes(image_bytes)
+            image_format = figure.image_format or "png"
+            extension = "jpg" if image_format == "jpeg" else image_format
+
+            # Build filename with page number
+            filename = f"{doc_stem}_figure_{figure.page_number or 'unknown'}_{index}.{extension}"
+            image_path = figures_dir / filename
+            image_path.write_bytes(image_bytes)
 
         # Persist figure metadata JSON — strip image_bytes (already written as binary file)
-        metadata_without_bytes = {k: v for k, v in figure.metadata.items() if k != "image_bytes"}
+        metadata_without_bytes = {k: v for k, v in figure.metadata.items() if k != "image_bytes"} if figure.metadata else {}
         figure_for_json = figure.model_copy(update={"metadata": metadata_without_bytes, "image_path": str(image_path)})
         _persist_single_artifact(figure_for_json, figures_dir.parent, doc_stem, "figures", figure.page_number, index)
 
@@ -241,33 +248,6 @@ def persist_figures_from_kreuzberg_result(
             filename = f"figure_{index}.{extension}"
 
         image_path = figures_dir / filename
-        image_path.write_bytes(image_bytes)
-        path_map[f"figure_{index}"] = image_path
-
-    return path_map
-    """Persist extracted figure bytes to disk and return resolved paths.
-
-    Args:
-        result: Object returned by kreuzberg extract APIs.
-        figures_dir: Target directory for figure artifacts.
-
-    Returns:
-        Mapping from generated figure id (figure_N) to file path.
-    """
-    image_items: Sequence[Any] = getattr(result, "images", []) or []
-    if not image_items:
-        return {}
-
-    figures_dir.mkdir(parents=True, exist_ok=True)
-    path_map: dict[str, Path] = {}
-    for index, image in enumerate(image_items, start=1):
-        image_bytes = getattr(image, "content", None)
-        if not isinstance(image_bytes, bytes) or not image_bytes:
-            continue
-
-        image_format = str(getattr(image, "format", "png") or "png").lower()
-        extension = "jpg" if image_format == "jpeg" else image_format
-        image_path = figures_dir / f"figure_{index}.{extension}"
         image_path.write_bytes(image_bytes)
         path_map[f"figure_{index}"] = image_path
 
