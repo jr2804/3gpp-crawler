@@ -19,6 +19,7 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.normalization import normalize_spec_number, resolve_release_to_full_version
 
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
@@ -30,14 +31,14 @@ from threegpp_ai.operations.workspace_registry import (
 _logger = logging.getLogger(__name__)
 
 
-def resolve_spec_release_from_db(spec_number: str, requested_release: str, db_file: Path | None = None) -> str:
+async def resolve_spec_release_from_db(spec_number: str, requested_release: str, db_file: Path | None = None) -> str:
     """Resolve a short release string (e.g., '16') to a full release designation (e.g., 'Rel-16') using available spec versions in the DB."""
     resolved = requested_release
     try:
         manager = resolve_cache_manager("default")
         db_path = db_file if db_file is not None else manager.db_file
-        with SpecDatabase(db_path) as db:
-            versions = db.get_spec_versions(spec_number)
+        async with SpecDatabase(db_path) as db:
+            versions = await db.get_spec_versions(spec_number)
             if versions:
                 available_releases = [entry.release for entry in versions if entry.release]
                 if available_releases:
@@ -301,7 +302,7 @@ def deactivate_workspace_member(workspace: str | None, source_item_id: str) -> b
         True if found and deactivated, False otherwise.
     """
     normalized_workspace = normalize_workspace_name(workspace)
-    normalized_source_item_id = source_item_id.strip().upper()
+    normalized_source_item_id = normalize_tdoc_id(source_item_id)
     if not normalized_source_item_id:
         return False
 
@@ -327,7 +328,7 @@ def remove_workspace_member(workspace: str | None, source_item_id: str) -> bool:
         True if found and removed, False otherwise.
     """
     normalized_workspace = normalize_workspace_name(workspace)
-    normalized_source_item_id = source_item_id.strip().upper()
+    normalized_source_item_id = normalize_tdoc_id(source_item_id)
     if not normalized_source_item_id:
         return False
 
@@ -392,7 +393,7 @@ def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None
     return None
 
 
-def _resolve_tdoc_metadata(tdoc_id: str, db_file: Path | None = None) -> TDocMetadata | None:
+async def _resolve_tdoc_metadata(tdoc_id: str, db_file: Path | None = None) -> TDocMetadata | None:
     """Resolve TDoc metadata via fallback chain: Database → WhatTheSpec → 3GPP Portal.
 
     Args:
@@ -407,8 +408,8 @@ def _resolve_tdoc_metadata(tdoc_id: str, db_file: Path | None = None) -> TDocMet
     # Step 1: Check database for existing metadata
     if db_file is not None and db_file.exists():
         try:
-            with TDocDatabase(db_file) as db:
-                metadata = db._get_tdoc(tdoc_id)
+            async with TDocDatabase(db_file) as db:
+                metadata = await db._get_tdoc(tdoc_id)
                 if metadata and metadata.url:
                     _logger.debug(f"Found TDoc {tdoc_id} in database with URL")
         except (OSError, ValueError, sqlite3.Error) as e:
@@ -480,7 +481,7 @@ def _checkout_tdoc_if_needed(tdoc_id: str, metadata: TDocMetadata, checkout_base
         return None
 
 
-def checkout_tdoc_to_workspace(
+async def checkout_tdoc_to_workspace(
     tdoc_id: str,
     checkout_base: Path,
     workspace: str | None,
@@ -504,7 +505,7 @@ def checkout_tdoc_to_workspace(
         Path to the checked out TDoc folder, or None if checkout failed.
     """
     # Resolve metadata via fallback chain
-    metadata = _resolve_tdoc_metadata(tdoc_id, db_file)
+    metadata = await _resolve_tdoc_metadata(tdoc_id, db_file)
     if metadata is None:
         return None
 
@@ -512,7 +513,7 @@ def checkout_tdoc_to_workspace(
     return _checkout_tdoc_if_needed(tdoc_id, metadata, checkout_base)
 
 
-def checkout_spec_to_workspace(
+async def checkout_spec_to_workspace(
     spec_number: str,
     checkout_base: Path,
     workspace: str | None,
@@ -543,11 +544,11 @@ def checkout_spec_to_workspace(
         # Resolve release to actual version(s) to match against 3GPP version codes (e.g., "h00", "i10")
         version_codes: list[str] = []
         try:
-            resolved_release = resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
+            resolved_release = await resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
             cache_manager = resolve_cache_manager("default")
             db_path = db_file if db_file is not None else cache_manager.db_file
-            with SpecDatabase(db_path) as db:
-                versions = db.get_spec_versions(spec_number)
+            async with SpecDatabase(db_path) as db:
+                versions = await db.get_spec_versions(spec_number)
                 if versions:
                     for entry in versions:
                         if resolved_release is not None and entry.release != resolved_release:
@@ -578,7 +579,7 @@ def checkout_spec_to_workspace(
         # Resolve database path: use provided db_file or fall back to CacheManager
         cache_manager = resolve_cache_manager("default")
         db_path = db_file if db_file is not None else cache_manager.db_file
-        with SpecDatabase(db_path) as db:
+        async with SpecDatabase(db_path) as db:
             # Checkout the spec
             checkout_paths = checkout_specs(
                 spec_numbers=[spec_number],

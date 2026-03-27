@@ -18,6 +18,7 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 logger = get_logger(__name__)
@@ -72,7 +73,7 @@ def resolve_via_whatthespec(
         return None
 
     record = payload[0] or {}
-    resolved_id = str(record.get("name") or tdoc_id).strip().upper()
+    resolved_id = normalize_tdoc_id(str(record.get("name") or tdoc_id))
     meeting_raw = record.get("meeting")
     meeting_name = str(meeting_raw) if meeting_raw else ""
     agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))

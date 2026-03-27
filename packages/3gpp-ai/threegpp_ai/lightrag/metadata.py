@@ -7,6 +7,7 @@ structured 3GPP metadata to document text before LightRAG insertion.
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.normalization import normalize_release
 
 
@@ -69,7 +70,7 @@ class RAGMetadata(BaseModel):
         """Normalize metadata after initialization."""
         # Normalize tdoc_id: uppercase and strip whitespace
         if self.tdoc_id:
-            self.tdoc_id = self.tdoc_id.strip().upper()
+            self.tdoc_id = normalize_tdoc_id(self.tdoc_id)
 
         # Normalize spec_refs: strip whitespace from each reference
         if self.spec_refs:

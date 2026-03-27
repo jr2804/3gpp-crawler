@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -68,7 +69,7 @@ def test_convert_tdoc_to_markdown_records_conversion_metric(monkeypatch: pytest.
         mock_extract,
     )
 
-    output = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
+    output = asyncio.run(convert_ops.convert_tdoc_to_markdown("S4-260001", force=True))
 
     assert output == "# markdown"
     conversion_metrics = tracker.by_type(MetricType.CONVERSION)
@@ -107,7 +108,7 @@ def test_convert_tdoc_to_markdown_writes_table_sidecar(monkeypatch: pytest.Monke
         mock_extract,
     )
 
-    result = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
+    result = asyncio.run(convert_ops.convert_tdoc_to_markdown("S4-260001", force=True))
 
     # Verify conversion succeeded and returned content
     assert "# markdown" in result

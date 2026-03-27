@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
+
 from .metadata import normalize_release_label
 from .rag import TDocRAG
 
@@ -141,7 +143,7 @@ class EntitySeeder:
             True if seeding was successful.
         """
         # Normalize tdoc_id
-        tdoc_id = tdoc_id.strip().upper()
+        tdoc_id = normalize_tdoc_id(tdoc_id)
 
         # Create TDoc entity
         description = f"3GPP Temporary Document {tdoc_id}"

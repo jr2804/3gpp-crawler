@@ -199,27 +199,10 @@ class DocDatabase:
                 count = await self.connection.count(model_class)
                 await self.connection.delete_all(model_class)
                 counts[table] = count
-            except Exception:
+            except (OSError, ValueError) as exc:
+                _logger.error("Failed to clear table %s: %s", table, exc)
                 counts[table] = 0
         return counts
-
-    async def _table_exists(self, table_name: str) -> bool:
-        """Check if a table exists in the database.
-
-        Args:
-            table_name: Name of the table to check
-
-        Returns:
-            True if table exists, False otherwise
-        """
-        try:
-            cursor = await self.connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (table_name,),
-            )
-            return cursor.fetchone() is not None
-        except Exception:
-            return False
 
 
 __all__ = ["DocDatabase"]

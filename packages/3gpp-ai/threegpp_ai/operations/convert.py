@@ -16,6 +16,7 @@ from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 
 from threegpp_ai.models import ExtractionError
 from threegpp_ai.operations.conversion import (
@@ -131,7 +132,7 @@ def convert_tdoc_metadata(
         ValueError: If TDoc cannot be found via WhatTheSpec.
     """
     # Normalize TDoc ID
-    normalized_id = document_id.strip().upper()
+    normalized_id = normalize_tdoc_id(document_id)
 
     # Fetch metadata from WhatTheSpec
     logger.info("Fetching TDoc metadata for %s via WhatTheSpec", normalized_id)
@@ -193,7 +194,7 @@ def convert_document_to_markdown(
     )
 
     # Get TDoc metadata for header
-    normalized_id = document_id.strip().upper()
+    normalized_id = normalize_tdoc_id(document_id)
     metadata = resolve_via_whatthespec(normalized_id)
     if metadata:
         header = _format_tdoc_metadata(metadata)
@@ -232,7 +233,7 @@ def extract_document_structured_from_tdoc(
         ExtractionError: If no source file is available for the TDoc.
         ConversionError: If conversion/extraction fails.
     """
-    normalized_id = document_id.strip().upper()
+    normalized_id = normalize_tdoc_id(document_id)
 
     with timed_operation(get_metrics_tracker(), normalized_id, MetricType.CONVERSION):
         tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)

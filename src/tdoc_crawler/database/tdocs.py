@@ -11,6 +11,7 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
 
 _logger = get_logger(__name__)
@@ -189,7 +190,7 @@ class TDocDatabase(MeetingDatabase):
     @staticmethod
     def _filter_by_tdoc_ids(records: list[TDocMetadata], tdoc_ids: list[str]) -> list[TDocMetadata]:
         """Filter records by case-insensitive TDoc ID list."""
-        lookup = {value.strip().upper() for value in tdoc_ids}
+        lookup = {normalize_tdoc_id(value) for value in tdoc_ids}
         return [record for record in records if record.tdoc_id in lookup]
 
     @staticmethod

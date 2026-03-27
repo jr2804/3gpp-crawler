@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 import typer
 import yaml
@@ -73,6 +73,13 @@ load_dotenv()
 HELP_PANEL = "Crawling Commands"
 
 
+def _parse_date(date_str: str | None, is_end: bool = False) -> date | None:
+    """Parse a partial date string, returning None for empty/whitespace input."""
+    if not date_str or not date_str.strip():
+        return None
+    return parse_partial_date(date_str, is_end=is_end)
+
+
 def crawl_tdocs(
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
@@ -121,8 +128,8 @@ def crawl_tdocs(
         working_groups=working_groups,
         subgroups=subgroups,
         meeting_ids=None,
-        start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
-        end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
+        start_date=_parse_date(start_date),
+        end_date=_parse_date(end_date, is_end=True),
         incremental=incremental,
         force_revalidate=False,
         workers=workers,
@@ -147,8 +154,8 @@ def crawl_tdocs(
                 limit=None,
                 order=SortOrder.ASC,
                 include_without_files=False,
-                start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
-                end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
+                start_date=_parse_date(start_date),
+                end_date=_parse_date(end_date, is_end=True),
             )
             return await meeting_db.query_meetings(query_config)
 
@@ -219,8 +226,8 @@ def crawl_tdocs(
                     working_groups=working_groups,
                     limit=checkout_limit,
                     order=SortOrder.DESC,
-                    start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
-                    end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
+                    start_date=_parse_date(start_date),
+                    end_date=_parse_date(end_date, is_end=True),
                     source_pattern=source,
                     source_pattern_exclude=source_ex,
                     title_pattern=title,
@@ -356,8 +363,8 @@ def crawl_meetings(
             limit=limit_meetings if limit_meetings and limit_meetings > 0 else None,
             order=SortOrder.DESC,
             include_without_files=False,
-            start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
-            end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
+            start_date=_parse_date(start_date),
+            end_date=_parse_date(end_date, is_end=True),
         )
 
         async def fetch_checkout_meetings() -> list[MeetingMetadata]:

@@ -249,12 +249,16 @@ def _resolve_workspace_items(
         limit=limit,
         order=SortOrder.DESC,
     )
-    with TDocDatabase(manager.db_file) as db:
-        rows = db.query_tdocs(config)
+
+    async def _fetch_tdocs() -> list[Any]:
+        async with TDocDatabase(manager.db_file) as db:
+            return await db.query_tdocs(config)
+
+    rows = asyncio.run(_fetch_tdocs())
     return [row.tdoc_id for row in rows]
 
 
-def _process_single_item(
+async def _process_single_item(
     *,
     item: str,
     workspace: str,
@@ -288,11 +292,11 @@ def _process_single_item(
     if checkout:
         checkout_path = None
         if source_kind == SourceKind.TDOC:
-            checkout_path = checkout_tdoc_to_workspace(item, manager.checkout_dir, workspace, db_file=manager.db_file)
+            checkout_path = await checkout_tdoc_to_workspace(item, manager.checkout_dir, workspace, db_file=manager.db_file)
             if checkout_path is None:
                 return None, "TDoc not found in database or meeting not crawled", False, False
         elif source_kind == SourceKind.SPEC:
-            checkout_path = checkout_spec_to_workspace(
+            checkout_path = await checkout_spec_to_workspace(
                 item,
                 manager.checkout_dir,
                 workspace,
@@ -323,7 +327,7 @@ def _process_single_item(
         try:
             if source_kind == SourceKind.TDOC:
                 # TDoc extraction - uses TDoc ID to fetch files
-                convert_document_to_markdown(document_id=item, output_path=None, force=False)
+                asyncio.run(convert_document_to_markdown(document_id=item, output_path=None, force=False))
             else:
                 # Generic extraction (specs, other) - uses file path directly
                 doc_file = _resolve_process_file(Path(source_path))
@@ -333,7 +337,7 @@ def _process_single_item(
         except Exception as e:
             _logger.debug("Failed to extract markdown for %s: %s", item, e)
 
-    resolved_release = resolve_spec_release_from_db(item, release) if source_kind == SourceKind.SPEC and release else None
+    resolved_release = await resolve_spec_release_from_db(item, release) if source_kind == SourceKind.SPEC and release else None
     source_item_id = f"{item}-REL{resolved_release}" if resolved_release else item
     member = make_workspace_member(workspace, source_item_id, source_path, source_kind)
     return member, None, was_converted, was_md_extracted
@@ -351,22 +355,24 @@ def _build_workspace_members(
     members: list[Any] = []
     skipped: list[tuple[str, str]] = []
 
-    for item in items:
-        member, skip_reason, _, _ = _process_single_item(
-            item=item,
-            workspace=workspace,
-            source_kind=source_kind,
-            checkout=checkout,
-            release=release,
-            convert_pdf=False,  # Conversion handled separately in CLI
-            manager=manager,
-        )
-        if skip_reason:
-            skipped.append((item, skip_reason))
-        else:
-            members.append(member)
+    async def _build_members() -> tuple[list[Any], list[tuple[str, str]]]:
+        for item in items:
+            member, skip_reason, _, _ = await _process_single_item(
+                item=item,
+                workspace=workspace,
+                source_kind=source_kind,
+                checkout=checkout,
+                release=release,
+                convert_pdf=False,  # Conversion handled separately in CLI
+                manager=manager,
+            )
+            if skip_reason:
+                skipped.append((item, skip_reason))
+            else:
+                members.append(member)
+        return members, skipped
 
-    return members, skipped
+    return asyncio.run(_build_members())
 
 
 def _resolve_process_file(path: Path) -> Path | None:
@@ -439,14 +445,14 @@ def _convert_member_to_pdf(member: Any) -> Path | None:
         return None
 
 
-def _try_build_tdoc_metadata(source_item_id: str) -> RAGMetadata | None:
+async def _try_build_tdoc_metadata(source_item_id: str) -> RAGMetadata | None:
     if not source_item_id.startswith(("S", "R", "C", "T")):
         return None
 
     manager = resolve_cache_manager()
     try:
-        with TDocDatabase(manager.db_file) as db:
-            rows = db.query_tdocs(TDocQueryConfig(tdoc_ids=[source_item_id], order=SortOrder.ASC, limit=1))
+        async with TDocDatabase(manager.db_file) as db:
+            rows = await db.query_tdocs(TDocQueryConfig(tdoc_ids=[source_item_id], order=SortOrder.ASC, limit=1))
             if not rows:
                 return None
             row = rows[0]
@@ -497,7 +503,7 @@ async def _process_workspace_members(
                     on_progress(len(results), member.source_item_id)
                 continue
 
-            metadata = _try_build_tdoc_metadata(member.source_item_id)
+            metadata = await _try_build_tdoc_metadata(member.source_item_id)
             process_result = await processor.process_file(file_path, workspace, metadata=metadata)
             results.append(
                 {
@@ -537,7 +543,9 @@ def ai_convert(
     json_output: JsonOutputOption = False,
 ) -> None:
     """Convert one TDoc and optionally persist markdown output."""
-    markdown_or_path = convert_tdoc_to_markdown(document_id=document_id, output_path=output, force=force)
+    markdown_or_path = asyncio.run(
+        convert_tdoc_to_markdown(document_id=document_id, output_path=output, force=force),
+    )
 
     if output:
         if json_output:

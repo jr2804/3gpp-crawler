@@ -7,6 +7,7 @@ import logging
 import re
 
 from litellm import exceptions as litellm_exceptions
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
 
 from threegpp_ai.config import AiConfig
@@ -316,7 +317,7 @@ def summarize_tdoc(
         LlmConfigError: If LLM endpoint is unreachable or misconfigured.
         ValueError: If format is not supported.
     """
-    normalized_id = document_id.strip().upper()
+    normalized_id = normalize_tdoc_id(document_id)
 
     with timed_operation(get_metrics_tracker(), normalized_id, MetricType.SUMMARIZATION):
         extraction = extract_tdoc_structured(normalized_id, force=force)

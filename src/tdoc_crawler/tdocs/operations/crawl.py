@@ -19,6 +19,7 @@ from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.workers.tdoc_worker import fetch_meeting_document_list_subinterpreter
 
 logger = get_logger(__name__)
@@ -225,7 +226,7 @@ class TDocCrawler:
         """Uppercase target IDs for case-insensitive matching."""
         if targets is None:
             return None
-        return {item.upper() for item in targets}
+        return {normalize_tdoc_id(item) for item in targets}
 
     @staticmethod
     def _create_executor_for_workers(workers: int) -> tuple[Any, str]:

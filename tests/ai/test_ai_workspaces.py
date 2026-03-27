@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -115,13 +116,13 @@ def test_checkout_spec_to_workspace_reuses_latest_resolved_release(tmp_path: Pat
         def __init__(self, _db_path: Path) -> None:
             pass
 
-        def __enter__(self) -> _FakeSpecDb:
+        async def __aenter__(self) -> _FakeSpecDb:
             return self
 
-        def __exit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
+        async def __aexit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
             return None
 
-        def get_spec_versions(self, _spec_number: str) -> list[SimpleNamespace]:
+        async def get_spec_versions(self, _spec_number: str) -> list[SimpleNamespace]:
             return versions
 
     monkeypatch.setattr(workspace_ops, "SpecDatabase", _FakeSpecDb)
@@ -135,7 +136,7 @@ def test_checkout_spec_to_workspace_reuses_latest_resolved_release(tmp_path: Pat
 
     monkeypatch.setattr(workspace_ops, "checkout_specs", _checkout_specs_not_expected)
 
-    resolved = workspace_ops.checkout_spec_to_workspace("26260", checkout_base, "default", release="latest")
+    resolved = asyncio.run(workspace_ops.checkout_spec_to_workspace("26260", checkout_base, "default", release="latest"))
 
     assert resolved == latest_dir
     assert called["count"] == 0
@@ -160,13 +161,13 @@ def test_checkout_spec_to_workspace_falls_back_to_checkout_when_release_mismatch
         def __init__(self, _db_path: Path) -> None:
             pass
 
-        def __enter__(self) -> _FakeSpecDb:
+        async def __aenter__(self) -> _FakeSpecDb:
             return self
 
-        def __exit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
+        async def __aexit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
             return None
 
-        def get_spec_versions(self, _spec_number: str) -> list[SimpleNamespace]:
+        async def get_spec_versions(self, _spec_number: str) -> list[SimpleNamespace]:
             return versions
 
     monkeypatch.setattr(workspace_ops, "SpecDatabase", _FakeSpecDb)
@@ -181,6 +182,6 @@ def test_checkout_spec_to_workspace_falls_back_to_checkout_when_release_mismatch
 
     monkeypatch.setattr(workspace_ops, "checkout_specs", _checkout_specs)
 
-    resolved = workspace_ops.checkout_spec_to_workspace("26260", checkout_base, "default", release="17")
+    resolved = asyncio.run(workspace_ops.checkout_spec_to_workspace("26260", checkout_base, "default", release="17"))
 
     assert resolved == checked_out

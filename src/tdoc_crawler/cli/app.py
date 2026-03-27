@@ -36,6 +36,7 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
+from tdoc_crawler.tdocs.utils import normalize_tdoc_id, normalize_tdoc_ids
 
 load_dotenv()
 
@@ -82,7 +83,7 @@ def open_tdoc(
     set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
     manager = CacheManager(cache_dir).register()
-    normalized_id = tdoc_id.strip().upper()
+    normalized_id = normalize_tdoc_id(tdoc_id)
     config = TDocQueryConfig(tdoc_ids=[normalized_id])
 
     async def _open_tdoc() -> None:
@@ -135,7 +136,7 @@ def checkout(
     set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
     manager = CacheManager(cache_dir).register()
-    normalized_ids = [tid.strip().upper() for tid in tdoc_ids]
+    normalized_ids = normalize_tdoc_ids(tdoc_ids)
     config = TDocQueryConfig(tdoc_ids=normalized_ids)
 
     async def _checkout() -> None:
