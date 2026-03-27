@@ -7,18 +7,16 @@ and nested LightRAG commands under `rag`.
 from __future__ import annotations
 
 import asyncio
-import json
 import shutil
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 import typer
-import yaml
 from dotenv import load_dotenv
 from rich.progress import MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
-from rich.table import Table
+from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_console, get_logger
@@ -102,9 +100,37 @@ console = get_console()
 _logger = get_logger(__name__)
 
 
+ProvidersOutputOption = Annotated[
+    OutputFormat,
+    typer.Option(
+        "--output",
+        "-o",
+        case_sensitive=False,
+        help="Output format (table, json, ison, toon, yaml)",
+    ),
+]
+
+
+def _print_output(
+    data: Any,
+    output_format: OutputFormat,
+    *,
+    table_title: str,
+    table_columns: list[TableColumnSpec] | None = None,
+) -> None:
+    """Print structured command output through the shared formatter pipeline."""
+    print_structured_output(
+        data,
+        output_format,
+        table_title=table_title,
+        table_columns=table_columns,
+        console=console,
+    )
+
+
 @providers_app.command("list", help="List all available AI providers")
 def providers_list(
-    output: Literal["table", "json", "yaml", "toon"] = "table",
+    output: ProvidersOutputOption = OutputFormat.TABLE,
 ) -> None:
     """List all supported AI providers with their capabilities and aliases.
 
@@ -146,48 +172,27 @@ def providers_list(
             }
         )
 
-    if output == "json":
-        typer.echo(json.dumps(providers_data, indent=2))
-        return
+    output_rows = [
+        {
+            "provider": provider["name"],
+            "llm": "Y" if provider["llm"] else "N",
+            "embedding": "Y" if provider["embedding"] else "N",
+            "base_url_note": (f"via {provider['canonical']} - {provider['base_url']}" if provider["canonical"] else "-"),
+        }
+        for provider in providers_data
+    ]
 
-    if output == "yaml":
-        typer.echo(yaml.dump(providers_data, default_flow_style=False))
-        return
-
-    if output == "toon":
-        for p in providers_data:
-            if p["canonical"]:
-                # Alias with base URL - show as "alias -> canonical (base_url)"
-                typer.echo(f"{p['name']} -> {p['canonical']}: LLM={'Y' if p['llm'] else 'N'}, EMB={'Y' if p['embedding'] else 'N'}, base_url={p['base_url']}")
-            else:
-                typer.echo(f"{p['name']}: LLM={'Y' if p['llm'] else 'N'}, EMB={'Y' if p['embedding'] else 'N'}")
-        return
-
-    # Default: table output
-    table = Table(title="AI Providers")
-    table.add_column("Provider", style="cyan")
-    table.add_column("LLM", style="green", justify="center")
-    table.add_column("Embedding", style="yellow", justify="center")
-    table.add_column("Base URL / Note", style="white")
-
-    for p in providers_data:
-        if p["canonical"]:
-            # Alias with base URL
-            table.add_row(
-                p["name"],
-                "Y" if p["llm"] else "N",
-                "Y" if p["embedding"] else "N",
-                f"via {p['canonical']} - {p['base_url']}",
-            )
-        else:
-            table.add_row(
-                p["name"],
-                "Y" if p["llm"] else "N",
-                "Y" if p["embedding"] else "N",
-                "-",
-            )
-
-    console.print(table)
+    _print_output(
+        output_rows,
+        output,
+        table_title="AI Providers",
+        table_columns=[
+            TableColumnSpec("provider", "Provider", style="cyan"),
+            TableColumnSpec("llm", "LLM", style="green", justify="center"),
+            TableColumnSpec("embedding", "Embedding", style="yellow", justify="center"),
+            TableColumnSpec("base_url_note", "Base URL / Note", style="white"),
+        ],
+    )
 
 
 @app.callback()
@@ -548,13 +553,21 @@ def ai_convert(
 
     if output:
         if json_output:
-            typer.echo(json.dumps({"output": str(output)}))
+            _print_output(
+                {"output": str(output)},
+                OutputFormat.JSON,
+                table_title="Convert Result",
+            )
         else:
             console.print(f"[green]Converted {document_id} to {output}[/green]")
         return
 
     if json_output:
-        typer.echo(json.dumps({"markdown": markdown_or_path}))
+        _print_output(
+            {"markdown": markdown_or_path},
+            OutputFormat.JSON,
+            table_title="Convert Result",
+        )
         return
 
     typer.echo(markdown_or_path)
@@ -573,7 +586,11 @@ def workspace_create(
         set_active_workspace(name)
 
     if json_output:
-        typer.echo(json.dumps({"name": workspace.name if workspace else name, "auto_build": auto_build}))
+        _print_output(
+            {"name": workspace.name if workspace else name, "auto_build": auto_build},
+            OutputFormat.JSON,
+            table_title="Workspace Create",
+        )
         return
 
     console.print(f"[green]Created workspace: {normalize_workspace_name(name)}[/green]")
@@ -587,34 +604,38 @@ def workspace_list(
 ) -> None:
     registry = WorkspaceRegistry.load()
     workspaces = registry.list_workspaces()
+    workspace_rows = [
+        {
+            "name": entry.name,
+            "active": "*" if entry.is_active else "",
+            "tdocs": entry.tdoc_count,
+            "specs": entry.spec_count,
+            "other": entry.other_count,
+            "created_at": entry.created_at,
+        }
+        for entry in workspaces
+    ]
 
     if json_output:
-        typer.echo(
-            json.dumps(
-                [
-                    {
-                        "name": entry.name,
-                        "is_active": entry.is_active,
-                        "tdoc_count": entry.tdoc_count,
-                        "spec_count": entry.spec_count,
-                        "other_count": entry.other_count,
-                        "created_at": entry.created_at,
-                    }
-                    for entry in workspaces
-                ],
-            ),
+        _print_output(
+            workspace_rows,
+            OutputFormat.JSON,
+            table_title="Workspaces",
         )
         return
 
-    table = Table(title="Workspaces")
-    table.add_column("Name", style="cyan")
-    table.add_column("Active", style="green")
-    table.add_column("TDocs", style="yellow", justify="right")
-    table.add_column("Specs", style="yellow", justify="right")
-    table.add_column("Other", style="yellow", justify="right")
-    for ws in workspaces:
-        table.add_row(ws.name, "*" if ws.is_active else "", str(ws.tdoc_count), str(ws.spec_count), str(ws.other_count))
-    console.print(table)
+    _print_output(
+        workspace_rows,
+        OutputFormat.TABLE,
+        table_title="Workspaces",
+        table_columns=[
+            TableColumnSpec("name", "Name", style="cyan"),
+            TableColumnSpec("active", "Active", style="green"),
+            TableColumnSpec("tdocs", "TDocs", style="yellow", justify="right"),
+            TableColumnSpec("specs", "Specs", style="yellow", justify="right"),
+            TableColumnSpec("other", "Other", style="yellow", justify="right"),
+        ],
+    )
 
 
 @workspace_app.command("query")
@@ -652,7 +673,11 @@ def workspace_query(
     result = asyncio.run(_run())
 
     if json_output:
-        typer.echo(json.dumps({"query": query, "mode": mode.value, "result": result}))
+        _print_output(
+            {"query": query, "mode": mode.value, "result": result},
+            OutputFormat.JSON,
+            table_title="Workspace Query",
+        )
     else:
         console.print(f"\n[bold]Query:[/bold] {query}")
         console.print(f"[bold]Mode:[/bold] {mode.value}\n")
@@ -723,18 +748,28 @@ def workspace_info(
 
     counts = get_workspace_member_counts(name)
     if json_output:
-        typer.echo(json.dumps({"name": workspace.name, "auto_build": workspace.auto_build, "member_counts": counts}))
+        _print_output(
+            {"name": workspace.name, "auto_build": workspace.auto_build, "member_counts": counts},
+            OutputFormat.JSON,
+            table_title=f"Workspace: {workspace.name}",
+        )
         return
 
-    table = Table(title=f"Workspace: {workspace.name}")
-    table.add_column("Field", style="cyan")
-    table.add_column("Value", style="green")
-    table.add_row("Auto-build", "Yes" if workspace.auto_build else "No")
-    table.add_row("Total Members", str(counts["total"]))
-    table.add_row("TDocs", str(counts["tdoc"]))
-    table.add_row("Specs", str(counts["spec"]))
-    table.add_row("Other", str(counts["other"]))
-    console.print(table)
+    _print_output(
+        [
+            {"field": "Auto-build", "value": "Yes" if workspace.auto_build else "No"},
+            {"field": "Total Members", "value": counts["total"]},
+            {"field": "TDocs", "value": counts["tdoc"]},
+            {"field": "Specs", "value": counts["spec"]},
+            {"field": "Other", "value": counts["other"]},
+        ],
+        OutputFormat.TABLE,
+        table_title=f"Workspace: {workspace.name}",
+        table_columns=[
+            TableColumnSpec("field", "Field", style="cyan"),
+            TableColumnSpec("value", "Value", style="green"),
+        ],
+    )
 
 
 @workspace_app.command("activate", help="Activate a workspace (set as current)")
@@ -849,6 +884,7 @@ def workspace_add_members(
             f"[cyan]Processing {len(resolved_items)} item(s)...",
             total=len(resolved_items),
         )
+
         async def _process_items() -> None:
             nonlocal converted_count, md_extracted_count
             for item in resolved_items:
@@ -906,31 +942,45 @@ def workspace_list_members(
         console.print(f"[red]Workspace '{workspace_name}' not found[/red]")
         raise typer.Exit(1)
 
+    member_rows = [
+        {
+            "source_item_id": entry.source_item_id,
+            "source_path": entry.source_path,
+            "source_kind": entry.source_kind.value,
+            "is_active": entry.is_active,
+            "added_at": entry.added_at,
+        }
+        for entry in members
+    ]
+
     if json_output:
-        typer.echo(
-            json.dumps(
-                [
-                    {
-                        "source_item_id": entry.source_item_id,
-                        "source_path": entry.source_path,
-                        "source_kind": entry.source_kind.value,
-                        "is_active": entry.is_active,
-                        "added_at": entry.added_at,
-                    }
-                    for entry in members
-                ],
-            ),
+        _print_output(
+            member_rows,
+            OutputFormat.JSON,
+            table_title=f"Members: {workspace_name}",
         )
         return
 
-    table = Table(title=f"Members: {workspace_name}")
-    table.add_column("Source ID", style="cyan")
-    table.add_column("Kind", style="green")
-    table.add_column("Path", style="white")
-    table.add_column("Active", style="yellow")
-    for entry in members:
-        table.add_row(entry.source_item_id, entry.source_kind.value, entry.source_path, "Yes" if entry.is_active else "No")
-    console.print(table)
+    table_rows = [
+        {
+            "source_id": row["source_item_id"],
+            "kind": row["source_kind"],
+            "path": row["source_path"],
+            "active": "Yes" if row["is_active"] else "No",
+        }
+        for row in member_rows
+    ]
+    _print_output(
+        table_rows,
+        OutputFormat.TABLE,
+        table_title=f"Members: {workspace_name}",
+        table_columns=[
+            TableColumnSpec("source_id", "Source ID", style="cyan"),
+            TableColumnSpec("kind", "Kind", style="green"),
+            TableColumnSpec("path", "Path", style="white"),
+            TableColumnSpec("active", "Active", style="yellow"),
+        ],
+    )
 
 
 @workspace_app.command("process", help="Process workspace members (checkout, convert, embed)")
@@ -990,7 +1040,7 @@ def workspace_process(
     }
 
     if json_output:
-        typer.echo(json.dumps(payload))
+        _print_output(payload, OutputFormat.JSON, table_title="Workspace Process")
         return
 
     console.print(f"[green]Processed: {success_count}[/green]")

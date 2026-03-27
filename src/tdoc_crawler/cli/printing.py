@@ -6,11 +6,11 @@ import re
 from datetime import date
 from typing import Any
 
-from rich.table import Table
-
+from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.database.specs import SpecCrawlResult
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.models.base import OutputFormat
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.specs.models import SpecQueryResult
@@ -147,52 +147,44 @@ def print_tdoc_table(
         results: List of TDoc metadata to display
         meeting_map: Optional map of meeting_id to MeetingMetadata for meeting info
     """
-    table = Table(title=f"TDoc results ({len(results)} rows)")
-    table.add_column("TDoc", style="cyan")
-    table.add_column("Title", style="yellow")
-    table.add_column("Source", style="magenta")
-    table.add_column("Meeting", style="green")
-    table.add_column("Agenda", justify="right", style="cyan")
-    table.add_column("Agenda Short", style="dim")
-    table.add_column("Status", style="magenta")
-    table.add_column("Size (KB)", justify="right", style="blue")
-
+    rows = []
     for result in results[:100]:
         size_kb = f"{result.file_size // 1024}" if result.file_size else "?"
-
-        # Get meeting info
-        meeting = None
-        if meeting_map and result.meeting_id:
-            meeting = meeting_map.get(result.meeting_id)
-        meeting_info = format_meeting_location_and_dates(meeting)
-
-        # Short agenda item text
-        agenda_short = extract_agenda_item_short(result.agenda_item_text) or "-"
-
-        table.add_row(
-            result.tdoc_id,
-            result.title or "-",
-            result.source or "-",
-            meeting_info,
-            str(result.agenda_item_nbr) if result.agenda_item_nbr else "-",
-            agenda_short,
-            result.status or "-",
-            size_kb,
+        meeting = meeting_map.get(result.meeting_id) if meeting_map and result.meeting_id else None
+        rows.append(
+            {
+                "tdoc": result.tdoc_id,
+                "title": result.title or "-",
+                "source": result.source or "-",
+                "meeting": format_meeting_location_and_dates(meeting),
+                "agenda": str(result.agenda_item_nbr) if result.agenda_item_nbr else "-",
+                "agenda_short": extract_agenda_item_short(result.agenda_item_text) or "-",
+                "status": result.status or "-",
+                "size_kb": size_kb,
+            }
         )
 
-    console.print(table)
+    print_structured_output(
+        rows,
+        OutputFormat.TABLE,
+        table_title=f"TDoc results ({len(results)} rows)",
+        table_columns=[
+            TableColumnSpec("tdoc", "TDoc", style="cyan"),
+            TableColumnSpec("title", "Title", style="yellow"),
+            TableColumnSpec("source", "Source", style="magenta"),
+            TableColumnSpec("meeting", "Meeting", style="green"),
+            TableColumnSpec("agenda", "Agenda", style="cyan", justify="right"),
+            TableColumnSpec("agenda_short", "Agenda Short", style="dim"),
+            TableColumnSpec("status", "Status", style="magenta"),
+            TableColumnSpec("size_kb", "Size (KB)", style="blue", justify="right"),
+        ],
+        console=console,
+    )
 
 
 def print_meeting_table(results: list[MeetingMetadata]) -> None:
     """Print meeting results as formatted table."""
-    table = Table(title=f"Meetings ({len(results)} rows)")
-    table.add_column("Meeting", style="cyan")
-    table.add_column("WG", style="magenta")
-    table.add_column("Subgroup", style="yellow")
-    table.add_column("Dates", style="green")
-    table.add_column("Location", style="blue")
-    table.add_column("Files", style="white")
-
+    rows = []
     for meeting in results[:100]:
         date_range = (
             " - ".join(
@@ -208,16 +200,31 @@ def print_meeting_table(results: list[MeetingMetadata]) -> None:
         )
         working_group = next((wg.value for wg in WorkingGroup if wg.tbid == meeting.tbid), "-")
         subgroup = SUBTB_INDEX[meeting.subtb].code if meeting.subtb in SUBTB_INDEX else "-"
-        table.add_row(
-            meeting.short_name,
-            working_group,
-            subgroup,
-            date_range,
-            meeting.location or "-",
-            meeting.files_url or "-",
+        rows.append(
+            {
+                "meeting": meeting.short_name,
+                "working_group": working_group,
+                "subgroup": subgroup,
+                "dates": date_range,
+                "location": meeting.location or "-",
+                "files": meeting.files_url or "-",
+            }
         )
 
-    console.print(table)
+    print_structured_output(
+        rows,
+        OutputFormat.TABLE,
+        table_title=f"Meetings ({len(results)} rows)",
+        table_columns=[
+            TableColumnSpec("meeting", "Meeting", style="cyan"),
+            TableColumnSpec("working_group", "WG", style="magenta"),
+            TableColumnSpec("subgroup", "Subgroup", style="yellow"),
+            TableColumnSpec("dates", "Dates", style="green"),
+            TableColumnSpec("location", "Location", style="blue"),
+            TableColumnSpec("files", "Files", style="white"),
+        ],
+        console=console,
+    )
 
 
 def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, Any]:
@@ -253,54 +260,71 @@ def spec_query_to_dict(result: SpecQueryResult) -> dict[str, Any]:
 
 def print_spec_crawl_table(results: list[SpecCrawlResult]) -> None:
     """Print spec crawl results as formatted table."""
-    table = Table(title=f"Spec crawl results ({len(results)} rows)")
-    table.add_column("Spec", style="cyan")
-    table.add_column("Status", style="magenta")
-    table.add_column("Release", style="yellow")
-    table.add_column("Latest", style="green")
-    table.add_column("Sources", style="blue")
-
+    rows = []
     for result in results[:100]:
         sources = ", ".join(f"{outcome.source_name}:{outcome.status}" for outcome in result.sources) or "-"
-        table.add_row(
-            result.spec_number,
-            result.status,
-            result.release,
-            result.latest_version or "-",
-            sources,
+        rows.append(
+            {
+                "spec": result.spec_number,
+                "status": result.status,
+                "release": result.release,
+                "latest": result.latest_version or "-",
+                "sources": sources,
+            }
         )
 
-    console.print(table)
+    print_structured_output(
+        rows,
+        OutputFormat.TABLE,
+        table_title=f"Spec crawl results ({len(results)} rows)",
+        table_columns=[
+            TableColumnSpec("spec", "Spec", style="cyan"),
+            TableColumnSpec("status", "Status", style="magenta"),
+            TableColumnSpec("release", "Release", style="yellow"),
+            TableColumnSpec("latest", "Latest", style="green"),
+            TableColumnSpec("sources", "Sources", style="blue"),
+        ],
+        console=console,
+    )
 
 
 def print_spec_table(results: list[SpecQueryResult]) -> None:
     """Print spec query results as formatted table."""
-    table = Table(title=f"Specs ({len(results)} rows)")
-    table.add_column("Spec", style="cyan")
-    table.add_column("Title", style="yellow")
-    table.add_column("WG", style="magenta")
-    table.add_column("Status", style="green")
-    table.add_column("Diffs", style="blue")
-
+    rows = []
     for result in results[:100]:
         differences = ", ".join(sorted(result.source_differences.keys())) if result.source_differences else "-"
-        table.add_row(
-            result.spec_number,
-            result.title or "-",
-            result.working_group or "-",
-            result.status or "-",
-            differences,
+        rows.append(
+            {
+                "spec": result.spec_number,
+                "title": result.title or "-",
+                "working_group": result.working_group or "-",
+                "status": result.status or "-",
+                "diffs": differences,
+            }
         )
 
-    console.print(table)
+    print_structured_output(
+        rows,
+        OutputFormat.TABLE,
+        table_title=f"Specs ({len(results)} rows)",
+        table_columns=[
+            TableColumnSpec("spec", "Spec", style="cyan"),
+            TableColumnSpec("title", "Title", style="yellow"),
+            TableColumnSpec("working_group", "WG", style="magenta"),
+            TableColumnSpec("status", "Status", style="green"),
+            TableColumnSpec("diffs", "Diffs", style="blue"),
+        ],
+        console=console,
+    )
 
 
 def print_checkout_results(results: list[Any]) -> None:
     """Print checkout results as formatted table."""
-    table = Table(title=f"Checked out {len(results)} specs")
-    table.add_column("Checkout Path", style="green")
-
-    for path in results:
-        table.add_row(str(path))
-
-    console.print(table)
+    rows = [{"checkout_path": str(path)} for path in results]
+    print_structured_output(
+        rows,
+        OutputFormat.TABLE,
+        table_title=f"Checked out {len(results)} specs",
+        table_columns=[TableColumnSpec("checkout_path", "Checkout Path", style="green")],
+        console=console,
+    )

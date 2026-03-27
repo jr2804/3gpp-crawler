@@ -42,12 +42,14 @@ class TestCrawlCommand:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
-            processed=10,
-            inserted=10,
-            updated=0,
-            errors=[],
-        ))
+        mock_crawler.crawl = AsyncMock(
+            return_value=MagicMock(
+                processed=10,
+                inserted=10,
+                updated=0,
+                errors=[],
+            )
+        )
 
         result = runner.invoke(
             app,
@@ -76,12 +78,14 @@ class TestCrawlCommand:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
-            processed=5,
-            inserted=5,
-            updated=0,
-            errors=[],
-        ))
+        mock_crawler.crawl = AsyncMock(
+            return_value=MagicMock(
+                processed=5,
+                inserted=5,
+                updated=0,
+                errors=[],
+            )
+        )
 
         result = runner.invoke(
             app,
@@ -111,12 +115,14 @@ class TestCrawlMeetingsCommand:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
-            processed=20,
-            inserted=20,
-            updated=0,
-            errors=[],
-        ))
+        mock_crawler.crawl = AsyncMock(
+            return_value=MagicMock(
+                processed=20,
+                inserted=20,
+                updated=0,
+                errors=[],
+            )
+        )
 
         result = runner.invoke(
             app,
@@ -732,12 +738,14 @@ class TestEnvironmentVariables:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
-            processed=0,
-            inserted=0,
-            updated=0,
-            errors=[],
-        ))
+        mock_crawler.crawl = AsyncMock(
+            return_value=MagicMock(
+                processed=0,
+                inserted=0,
+                updated=0,
+                errors=[],
+            )
+        )
 
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_CACHE_DIR", str(test_cache_dir))
@@ -763,12 +771,14 @@ class TestEnvironmentVariables:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
-            processed=0,
-            inserted=0,
-            updated=0,
-            errors=[],
-        ))
+        mock_crawler.crawl = AsyncMock(
+            return_value=MagicMock(
+                processed=0,
+                inserted=0,
+                updated=0,
+                errors=[],
+            )
+        )
 
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_WORKERS", "8")
