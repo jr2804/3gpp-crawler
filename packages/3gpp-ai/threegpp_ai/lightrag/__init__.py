@@ -29,7 +29,6 @@ from .config import (
     StorageBackend,
 )
 from .metadata import RAGMetadata, create_metadata_from_dict, enrich_text
-from .migration import consolidate_workspaces, migrate_to_shared_storage
 from .pg0_manager import Pg0Error, Pg0Manager
 from .processor import DocumentProcessor, ProcessingResult, ProcessingResultStatus, TDocProcessor
 from .rag import TDocRAG
@@ -56,9 +55,7 @@ __all__ = [
     "TDocProcessor",
     "TDocRAG",
     "WorkspaceIndex",
-    "consolidate_workspaces",
     "create_metadata_from_dict",
     "enrich_text",
     "initialize_shared_storage",
-    "migrate_to_shared_storage",
 ]

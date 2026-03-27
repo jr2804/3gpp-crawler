@@ -39,13 +39,6 @@ class GraphEdgeType(StrEnum):
     REVISION_OF = "revision_of"  # is_revision_of metadata relationship
 
 
-# TODO: Unnecessary? We can infer from presence of WorkspaceMember records and their is_active flag - or simply use a bool variable?
-class WorkspaceStatus(StrEnum):
-    """Lifecycle state of a workspace."""
-
-    ACTIVE = "active"
-
-
 class SourceKind(StrEnum):
     """Kinds of source items that can be part of a workspace corpus."""
 
@@ -90,7 +83,6 @@ class Workspace(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now, description="Last update timestamp")
     is_default: bool = Field(False, description="Whether this workspace is the default workspace")
     auto_build: bool | None = Field(default=False, description="Whether to auto-build embeddings on TDoc add")
-    status: WorkspaceStatus = Field(WorkspaceStatus.ACTIVE, description="Workspace lifecycle status")
 
     @field_validator("workspace_name")
     @classmethod
@@ -401,5 +393,4 @@ __all__ = [
     "TDocNotFoundError",
     "Workspace",
     "WorkspaceMember",
-    "WorkspaceStatus",
 ]

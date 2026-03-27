@@ -539,7 +539,7 @@ async def checkout_spec_to_workspace(
     requested_release = release.strip()
 
     # First check if already checked out with the SAME release version
-    specs_dir = checkout_base / "Specs"  # TODO: resolve specs_dir from cache_manager!
+    specs_dir = checkout_base / "Specs"
     if specs_dir.exists():
         # Resolve release to actual version(s) to match against 3GPP version codes (e.g., "h00", "i10")
         version_codes: list[str] = []
