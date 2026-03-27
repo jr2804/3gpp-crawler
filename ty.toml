@@ -8,6 +8,7 @@ python = "./.venv"
 include = [
     "src",
     "tests",
+    "packages",
 ]
 exclude = [
     ".venv",
