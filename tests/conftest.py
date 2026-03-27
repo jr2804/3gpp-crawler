@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -178,14 +179,18 @@ def populated_db(
     Returns:
         Populated TDocDatabase instance
     """
-    with TDocDatabase(test_db_path) as db:
-        insert_sample_meetings(db, sample_meetings)
-        for tdoc in sample_tdocs:
-            _ = db.upsert_tdoc(tdoc)
+
+    async def _populate() -> None:
+        async with TDocDatabase(test_db_path) as db:
+            await insert_sample_meetings_async(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+
+    asyncio.run(_populate())
     return TDocDatabase(test_db_path)
 
 
-def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
+async def insert_sample_meetings_async(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
     """Insert sample meetings into database using the proper database API.
 
     This function uses db.upsert_meeting() instead of raw SQL to ensure
@@ -236,7 +241,12 @@ def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, o
         )
 
         # Use the proper database API instead of raw SQL
-        _ = database.upsert_meeting(meeting_metadata)
+        _ = await database.upsert_meeting(meeting_metadata)
+
+
+def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
+    """Synchronous compatibility wrapper around async meeting insertion helper."""
+    asyncio.run(insert_sample_meetings_async(database, meetings))
 
 
 if __name__ == "__main__":

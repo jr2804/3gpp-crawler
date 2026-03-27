@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from bs4 import BeautifulSoup
 from packaging.version import Version
 
@@ -23,9 +24,10 @@ from tdoc_crawler.tdocs.operations import TDocCrawler
 class TestTDocCrawler:
     """Tests for TDocCrawler class."""
 
-    def test_crawler_initialization(self, test_db_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_crawler_initialization(self, test_db_path: Path) -> None:
         """Ensure crawler stores the provided database instance."""
-        with TDocDatabase(test_db_path) as database:
+        async with TDocDatabase(test_db_path) as database:
             crawler = TDocCrawler(database)
             assert crawler.database is database
 
@@ -45,7 +47,8 @@ class TestTDocCrawler:
         assert not TDOC_PATTERN.search("data.csv")
 
     @patch("tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter")
-    def test_crawl_connection_failure(
+    @pytest.mark.asyncio
+    async def test_crawl_connection_failure(
         self,
         mock_fetch: MagicMock,
         test_db_path: Path,
@@ -53,9 +56,9 @@ class TestTDocCrawler:
         """Handle document list fetch failures gracefully."""
         mock_fetch.side_effect = OSError("Connection refused")
 
-        with TDocDatabase(test_db_path) as database:
+        async with TDocDatabase(test_db_path) as database:
             meeting = _create_test_meeting()
-            _ = database.upsert_meeting(meeting)
+            _ = await database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
@@ -72,7 +75,7 @@ class TestTDocCrawler:
                 max_retries=3,
                 target_ids=None,
             )
-            result = crawler.crawl(config)
+            result = await crawler.crawl(config)
 
         assert result.processed == 0
         assert result.inserted == 0
@@ -80,7 +83,8 @@ class TestTDocCrawler:
         assert result.errors
 
     @patch("tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter")
-    def test_crawl_collects_tdocs(
+    @pytest.mark.asyncio
+    async def test_crawl_collects_tdocs(
         self,
         mock_fetch: MagicMock,
         test_db_path: Path,
@@ -106,9 +110,9 @@ class TestTDocCrawler:
         )
         mock_fetch.return_value = json.dumps([tdoc.model_dump_json()])
 
-        with TDocDatabase(test_db_path) as database:
+        async with TDocDatabase(test_db_path) as database:
             meeting = _create_test_meeting()
-            _ = database.upsert_meeting(meeting)
+            _ = await database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
@@ -125,19 +129,20 @@ class TestTDocCrawler:
                 max_retries=3,
                 target_ids=None,
             )
-            result = crawler.crawl(config)
+            result = await crawler.crawl(config)
             assert result.processed == 1
             assert result.inserted == 1
             assert result.updated == 0
             assert not result.errors
 
-            stored = database.query_tdocs(TDocQueryConfig())
+            stored = await database.query_tdocs(TDocQueryConfig())
             assert len(stored) == 1
             assert stored[0].tdoc_id == "R1-2301234"
             assert stored[0].file_size == 2048
 
     @patch("tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter")
-    def test_crawl_targets_specific_ids(
+    @pytest.mark.asyncio
+    async def test_crawl_targets_specific_ids(
         self,
         mock_fetch: MagicMock,
         test_db_path: Path,
@@ -186,9 +191,9 @@ class TestTDocCrawler:
             ]
         )
 
-        with TDocDatabase(test_db_path) as database:
+        async with TDocDatabase(test_db_path) as database:
             meeting = _create_test_meeting()
-            _ = database.upsert_meeting(meeting)
+            _ = await database.upsert_meeting(meeting)
 
             crawler = TDocCrawler(database)
             config = TDocCrawlConfig(
@@ -205,12 +210,12 @@ class TestTDocCrawler:
                 max_retries=3,
                 target_ids=["R1-2301234"],
             )
-            result = crawler.crawl(config)
+            result = await crawler.crawl(config)
 
             assert result.processed == 1
             assert result.inserted == 1
             assert result.updated == 0
-            stored = database.query_tdocs(TDocQueryConfig())
+            stored = await database.query_tdocs(TDocQueryConfig())
             assert {record.tdoc_id for record in stored} == {"R1-2301234"}
 
 

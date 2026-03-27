@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -13,6 +14,8 @@ from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import WHATSPEC_BASE_URL, WhatTheSpecResolutionError, resolve_via_whatthespec
+
+from .conftest import insert_sample_meetings_async
 
 
 class TestWhatTheSpecResolution:
@@ -320,7 +323,13 @@ class TestWhatTheSpecResolution:
             assert result is not None
             assert result.agenda_item_nbr == "0"
 
-    def test_meeting_id_lazy_resolution(self, test_cache_dir: Path, http_cache_config: HttpCacheConfig, populated_db: TDocDatabase) -> None:
+    def test_meeting_id_lazy_resolution(
+        self,
+        test_cache_dir: Path,
+        http_cache_config: HttpCacheConfig,
+        test_db_path: Path,
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
         """Test that meeting_id is correctly resolved from meeting_name.
 
         Verifies that meeting_id is resolved via resolve_meeting_id() using the
@@ -329,9 +338,16 @@ class TestWhatTheSpecResolution:
         Args:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
-            populated_db: Populated database with test meetings.
+            test_db_path: Path to temporary test database.
+            sample_meetings: Meeting seed data fixture.
         """
         CacheManager(root_path=test_cache_dir, name="test_whatspec").register()
+
+        async def _seed_database() -> None:
+            async with TDocDatabase(test_db_path) as db:
+                await insert_sample_meetings_async(db, sample_meetings)
+
+        asyncio.run(_seed_database())
 
         api_response = [
             {

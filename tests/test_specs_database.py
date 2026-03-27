@@ -2,11 +2,15 @@
 
 from pathlib import Path
 
+import pytest
+
+from tdoc_crawler.database.oxyde_models import Specification
 from tdoc_crawler.database.specs import SpecDatabase
-from tdoc_crawler.specs.models import Specification, SpecificationSourceRecord, SpecificationVersion, SpecQueryFilters
+from tdoc_crawler.specs.models import SpecificationSourceRecord, SpecificationVersion, SpecQueryFilters
 
 
-def test_upsert_specification_roundtrip(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_upsert_specification_roundtrip(tmp_path: Path) -> None:
     spec = Specification(
         spec_number="26.132",
         spec_number_compact="26132",
@@ -18,13 +22,14 @@ def test_upsert_specification_roundtrip(tmp_path: Path) -> None:
         latest_version="19.0.0",
     )
     db_path = tmp_path / "tdoc_crawler.db"
-    with SpecDatabase(db_path) as database:
-        created, changed = database.upsert_specification(spec)
+    async with SpecDatabase(db_path) as database:
+        created, changed = await database.upsert_specification(spec)
         assert created is True
         assert changed is False
 
 
-def test_query_specs_returns_results(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_query_specs_returns_results(tmp_path: Path) -> None:
     spec = Specification(
         spec_number="23.501",
         spec_number_compact="23501",
@@ -36,14 +41,15 @@ def test_query_specs_returns_results(tmp_path: Path) -> None:
         latest_version="17.3.0",
     )
     db_path = tmp_path / "tdoc_crawler.db"
-    with SpecDatabase(db_path) as database:
-        database.upsert_specification(spec)
-        results = database.query_specs(SpecQueryFilters(spec_numbers=["23.501"]))
+    async with SpecDatabase(db_path) as database:
+        await database.upsert_specification(spec)
+        results = await database.query_specs(SpecQueryFilters(spec_numbers=["23.501"]))
     assert len(results) == 1
     assert results[0].spec_number == "23.501"
 
 
-def test_query_specs_filters(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_query_specs_filters(tmp_path: Path) -> None:
     s1 = Specification(
         spec_number="26.132",
         spec_number_compact="26132",
@@ -64,27 +70,28 @@ def test_query_specs_filters(tmp_path: Path) -> None:
     )
     db_path = tmp_path / "tdoc_crawler.db"
 
-    with SpecDatabase(db_path) as database:
-        database.upsert_specification(s1)
-        database.upsert_specification(s2)
+    async with SpecDatabase(db_path) as database:
+        await database.upsert_specification(s1)
+        await database.upsert_specification(s2)
 
         # Title filter
-        res_title = database.query_specs(SpecQueryFilters(title="audio"))
+        res_title = await database.query_specs(SpecQueryFilters(title="audio"))
         assert len(res_title) == 1
         assert res_title[0].spec_number == "26.132"
 
         # WG filter
-        res_wg = database.query_specs(SpecQueryFilters(working_group="SA2"))
+        res_wg = await database.query_specs(SpecQueryFilters(working_group="SA2"))
         assert len(res_wg) == 1
         assert res_wg[0].spec_number == "23.501"
 
         # Status filter
-        res_status = database.query_specs(SpecQueryFilters(status="Frozen"))
+        res_status = await database.query_specs(SpecQueryFilters(status="Frozen"))
         assert len(res_status) == 1
         assert res_status[0].spec_number == "23.501"
 
 
-def test_query_specs_discrepancies(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_query_specs_discrepancies(tmp_path: Path) -> None:
     spec = Specification(
         spec_number="23.501",
         spec_number_compact="23501",
@@ -113,12 +120,12 @@ def test_query_specs_discrepancies(tmp_path: Path) -> None:
     )
     db_path = tmp_path / "tdoc_crawler.db"
 
-    with SpecDatabase(db_path) as database:
-        database.upsert_specification(spec)
-        database.upsert_spec_source_record(record_a)
-        database.upsert_spec_source_record(record_b)
+    async with SpecDatabase(db_path) as database:
+        await database.upsert_specification(spec)
+        await database.upsert_spec_source_record(record_a)
+        await database.upsert_spec_source_record(record_b)
 
-        results = database.query_specs(SpecQueryFilters(spec_numbers=["23.501"]))
+        results = await database.query_specs(SpecQueryFilters(spec_numbers=["23.501"]))
 
     assert len(results) == 1
     differences = results[0].source_differences
@@ -128,7 +135,8 @@ def test_query_specs_discrepancies(tmp_path: Path) -> None:
     assert "status" not in differences
 
 
-def test_upsert_spec_source_and_version(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_upsert_spec_source_and_version(tmp_path: Path) -> None:
     source_record = SpecificationSourceRecord(
         spec_number="26.132",
         source_name="3gpp",
@@ -144,6 +152,6 @@ def test_upsert_spec_source_and_version(tmp_path: Path) -> None:
         source_name="3gpp",
     )
     db_path = tmp_path / "tdoc_crawler.db"
-    with SpecDatabase(db_path) as database:
-        database.upsert_spec_source_record(source_record)
-        database.upsert_spec_version(version)
+    async with SpecDatabase(db_path) as database:
+        await database.upsert_spec_source_record(source_record)
+        await database.upsert_spec_version(version)

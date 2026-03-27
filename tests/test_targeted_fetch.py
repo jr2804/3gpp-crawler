@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 from packaging.version import Version
 
@@ -16,7 +17,7 @@ from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
 from tdoc_crawler.utils.parse import infer_working_groups_from_ids
 
-from .conftest import insert_sample_meetings
+from .conftest import insert_sample_meetings_async
 
 
 class TestInferWorkingGroups:
@@ -66,11 +67,12 @@ class TestInferWorkingGroups:
         assert len(groups) == 3
 
 
+@pytest.mark.asyncio
 class TestFetchMissingTdocsBatch:
     """Tests for fetch_missing_tdocs_batch function."""
 
     @patch("tdoc_crawler.tdocs.operations.fetch.PortalSource")
-    def test_fetch_missing_creates_config(
+    async def test_fetch_missing_creates_config(
         self,
         mock_portal_source_class: MagicMock,
         test_db_path: Path,
@@ -104,9 +106,9 @@ class TestFetchMissingTdocsBatch:
 
         _ = PortalCredentials(username="test", password="test")
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
-            result = fetch_missing_tdocs_batch(
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
+            result = await fetch_missing_tdocs_batch(
                 database,
                 ["R1-2301234"],
             )
@@ -117,7 +119,7 @@ class TestFetchMissingTdocsBatch:
         mock_source_instance.fetch_by_id.assert_called_once_with("R1-2301234", timeout=30)
 
     @patch("tdoc_crawler.tdocs.operations.fetch.PortalSource")
-    def test_fetch_missing_infers_working_groups(
+    async def test_fetch_missing_infers_working_groups(
         self,
         mock_portal_source_class: MagicMock,
         test_db_path: Path,
@@ -171,9 +173,9 @@ class TestFetchMissingTdocsBatch:
 
         _ = PortalCredentials(username="test", password="test")  # noqa: S106
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
-            result = fetch_missing_tdocs_batch(
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
+            result = await fetch_missing_tdocs_batch(
                 database,
                 ["R1-2301234", "S4-2301890"],
             )
@@ -183,11 +185,12 @@ class TestFetchMissingTdocsBatch:
         assert not result.errors
 
 
+@pytest.mark.asyncio
 class TestFetchMissingTdocs:
     """Tests for fetch_missing_tdocs orchestration function."""
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
-    def test_no_fetch_when_all_present(
+    async def test_no_fetch_when_all_present(
         self,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
@@ -195,18 +198,18 @@ class TestFetchMissingTdocs:
         sample_meetings: list[dict[str, object]],
     ) -> None:
         """Skip fetch when all requested TDocs are present."""
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
             for tdoc in sample_tdocs:
-                database.upsert_tdoc(tdoc)
+                await database.upsert_tdoc(tdoc)
 
         config = TDocQueryConfig(
             tdoc_ids=["R1-2301234"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
+        async with TDocDatabase(test_db_path) as database:
+            results = await database.query_tdocs(config)
+            result = await fetch_missing_tdocs(
                 database,
                 config,
                 results,
@@ -216,7 +219,7 @@ class TestFetchMissingTdocs:
         mock_fetch_batch.assert_not_called()
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
-    def test_fetch_triggered_when_missing(
+    async def test_fetch_triggered_when_missing(
         self,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
@@ -236,9 +239,9 @@ class TestFetchMissingTdocs:
             tdoc_ids=["R1-9999999"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            results = database.query_tdocs(config)
-            fetch_missing_tdocs(
+        async with TDocDatabase(test_db_path) as database:
+            results = await database.query_tdocs(config)
+            await fetch_missing_tdocs(
                 database,
                 config,
                 results,
@@ -250,7 +253,7 @@ class TestFetchMissingTdocs:
         assert call_kwargs["missing_ids"] == ["R1-9999999"]
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
-    def test_no_fetch_without_tdoc_ids(
+    async def test_no_fetch_without_tdoc_ids(
         self,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
@@ -263,9 +266,9 @@ class TestFetchMissingTdocs:
             working_groups=[WorkingGroup.RAN],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
+        async with TDocDatabase(test_db_path) as database:
+            results = await database.query_tdocs(config)
+            result = await fetch_missing_tdocs(
                 database,
                 config,
                 results,
@@ -275,7 +278,7 @@ class TestFetchMissingTdocs:
         mock_fetch_batch.assert_not_called()
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
-    def test_partial_fetch_only_missing(
+    async def test_partial_fetch_only_missing(
         self,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
@@ -293,17 +296,17 @@ class TestFetchMissingTdocs:
             errors=[],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
-            database.upsert_tdoc(sample_tdocs[0])
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
+            await database.upsert_tdoc(sample_tdocs[0])
 
         config = TDocQueryConfig(
             tdoc_ids=["R1-2301234", "R1-9999999"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            results = database.query_tdocs(config)
-            fetch_missing_tdocs(
+        async with TDocDatabase(test_db_path) as database:
+            results = await database.query_tdocs(config)
+            await fetch_missing_tdocs(
                 database,
                 config,
                 results,
@@ -317,12 +320,13 @@ class TestFetchMissingTdocs:
         assert "R1-2301234" not in call_kwargs["missing_ids"]
 
 
+@pytest.mark.asyncio
 class TestWhatTheSpecFallback:
     """Integration tests for whatthespec fallback in fetch_missing_tdocs."""
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
-    def test_maybe_fetch_uses_whatthespec_when_no_credentials(
+    async def test_maybe_fetch_uses_whatthespec_when_no_credentials(
         self,
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
@@ -337,8 +341,8 @@ class TestWhatTheSpecFallback:
             tdoc_ids=["S4-260001"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
             results: list[TDocMetadata] = []
 
             mock_fetch_batch.return_value = TDocCrawlResult(
@@ -367,13 +371,13 @@ class TestWhatTheSpecFallback:
                 validation_failed=False,
             )
 
-            def insert_via_whatthespec(
+            async def insert_via_whatthespec(
                 database: TDocDatabase,
                 missing_ids: list[str],
                 session: requests.Session | None = None,
                 cache_manager_name: str | None = None,
             ) -> TDocCrawlResult:
-                _ = database.upsert_tdoc(metadata)
+                _ = await database.upsert_tdoc(metadata)
                 return TDocCrawlResult(
                     processed=len(missing_ids),
                     inserted=len(missing_ids),
@@ -383,7 +387,7 @@ class TestWhatTheSpecFallback:
 
             mock_whatthespec_batch.side_effect = insert_via_whatthespec
 
-            result = fetch_missing_tdocs(
+            result = await fetch_missing_tdocs(
                 database,
                 config,
                 results,
@@ -397,7 +401,7 @@ class TestWhatTheSpecFallback:
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
-    def test_whatthespec_fallback_multiple_tdocs(
+    async def test_whatthespec_fallback_multiple_tdocs(
         self,
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
@@ -412,8 +416,8 @@ class TestWhatTheSpecFallback:
             tdoc_ids=["S4-260001", "S4-260002"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
             results: list[TDocMetadata] = []
 
             mock_fetch_batch.return_value = TDocCrawlResult(
@@ -423,7 +427,7 @@ class TestWhatTheSpecFallback:
                 errors=["Portal credentials required"],
             )
 
-            def insert_multiple_via_whatthespec(
+            async def insert_multiple_via_whatthespec(
                 database: TDocDatabase,
                 missing_ids: list[str],
                 session: requests.Session | None = None,
@@ -471,7 +475,7 @@ class TestWhatTheSpecFallback:
                         )
                     else:
                         continue
-                    _ = database.upsert_tdoc(metadata)
+                    _ = await database.upsert_tdoc(metadata)
                     inserted += 1
                 return TDocCrawlResult(
                     processed=len(missing_ids),
@@ -482,7 +486,7 @@ class TestWhatTheSpecFallback:
 
             mock_whatthespec_batch.side_effect = insert_multiple_via_whatthespec
 
-            result = fetch_missing_tdocs(
+            result = await fetch_missing_tdocs(
                 database,
                 config,
                 results,
@@ -497,7 +501,7 @@ class TestWhatTheSpecFallback:
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
-    def test_whatthespec_fallback_graceful_failure(
+    async def test_whatthespec_fallback_graceful_failure(
         self,
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
@@ -509,8 +513,8 @@ class TestWhatTheSpecFallback:
             tdoc_ids=["S4-999999"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
             results: list[TDocMetadata] = []
 
             mock_fetch_batch.return_value = TDocCrawlResult(
@@ -528,7 +532,7 @@ class TestWhatTheSpecFallback:
                 errors=["WhatTheSpec resolution failed"],
             )
 
-            result = fetch_missing_tdocs(
+            result = await fetch_missing_tdocs(
                 database,
                 config,
                 results,
@@ -541,7 +545,7 @@ class TestWhatTheSpecFallback:
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
-    def test_no_whatthespec_when_credentials_available(
+    async def test_no_whatthespec_when_credentials_available(
         self,
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
@@ -553,10 +557,10 @@ class TestWhatTheSpecFallback:
             tdoc_ids=["S4-260001"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
             results: list[TDocMetadata] = []
-            _ = PortalCredentials(username="test", password="test")
+            credentials = PortalCredentials(username="test", password="test")
 
             mock_fetch_batch.return_value = TDocCrawlResult(
                 processed=1,
@@ -565,18 +569,19 @@ class TestWhatTheSpecFallback:
                 errors=[],
             )
 
-            fetch_missing_tdocs(
-                database,
-                config,
-                results,
-            )
+            with patch("tdoc_crawler.tdocs.operations.fetch.resolve_credentials", return_value=credentials):
+                await fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                )
 
         # Verify whatthespec was NOT called (credentials took precedence)
         mock_whatthespec_batch.assert_not_called()
 
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_missing_tdocs_batch")
     @patch("tdoc_crawler.tdocs.operations.fetch.fetch_via_whatthespec_batch")
-    def test_whatthespec_inserts_to_database(
+    async def test_whatthespec_inserts_to_database(
         self,
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
@@ -610,8 +615,8 @@ class TestWhatTheSpecFallback:
             tdoc_ids=["S4-260001"],
         )
 
-        with TDocDatabase(test_db_path) as database:
-            insert_sample_meetings(database, sample_meetings)
+        async with TDocDatabase(test_db_path) as database:
+            await insert_sample_meetings_async(database, sample_meetings)
             results: list[TDocMetadata] = []
 
             mock_fetch_batch.return_value = TDocCrawlResult(
@@ -621,13 +626,13 @@ class TestWhatTheSpecFallback:
                 errors=["Portal credentials required"],
             )
 
-            def insert_metadata(
+            async def insert_metadata(
                 database: TDocDatabase,
                 missing_ids: list[str],
                 session: requests.Session | None = None,
                 cache_manager_name: str | None = None,
             ) -> TDocCrawlResult:
-                _ = database.upsert_tdoc(metadata)
+                _ = await database.upsert_tdoc(metadata)
                 return TDocCrawlResult(
                     processed=len(missing_ids),
                     inserted=len(missing_ids),
@@ -637,16 +642,16 @@ class TestWhatTheSpecFallback:
 
             mock_whatthespec_batch.side_effect = insert_metadata
 
-            fetch_missing_tdocs(
+            await fetch_missing_tdocs(
                 database,
                 config,
                 results,
             )
 
         # Query database to verify TDoc was inserted
-        with TDocDatabase(test_db_path) as database:
+        async with TDocDatabase(test_db_path) as database:
             query_config = TDocQueryConfig(tdoc_ids=["S4-260001"])
-            results = database.query_tdocs(query_config)
+            results = await database.query_tdocs(query_config)
             assert len(results) >= 1
             assert results[0].tdoc_id == "S4-260001"
             assert results[0].title == "SA4#135 meeting agenda"

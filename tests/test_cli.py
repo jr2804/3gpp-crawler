@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from packaging.version import Version
@@ -17,7 +18,7 @@ from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
-from .conftest import insert_sample_meetings
+from .conftest import insert_sample_meetings_async
 
 runner = CliRunner()
 
@@ -41,12 +42,12 @@ class TestCrawlCommand:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl.return_value = MagicMock(
+        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
             processed=10,
             inserted=10,
             updated=0,
             errors=[],
-        )
+        ))
 
         result = runner.invoke(
             app,
@@ -75,12 +76,12 @@ class TestCrawlCommand:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl.return_value = MagicMock(
+        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
             processed=5,
             inserted=5,
             updated=0,
             errors=[],
-        )
+        ))
 
         result = runner.invoke(
             app,
@@ -95,7 +96,7 @@ class TestCrawlMeetingsCommand:
     """Tests for crawl-meetings command."""
 
     @patch("tdoc_crawler.cli.crawl.MeetingCrawler")
-    @patch("tdoc_crawler.cli.crawl.SpecDatabase")
+    @patch("tdoc_crawler.cli.crawl.MeetingDatabase")
     def test_crawl_meetings_basic(
         self,
         mock_db_class: MagicMock,
@@ -104,17 +105,18 @@ class TestCrawlMeetingsCommand:
     ) -> None:
         """Test basic crawl-meetings command execution."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.log_crawl_start.return_value = 1
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.log_crawl_start = AsyncMock(return_value=1)
+        mock_db.log_crawl_end = AsyncMock(return_value=None)
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl.return_value = MagicMock(
+        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
             processed=20,
             inserted=20,
             updated=0,
             errors=[],
-        )
+        ))
 
         result = runner.invoke(
             app,
@@ -144,8 +146,8 @@ class TestQueryCommand:
     ) -> None:
         """Test query command with no results."""
         mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_tdocs.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=[])
 
         result = runner.invoke(
             app,
@@ -164,8 +166,8 @@ class TestQueryCommand:
     ) -> None:
         """Test query with results in table format."""
         mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_tdocs.return_value = sample_tdocs
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs)
 
         result = runner.invoke(
             app,
@@ -184,8 +186,8 @@ class TestQueryCommand:
     ) -> None:
         """Test query with JSON output format."""
         mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_tdocs.return_value = sample_tdocs[:1]
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs[:1])
 
         result = runner.invoke(
             app,
@@ -205,8 +207,8 @@ class TestQueryCommand:
     ) -> None:
         """Test query for specific TDoc IDs."""
         mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_tdocs.return_value = sample_tdocs[:1]
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs[:1])
 
         result = runner.invoke(
             app,
@@ -219,7 +221,7 @@ class TestQueryCommand:
 class TestQueryMeetingsCommand:
     """Tests for query-meetings command."""
 
-    @patch("tdoc_crawler.cli.query.SpecDatabase")
+    @patch("tdoc_crawler.cli.query.MeetingDatabase")
     def test_query_meetings_no_results(
         self,
         mock_db_class: MagicMock,
@@ -227,8 +229,8 @@ class TestQueryMeetingsCommand:
     ) -> None:
         """Test query-meetings with no results."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_meetings.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
             app,
@@ -246,8 +248,8 @@ class TestQueryMeetingsCommand:
     ) -> None:
         """Test query-meetings with subgroup filter."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_meetings.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
             app,
@@ -255,7 +257,7 @@ class TestQueryMeetingsCommand:
         )
 
         assert result.exit_code == 0
-        # Verify that query_meetings was called with normalized subgroups (SA4 -> S4)
+        # Verify that query_meetings was called with normalized subgroup code.
         call_args = mock_db.query_meetings.call_args[0][0]
         assert call_args.subgroups == ["S4"]
 
@@ -267,8 +269,8 @@ class TestQueryMeetingsCommand:
     ) -> None:
         """Test query-meetings with subgroup alias (S4 -> SA4)."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_meetings.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
             app,
@@ -276,7 +278,7 @@ class TestQueryMeetingsCommand:
         )
 
         assert result.exit_code == 0
-        # Verify that S4 alias was normalized
+        # Verify that S4 alias was normalized to subgroup code.
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "S4" in call_args.subgroups
 
@@ -288,8 +290,8 @@ class TestQueryMeetingsCommand:
     ) -> None:
         """Test query-meetings with plenary subgroup alias (RP -> RAN Plenary)."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_meetings.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
             app,
@@ -297,7 +299,7 @@ class TestQueryMeetingsCommand:
         )
 
         assert result.exit_code == 0
-        # Verify that RP alias was normalized
+        # Verify that RP alias was normalized to subgroup code.
         call_args = mock_db.query_meetings.call_args[0][0]
         assert "RP" in call_args.subgroups
 
@@ -309,8 +311,8 @@ class TestQueryMeetingsCommand:
     ) -> None:
         """Test query-meetings with working group alias (SP -> SA)."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_meetings.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
             app,
@@ -330,8 +332,8 @@ class TestQueryMeetingsCommand:
     ) -> None:
         """Test query-meetings with combined working group and subgroup filters."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_meetings.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
             app,
@@ -355,10 +357,14 @@ class TestStatsCommand:
         sample_meetings: list[dict[str, object]],
     ) -> None:
         """Test stats command execution."""
-        with TDocDatabase(test_db_path) as db:
-            insert_sample_meetings(db, sample_meetings)
-            for tdoc in sample_tdocs:
-                _ = db.upsert_tdoc(tdoc)
+
+        async def _prepare_db() -> None:
+            async with TDocDatabase(test_db_path) as db:
+                await insert_sample_meetings_async(db, sample_meetings)
+                for tdoc in sample_tdocs:
+                    _ = await db.upsert_tdoc(tdoc)
+
+        asyncio.run(_prepare_db())
 
         result = runner.invoke(
             app,
@@ -726,12 +732,12 @@ class TestEnvironmentVariables:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl.return_value = MagicMock(
+        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
             processed=0,
             inserted=0,
             updated=0,
             errors=[],
-        )
+        ))
 
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_CACHE_DIR", str(test_cache_dir))
@@ -757,12 +763,12 @@ class TestEnvironmentVariables:
 
         mock_crawler = MagicMock()
         mock_crawler_class.return_value = mock_crawler
-        mock_crawler.crawl.return_value = MagicMock(
+        mock_crawler.crawl = AsyncMock(return_value=MagicMock(
             processed=0,
             inserted=0,
             updated=0,
             errors=[],
-        )
+        ))
 
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_WORKERS", "8")
@@ -784,8 +790,8 @@ class TestEnvironmentVariables:
     ) -> None:
         """Test that TDC_WORKING_GROUP environment variable filters by working group."""
         mock_db = MagicMock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_meetings.return_value = []
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
 
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_WORKING_GROUP", "SA")
