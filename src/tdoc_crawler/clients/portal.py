@@ -149,10 +149,9 @@ class PortalClient:
         login_response.raise_for_status()
 
         response_text = login_response.text.strip()
-        if response_text.lower() == "failed":
-            # response is too comprehensive, even for DEBUG level - log it only when failing
-            logger.debug(f"Login API response: {response_text}")
-            raise PortalAuthenticationError("Authentication failed - check credentials")
+        # Step 3: store the authenticated session
+        self._session = session
+        self._authenticated = True
 
         if response_text.lower() == "failed":
             raise PortalAuthenticationError("Authentication failed - check credentials")
