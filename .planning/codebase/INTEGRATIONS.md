@@ -1,297 +1,270 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-25
+**Analysis Date:** 2026-03-27
 
 ## APIs & External Services
 
-### 3GPP Portal
-- **Service:** 3GPP EOL Portal (https://portal.3gpp.org)
-  - **Purpose:** Authenticated access to TDoc metadata and downloads
-  - **SDK/Client:** `requests.Session` with hishel caching
-  - **Auth:** EOL credentials via `TDC_EOL_USERNAME` / `TDC_EOL_PASSWORD`
-  - **Implementation:** `src/tdoc_crawler/clients/portal.py`
-  - **Key endpoints:**
-    - `/ngppapp/CreateTDoc.aspx` - Create TDoc entries
-    - `/ngppapp/GenerateDocumentList.aspx` - Excel document list
-    - `/ngppapp/DownloadTDoc.aspx` - TDoc file downloads
+### 3GPP Portal (Authenticated)
 
-    - `/login.aspx` - Authentication
+- **Purpose:** Authenticated access to TDoc metadata and file downloads
+- **Base URL:** `https://portal.3gpp.org`
+- **Client:** `requests.Session` with browser-like headers (no hishel caching for auth flow)
+- **Auth:** EOL credentials via `TDC_EOL_USERNAME` / `TDC_EOL_PASSWORD`
+- **Implementation:** `src/tdoc_crawler/clients/portal.py` (`PortalClient` class)
+- **Endpoints:**
+  - `POST /login.aspx` - EOL authentication (AJAX login pattern)
+  - `GET /ngppapp/CreateTDoc.Aspx` - TDoc metadata page (HTML scraping)
+  - `GET /ngppapp/DownloadTDoc.aspx` - TDoc file download
+- **Auth flow:** Visit login page → POST credentials to AJAX endpoint → store session cookies
+- **Credential resolution:** `src/tdoc_crawler/credentials.py` (parameters → env vars → interactive prompt)
 
-### WhatTheSpec API
-- **Service:** WhatTheSpec Community API (https://whatthespec.net)
-  - **Purpose:** Unauthenticated TDoc metadata lookups (fallback source)
-  - **SDK/Client:** `requests.Session` with hishel caching
-  - **Auth:** None required
-  - **Implementation:** `src/tdoc_crawler/tdocs/sources/whatthespec.py`
-  - **Endpoint:** `https://whatthespec.net/3gpp/tdoc.php?name={tdoc}`
+### 3GPP Public Website (Unauthenticated)
 
-  - **Note:** Preferred for single TDoc lookups, no credentials needed
+- **Purpose:** Meeting pages, spec metadata lookups, specification file downloads
+- **Base URL:** `https://www.3gpp.org`
+- **Client:** `requests.Session` with hishel caching (`create_cached_session()`)
+- **Auth:** None required
+- **Endpoints:**
+  - `GET /dynareport?code=Meetings-{code}.htm` - Meeting report pages
+  - `GET /dynareport/{spec_id}.htm` - Spec metadata (redirect flow with JSON payload)
+  - `GET /ftp/Specs/archive/{series}/{normalized}/{file_name}` - Spec file downloads
+- **Implementation:**
+  - Meetings: `src/tdoc_crawler/parsers/meetings.py`
+  - Specs: `src/tdoc_crawler/specs/sources/threegpp.py`
 
-### 3GPP FTP Server
-- **Service:** 3GPP FTP/HTTP Server (https://www.3gpp.org/ftp/)
-  - **Purpose:** Specification file downloads
-  - **SDK/Client:** `requests.Session` with hishel caching
-  - **Auth:** None required (public access)
-  - **Implementation:** `src/tdoc_crawler/specs/downloads.py`
-  - **URL Pattern:** `https://www.3gpp.org/ftp/Specs/archive/{series}/{spec_number}/{file_name}`
+### WhatTheSpec API (Unauthenticated)
 
-  - **Note:** Supports both FTP and HTTP protocols
+- **Purpose:** Community API for TDoc and spec metadata lookups (single-item queries)
+- **Base URL:** `https://whatthespec.net`
+- **Client:** `requests.Session` with hishel caching (`create_cached_session()`)
+- **Auth:** None required
+- **Endpoints:**
+  - `GET /3gpp/tdoc.php?name={tdoc}&api=1` - TDoc metadata (JSON)
+  - `GET /3gpp/spec.php?q={spec}&api=1` - Spec metadata (JSON)
+- **Implementation:**
+  - TDocs: `src/tdoc_crawler/tdocs/sources/whatthespec.py`
+  - Specs: `src/tdoc_crawler/specs/sources/whatthespec.py`
+
+### 3GPP FTP/HTTP File Server
+
+- **Purpose:** Bulk download of specification files and meeting document lists (Excel)
+- **Base URL:** `https://www.3gpp.org/ftp/`
+- **Client:** `requests.Session` with hishel caching (`create_cached_session()`)
+- **Auth:** None required (public access)
+- **URL pattern:** `https://www.3gpp.org/ftp/Specs/archive/{series}/{normalized}/{file_name}`
+- **Implementation:** `src/tdoc_crawler/http_client/session.py` (`download_to_file()`)
+- **Protocols:** Supports both `ftp://` and `https://` schemes
 
 ### LLM Providers (AI Module)
-- **Services:** Multiple LLM providers supported via litellm
-  - **Supported providers:**
-    - `openai` - OpenAI GPT models
-    - `openrouter` - OpenRouter API (recommended free tier)
-    - `ollama` - Local Ollama server
-    - `zhipu` - Zhipu AI
-    - `hf` - Hugging Face
-    - `lollms` - LiteLLM proxy
-    - `azure_openai` - Azure OpenAI
-    - `nvidia_openai` - NVIDIA NIM
-  - **Auth:** Provider-specific API keys via environment variables
-  - **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/config.py`
-  - **Configuration:** `TDC_AI_LLM_MODEL`, `TDC_AI_LLM_API_KEY`, `TDC_AI_LLM_API_BASE`
 
-  - **Recommended default:** `openrouter/openrouter/free` (free tier)
-  - **Note:** API keys read from provider-specific env vars (e.g., `OPENROUTER_API_KEY`)
+- **Purpose:** Text generation for summarization and knowledge graph construction
+- **Gateway:** LiteLLM (`litellm`>=1.81.15) - unified multi-provider routing
+- **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/rag.py` (provider registry)
+- **Configuration:** `TDC_AI_LLM_MODEL` in `<provider>/<model>` format, env vars for API keys
+- **Supported providers (direct):**
+  - `ollama` - Local Ollama server (default base: `http://localhost:11434`)
+  - `openai` - OpenAI API
+  - `zhipu` - Zhipu AI (patched to remove unsupported `base_url` kwarg)
+  - `hf` - Hugging Face Inference API
+  - `jina` - Jina AI (embeddings only)
+- **Provider aliases (routed to openai-compatible):**
+  - `zai` → `https://api.z.ai/api/paas/v4`
+  - `zai-coding-plan` → `https://api.z.ai/api/coding/paas/v4`
+  - `openrouter` → `https://openrouter.ai/api/v1`
+  - `nvidia` → `https://integrate.api.nvidia.com/v1/`
+- **Default model:** `openrouter/openrouter/free` (free tier, no subscription)
+- **Singleton client:** `packages/3gpp-ai/threegpp_ai/operations/llm_client.py` (`LiteLLMClient`)
+- **Vision support:** Image descriptions via vision-capable models (figure description)
 
 ### Embedding Providers (AI Module)
-- **Services:** Multiple embedding providers supported via litellm
-  - **Supported providers:**
-    - `ollama` - Local Ollama embeddings (recommended)
-    - `openai` - OpenAI embeddings
-    - `zhipu` - Zhipu AI embeddings
-    - `jina` - Jina AI embeddings
-    - `hf` - Hugging Face embeddings
-    - `siliconcloud` - Silicon Cloud embeddings
-  - **Auth:** Provider-specific API keys via environment variables
-  - **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/config.py`
-  - **Configuration:** `TDC_AI_EMBEDDING_MODEL`, `TDC_AI_EMBEDDING_API_KEY`, `TDC_AI_EMBEDDING_API_BASE`
-  - **Recommended default:** `ollama/vuongnguyen2212/CodeRankEmbed:latest`
-  - **Note:** Local embeddings preferred for privacy and cost savings
+
+- **Purpose:** Text embeddings for RAG vector search
+- **Gateway:** LightRAG native embedding functions (not LiteLLM for embeddings)
+- **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/rag.py` (provider registry)
+- **Configuration:** `TDC_AI_EMBEDDING_MODEL` in `<provider>/<model>` format
+- **Supported providers:**
+  - `ollama` - Local Ollama embeddings (recommended)
+  - `openai` - OpenAI embeddings
+  - `zhipu` - Zhipu AI embeddings (patched)
+  - `jina` - Jina AI embeddings
+  - `hf` - Hugging Face embeddings
+  - `siliconcloud` - Silicon Cloud embeddings
+- **Default model:** `ollama/qwen3-embedding:0.6b`
+- **Shared storage:** Cross-workspace embedding deduplication via `SharedNanoVectorDBStorage`
+
+### PDF Remote Converter (AI Module)
+
+- **Purpose:** Fallback PDF conversion when LibreOffice is unavailable
+- **Base URL:** `https://pdf-convert.3gpp.org` (configurable via `PDF_REMOTE_API_BASE`)
+- **Client:** `requests` (direct HTTP POST)
+- **Auth:** Optional API key via `PDF_REMOTE_API_KEY`
+- **Implementation:** `packages/3gpp-ai/threegpp_ai/operations/conversion.py` (`ConverterBackend.REMOTE`)
+- **Backend selection:** `ConverterBackend.AUTO` tries LibreOffice first, falls back to remote
+
 ## Data Storage
 
-### Databases
-- **SQLite (Primary Database)**
-  - **Purpose:** TDoc/Meeting/Spec metadata storage
-  - **Connection:** Via `CacheManager.db_file` (default: `~/.3gpp-crawler/3gpp_crawler.db`)
-  - **Client:** `pydantic-sqlite` - ORM wrapper
-  - **Implementation:** `src/tdoc_crawler/database/base.py`
-  - **Schema:** Pydantic models in `src/tdoc_crawler/models/`
-  - **Tables:**
-    - `tdocs` - TDoc metadata
-    - `meetings` - Meeting metadata
-    - `specs` - Specification metadata
-    - `spec_versions` - Spec versions
-    - `spec_source_records` - Spec source records
-    - `spec_downloads` - Download tracking
-    - `working_groups` - Working group reference
-    - `subworking_groups` - Sub-working group reference
-    - `crawl_log` - Crawl audit log
-  - **Note:** File-based, no external server required
-- **pg0 (Optional - AI Module)**
-  - **Purpose:** Embedded PostgreSQL for vector storage
-  - **Connection:** Configurable via `LIGHTRAG_PG0_*` environment variables
-  - **Client:** `pg0-embedded`
-  - **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/pg0_manager.py`
-  - **Configuration:**
-    - `LIGHTRAG_PG0_INSTANCE_NAME` - Instance name (default: "3gpp-crawler")
-    - `LIGHTRAG_PG0_PORT` - Port (default: 15432)
-  - **Note:** Optional alternative to file-based storage for production deployments
-- **NanoVectorDB (AI Module)**
-  - **Purpose:** Vector embeddings storage (default backend)
-  - **Storage:** File-based JSON
-  - **Location:** Via `CacheManager.ai_embed_dir(model)`
-  - **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/shared_storage.py`
-  - **Note:** Default storage backend for LightRAG embeddings
-- **NetworkX (AI Module)**
-  - **Purpose:** Knowledge graph storage
-  - **Storage:** File-based GraphML
-  - **Location:** Via `CacheManager.ai_cache_dir`
-  - **Implementation:** LightRAG built-in
-  - **Note:** Default graph storage backend
-### File Storage
-- **TDoc/Spec Checkout:**
-  - **Location:** Via `CacheManager.checkout_dir` (default: `~/.3gpp-crawler/checkout/`)
-  - **Implementation:** `src/tdoc_crawler/config/__init__.py`
-  - **Structure:** Organized by TSG/WG/Meeting hierarchy
-  - **Purpose:** Downloaded TDoc files and extracted specifications
-- **HTTP Cache:**
-  - **Location:** Via `CacheManager.http_cache_file` (default: `~/.3gpp-crawler/http-cache.sqlite3`)
-  - **Implementation:** `src/tdoc_crawler/http_client/session.py`
-  - **Purpose:** Persistent HTTP response caching
-  - **Format:** SQLite database (hishel)
-  - **TTL:** Configurable via `HTTP_CACHE_TTL` (default: 7200s = 2 hours)
-- **AI Cache (LightRAG):**
-  - **Location:** Via `CacheManager.ai_cache_dir` (default: `~/.3gpp-crawler/lightrag/`)
-  - **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/`
-  - **Contents:**
-    - Embeddings (NanoVectorDB JSON files)
-        - Knowledge graphs (NetworkX GraphML)
-        - Workspace registry (workspaces.json)
-        - Processing metadata
-- **LibreOffice Conversion:**
-  - **Purpose:** Convert office documents to PDF/markdown
-  - **Implementation:** `packages/convert-lo/convert_lo/converter.py`
-  - **Requirements:** LibreOffice installation required
-  - **Method:** CLI mode (`soffice --headless --convert-to`)
-  - **Supported formats:** DOC, DOCX, ODT, RTF, XLS, XLSX, ODS, PPT, PPTX, ODP
-### Caching
-- **HTTP Caching:**
-  - **Framework:** hishel (RFC 9110 compliant)
-  - **Storage:** SQLite database
-  - **Location:** `~/.3gpp-crawler/http-cache.sqlite3`
-  - **Implementation:** `src/tdoc_crawler/http_client/session.py`
-  - **Configuration:**
-    - `HTTP_CACHE_TTL` - Cache TTL in seconds (default: 7200)
-    - `HTTP_CACHE_ENABLED` - Enable/disable caching (default: true)
-    - `HTTP_CACHE_REFRESH_ON_ACCESS` - Refresh TTL on access (default: true)
-  - **Benefits:**
-    - 50-90% faster incremental crawls
-    - Reduced network bandwidth
-    - Respects rate limits
-    - Offline-capable for cached resources
-### Authentication & Identity
-### EOL Authentication (3GPP Portal)
-- **Service:** ETSI Online (EOL)
-  - **Purpose:** Access protected 3GPP portal resources
-  - **Implementation:** `src/tdoc_crawler/credentials.py`, `src/tdoc_crawler/clients/portal.py`
-  - **Flow:**
-    1. Visit login page to establish session cookies
-    2. POST to AJAX login endpoint with credentials
-    3. Store authenticated session for subsequent requests
-  - **Credentials Source:**
-    - `TDC_EOL_USERNAME` / `TDC_EOL_PASSWORD` environment variables
-    - Interactive prompt via typer (if `TDC_EOL_PROMPT=true`)
-    - Fallback chain: parameters > environment > prompt
-  - **Session Management:**
-    - Non-cached session for authentication (to avoid cookie conflicts)
-    - Browser-like headers to avoid 403 Forbidden
-  - **Note:** Required for Portal source, optional for WhatTheSpec source
-### LLM/Embedding Authentication (AI Module)
-- **API Keys:**
-  - Provider-specific environment variables (e.g., `OPENROUTER_API_KEY`, `OPENAI_API_KEY`)
-  - Generic overrides: `TDC_AI_LLM_API_KEY`, `TDC_AI_EMBEDDING_API_KEY`
-  - Custom base URLs: `TDC_AI_LLM_API_BASE`, `TDC_AI_EMBEDDING_API_BASE`
-  - **Hugging Face:**
-    - `HF_TOKEN` for model downloads
-    - Required to avoid rate limits
-### Monitoring & Observability
-### Error Tracking:
-- **Framework:** Python logging module
-- **Implementation:** `src/tdoc_crawler/logging/__init__.py`
-- **Level:** Configurable via `TDC_VERBOSE`
-- **Output:** Console (Rich-formatted) and file
-- **Note:** No external error tracking service integrated
-### Logs
-- **Framework:** Python logging
-- **Implementation:** `src/tdoc_crawler/logging/__init__.py`
-- **Format:** Rich-formatted console output
-- **Levels:** DEBUG, INFO, WARNING, ERROR
-- **Configuration:** `TDC_VERBOSE=true` enables DEBUG level
-- **Note:** Structured logging with module-specific loggers
-### Progress Reporting
-- **Framework:** Rich progress bars
-- **Implementation:** Throughout CLI commands
-- **Output:** Console with spinners, progress bars
-- **Note:** Real-time feedback for long-running operations (crawls, AI processing)
-## CI/CD & Deployment
-### Hosting
-- **Target:** Local development / on-premises deployment
-- **Note:** No cloud hosting configuration detected
-### CI Pipeline
-- **Framework:** GitHub Actions (inferred from `.github/` presence)
-- **Implementation:** `.github/workflows/` (if exists)
-- **Stages:**
-  - Lint (ruff)
-  - Test (pytest)
-  - Coverage reporting
-- **Note:** See `tests/AGENTS.md` for test execution details
-### Build System
-- **Tool:** hatchling via uv
-- **Configuration:** `pyproject.toml`
-- **Versioning:** Git-based semver via `uv-dynamic-versioning`
-- **Workspace:** UV workspace with packages in `packages/`
-## Environment Configuration
-### Required Environment Variables
-```bash
-# Authentication
-TDC_EOL_USERNAME=your_username      # EOL portal access
-TDC_EOL_PASSWORD=your_password      # EOL portal access
-HF_TOKEN=your_hf_token              # Hugging Face (recommended)
-# AI Configuration
-TDC_AI_LLM_MODEL=openrouter/openrouter/free    # LLM model
-TDC_AI_EMBEDDING_MODEL=ollama/qwen3-embedding:0.6b  # Embedding model
-# HTTP Caching
-HTTP_CACHE_TTL=7200                           # Cache TTL (seconds)
-HTTP_CACHE_ENABLED=true                        # Enable caching
-```
-### Optional Environment Variables
-```bash
-# Cache directories
-TDC_CACHE_DIR=~/.3gpp-crawler          # Base cache directory
-TDC_AI_STORE_PATH=~/.3gpp-crawler/lightrag  # AI storage path
-# Crawler configuration
-TDC_WORKERS=4                              # Parallel workers
-TDC_TIMEOUT=60                             # HTTP timeout (seconds)
-TDC_MAX_RETRIES=3                          # Max retry attempts
-TDC_VERBOSE=false                          # Verbose logging
-# AI Configuration
-TDC_AI_LLM_API_KEY=your_key             # Override LLM API key
-TDC_AI_LLM_API_BASE=https://api...      # Custom LLM API base
-TDC_AI_EMBEDDING_API_KEY=your_key       # Override embedding API key
-TDC_AI_EMBEDDING_API_BASE=https://api... # Custom embedding API base
-TDC_AI_MAX_CHUNK_SIZE=1000              # Max chunk size
-TDC_AI_CHUNK_OVERLAP=100                # Chunk overlap
-TDC_AI_PARALLELISM=4                    # Parallel processing
-TDC_GRAPH_QUERY_LEVEL=simple            # Query complexity level
-# pg0 Storage (optional)
-LIGHTRAG_PG0_INSTANCE_NAME=3gpp-crawler  # PostgreSQL instance
-LIGHTRAG_PG0_PORT=15432                  # PostgreSQL port
-```
-### Secrets Location
-- **Environment variables:** `.env` file (not committed)
-- **Template:** `.env.example` for reference
-- **Warning:** Never commit `.env` files to version control
-## Webhooks & Callbacks
-### Incoming
-- **None** - The crawler does not expose webhook endpoints
-### Outgoing
-- **None** - The crawler does not send webhooks to external services
-## Document Processing Pipeline
-### Extraction (AI Module)
-- **Framework:** kreuzberg
-- **Implementation:** `packages/3gpp-ai/threegpp_ai/operations/`
-- **Supported formats:** 88+ document formats including:
-  - PDF, Office documents (DOC, DOCX, XLS, XLSX, PPT, PPTX)
-  - Images (PNG, JPG, TIFF)
-  - HTML, Email, Archives
-  - Academic formats (LaTeX, RTF)
-- **Features:**
-  - OCR support for scanned documents
-  - Table extraction
-  - Metadata extraction
-  - Chunking with configurable overlap
-- **Note:** Uses threegpp-ai's integrated document processing
-### Conversion
-- **Framework:** convert-lo (LibreOffice)
-- **Implementation:** `packages/convert-lo/convert_lo/converter.py`
-- **Trigger:** `TDC_AI_CONVERT_PDF=true` or `TDC_AI_CONVERT_MD=true`
-- **Formats:** Office documents → PDF or Markdown
-- **Note:** Optional step, requires LibreOffice installation
-### Embedding & Graph Building (AI Module)
-- **Framework:** LightRAG
-- **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/`
-- **Process:**
-  1. Extract text from documents (kreuzberg)
-  2. Chunk text with overlap
-  3. Generate embeddings via configured provider
-  4. Build knowledge graph with LLM
-  5. Store in vector/graph storage
-- **Storage options:**
-  - File-based (default): NanoVectorDB + NetworkX
-  - PostgreSQL (optional): pg0-embedded
-- **Note:** Supports shared embedding storage across workspaces for deduplication
----
+### SQLite (Primary Database)
 
-*Integration audit: 2026-03-25*
+- **Purpose:** TDoc, Meeting, and Spec metadata storage
+- **ORM:** `pydantic-sqlite`
+- **Location:** Via `CacheManager.db_file` (default: `~/.3gpp-crawler/3gpp_crawler.db`)
+- **Implementation:** `src/tdoc_crawler/database/` (base, tdocs, meetings, specs modules)
+- **Tables:** `tdocs`, `meetings`, `specs`, `spec_versions`, `spec_source_records`, `spec_downloads`, `working_groups`, `subworking_groups`, `crawl_log`
+
+### NanoVectorDB (AI Module - Default Vector Storage)
+
+- **Purpose:** Embedding vector storage (file-based JSON)
+- **Location:** `~/.3gpp-crawler/lightrag/{model}/_shared/vdb_text_chunks.json`
+- **Implementation:** LightRAG built-in, wrapped by `packages/3gpp-ai/threegpp_ai/lightrag/shared_storage.py`
+- **Features:** Content-based deduplication across workspaces
+
+### NetworkX GraphML (AI Module - Default Graph Storage)
+
+- **Purpose:** Knowledge graph storage
+- **Location:** `~/.3gpp-crawler/lightrag/{model}/{workspace}/graph_*.graphml`
+- **Implementation:** LightRAG built-in
+
+### pg0-Embedded PostgreSQL (AI Module - Optional)
+
+- **Purpose:** Embedded PostgreSQL with pgvector for production-scale vector storage
+- **Client:** `pg0-embedded`>=0.12.0
+- **Location:** `~/.pg0/instances/{name}/` (configurable)
+- **Implementation:** `packages/3gpp-ai/threegpp_ai/lightrag/pg0_manager.py`
+- **Configuration:** `DEFAULT_PG0_INSTANCE_NAME="3gpp-crawler"`, `DEFAULT_PG0_PORT=15432`, `DEFAULT_PG0_DATABASE="tdoc"`
+- **Selection:** `StorageBackend.PG0` in `LightRAGConfig`
+
+### HTTP Cache (SQLite)
+
+- **Purpose:** Persistent HTTP response caching
+- **Backend:** hishel `SyncSqliteStorage`
+- **Location:** Via `CacheManager.http_cache_file` (default: `~/.3gpp-crawler/http-cache.sqlite3`)
+- **Implementation:** `src/tdoc_crawler/http_client/session.py` (`create_cached_session()`)
+- **Configuration:** `HTTP_CACHE_TTL` (default 7200s), `HTTP_CACHE_ENABLED` (default true), `HTTP_CACHE_REFRESH_ON_ACCESS` (default true)
+
+## File Storage
+
+### Document Checkout
+
+- **Purpose:** Downloaded TDoc files and specification files
+- **Location:** Via `CacheManager.checkout_dir` (default: `~/.3gpp-crawler/checkout/`)
+- **Structure:** `{TSG}/{WG}/{MeetingShortName}/Docs/{TDocId}/`
+
+### AI Processing Artifacts
+
+- **Purpose:** Extracted text, figures, tables, equations from documents
+- **Location:** Alongside documents in `.ai/` subdirectories
+- **Implementation:** `packages/3gpp-ai/threegpp_ai/operations/extraction.py`
+- **Contents:** `extracted.md`, `figures/`, `tables/`, `equations/`
+
+## Internal Package Cross-References
+
+### 3gpp-ai → Core Crawler
+
+- `tdoc_crawler.config` - `CacheManager` for all path resolution
+- `tdoc_crawler.database.meetings` - `MeetingDatabase` for meeting lookups
+- `tdoc_crawler.tdocs.models` - `TDocMetadata` model
+- `tdoc_crawler.tdocs.sources.whatthespec` - `resolve_via_whatthespec()` for TDoc metadata
+- `tdoc_crawler.models` - `BaseConfigModel`, `HttpCacheConfig`
+- `tdoc_crawler.logging` - `get_logger()`
+- `tdoc_crawler.utils.misc` - `utc_now()`, other utilities
+- `tdoc_crawler.http_client` - `create_cached_session()`, `download_to_file()`
+
+### Core Crawler → pool-executors
+
+- `pool_executors` - Executor factory for serial/parallel task execution
+- Workspace reference: `[tool.uv.sources] pool-executors = { workspace = true }`
+
+### 3gpp-ai → convert-lo
+
+- `convert_lo.converter.Converter` - LibreOffice document conversion
+- `convert_lo.LibreOfficeFormat` - Format enum for conversion targets
+- Workspace reference: `[tool.uv.sources] convert-lo = { workspace = true }`
+
+### 3gpp-ai → kreuzberg
+
+- `kreuzberg.extract_file_sync` - Synchronous document extraction (text, images, tables, equations)
+
+## Document Processing Pipeline
+
+### Extraction Chain
+
+1. **Office → PDF** (if needed): `convert-lo` (`Converter` class, `soffice --headless`)
+1. **PDF/Document → Structured Content**: `kreuzberg` (`extract_file_sync`)
+1. **Figure Description**: `LiteLLMClient.complete()` with vision-capable model
+1. **Result Persistence**: Markdown, figures, tables, equations to `.ai/` subdirectory
+
+### Ingestion Chain (LightRAG)
+
+1. **Text extraction**: Via kreuzberg or cached `.ai/extracted.md`
+1. **Metadata enrichment**: TDoc/spec metadata injected as RAG context
+1. **Chunking**: LightRAG with configurable `max_chunk_size` (default 1000) and `chunk_overlap` (default 100)
+1. **Embedding**: Via configured provider (ollama/openai/zhipu/etc.)
+1. **Knowledge graph construction**: LLM-based entity/relation extraction
+1. **Storage**: NanoVectorDB (embeddings) + NetworkX GraphML (graph), shared across workspaces
+
+## Environment Configuration
+
+### Required (for portal access)
+
+| Variable | Purpose |
+|----------|---------|
+| `TDC_EOL_USERNAME` | EOL portal username |
+| `TDC_EOL_PASSWORD` | EOL portal password |
+
+### Required (for AI features)
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `TDC_AI_LLM_MODEL` | LLM model `<provider>/<model>` | `openrouter/openrouter/free` |
+| `TDC_AI_EMBEDDING_MODEL` | Embedding model `<provider>/<model>` | `ollama/qwen3-embedding:0.6b` |
+
+### Optional
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `TDC_CACHE_DIR` | Base cache directory | `~/.3gpp-crawler` |
+| `TDC_AI_STORE_PATH` | AI storage path | (derived from cache dir) |
+| `TDC_AI_LLM_API_BASE` | Custom LLM API base URL | `http://localhost:11434` |
+| `TDC_AI_LLM_API_KEY` | Override LLM API key | (provider-specific env) |
+| `TDC_AI_EMBEDDING_API_BASE` | Custom embedding API base URL | `http://localhost:11434` |
+| `TDC_AI_CONVERT_PDF` | Convert office docs to PDF | `false` |
+| `TDC_AI_CONVERT_MD` | Extract markdown from PDFs | `false` |
+| `TDC_AI_PARALLELISM` | Concurrent processing | `4` |
+| `TDC_AI_MAX_CHUNK_SIZE` | Max tokens per chunk | `1000` |
+| `TDC_AI_CHUNK_OVERLAP` | Chunk overlap | `100` |
+| `TDC_GRAPH_QUERY_LEVEL` | Query complexity | `simple` |
+| `TDC_VERBOSE` | Debug logging | `false` |
+| `HTTP_CACHE_TTL` | Cache TTL seconds | `7200` |
+| `HTTP_CACHE_ENABLED` | Enable HTTP caching | `true` |
+| `HF_TOKEN` | Hugging Face token | (none) |
+| `LIBREOFFICE_PATH` | LibreOffice binary path | (auto-detected) |
+| `PDF_REMOTE_API_KEY` | Remote PDF converter key | (none) |
+| `PDF_REMOTE_API_BASE` | Remote PDF converter URL | `https://pdf-convert.3gpp.org` |
+| `LIGHTRAG_DB_BACKEND` | Storage backend: `file` or `pg0` | `file` |
+| `LIGHTRAG_SHARED_STORAGE` | Cross-workspace dedup | `true` |
+
+### Secrets Location
+
+- `.env` file (project root, not committed)
+- Template: `.env.example`
+- Interactive prompt fallback: `TDC_EOL_PROMPT=true`
+
+## Monitoring & Observability
+
+- **Logging:** Python `logging` module, Rich-formatted console output
+- **Implementation:** `src/tdoc_crawler/logging/__init__.py` (`get_logger()`)
+- **Levels:** Configurable via `TDC_VERBOSE=true` for DEBUG
+- **Progress:** Rich progress bars and spinners for long-running operations
+- **No external services:** No error tracking, APM, or monitoring SaaS integrated
+
+## CI/CD & Deployment
+
+- **CI Pipeline:** Not detected (no `.github/workflows/` directory)
+- **Pre-commit Hooks:** `.pre-commit-config.yaml` (ruff-check, ruff-format, undersort, generic hooks)
+- **Tox Matrix:** `tox.ini` (py39–py313, but pyproject.toml requires 3.14+)
+- **Hosting:** Local/on-premises deployment only (no cloud hosting config)
+- **Documentation Site:** MkDocs (Material theme), hosted at GitHub Pages (per `mkdocs.yml`)
+
+______________________________________________________________________
+
+*Integration audit: 2026-03-27*
