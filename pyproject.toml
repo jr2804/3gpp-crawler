@@ -71,11 +71,6 @@ pythonpath = ["src"]
 markers = [
     "integration: marks tests as integration tests (slower, requires network)",
 ]
-# Suppress Pydantic deprecation warning from pydantic-sqlite library (external dependency)
-filterwarnings = [
-    "ignore:.*Accessing the 'model_fields' attribute on the instance is deprecated.*:DeprecationWarning",
-]
-
 
 [tool.coverage.report]
 skip_empty = true

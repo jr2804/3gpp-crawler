@@ -14,18 +14,6 @@ from threegpp_ai.config import AiConfig
 from threegpp_ai.operations.workspace_names import normalize_workspace_name
 
 
-class PipelineStage(StrEnum):
-    """Stages of the AI processing pipeline."""
-
-    PENDING = "pending"
-    CLASSIFYING = "classifying"
-    EXTRACTING = "extracting"
-    EMBEDDING = "embedding"
-    GRAPHING = "graphing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
 class GraphNodeType(StrEnum):
     """Types of nodes in the knowledge graph."""
 
@@ -49,24 +37,6 @@ class GraphEdgeType(StrEnum):
     AUTHORED_BY = "authored_by"
     PRESENTED_AT = "presented_at"
     REVISION_OF = "revision_of"  # is_revision_of metadata relationship
-
-
-class ProcessingFailureType(StrEnum):
-    """Classification of processing failures to determine retry behavior.
-
-    Permanent failures - do NOT retry:
-    - NOT_FOUND_ONLINE: Document withdrawn or never existed
-    - DOWNLOAD_FAILED: Could not download source file
-    - BROKEN_SOURCE: Downloaded file is corrupt/invalid
-    - CLASSIFICATION_FAILED: Could not identify main document
-
-    Retryable failures - CAN retry in next run:
-    - EXTRACTION_FAILED: DOCX to Markdown conversion failed
-    - EMBEDDING_FAILED: Embedding generation failed
-    - GRAPH_FAILED: Graph building failed
-    """
-
-    GRAPH_FAILED = "graph_failed"
 
 
 # TODO: Unnecessary? We can infer from presence of WorkspaceMember records and their is_active flag - or simply use a bool variable?
@@ -176,33 +146,6 @@ class ArtifactScope(BaseModel):
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
         return normalize_workspace_name(value)
-
-
-class ProcessingStatus(BaseModel):
-    """Processing state for a single TDoc."""
-
-    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
-    current_stage: PipelineStage = Field(PipelineStage.PENDING, description="Current pipeline stage")
-    classified_at: datetime | None = Field(None, description="Timestamp when classification completed")
-    extracted_at: datetime | None = Field(None, description="Timestamp when extraction completed")
-    embedded_at: datetime | None = Field(None, description="Timestamp when embedding completed")
-    summarized_at: datetime | None = Field(None, description="Timestamp when summarization completed")
-    graphed_at: datetime | None = Field(None, description="Timestamp when graphing completed")
-    completed_at: datetime | None = Field(None, description="Timestamp when pipeline completed")
-    error_message: str | None = Field(None, description="Error details for failed stage")
-    failure_type: ProcessingFailureType | None = Field(None, description="Type of failure if permanent")
-    source_hash: str | None = Field(None, description="Hash of source DOCX for change detection")
-    keywords: list[str] | None = Field(None, description="Keywords extracted from document content")
-    detected_language: str | None = Field(None, description="Primary language detected in document")
-
-    @field_validator("document_id")
-    @classmethod
-    def _normalize_document_id(cls, value: str) -> str:
-        normalized = normalize_tdoc_id(value)
-        if not normalized:
-            msg = "document_id must not be empty"
-            raise ValueError(msg)
-        return normalized
 
 
 class DocumentClassification(BaseModel):
@@ -452,8 +395,6 @@ __all__ = [
     "GraphNodeType",
     "GraphQueryResult",
     "LlmConfigError",
-    "PipelineStage",
-    "ProcessingStatus",
     "QueryResult",
     "SourceKind",
     "SummarizeResult",

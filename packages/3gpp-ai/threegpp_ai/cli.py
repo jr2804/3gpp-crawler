@@ -83,6 +83,7 @@ from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata
 from threegpp_ai.lightrag.processor import DocumentProcessor
 from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS
+from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import convert_document_to_markdown
 from threegpp_ai.operations.extraction import extract_document_structured
@@ -371,6 +372,9 @@ def _build_workspace_members(
 def _resolve_process_file(path: Path) -> Path | None:
     """Resolve the actual document file from a path or directory.
 
+    Uses heuristic classification (filename patterns + file size scoring)
+    to pick the best document when multiple files exist in a directory.
+
     Args:
         path: Path to a file or directory containing documents.
 
@@ -382,14 +386,16 @@ def _resolve_process_file(path: Path) -> Path | None:
     if not path.is_dir():
         return None
 
-    # Search for document files (including in subdirectories)
-    for extension in [".pdf", ".docx", ".doc", ".ppt", ".pptx"]:
-        # Search in the directory and one level of subdirectories
-        matches = list(path.glob(f"*{extension}"))
-        if not matches:
-            matches = list(path.rglob(f"*{extension}"))
+    # Use classification scoring to pick the best document
+    main_file = pick_main_document(path)
+    if main_file is not None:
+        return main_file
+
+    # Fallback: search subdirectories for additional formats
+    for extension in [".pdf", ".docx", ".doc", ".md", ".txt"]:
+        matches = list(path.rglob(f"*{extension}"))
         if matches:
-            _logger.debug("Found document file for processing: %s", matches[0])
+            _logger.debug("Found document file in subdirectory: %s", matches[0])
             return matches[0]
 
     _logger.warning("No document file found in: %s", path)

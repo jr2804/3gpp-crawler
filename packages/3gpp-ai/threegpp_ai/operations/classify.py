@@ -138,6 +138,74 @@ def _determine_heuristic(
     return best_file, "file_size_fallback", 0.5
 
 
+# Extensions to scan when looking for document files
+_DOCUMENT_EXTENSIONS = ["*.doc", "*.docx", "*.pdf", "*.ppt", "*.pptx", "*.xls", "*.xlsx", "*.txt", "*.csv"]
+
+
+def _scan_document_files(folder_path: Path) -> list[Path]:
+    """Scan a folder for document files, excluding hidden files.
+
+    Args:
+        folder_path: Directory to scan.
+
+    Returns:
+        Deduplicated list of document file paths.
+    """
+    files: list[Path] = []
+    for ext in _DOCUMENT_EXTENSIONS:
+        files.extend([p for p in folder_path.glob(ext) if p.is_file() and not p.name.startswith(".")])
+    return list(dict.fromkeys(files))  # Preserves order, removes duplicates
+
+
+def _score_file(file: Path) -> tuple[float, int]:
+    """Combine filename heuristic score with file size factor.
+
+    Args:
+        file: Document file to score.
+
+    Returns:
+        Tuple of (combined_score, file_size_bytes).
+    """
+    filename_score = _score_filename(file.name)
+    file_size_bytes = file.stat().st_size
+    size_score = min(file_size_bytes / (1024 * 1024) / 10.0, 1.0) * 0.3
+    return filename_score * 0.7 + size_score, file_size_bytes
+
+
+def pick_main_document(folder_path: Path) -> Path | None:
+    """Pick the main document from a folder using heuristic scoring.
+
+    Uses filename patterns, file size, and file type to determine which file
+    is most likely the primary document. Does not require a TDoc ID.
+
+    Args:
+        folder_path: Path to the folder containing document files.
+
+    Returns:
+        Path to the best document file, or None if no suitable files found.
+    """
+    if not folder_path.exists() or not folder_path.is_dir():
+        return None
+
+    files = _scan_document_files(folder_path)
+    if not files:
+        return None
+
+    if len(files) == 1:
+        return files[0]
+
+    scores: dict[Path, float] = {}
+    file_sizes: dict[Path, int] = {}
+    for file in files:
+        combined, size = _score_file(file)
+        scores[file] = combined
+        file_sizes[file] = size
+
+    best_file, _, _ = _determine_heuristic(scores, file_sizes)
+    logger.debug("Picked %s as main document from %d files in %s", best_file.name, len(files), folder_path)
+    return best_file
+
+
 def classify_document_files(
     document_id: str,
     folder_path: Path,
@@ -156,27 +224,15 @@ def classify_document_files(
         The is_main_document field indicates the primary file.
     """
     if not folder_path.exists() or not folder_path.is_dir():
-        logger.warning(f"Folder not found: {folder_path}")
+        logger.warning("Folder not found: %s", folder_path)
         return []
 
-    # Find all files matching structured and unstructured patterns
-    # STRUCTURED: .doc, .docx, .pdf
-    # UNSTRUCTURED: .ppt, .pptx, .xls, .xlsx, .txt, .csv
-    extensions = ["*.doc", "*.docx", "*.pdf", "*.ppt", "*.pptx", "*.xls", "*.xlsx", "*.txt", "*.csv"]
-
-    files = []
-    for ext in extensions:
-        files.extend([file_path for file_path in folder_path.glob(ext) if file_path.is_file() and not file_path.name.startswith(".")])
-
-    # Remove duplicates (in case a file matches multiple patterns)
-    files = list(dict.fromkeys(files))  # Preserves order, removes duplicates
-
+    files = _scan_document_files(folder_path)
     if not files:
-        logger.warning(f"No document files found in {folder_path} for document {document_id}")
+        logger.warning("No document files found in %s for document %s", folder_path, document_id)
         return []
 
     if len(files) == 1:
-        # Single file - automatic main document
         file = files[0]
         return [
             DocumentClassification(
@@ -190,28 +246,21 @@ def classify_document_files(
             )
         ]
 
-    # Multiple files - need classification
+    # Multiple files — score and classify
     scores: dict[Path, float] = {}
     file_sizes: dict[Path, int] = {}
     for file in files:
-        filename_score = _score_filename(file.name)
-        file_size_bytes = file.stat().st_size
-        file_sizes[file] = file_size_bytes
-        size_score = file_size_bytes / (1024 * 1024)
-        size_score = min(size_score / 10.0, 1.0) * 0.3
-
-        combined = filename_score * 0.7 + size_score
+        combined, size = _score_file(file)
         scores[file] = combined
+        file_sizes[file] = size
 
     best_file, heuristic, confidence = _determine_heuristic(scores, file_sizes)
 
-    # Build result list
     result: list[DocumentClassification] = []
     for file in files:
         is_main = file == best_file
         file_score = scores[file]
 
-        # Adjust confidence for non-main documents
         if is_main:
             conf = confidence
             heur = heuristic
@@ -231,7 +280,13 @@ def classify_document_files(
             )
         )
 
-    logger.info(f"Classified {len(files)} files for {document_id}, main: {best_file.name} (confidence: {confidence:.2f})")
+    logger.info(
+        "Classified %d files for %s, main: %s (confidence: %.2f)",
+        len(files),
+        document_id,
+        best_file.name,
+        confidence,
+    )
 
     return result
 
@@ -239,4 +294,5 @@ def classify_document_files(
 __all__ = [
     "_score_filename",
     "classify_document_files",
+    "pick_main_document",
 ]
