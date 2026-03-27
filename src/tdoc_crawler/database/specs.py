@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
 
 from tdoc_crawler.database.base import DocDatabase
-from tdoc_crawler.logging import get_logger
-from tdoc_crawler.specs.models import (
+from tdoc_crawler.database.errors import DatabaseError
+from tdoc_crawler.database.oxyde_models import (
     Specification,
     SpecificationSourceRecord,
     SpecificationVersion,
-    SpecQueryFilters,
-    SpecQueryResult,
 )
+from tdoc_crawler.logging import get_logger
+from tdoc_crawler.specs.models import SpecQueryFilters, SpecQueryResult
 from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
 from tdoc_crawler.utils.parse import parse_spec_version, parse_spec_version_nbr
@@ -94,7 +92,8 @@ def _version_matches_release(version: str, release_type: str, release_value: str
     """Check if a version string matches the release selector."""
     try:
         v_parts = list(parse_spec_version(version).release)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Version parse failed for '%s': %s", version, exc)
         return False
 
     if release_type == "exact":
@@ -136,62 +135,70 @@ class SpecDatabase(DocDatabase):
     # ------------------------------------------------------------------
     # Spec operations
     # ------------------------------------------------------------------
-    def upsert_specification(self, specification: Specification) -> tuple[bool, bool]:
+    async def upsert_specification(self, specification: Specification) -> tuple[bool, bool]:
         """Upsert a specification record."""
-        existing = self._get_specification(specification.spec_number)
+        existing = await self._get_specification(specification.spec_number)
         if existing is None:
-            self.connection.add("specs", specification, pk="spec_number")
+            await self.connection.save(specification)
             return True, False
 
         changed = self._spec_changed(existing, specification)
-        self.connection.add("specs", specification, pk="spec_number")
+        await self.connection.save(specification)
         return False, changed
 
-    def upsert_spec_source_record(self, record: SpecificationSourceRecord) -> tuple[bool, bool]:
+    async def upsert_spec_source_record(self, record: SpecificationSourceRecord) -> tuple[bool, bool]:
         """Upsert a spec source record."""
         record_id = record.record_id or f"{record.spec_number}:{record.source_name}"
-        updated_record = record.model_copy(update={"record_id": record_id})
-        existing = self._get_spec_source_record(record_id)
+        updated_record = SpecificationSourceRecord(
+            record_id=record_id,
+            spec_number=record.spec_number,
+            source_name=record.source_name,
+            source_identifier=record.source_identifier,
+            metadata_payload=record.metadata_payload,
+            versions=record.versions,
+            fetched_at=record.fetched_at,
+        )
+        existing = await self._get_spec_source_record(record_id)
         if existing is None:
-            self.connection.add("spec_source_records", updated_record, pk="record_id")
+            await self.connection.save(updated_record)
             return True, False
 
         changed = self._spec_source_changed(existing, updated_record)
-        self.connection.add("spec_source_records", updated_record, pk="record_id")
+        await self.connection.save(updated_record)
         return False, changed
 
-    def upsert_spec_version(self, version: SpecificationVersion) -> tuple[bool, bool]:
+    async def upsert_spec_version(self, version: SpecificationVersion) -> tuple[bool, bool]:
         """Upsert a spec version record."""
         record_id = version.record_id or f"{version.spec_number}:{version.version}:{version.source_name}"
-        updated_version = version.model_copy(update={"record_id": record_id})
-        existing = self._get_spec_version(record_id)
+        updated_version = SpecificationVersion(
+            record_id=record_id,
+            spec_number=version.spec_number,
+            version=version.version,
+            file_name=version.file_name,
+            source_name=version.source_name,
+        )
+        existing = await self._get_spec_version(record_id)
         if existing is None:
-            self.connection.add("spec_versions", updated_version, pk="record_id")
+            await self.connection.save(updated_version)
             return True, False
 
         changed = self._spec_version_changed(existing, updated_version)
-        self.connection.add("spec_versions", updated_version, pk="record_id")
+        await self.connection.save(updated_version)
         return False, changed
 
-    def get_spec_versions(self, spec_number: str) -> list[SpecificationVersion]:
+    async def get_spec_versions(self, spec_number: str) -> list[SpecificationVersion]:
         """Get all versions for a spec."""
         try:
-            cursor = self.connection._db.execute("SELECT * FROM spec_versions WHERE spec_number = ?", (spec_number,))
-            columns = [description[0] for description in cursor.description]
-            rows = cursor.fetchall()
+            query = self.connection.query(SpecificationVersion).filter(spec_number=spec_number)
+            return await query.all()
+        except Exception as exc:
+            _logger.error("Failed to get spec versions for '%s': %s", spec_number, exc)
+            raise DatabaseError("spec-versions-read-failed", detail=str(exc)) from exc
 
-            result = []
-            for row in rows:
-                row_dict = dict(zip(columns, row, strict=False))
-                result.append(SpecificationVersion(**row_dict))
-            return result
-        except Exception:
-            return []
-
-    def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
+    async def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
         """Query stored spec metadata."""
-        specs = self._spec_table_rows()
-        source_records = self._table_rows("spec_source_records")
+        specs = await self._spec_table_rows()
+        source_records = await self._table_rows(SpecificationSourceRecord)
         records_by_spec: dict[str, list[SpecificationSourceRecord]] = defaultdict(list)
         for record in source_records:
             records_by_spec[record.spec_number].append(record)
@@ -251,15 +258,15 @@ class SpecDatabase(DocDatabase):
             for spec in specs
         ]
 
-    def clear_specs(self) -> dict[str, int]:
+    async def clear_specs(self) -> dict[str, int]:
         """Clear all spec-related records from database.
 
         Returns:
             Mapping of table name to deleted row count.
         """
-        return self._clear_tables(["spec_downloads", "spec_versions", "spec_source_records", "specs"])
+        return await self._clear_tables(["spec_downloads", "spec_versions", "spec_source_records", "specs"])
 
-    def crawl_specs(
+    async def crawl_specs(
         self,
         spec_numbers: list[str],
         release: str,
@@ -283,7 +290,7 @@ class SpecDatabase(DocDatabase):
             normalized = normalize_spec_number(raw_spec)
             compact = normalized.replace(".", "")
             results.append(
-                self._crawl_single_spec(
+                await self._crawl_single_spec(
                     compact=compact,
                     normalized=normalized,
                     release=release,
@@ -295,7 +302,7 @@ class SpecDatabase(DocDatabase):
             )
         return results
 
-    def _crawl_single_spec(
+    async def _crawl_single_spec(
         self,
         *,
         compact: str,
@@ -314,8 +321,8 @@ class SpecDatabase(DocDatabase):
         for source in sources:
             try:
                 payload = source.fetch(normalized)
-            except Exception as exc:  # noqa: BLE001
-                _logger.warning("Spec crawl failed for %s (%s)", normalized, source.name, exc_info=exc)
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                _logger.warning("Spec crawl failed for %s (%s): %s", normalized, source.name, exc)
                 outcomes.append(
                     SpecCrawlSourceOutcome(
                         source_name=source.name,
@@ -365,7 +372,16 @@ class SpecDatabase(DocDatabase):
             if aggregated is None:
                 aggregated = candidate
             elif aggregated.latest_version is None and candidate.latest_version is not None:
-                aggregated = aggregated.model_copy(update={"latest_version": candidate.latest_version})
+                aggregated = Specification(
+                    spec_number=aggregated.spec_number,
+                    spec_number_compact=aggregated.spec_number_compact,
+                    spec_type=aggregated.spec_type,
+                    title=aggregated.title,
+                    status=aggregated.status,
+                    working_group=aggregated.working_group,
+                    series=aggregated.series,
+                    latest_version=candidate.latest_version,
+                )
 
             spec_versions.extend(versions_payload)
 
@@ -424,10 +440,10 @@ class SpecDatabase(DocDatabase):
             )
 
         for record in source_records:
-            self.upsert_spec_source_record(record)
-        self.upsert_specification(aggregated)
+            await self.upsert_spec_source_record(record)
+        await self.upsert_specification(aggregated)
         for version in spec_versions:
-            self.upsert_spec_version(version)
+            await self.upsert_spec_version(version)
 
         return SpecCrawlResult(
             spec_number=normalized,
@@ -437,54 +453,21 @@ class SpecDatabase(DocDatabase):
             sources=outcomes,
         )
 
-    def _spec_table_rows(self) -> list[Specification]:
-        return self._table_rows("specs")
+    async def _spec_table_rows(self) -> list[Specification]:
+        return await self._table_rows(Specification)
 
-    def _get_specification(self, spec_number: str) -> Specification | None:
+    async def _get_specification(self, spec_number: str) -> Specification | None:
+        return await self.connection.get(Specification, spec_number)
+
+    async def _get_spec_source_record(self, record_id: str) -> SpecificationSourceRecord | None:
         try:
-            return self.connection.model_from_table("specs", spec_number)  # type: ignore[arg-type]
-        except KeyError:
-            return None
-
-    def _get_spec_source_record(self, record_id: str) -> SpecificationSourceRecord | None:
-        try:
-            # Use raw query to handle JSON deserialization manually before model instantiation
-            cursor = self.connection._db.execute("SELECT * FROM spec_source_records WHERE record_id = ?", (record_id,))
-            row = cursor.fetchone()
-            if row is None:
-                return None
-
-            columns = [description[0] for description in cursor.description]
-            row_dict = dict(zip(columns, row, strict=False))
-
-            # Handle JSON fields
-            if "metadata_payload" in row_dict and isinstance(row_dict["metadata_payload"], str):
-                try:
-                    row_dict["metadata_payload"] = json.loads(row_dict["metadata_payload"])
-                except json.JSONDecodeError:
-                    row_dict["metadata_payload"] = {}
-
-            if "versions" in row_dict and isinstance(row_dict["versions"], str):
-                try:
-                    row_dict["versions"] = json.loads(row_dict["versions"])
-                except json.JSONDecodeError:
-                    row_dict["versions"] = []
-
-            # Handle datetime deserialization
-            if "fetched_at" in row_dict and isinstance(row_dict["fetched_at"], str):
-                with contextlib.suppress(ValueError, AttributeError):
-                    row_dict["fetched_at"] = datetime.fromisoformat(row_dict["fetched_at"])
-
-            return SpecificationSourceRecord(**row_dict)
+            return await self.connection.get(SpecificationSourceRecord, record_id)
         except Exception as exc:
-            _logger.debug("Error fetching spec source record %s: %s", record_id, exc)
+            _logger.warning("Failed to fetch spec source record '%s': %s", record_id, exc)
             return None
 
-    def _get_spec_version(self, record_id: str) -> SpecificationVersion | None:
-        try:
-            return self.connection.model_from_table("spec_versions", record_id)
-        except KeyError:
-            return None
+    async def _get_spec_version(self, record_id: str) -> SpecificationVersion | None:
+        return await self.connection.get(SpecificationVersion, record_id)
 
     @staticmethod
     def _spec_changed(current: Specification, candidate: Specification) -> bool:

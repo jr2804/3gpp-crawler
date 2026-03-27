@@ -6,6 +6,7 @@ from the whatthespec.net community API.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import requests
@@ -76,9 +77,12 @@ def resolve_via_whatthespec(
     meeting_name = str(meeting_raw) if meeting_raw else ""
     agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
 
-    manager = resolve_cache_manager(cache_manager_name)
-    with MeetingDatabase(manager.db_file) as db:
-        meeting_id = db.resolve_meeting_id(meeting_name) or 0
+    async def resolve_meeting_id_async() -> int:
+        manager = resolve_cache_manager(cache_manager_name)
+        async with MeetingDatabase(manager.db_file) as db:
+            return await db.resolve_meeting_id(meeting_name) or 0
+
+    meeting_id = asyncio.run(resolve_meeting_id_async())
 
     metadata = TDocMetadata(
         tdoc_id=resolved_id,

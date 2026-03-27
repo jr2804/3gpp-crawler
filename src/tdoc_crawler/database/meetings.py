@@ -5,8 +5,9 @@ from collections.abc import Callable, Iterable
 from datetime import datetime
 
 from tdoc_crawler.database.base import DocDatabase
+from tdoc_crawler.database.oxyde_models import CrawlLogEntry, MeetingMetadata, TDocMetadata
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
+from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.meetings.utils import normalize_portal_meeting_name
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
@@ -22,7 +23,7 @@ class MeetingDatabase(DocDatabase):
     # ------------------------------------------------------------------
     # Meeting operations
     # ------------------------------------------------------------------
-    def upsert_meeting(self, metadata: MeetingMetadata) -> tuple[bool, bool]:
+    async def upsert_meeting(self, metadata: MeetingMetadata) -> tuple[bool, bool]:
         """Insert or update a meeting record.
 
         Args:
@@ -32,34 +33,51 @@ class MeetingDatabase(DocDatabase):
             Tuple of (created, changed) booleans
         """
         record = self._prepare_meeting(metadata)
-        existing = self._get_meeting(record.meeting_id)
+        existing = await self._get_meeting(record.meeting_id)
         now = utc_now()
 
         if existing is None:
-            created = record.model_copy(
-                update={
-                    "created_at": now,
-                    "updated_at": now,
-                    "last_synced": record.last_synced or now,
-                }
+            created = MeetingMetadata(
+                meeting_id=record.meeting_id,
+                tbid=record.tbid,
+                subtb=record.subtb,
+                short_name=record.short_name,
+                title=record.title,
+                start_date=record.start_date,
+                end_date=record.end_date,
+                location=record.location,
+                files_url=record.files_url,
+                portal_url=record.portal_url,
+                tdoc_count=record.tdoc_count,
+                last_synced=record.last_synced or now,
+                created_at=now,
+                updated_at=now,
             )
-            self.connection.add("meetings", created, pk="meeting_id")
+            await self.connection.save(created)
             return True, False
 
-        if record.created_at is None:
-            record = record.model_copy(update={"created_at": existing.created_at})
-
+        created_at = record.created_at or existing.created_at
         changed = self._meeting_changed(existing, record)
-        updated = record.model_copy(
-            update={
-                "last_synced": record.last_synced or existing.last_synced,
-                "updated_at": now,
-            }
+        updated = MeetingMetadata(
+            meeting_id=record.meeting_id,
+            tbid=record.tbid,
+            subtb=record.subtb,
+            short_name=record.short_name,
+            title=record.title,
+            start_date=record.start_date,
+            end_date=record.end_date,
+            location=record.location,
+            files_url=record.files_url,
+            portal_url=record.portal_url,
+            tdoc_count=record.tdoc_count,
+            last_synced=record.last_synced or existing.last_synced,
+            created_at=created_at,
+            updated_at=now,
         )
-        self.connection.add("meetings", updated, pk="meeting_id")
+        await self.connection.save(updated)
         return False, changed
 
-    def bulk_upsert_meetings(
+    async def bulk_upsert_meetings(
         self,
         meetings: Iterable[MeetingMetadata],
         progress_callback: Callable[[float, float], None] | None = None,
@@ -80,7 +98,7 @@ class MeetingDatabase(DocDatabase):
         inserted = 0
         updated = 0
         for index, meeting in enumerate(meetings_list, start=1):
-            created, changed = self.upsert_meeting(meeting)
+            created, changed = await self.upsert_meeting(meeting)
             if created:
                 inserted += 1
             elif changed:
@@ -89,7 +107,7 @@ class MeetingDatabase(DocDatabase):
                 progress_callback(float(index), total)
         return inserted, updated
 
-    def query_meetings(self, config: MeetingQueryConfig) -> list[MeetingMetadata]:
+    async def query_meetings(self, config: MeetingQueryConfig) -> list[MeetingMetadata]:
         """Query meetings with filtering and sorting.
 
         Args:
@@ -98,7 +116,7 @@ class MeetingDatabase(DocDatabase):
         Returns:
             List of matching meeting metadata
         """
-        meetings = self._table_rows("meetings")
+        meetings = await self._table_rows(MeetingMetadata)
 
         if config.working_groups:
             allowed = {wg.tbid for wg in config.working_groups}
@@ -131,7 +149,7 @@ class MeetingDatabase(DocDatabase):
 
         return meetings
 
-    def get_existing_meeting_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[int]:
+    async def get_existing_meeting_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[int]:
         """Get set of existing meeting IDs, optionally filtered by working group.
 
         Args:
@@ -140,14 +158,14 @@ class MeetingDatabase(DocDatabase):
         Returns:
             Set of meeting IDs
         """
-        meetings = self._table_rows("meetings")
+        meetings = await self._table_rows(MeetingMetadata)
         if not working_groups:
             return {meeting.meeting_id for meeting in meetings}
 
         allowed = {wg.tbid for wg in working_groups}
         return {meeting.meeting_id for meeting in meetings if meeting.tbid in allowed}
 
-    def resolve_meeting_id(self, meeting_name: str) -> int | None:
+    async def resolve_meeting_id(self, meeting_name: str) -> int | None:
         """Resolve meeting name to meeting_id from database.
 
         Uses fuzzy matching to handle variations in meeting names:
@@ -168,7 +186,7 @@ class MeetingDatabase(DocDatabase):
             order=SortOrder.DESC,
             include_without_files=True,
         )
-        all_meetings = self.query_meetings(config)
+        all_meetings = await self.query_meetings(config)
 
         def _match_name(candidate: str, cached: str | None) -> bool:
             """Check if candidate matches cached name via fuzzy matching."""
@@ -202,15 +220,15 @@ class MeetingDatabase(DocDatabase):
     # ------------------------------------------------------------------
     # Crawl logging and statistics
     # ------------------------------------------------------------------
-    def get_statistics(self) -> dict[str, object]:
+    async def get_statistics(self) -> dict[str, object]:
         """Get database statistics.
 
         Returns:
             Dictionary with various statistics
         """
-        tdocs = self._table_rows("tdocs")
-        meetings = self._meeting_map()
-        crawl_entries = self._table_rows("crawl_log")
+        tdocs = await self._table_rows(TDocMetadata)
+        meetings = await self._meeting_map()
+        crawl_entries = await self._table_rows(CrawlLogEntry)
 
         by_working_group: dict[str, int] = defaultdict(int)
         tbid_to_code = {working_group.tbid: working_group.value for working_group in WorkingGroup}
@@ -248,16 +266,14 @@ class MeetingDatabase(DocDatabase):
             "recent_crawls": recent_crawls,
         }
 
-    def _meeting_map(self) -> dict[int, MeetingMetadata]:
+    async def _meeting_map(self) -> dict[int, MeetingMetadata]:
         """Get mapping of meeting ID to meeting metadata."""
-        return {meeting.meeting_id: meeting for meeting in self._table_rows("meetings")}
+        meetings = await self._table_rows(MeetingMetadata)
+        return {meeting.meeting_id: meeting for meeting in meetings}
 
-    def _get_meeting(self, meeting_id: int) -> MeetingMetadata | None:
+    async def _get_meeting(self, meeting_id: int) -> MeetingMetadata | None:
         """Get a meeting by ID."""
-        try:
-            return self.connection.model_from_table("meetings", str(meeting_id))
-        except KeyError:
-            return None
+        return await self.connection.get(MeetingMetadata, meeting_id)
 
     # ------------------------------------------------------------------
     # Normalisation helpers

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from typing import Annotated
@@ -143,22 +144,29 @@ def query_tdocs(
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
     )
-    with TDocDatabase(db_file) as database:
-        results = database.query_tdocs(config)
-        if not no_fetch:
-            with create_cached_session() as session:
-                result = fetch_missing_tdocs(
-                    database,
-                    config,
-                    results,
-                    session=session,
-                    cache_manager_name=manager.name,
-                )
-                if result.fetch_result and result.fetch_result.errors:
-                    console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-                    for error in result.fetch_result.errors[:3]:
-                        console.print(f"  - {error}")
-                results = result.refreshed
+
+    async def run_query() -> list:
+        async with TDocDatabase(db_file) as database:
+            results = await database.query_tdocs(config)
+            if not no_fetch:
+                with create_cached_session() as session:
+                    result = fetch_missing_tdocs(
+                        database,
+                        config,
+                        results,
+                        session=session,
+                        cache_manager_name=manager.name,
+                    )
+                    if result.fetch_result and result.fetch_result.errors:
+                        console.print(
+                            f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]",
+                        )
+                        for error in result.fetch_result.errors[:3]:
+                            console.print(f"  - {error}")
+                    results = result.refreshed
+        return results
+
+    results = asyncio.run(run_query())
 
     if not results:
         console.print("[yellow]No TDocs found[/yellow]")
@@ -169,8 +177,11 @@ def query_tdocs(
             checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
 
     # Build meeting map for enriched output
-    with MeetingDatabase(db_file) as meeting_db:
-        meeting_map = meeting_db._meeting_map()
+    async def load_meeting_map() -> dict:
+        async with MeetingDatabase(db_file) as meeting_db:
+            return await meeting_db._meeting_map()
+
+    meeting_map = asyncio.run(load_meeting_map())
 
     # If graph-rag flag is set, perform hybrid search
     # Disabled due to logical inconsistency - query_hybrid expects text query, not TDoc ID
@@ -227,8 +238,12 @@ def query_meetings(
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
     )
-    with MeetingDatabase(db_file) as database:
-        meetings = database.query_meetings(config)
+
+    async def run_query() -> list:
+        async with MeetingDatabase(db_file) as database:
+            return await database.query_meetings(config)
+
+    meetings = asyncio.run(run_query())
 
     if not meetings:
         console.print("[yellow]No meetings found[/yellow]")
@@ -292,8 +307,12 @@ def query_specs(
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
     )
-    with SpecDatabase(db_file) as database:
-        results = database.query_specs(filters)
+
+    async def run_query() -> list:
+        async with SpecDatabase(db_file) as database:
+            return await database.query_specs(filters)
+
+    results = asyncio.run(run_query())
 
     if not results:
         console.print("[yellow]No specs found[/yellow]")
@@ -301,8 +320,12 @@ def query_specs(
 
     if checkout:
         spec_list = [result.spec_number for result in results]
-        with SpecDatabase(db_file) as database:
-            checkout_specs(spec_list, manager.checkout_dir, database, release="latest")
+
+        async def load_specs_for_checkout() -> None:
+            async with SpecDatabase(db_file) as database:
+                checkout_specs(spec_list, manager.checkout_dir, database, release="latest")
+
+        asyncio.run(load_specs_for_checkout())
 
     if output is OutputFormat.JSON:
         console.print(json.dumps([spec_query_to_dict(result) for result in results], indent=2))

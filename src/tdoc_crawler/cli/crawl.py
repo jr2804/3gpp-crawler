@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime
 
@@ -50,12 +51,12 @@ from tdoc_crawler.cli.printing import print_spec_crawl_table, spec_crawl_to_dict
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
-from tdoc_crawler.database.specs import SpecDatabase
+from tdoc_crawler.database.specs import SpecCrawlResult, SpecDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
-from tdoc_crawler.meetings.operations.crawl import MeetingCrawler
+from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata, MeetingQueryConfig
+from tdoc_crawler.meetings.operations.crawl import MeetingCrawler, MeetingCrawlResult
 from tdoc_crawler.models.base import HttpCacheConfig, OutputFormat, SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
@@ -63,6 +64,7 @@ from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, c
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs, checkout_tdocs
+from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
 
@@ -137,31 +139,20 @@ def crawl_tdocs(
     scope_parts = []
 
     # Query actual meetings from database to show realistic scope
-    with MeetingDatabase(db_file) as meeting_db:
-        query_config = MeetingQueryConfig(
-            working_groups=working_groups,
-            subgroups=subgroups,
-            limit=None,
-            order=SortOrder.ASC,
-            include_without_files=False,
-            start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
-            end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
-        )
-        meetings = meeting_db.query_meetings(query_config)
+    async def fetch_meetings() -> list[MeetingMetadata]:
+        async with MeetingDatabase(db_file) as meeting_db:
+            query_config = MeetingQueryConfig(
+                working_groups=working_groups,
+                subgroups=subgroups,
+                limit=None,
+                order=SortOrder.ASC,
+                include_without_files=False,
+                start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
+                end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
+            )
+            return await meeting_db.query_meetings(query_config)
 
-    if meetings:
-        # Extract unique subgroups from queried meetings
-        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
-        if unique_subgroups:
-            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
-        else:
-            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
-    # Fallback to input parameters if no meetings found in DB
-    elif subgroups:
-        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
-    else:
-        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
-        meetings = meeting_db.query_meetings(query_config)
+    meetings = asyncio.run(fetch_meetings())
 
     if meetings:
         # Extract unique subgroups from queried meetings
@@ -186,63 +177,72 @@ def crawl_tdocs(
         clear_specs=clear_specs,
     )
 
-    with TDocDatabase(db_file) as database:
-        crawler = TDocCrawler(database)
-        crawl_id = database.log_crawl_start("tdoc", [wg.value for wg in config.working_groups], config.incremental)
-
-        crawl_start_time = datetime.now()
-
-        if no_progress:
-            # No progress bar - just run the crawl
-            result = crawler.crawl(config, progress_callback=None)
-        else:
-            progress, task = create_progress_bar("[cyan]Crawling TDocs...")
-
-            with progress:
-
-                def update_progress(completed: float, total: float) -> None:
-                    progress.update(task, completed=completed, total=total)
-
-                result = crawler.crawl(config, progress_callback=update_progress)
-
-        crawl_end_time = datetime.now()
-        elapsed_seconds = (crawl_end_time - crawl_start_time).total_seconds()
-        throughput = result.processed / elapsed_seconds if elapsed_seconds > 0 else 0
-
-        database.log_crawl_end(
-            crawl_id,
-            items_added=result.inserted,
-            items_updated=result.updated,
-            errors_count=len(result.errors),
-        )
-
-        if checkout:
-            checkout_limit = limit_tdocs if limit_tdocs and limit_tdocs > 0 else None
-            query_config = TDocQueryConfig(
-                cache_dir=manager.root,
-                working_groups=working_groups,
-                limit=checkout_limit,
-                order=SortOrder.DESC,
-                start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
-                end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
-                source_pattern=source,
-                source_pattern_exclude=source_ex,
-                title_pattern=title,
-                title_pattern_exclude=title_ex,
-                agenda_pattern=agenda,
-                agenda_pattern_exclude=agenda_ex,
+    async def run_tdoc_crawl() -> tuple[TDocCrawlResult, float]:
+        async with TDocDatabase(db_file) as database:
+            crawler = TDocCrawler(database)
+            crawl_id = await database.log_crawl_start(
+                "tdoc",
+                [wg.value for wg in config.working_groups],
+                config.incremental,
             )
-            results = database.query_tdocs(query_config)
 
-            with create_cached_session(http_cache_enabled=http_cache_enabled) as session:
-                checkout_result = checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
+            crawl_start_time = datetime.now()
 
-            console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
-            if checkout_result.error_count:
-                console.print(f"[red]Failed: {checkout_result.error_count} TDoc(s)[/red]")
-            if checkout_result.errors:
-                for error in checkout_result.errors[:5]:
-                    console.print(f"  - {error}")
+            if no_progress:
+                # No progress bar - just run the crawl
+                result = crawler.crawl(config, progress_callback=None)
+            else:
+                progress, task = create_progress_bar("[cyan]Crawling TDocs...")
+
+                with progress:
+
+                    def update_progress(completed: float, total: float) -> None:
+                        progress.update(task, completed=completed, total=total)
+
+                    result = crawler.crawl(config, progress_callback=update_progress)
+
+            crawl_end_time = datetime.now()
+            elapsed_seconds = (crawl_end_time - crawl_start_time).total_seconds()
+            throughput = result.processed / elapsed_seconds if elapsed_seconds > 0 else 0
+
+            await database.log_crawl_end(
+                crawl_id,
+                items_added=result.inserted,
+                items_updated=result.updated,
+                errors_count=len(result.errors),
+            )
+
+            if checkout:
+                checkout_limit = limit_tdocs if limit_tdocs and limit_tdocs > 0 else None
+                query_config = TDocQueryConfig(
+                    cache_dir=manager.root,
+                    working_groups=working_groups,
+                    limit=checkout_limit,
+                    order=SortOrder.DESC,
+                    start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
+                    end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
+                    source_pattern=source,
+                    source_pattern_exclude=source_ex,
+                    title_pattern=title,
+                    title_pattern_exclude=title_ex,
+                    agenda_pattern=agenda,
+                    agenda_pattern_exclude=agenda_ex,
+                )
+                results = await database.query_tdocs(query_config)
+
+                with create_cached_session(http_cache_enabled=http_cache_enabled) as session:
+                    checkout_result = checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
+
+                console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
+                if checkout_result.error_count:
+                    console.print(f"[red]Failed: {checkout_result.error_count} TDoc(s)[/red]")
+                if checkout_result.errors:
+                    for error in checkout_result.errors[:5]:
+                        console.print(f"  - {error}")
+
+            return result, throughput
+
+    result, throughput = asyncio.run(run_tdoc_crawl())
 
     console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
@@ -312,26 +312,35 @@ def crawl_meetings(
         clear_db=clear_db,
     )
 
-    with MeetingDatabase(db_file) as database:
-        crawl_id = database.log_crawl_start("meeting", [wg.value for wg in config.working_groups], config.incremental)
+    async def run_meeting_crawl() -> MeetingCrawlResult:
+        async with MeetingDatabase(db_file) as database:
+            crawl_id = await database.log_crawl_start(
+                "meeting",
+                [wg.value for wg in config.working_groups],
+                config.incremental,
+            )
 
-        crawler = MeetingCrawler(database)
+            crawler = MeetingCrawler(database)
 
-        progress, task = create_progress_bar("[cyan]Crawling meetings...")
+            progress, task = create_progress_bar("[cyan]Crawling meetings...")
 
-        with progress:
+            with progress:
 
-            def update_progress(completed: float, total: float) -> None:
-                progress.update(task, completed=completed, total=total)
+                def update_progress(completed: float, total: float) -> None:
+                    progress.update(task, completed=completed, total=total)
 
-            result = crawler.crawl(config, progress_callback=update_progress)
+                result = crawler.crawl(config, progress_callback=update_progress)
 
-        database.log_crawl_end(
-            crawl_id,
-            items_added=result.inserted,
-            items_updated=result.updated,
-            errors_count=len(result.errors),
-        )
+            await database.log_crawl_end(
+                crawl_id,
+                items_added=result.inserted,
+                items_updated=result.updated,
+                errors_count=len(result.errors),
+            )
+
+            return result
+
+    result = asyncio.run(run_meeting_crawl())
 
     console.print(f"[green]Processed {result.processed} meetings[/green]")
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
@@ -350,8 +359,12 @@ def crawl_meetings(
             start_date=parse_partial_date(start_date, is_end=False) if start_date and start_date.strip() else None,
             end_date=parse_partial_date(end_date, is_end=True) if end_date and end_date.strip() else None,
         )
-        with MeetingDatabase(db_file) as database:
-            meetings = database.query_meetings(query_config)
+
+        async def fetch_checkout_meetings() -> list[MeetingMetadata]:
+            async with MeetingDatabase(db_file) as database:
+                return await database.query_meetings(query_config)
+
+        meetings = asyncio.run(fetch_checkout_meetings())
 
         with create_cached_session() as session:
             checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_file, session=session)
@@ -390,21 +403,28 @@ def crawl_specs(
         clear_specs=clear_specs,
     )
 
-    with SpecDatabase(manager.db_file) as database:
-        results = database.crawl_specs(specs, release, sources)
+    async def crawl_specs_db() -> list[SpecCrawlResult]:
+        async with SpecDatabase(manager.db_file) as database:
+            return await database.crawl_specs(specs, release, sources)
+
+    results = asyncio.run(crawl_specs_db())
 
     if not results:
         console.print("[yellow]No specs crawled[/yellow]")
         return
 
     if checkout:
-        with SpecDatabase(manager.db_file) as database:
-            checkout_specs(
-                [result.spec_number for result in results],
-                manager.checkout_dir,
-                database,
-                release=release,
-            )
+
+        async def checkout_specs_db() -> None:
+            async with SpecDatabase(manager.db_file) as database:
+                checkout_specs(
+                    [result.spec_number for result in results],
+                    manager.checkout_dir,
+                    database,
+                    release=release,
+                )
+
+        asyncio.run(checkout_specs_db())
 
     if output is OutputFormat.JSON:
         console.print(json.dumps([spec_crawl_to_dict(result) for result in results], indent=2))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import zipfile
 from typing import Any, cast
 
@@ -84,34 +85,37 @@ def open_tdoc(
     normalized_id = tdoc_id.strip().upper()
     config = TDocQueryConfig(tdoc_ids=[normalized_id])
 
-    with create_cached_session() as session:
-        with TDocDatabase(manager.db_file) as database:
-            results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
-                database,
-                config,
-                results,
-                full_metadata=full_metadata,
-                use_whatthespec=use_whatthespec,
-                session=session,
-                cache_manager_name=manager.name,
-            )
-            if result.fetch_result and result.fetch_result.errors:
-                console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-            results = result.refreshed
-            if not results:
-                console.print(f"[red]TDoc {normalized_id} not found[/red]")
-                raise typer.Exit(code=1)
-            metadata = results[0]
+    async def _open_tdoc() -> None:
+        with create_cached_session() as session:
+            async with TDocDatabase(manager.db_file) as database:
+                results = await database.query_tdocs(config)
+                result = fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                    full_metadata=full_metadata,
+                    use_whatthespec=use_whatthespec,
+                    session=session,
+                    cache_manager_name=manager.name,
+                )
+                if result.fetch_result and result.fetch_result.errors:
+                    console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+                results = result.refreshed
+                if not results:
+                    console.print(f"[red]TDoc {normalized_id} not found[/red]")
+                    raise typer.Exit(code=1)
+                metadata = results[0]
 
-        try:
-            tdoc_file = prepare_tdoc_file(metadata, manager.checkout_dir, session=session)
-        except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
-            console.print(f"[red]Failed to prepare TDoc {normalized_id}: {exc}")
-            raise typer.Exit(code=1) from exc
+            try:
+                tdoc_file = prepare_tdoc_file(metadata, manager.checkout_dir, session=session)
+            except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+                console.print(f"[red]Failed to prepare TDoc {normalized_id}: {exc}")
+                raise typer.Exit(code=1) from exc
 
-        console.print(f"[green]Opening {tdoc_file}")
-        launch_file(tdoc_file)
+            console.print(f"[green]Opening {tdoc_file}")
+            launch_file(tdoc_file)
+
+    asyncio.run(_open_tdoc())
 
 
 @app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)
@@ -134,44 +138,47 @@ def checkout(
     normalized_ids = [tid.strip().upper() for tid in tdoc_ids]
     config = TDocQueryConfig(tdoc_ids=normalized_ids)
 
-    with create_cached_session() as session:
-        with TDocDatabase(manager.db_file) as database:
-            results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
-                database,
-                config,
-                results,
-                full_metadata=full_metadata,
-                use_whatthespec=use_whatthespec,
-                session=session,
-                cache_manager_name=manager.name,
-            )
-            if result.fetch_result and result.fetch_result.errors:
-                console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-            results = result.refreshed
-            if not results:
-                raise typer.Exit(code=1)
+    async def _checkout() -> None:
+        with create_cached_session() as session:
+            async with TDocDatabase(manager.db_file) as database:
+                results = await database.query_tdocs(config)
+                result = fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                    full_metadata=full_metadata,
+                    use_whatthespec=use_whatthespec,
+                    session=session,
+                    cache_manager_name=manager.name,
+                )
+                if result.fetch_result and result.fetch_result.errors:
+                    console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+                results = result.refreshed
+                if not results:
+                    raise typer.Exit(code=1)
 
-        checkout_dir = manager.checkout_dir
-        success_count = 0
-        error_count = 0
+            checkout_dir = manager.checkout_dir
+            success_count = 0
+            error_count = 0
 
-        progress, task = create_progress_bar("Checking out TDocs...", total=len(results))
+            progress, task = create_progress_bar("Checking out TDocs...", total=len(results))
 
-        with progress:
-            for metadata in results:
-                try:
-                    checkout_path = checkout_tdoc(metadata, checkout_dir, force=force, session=session)
-                    progress.console.print(f"[green]✓ {metadata.tdoc_id} → {checkout_path}")
-                    success_count += 1
-                except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
-                    progress.console.print(f"[red]✗ {metadata.tdoc_id}: {exc}")
-                    error_count += 1
-                progress.advance(task)
+            with progress:
+                for metadata in results:
+                    try:
+                        checkout_path = checkout_tdoc(metadata, checkout_dir, force=force, session=session)
+                        progress.console.print(f"[green]✓ {metadata.tdoc_id} → {checkout_path}")
+                        success_count += 1
+                    except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+                        progress.console.print(f"[red]✗ {metadata.tdoc_id}: {exc}")
+                        error_count += 1
+                    progress.advance(task)
 
-        console.print(f"\n[cyan]Checked out {success_count} TDoc(s)[/cyan]")
-        if error_count:
-            console.print(f"[red]Failed: {error_count} TDoc(s)[/red]")
+            console.print(f"\n[cyan]Checked out {success_count} TDoc(s)[/cyan]")
+            if error_count:
+                console.print(f"[red]Failed: {error_count} TDoc(s)[/red]")
+
+    asyncio.run(_checkout())
 
 
 @app.command("stats", rich_help_panel=HELP_PANEL_MAIN)
@@ -187,8 +194,11 @@ def stats(
         console.print(f"[red]Database not found: {db_file}[/red]")
         raise typer.Exit(code=1)
 
-    with MeetingDatabase(db_file) as database:
-        stats_dict = cast(dict[str, Any], database.get_statistics())
+    async def _stats() -> dict[str, Any]:
+        async with MeetingDatabase(db_file) as database:
+            return cast(dict[str, Any], await database.get_statistics())
+
+    stats_dict = asyncio.run(_stats())
 
     table = Table(title="TDoc database statistics")
     table.add_column("Metric", style="cyan")

@@ -1,18 +1,17 @@
 """TDoc database operations."""
 
 import fnmatch
-import sqlite3
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any
 
 from tdoc_crawler.database.meetings import MeetingDatabase
+from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
-from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
+from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
-from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 _logger = get_logger(__name__)
 
@@ -28,7 +27,7 @@ class TDocDatabase(MeetingDatabase):
     # ------------------------------------------------------------------
     # TDoc operations
     # ------------------------------------------------------------------
-    def upsert_tdoc(self, metadata: TDocMetadata) -> tuple[bool, bool]:
+    async def upsert_tdoc(self, metadata: TDocMetadata) -> tuple[bool, bool]:
         """Insert or update a TDoc record.
 
         Args:
@@ -38,28 +37,29 @@ class TDocDatabase(MeetingDatabase):
             Tuple of (created, changed) booleans
         """
         record = self._prepare_tdoc(metadata)
-        existing = self._get_tdoc(record.tdoc_id)
+        existing = await self._get_tdoc(record.tdoc_id)
         now = utc_now()
 
         if existing is None:
-            created_record = record.model_copy(
-                update={
+            created_record = self._clone_tdoc(
+                record,
+                {
                     "date_updated": now,
                     "date_created": record.date_created or record.date_retrieved,
-                }
+                },
             )
-            self.connection.add("tdocs", created_record, pk="tdoc_id")
+            await self.connection.save(created_record)
             return True, False
 
         if record.date_created is None and existing.date_created is not None:
-            record = record.model_copy(update={"date_created": existing.date_created})
+            record = self._clone_tdoc(record, {"date_created": existing.date_created})
 
         changed = self._tdoc_changed(existing, record)
-        updated_record = record.model_copy(update={"date_updated": now})
-        self.connection.add("tdocs", updated_record, pk="tdoc_id")
+        updated_record = self._clone_tdoc(record, {"date_updated": now})
+        await self.connection.save(updated_record)
         return False, changed
 
-    def bulk_upsert_tdocs(
+    async def bulk_upsert_tdocs(
         self,
         tdocs: Iterable[TDocMetadata],
         progress_callback: Callable[[float, float], None] | None = None,
@@ -80,7 +80,7 @@ class TDocDatabase(MeetingDatabase):
         inserted = 0
         updated = 0
         for index, metadata in enumerate(tdocs_list, start=1):
-            created, changed = self.upsert_tdoc(metadata)
+            created, changed = await self.upsert_tdoc(metadata)
             if created:
                 inserted += 1
             elif changed:
@@ -89,7 +89,7 @@ class TDocDatabase(MeetingDatabase):
                 progress_callback(float(index), total)
         return inserted, updated
 
-    def query_tdocs(self, config: TDocQueryConfig) -> list[TDocMetadata]:
+    async def query_tdocs(self, config: TDocQueryConfig) -> list[TDocMetadata]:
         """Query TDocs with filtering and sorting.
 
         Args:
@@ -98,13 +98,11 @@ class TDocDatabase(MeetingDatabase):
         Returns:
             List of matching TDoc metadata
         """
-        records = self._table_rows("tdocs")
+        records = await self._table_rows(TDocMetadata)
         if not records:
             return []
 
-        meeting_db = MeetingDatabase(self.db_file)
-        meeting_db._database = self._database  # Share connection
-        meeting_map = meeting_db._meeting_map()
+        meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
 
         if config.tdoc_ids:
             records = self._filter_by_tdoc_ids(records, config.tdoc_ids)
@@ -132,7 +130,7 @@ class TDocDatabase(MeetingDatabase):
 
         return records
 
-    def get_existing_tdoc_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[str]:
+    async def get_existing_tdoc_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[str]:
         """Get set of existing TDoc IDs, optionally filtered by working group.
 
         Args:
@@ -141,13 +139,11 @@ class TDocDatabase(MeetingDatabase):
         Returns:
             Set of TDoc IDs
         """
-        records = self._table_rows("tdocs")
+        records = await self._table_rows(TDocMetadata)
         if not working_groups:
             return {record.tdoc_id for record in records}
 
-        meeting_db = MeetingDatabase(self.db_file)
-        meeting_db._database = self._database  # Share connection
-        meeting_map = meeting_db._meeting_map()
+        meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
 
         allowed_tbids = {wg.tbid for wg in working_groups}
 
@@ -171,28 +167,9 @@ class TDocDatabase(MeetingDatabase):
         filtered = self._filter_by_pattern(filtered, config.agenda_pattern_exclude, lambda record: record.agenda_item_text, exclude=True)
         return filtered
 
-    def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
+    async def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
         """Get a TDoc by ID."""
-        try:
-            # Use direct SQL query to retrieve TDoc by ID
-            # Query all required fields from actual database schema
-            with sqlite3.connect(self.connection.filename) as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT tdoc_id, meeting_id, title, url, source, contact, agenda_item_nbr FROM tdocs WHERE tdoc_id = ?", (tdoc_id.upper(),))
-                row = cursor.fetchone()
-                if row:
-                    return TDocMetadata(
-                        tdoc_id=row[0],
-                        meeting_id=row[1],
-                        title=row[2],
-                        url=row[3],
-                        source=row[4],
-                        contact=row[5],
-                        agenda_item_nbr=parse_agenda_item_nbr(row[6]),
-                    )
-                return None
-        except sqlite3.Error:
-            return None
+        return await self.connection.get(TDocMetadata, tdoc_id.upper())
 
     @classmethod
     def _meeting_matches_filters(
@@ -309,18 +286,25 @@ class TDocDatabase(MeetingDatabase):
         if metadata.date_retrieved is None:
             updates["date_retrieved"] = utc_now()
         if updates:
-            return metadata.model_copy(update=updates)
+            return TDocDatabase._clone_tdoc(metadata, updates)
         return metadata
 
     @staticmethod
     def _tdoc_changed(current: TDocMetadata, candidate: TDocMetadata) -> bool:
         """Check if TDoc metadata has changed."""
-        for field in TDocMetadata.model_fields:
+        for field in TDocMetadata.__annotations__:
             if field == "date_updated":
                 continue
             if getattr(current, field) != getattr(candidate, field):
                 return True
         return False
+
+    @staticmethod
+    def _clone_tdoc(metadata: TDocMetadata, updates: dict[str, object]) -> TDocMetadata:
+        """Create a new TDocMetadata instance with updates applied."""
+        data = {field: getattr(metadata, field) for field in TDocMetadata.__annotations__}
+        data.update(updates)
+        return TDocMetadata(**data)
 
 
 __all__ = ["TDocDatabase"]

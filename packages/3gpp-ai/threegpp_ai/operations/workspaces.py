@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import sqlite3
 from pathlib import Path
 from typing import Any
 
+import requests
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
@@ -40,7 +42,7 @@ def resolve_spec_release_from_db(spec_number: str, requested_release: str, db_fi
                 available_releases = [entry.release for entry in versions if entry.release]
                 if available_releases:
                     resolved = resolve_release_to_full_version(requested_release, available_releases)
-    except Exception as exc:
+    except (OSError, ValueError, sqlite3.Error) as exc:
         _logger.debug("Could not resolve release '%s' for %s: %s", requested_release, spec_number, exc)
     return resolved
 
@@ -158,7 +160,7 @@ def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> 
                 _logger.info(f"Deleted LightRAG artifacts for '{normalized_workspace}' from {workspace_artifacts_dir}")
             else:
                 _logger.debug(f"No LightRAG artifacts found for '{normalized_workspace}'")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             _logger.warning(f"Failed to delete LightRAG artifacts for '{normalized_workspace}': {e}")
 
     _logger.info(f"Deleted workspace '{normalized_workspace}' (preserve_artifacts={preserve_artifacts})")
@@ -409,7 +411,7 @@ def _resolve_tdoc_metadata(tdoc_id: str, db_file: Path | None = None) -> TDocMet
                 metadata = db._get_tdoc(tdoc_id)
                 if metadata and metadata.url:
                     _logger.debug(f"Found TDoc {tdoc_id} in database with URL")
-        except Exception as e:
+        except (OSError, ValueError, sqlite3.Error) as e:
             _logger.debug(f"Database lookup failed for {tdoc_id}: {e}")
 
     # Step 2: Try WhatTheSpec API if not found in database
@@ -419,7 +421,7 @@ def _resolve_tdoc_metadata(tdoc_id: str, db_file: Path | None = None) -> TDocMet
             metadata = resolve_via_whatthespec(tdoc_id)
             if metadata:
                 _logger.info(f"Resolved TDoc {tdoc_id} via WhatTheSpec API")
-        except Exception as e:
+        except (OSError, ValueError, requests.RequestException) as e:
             _logger.debug(f"WhatTheSpec lookup failed for {tdoc_id}: {e}")
 
     # Step 3: Try 3GPP Portal as final fallback (requires credentials)
@@ -431,7 +433,7 @@ def _resolve_tdoc_metadata(tdoc_id: str, db_file: Path | None = None) -> TDocMet
                 metadata = portal_source.fetch_by_id(tdoc_id, db_file=db_file)
                 if metadata:
                     _logger.info(f"Resolved TDoc {tdoc_id} via 3GPP Portal")
-        except Exception as e:
+        except (OSError, ValueError, requests.RequestException) as e:
             _logger.debug(f"Portal lookup failed for {tdoc_id}: {e}")
 
     if metadata is None:
@@ -473,7 +475,7 @@ def _checkout_tdoc_if_needed(tdoc_id: str, metadata: TDocMetadata, checkout_base
     except FileNotFoundError as e:
         _logger.warning(f"TDoc {tdoc_id} not found or withdrawn: {e}")
         return None
-    except Exception as e:
+    except (OSError, ValueError) as e:
         _logger.warning(f"Error checking out TDoc {tdoc_id}: {e}")
         return None
 
@@ -554,7 +556,7 @@ def checkout_spec_to_workspace(
                             # Extract version code from version string (e.g., "26.260" from "26.260-h00")
                             version_code = entry.version.split("-", 1)[1]
                             version_codes.append(version_code)
-        except Exception as exc:
+        except (OSError, ValueError, sqlite3.Error) as exc:
             _logger.debug("Could not resolve version codes for %s: %s", spec_number, exc)
 
         # Search for spec with matching version code
@@ -592,7 +594,7 @@ def checkout_spec_to_workspace(
         _logger.warning(f"Failed to checkout spec {spec_number} (release {requested_release})")
         return None
 
-    except Exception as e:
+    except (OSError, ValueError, sqlite3.Error) as e:
         _logger.warning(f"Error checking out spec {spec_number} (release {requested_release}): {e}")
         return None
 

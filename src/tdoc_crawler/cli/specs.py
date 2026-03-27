@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -55,9 +57,13 @@ def checkout_spec(
     sources = build_default_spec_sources()
 
     db_file = manager.db_file
-    with SpecDatabase(db_file) as database:
-        downloader = SpecDownloads(database)
-        results = downloader.checkout_specs(specs, doc_only, effective_checkout_dir, release, sources=sources)
+
+    async def _run_checkout() -> list[Path]:
+        async with SpecDatabase(db_file) as database:
+            downloader = SpecDownloads(database)
+            return downloader.checkout_specs(specs, doc_only, effective_checkout_dir, release, sources=sources)
+
+    results = asyncio.run(_run_checkout())
 
     print_checkout_results(results)
 
@@ -78,15 +84,19 @@ def open_spec(
     sources = build_default_spec_sources()
 
     db_file = manager.db_file
-    with SpecDatabase(db_file) as database:
-        downloader = SpecDownloads(database)
-        try:
-            spec_file = downloader.open_spec(normalized, doc_only, checkout_dir, release, sources=sources)
-            console.print(f"[green]Opening {spec_file}[/green]")
-            launch_file(spec_file)
-        except Exception as exc:
-            console.print(f"[red]Failed to open spec: {exc}[/red]")
-            raise typer.Exit(code=1)
+
+    async def _run_open() -> Path:
+        async with SpecDatabase(db_file) as database:
+            downloader = SpecDownloads(database)
+            return downloader.open_spec(normalized, doc_only, checkout_dir, release, sources=sources)
+
+    try:
+        spec_file = asyncio.run(_run_open())
+        console.print(f"[green]Opening {spec_file}[/green]")
+        launch_file(spec_file)
+    except Exception as exc:
+        console.print(f"[red]Failed to open spec: {exc}[/red]")
+        raise typer.Exit(code=1)
 
 
 __all__ = [

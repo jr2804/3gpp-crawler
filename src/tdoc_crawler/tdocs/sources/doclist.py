@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
@@ -20,7 +21,7 @@ from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr
 
-logger = get_logger(__name__)
+_logger = get_logger(__name__)
 
 
 class DocumentListError(Exception):
@@ -51,7 +52,7 @@ def fetch_meeting_document_list(
     """
     # Construct document list URL
     doclist_url = f"https://portal.3gpp.org/ngppapp/GenerateDocumentList.aspx?meetingId={meeting_id}"
-    logger.debug(f"Fetching document list for meeting {meeting_id} from {doclist_url}")
+    _logger.debug(f"Fetching document list for meeting {meeting_id} from {doclist_url}")
 
     # Create cached session (no credentials required)
     session = create_cached_session(
@@ -61,7 +62,7 @@ def fetch_meeting_document_list(
 
     try:
         # Download Excel file
-        logger.debug(f"Downloading Excel document list for meeting {meeting_id}")
+        _logger.debug(f"Downloading Excel document list for meeting {meeting_id}")
         response = session.get(doclist_url, timeout=timeout)
         response.raise_for_status()
 
@@ -72,13 +73,13 @@ def fetch_meeting_document_list(
             raise DocumentListError(f"Expected Excel file for meeting {meeting_id}, got content-type: {content_type}")
 
         # Parse Excel file
-        logger.debug(f"Parsing Excel document list for meeting {meeting_id}")
+        _logger.debug(f"Parsing Excel document list for meeting {meeting_id}")
         return parse_excel_document_list(response.content, meeting_id, files_url)
 
-    except Exception as exc:
-        if isinstance(exc, DocumentListError):
-            raise
-        logger.warning(f"Failed to fetch document list for meeting {meeting_id}: {exc}")
+    except DocumentListError:
+        raise
+    except (requests.RequestException, OSError, ValueError) as exc:
+        _logger.warning(f"Failed to fetch document list for meeting {meeting_id}: {exc}")
         raise DocumentListError(f"Failed to fetch document list for meeting {meeting_id}: {exc}") from exc
     finally:
         session.close()
@@ -107,7 +108,7 @@ def parse_excel_document_list(
             sheet_name="TDoc_List",
         )
 
-        logger.debug(f"Found {len(df)} rows in TDoc_List sheet for meeting {meeting_id}")
+        _logger.debug(f"Found {len(df)} rows in TDoc_List sheet for meeting {meeting_id}")
 
         # Check if the dataframe has any recognizable TDoc ID columns
         # Look for any column that might contain TDoc IDs
@@ -129,15 +130,15 @@ def parse_excel_document_list(
                 if tdoc_metadata:
                     tdoc_metadata_list.append(tdoc_metadata)
                 else:
-                    logger.debug(f"Skipping row {i + 1}: missing required TDoc ID")
-            except Exception as exc:
-                logger.warning(f"Failed to parse row {i + 1} for meeting {meeting_id}: {exc}")
+                    _logger.debug(f"Skipping row {i + 1}: missing required TDoc ID")
+            except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                _logger.warning(f"Failed to parse row {i + 1} for meeting {meeting_id}: {exc}")
                 continue
 
-        logger.info(f"Successfully parsed {len(tdoc_metadata_list)} TDoc metadata entries for meeting {meeting_id}")
+        _logger.info(f"Successfully parsed {len(tdoc_metadata_list)} TDoc metadata entries for meeting {meeting_id}")
         return tdoc_metadata_list
 
-    except Exception as exc:
+    except (OSError, KeyError, ImportError, ValueError, pd.errors.ParserError) as exc:
         raise DocumentListError(f"Failed to parse Excel document list for meeting {meeting_id}: {exc}") from exc
 
 
@@ -211,8 +212,8 @@ def convert_excel_row_to_tdoc_metadata(
             validation_failed=False,
         )
 
-    except Exception as exc:
-        logger.debug(f"Failed to create TDocMetadata for {tdoc_id}: {exc}")
+    except (TypeError, ValueError) as exc:
+        _logger.warning(f"Failed to create TDocMetadata for {tdoc_id}: {exc}")
         return None
 
 
@@ -354,7 +355,8 @@ def _parse_date(date_value: str | None) -> datetime | None:
                     continue
         return None
 
-    except Exception:
+    except (TypeError, ValueError) as exc:
+        _logger.warning(f"Failed to parse date value '{date_value}': {exc}")
         return None
 
 
@@ -421,14 +423,14 @@ class DocumentListSource(TDocSource):
                 cache_manager_name=self.config.cache_manager_name,
                 timeout=timeout,
             )
-            logger.info(f"Fetched {len(tdocs)} TDocs from document list for meeting {meeting_id}")
+            _logger.info(f"Fetched {len(tdocs)} TDocs from document list for meeting {meeting_id}")
             return tdocs
 
         except DocumentListError as exc:
-            logger.warning(f"Document list fetch failed for meeting {meeting_id}: {exc}")
+            _logger.warning(f"Document list fetch failed for meeting {meeting_id}: {exc}")
             return []
-        except Exception as exc:
-            logger.error(f"Unexpected error fetching document list for meeting {meeting_id}: {exc}")
+        except (OSError, RuntimeError, ValueError) as exc:
+            _logger.error(f"Unexpected error fetching document list for meeting {meeting_id}: {exc}")
             return []
 
     @property

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import zipfile
 from typing import Any, cast
 
@@ -82,24 +83,28 @@ def open_tdoc(
     config = TDocQueryConfig(tdoc_ids=[normalized_id])
 
     with create_cached_session() as session:
-        with TDocDatabase(manager.db_file) as database:
-            results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
-                database,
-                config,
-                results,
-                full_metadata=full_metadata,
-                use_whatthespec=use_whatthespec,
-                session=session,
-                cache_manager_name=manager.name,
-            )
-            if result.fetch_result and result.fetch_result.errors:
-                console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-            results = result.refreshed
-            if not results:
-                console.print(f"[red]TDoc {normalized_id} not found[/red]")
-                raise typer.Exit(code=1)
-            metadata = results[0]
+
+        async def _load_tdoc_metadata() -> Any:
+            async with TDocDatabase(manager.db_file) as database:
+                results = await database.query_tdocs(config)
+                result = fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                    full_metadata=full_metadata,
+                    use_whatthespec=use_whatthespec,
+                    session=session,
+                    cache_manager_name=manager.name,
+                )
+                if result.fetch_result and result.fetch_result.errors:
+                    console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+                results = result.refreshed
+                if not results:
+                    console.print(f"[red]TDoc {normalized_id} not found[/red]")
+                    raise typer.Exit(code=1)
+                return results[0]
+
+        metadata = asyncio.run(_load_tdoc_metadata())
 
         try:
             tdoc_file = prepare_tdoc_file(metadata, manager.checkout_dir, session=session)
@@ -132,22 +137,27 @@ def checkout(
     config = TDocQueryConfig(tdoc_ids=normalized_ids)
 
     with create_cached_session() as session:
-        with TDocDatabase(manager.db_file) as database:
-            results = database.query_tdocs(config)
-            result = fetch_missing_tdocs(
-                database,
-                config,
-                results,
-                full_metadata=full_metadata,
-                use_whatthespec=use_whatthespec,
-                session=session,
-                cache_manager_name=manager.name,
-            )
-            if result.fetch_result and result.fetch_result.errors:
-                console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-            results = result.refreshed
-            if not results:
-                raise typer.Exit(code=1)
+
+        async def _load_tdoc_results() -> list[Any]:
+            async with TDocDatabase(manager.db_file) as database:
+                results = await database.query_tdocs(config)
+                result = fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                    full_metadata=full_metadata,
+                    use_whatthespec=use_whatthespec,
+                    session=session,
+                    cache_manager_name=manager.name,
+                )
+                if result.fetch_result and result.fetch_result.errors:
+                    console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+                results = result.refreshed
+                if not results:
+                    raise typer.Exit(code=1)
+                return results
+
+        results = asyncio.run(_load_tdoc_results())
 
         checkout_dir = manager.checkout_dir
         success_count = 0
@@ -184,8 +194,11 @@ def stats(
         console.print(f"[red]Database not found: {db_file}[/red]")
         raise typer.Exit(code=1)
 
-    with MeetingDatabase(db_file) as database:
-        stats_dict = cast(dict[str, Any], database.get_statistics())
+    async def _load_stats() -> dict[str, Any]:
+        async with MeetingDatabase(db_file) as database:
+            return cast(dict[str, Any], await database.get_statistics())
+
+    stats_dict = asyncio.run(_load_stats())
 
     table = Table(title="TDoc and meeting database statistics")
     table.add_column("Metric", style="cyan")
