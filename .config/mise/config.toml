@@ -59,7 +59,7 @@ run = "ruff check --fix --unsafe-fixes src tests"
 
 [tasks.type-check]
 description = "Type check source code and tests"
-run = "ty check src/ tests/"
+run = "ty check src/ tests/ packages/"
 
 [tasks.test]
 description = "Run all tests with verbose output and short tracebacks"
