@@ -12,6 +12,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from threegpp_ai.models import ConversionError, ExtractionError
 from threegpp_ai.operations.conversion import OFFICE_FORMATS
 from threegpp_ai.operations.extraction import extract_document_structured
 
@@ -118,11 +119,19 @@ class DocumentProcessor:
             )
 
         # Extract using the unified pipeline
-        extraction = extract_document_structured(
-            file_path,
-            metadata=None,  # Metadata enrichment happens at this level, not in extraction
-            extract_types=extract_types,
-        )
+        try:
+            extraction = extract_document_structured(
+                file_path,
+                metadata=None,  # Metadata enrichment happens at this level, not in extraction
+                extract_types=extract_types,
+            )
+        except (ExtractionError, ConversionError) as e:
+            logger.error("Extraction failed for %s: %s", file_path, e)
+            return ProcessingResult(
+                file_path=str(file_path),
+                status=ProcessingResultStatus.ERROR,
+                error=str(e),
+            )
 
         text = extraction.content
 
@@ -206,7 +215,7 @@ class DocumentProcessor:
                 figure_count=extraction.figure_count,
                 equation_count=extraction.equation_count,
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.error("Failed to insert %s into LightRAG: %s", file_path, e)
             return ProcessingResult(
                 file_path=str(file_path),

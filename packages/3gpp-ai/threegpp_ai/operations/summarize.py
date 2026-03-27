@@ -6,6 +6,7 @@ import json
 import logging
 import re
 
+from litellm import exceptions as litellm_exceptions
 from tdoc_crawler.utils.misc import utc_now
 
 from threegpp_ai.config import AiConfig
@@ -143,7 +144,7 @@ def summarize_document(
     abstract_prompt = ABSTRACT_PROMPT.format(content=truncated_markdown)
     try:
         abstract = client.complete(abstract_prompt, model=config.llm_model)
-    except Exception as exc:
+    except (litellm_exceptions.OpenAIError, ValueError) as exc:
         msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
         raise LlmConfigError(msg) from exc
 
@@ -155,7 +156,7 @@ def summarize_document(
     )
     try:
         structured_payload = client.complete(structured_prompt)
-    except Exception as exc:
+    except (litellm_exceptions.OpenAIError, ValueError) as exc:
         msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
         raise LlmConfigError(msg) from exc
 
@@ -333,7 +334,7 @@ def summarize_tdoc(
         )
         try:
             summary = client.complete(summary_prompt, model=config.llm_model, max_tokens=max_words * 4)
-        except Exception as exc:
+        except (litellm_exceptions.OpenAIError, ValueError) as exc:
             msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
             raise LlmConfigError(msg) from exc
 
@@ -343,8 +344,8 @@ def summarize_tdoc(
         try:
             keywords_raw = client.complete(keywords_prompt, model=config.llm_model, max_tokens=200)
             keywords = _parse_keywords(keywords_raw)
-        except Exception as e:
-            logger.warning(f"Keyword extraction failed: {e}")
+        except (litellm_exceptions.OpenAIError, ValueError) as exc:
+            logger.warning(f"Keyword extraction failed: {exc}")
             keywords = []
 
         # Count actual words
