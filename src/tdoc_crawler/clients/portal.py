@@ -83,11 +83,6 @@ class PortalClient:
         self._session = session
 
     @property
-    def _verify_resolved(self) -> bool | str:
-        """Return effective SSL verification mode."""
-        return resolve_ssl_verify(self._verify)
-
-    @property
     def credentials(self) -> PortalCredentials | None:
         """Return the credentials used by this client."""
         if self._credentials is None:
@@ -290,6 +285,11 @@ class PortalClient:
             PortalParsingError: If TDoc not found, metadata table not found, or mandatory fields missing
         """
         return parse_tdoc_portal_page(html, tdoc_id, url)
+
+    @property
+    def _verify_resolved(self) -> bool | str:
+        """Return effective SSL verification mode."""
+        return resolve_ssl_verify(self._verify)
 
     def _get_session(self) -> requests.Session:
         """Get or create a cached session with browser headers.

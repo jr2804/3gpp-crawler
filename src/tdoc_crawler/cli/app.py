@@ -90,7 +90,7 @@ def open_tdoc(
         with create_cached_session() as session:
             async with TDocDatabase(manager.db_file) as database:
                 results = await database.query_tdocs(config)
-                result = fetch_missing_tdocs(
+                result = await fetch_missing_tdocs(
                     database,
                     config,
                     results,
@@ -143,7 +143,7 @@ def checkout(
         with create_cached_session() as session:
             async with TDocDatabase(manager.db_file) as database:
                 results = await database.query_tdocs(config)
-                result = fetch_missing_tdocs(
+                result = await fetch_missing_tdocs(
                     database,
                     config,
                     results,

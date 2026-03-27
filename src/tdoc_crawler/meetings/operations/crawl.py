@@ -44,7 +44,7 @@ class MeetingCrawler:
             raise TypeError(f"Expected MeetingDatabase, got {type(database)}")
         self.database = database
 
-    def crawl(
+    async def crawl(
         self,
         config: MeetingCrawlConfig,
         progress_callback: Callable[[float, float], None] | None = None,
@@ -64,7 +64,7 @@ class MeetingCrawler:
         working_groups = self._limit_working_groups(config.working_groups, config.limits)
         existing_ids: set[int] = set()
         if config.incremental:
-            existing_ids = self.database.get_existing_meeting_ids(working_groups)
+            existing_ids = await self.database.get_existing_meeting_ids(working_groups)
         credentials = resolve_credentials(None, None)
         session = create_cached_session(cache_manager_name=config.cache_manager_name, http_cache=config.http_cache)
         if credentials is not None:
@@ -89,7 +89,7 @@ class MeetingCrawler:
         updated = 0
         if filtered:
             # Pass progress callback to bulk_upsert_meetings to update after each DB operation
-            inserted, updated = self.database.bulk_upsert_meetings(
+            inserted, updated = await self.database.bulk_upsert_meetings(
                 filtered,
                 progress_callback=progress_callback,
             )

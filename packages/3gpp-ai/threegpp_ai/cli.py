@@ -326,7 +326,7 @@ async def _process_single_item(
         try:
             if source_kind == SourceKind.TDOC:
                 # TDoc extraction - uses TDoc ID to fetch files
-                asyncio.run(convert_document_to_markdown(document_id=item, output_path=None, force=False))
+                convert_document_to_markdown(document_id=item, output_path=None, force=False)
             else:
                 # Generic extraction (specs, other) - uses file path directly
                 doc_file = _resolve_process_file(Path(source_path))
@@ -849,30 +849,34 @@ def workspace_add_members(
             f"[cyan]Processing {len(resolved_items)} item(s)...",
             total=len(resolved_items),
         )
-        for item in resolved_items:
-            member, skip_reason, was_converted, was_md_extracted = _process_single_item(
-                item=item,
-                workspace=workspace_name,
-                source_kind=source_kind,
-                checkout=checkout,
-                release=release,
-                convert_pdf=convert_pdf,
-                convert_md=convert_md,
-                manager=manager,
-            )
-            if skip_reason:
-                skipped.append((item, skip_reason))
-                progress.update(task, advance=1, description=f"[cyan]{item} (skipped)")
-            else:
-                members.append(member)
-                if was_md_extracted:
-                    md_extracted_count += 1
-                    progress.update(task, advance=1, description=f"[cyan]{item} (markdown extracted)")
-                elif was_converted:
-                    converted_count += 1
-                    progress.update(task, advance=1, description=f"[cyan]{item} (converted)")
+        async def _process_items() -> None:
+            nonlocal converted_count, md_extracted_count
+            for item in resolved_items:
+                member, skip_reason, was_converted, was_md_extracted = await _process_single_item(
+                    item=item,
+                    workspace=workspace_name,
+                    source_kind=source_kind,
+                    checkout=checkout,
+                    release=release,
+                    convert_pdf=convert_pdf,
+                    convert_md=convert_md,
+                    manager=manager,
+                )
+                if skip_reason:
+                    skipped.append((item, skip_reason))
+                    progress.update(task, advance=1, description=f"[cyan]{item} (skipped)")
                 else:
-                    progress.update(task, advance=1, description=f"[cyan]{item}")
+                    members.append(member)
+                    if was_md_extracted:
+                        md_extracted_count += 1
+                        progress.update(task, advance=1, description=f"[cyan]{item} (markdown extracted)")
+                    elif was_converted:
+                        converted_count += 1
+                        progress.update(task, advance=1, description=f"[cyan]{item} (converted)")
+                    else:
+                        progress.update(task, advance=1, description=f"[cyan]{item}")
+
+        asyncio.run(_process_items())
 
     if skipped:
         console.print("\n[yellow]Skipped invalid items:[/yellow]")

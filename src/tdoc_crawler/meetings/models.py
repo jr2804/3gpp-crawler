@@ -89,7 +89,7 @@ class MeetingCrawlConfig(BaseConfigModel):
         """Normalize subgroup names (uppercase and strip whitespace)."""
         if value is None:
             return None
-        return [normalize_subgroup_alias(str(item)).value for item in value]
+        return [normalize_subgroup_alias(str(item)).name for item in value]
 
 
 class MeetingQueryConfig(BaseConfigModel):
@@ -118,7 +118,7 @@ class MeetingQueryConfig(BaseConfigModel):
         """Normalize subgroup names (uppercase and strip whitespace)."""
         if value is None:
             return None
-        return [normalize_subgroup_alias(str(item)).value for item in value]
+        return [normalize_subgroup_alias(str(item)).name for item in value]
 
 
 __all__ = [

@@ -197,7 +197,7 @@ def crawl_tdocs(
 
             if no_progress:
                 # No progress bar - just run the crawl
-                result = crawler.crawl(config, progress_callback=None)
+                result = await crawler.crawl(config, progress_callback=None)
             else:
                 progress, task = create_progress_bar("[cyan]Crawling TDocs...")
 
@@ -206,7 +206,7 @@ def crawl_tdocs(
                     def update_progress(completed: float, total: float) -> None:
                         progress.update(task, completed=completed, total=total)
 
-                    result = crawler.crawl(config, progress_callback=update_progress)
+                    result = await crawler.crawl(config, progress_callback=update_progress)
 
             crawl_end_time = datetime.now()
             elapsed_seconds = (crawl_end_time - crawl_start_time).total_seconds()
@@ -336,7 +336,7 @@ def crawl_meetings(
                 def update_progress(completed: float, total: float) -> None:
                     progress.update(task, completed=completed, total=total)
 
-                result = crawler.crawl(config, progress_callback=update_progress)
+                result = await crawler.crawl(config, progress_callback=update_progress)
 
             await database.log_crawl_end(
                 crawl_id,

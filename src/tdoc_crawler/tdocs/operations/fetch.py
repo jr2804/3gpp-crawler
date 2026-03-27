@@ -173,7 +173,7 @@ def fetch_tdoc(
 '''
 
 
-def fetch_missing_tdocs_batch(
+async def fetch_missing_tdocs_batch(
     database: TDocDatabase,
     missing_ids: list[str],
     session: requests.Session | None = None,
@@ -218,7 +218,7 @@ def fetch_missing_tdocs_batch(
 
             # meeting_id resolution is now done inside source modules
 
-            inserted, updated = database.upsert_tdoc(metadata)
+            inserted, updated = await database.upsert_tdoc(metadata)
             if inserted:
                 inserted_count += 1
             elif updated:
@@ -252,7 +252,7 @@ def fetch_missing_tdocs_batch(
     )
 
 
-def fetch_via_whatthespec_batch(
+async def fetch_via_whatthespec_batch(
     database: TDocDatabase,
     missing_ids: list[str],
     http_cache: HttpCacheConfig | None = None,
@@ -287,7 +287,7 @@ def fetch_via_whatthespec_batch(
         try:
             metadata = source.fetch_by_id(tdoc_id, db_file=manager.db_file)
             if metadata:
-                inserted, updated = database.upsert_tdoc(metadata)
+                inserted, updated = await database.upsert_tdoc(metadata)
                 if inserted:
                     inserted_count += 1
                 elif updated:
@@ -310,7 +310,7 @@ def fetch_via_whatthespec_batch(
     )
 
 
-def fetch_missing_tdocs(
+async def fetch_missing_tdocs(
     database: TDocDatabase,
     config: TDocQueryConfig,
     results: list[TDocMetadata],
@@ -354,8 +354,8 @@ def fetch_missing_tdocs(
 
     # Handle use_whatthespec flag - always use WhatTheSpec method
     if use_whatthespec:
-        fetch_result = fetch_via_whatthespec_batch(database, missing, session=session, cache_manager_name=cache_manager_name)
-        refreshed = database.query_tdocs(config)
+        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, cache_manager_name=cache_manager_name)
+        refreshed = await database.query_tdocs(config)
         return FetchMissingResult(
             refreshed=refreshed,
             fetch_result=fetch_result,
@@ -377,18 +377,18 @@ def fetch_missing_tdocs(
             logger.warning("Portal credentials required for full metadata fetching")
             return FetchMissingResult(refreshed=results, fetch_result=fetch_result)
 
-        fetch_result = fetch_missing_tdocs_batch(
+        fetch_result = await fetch_missing_tdocs_batch(
             database=database,
             missing_ids=missing,
             session=session,
             cache_manager_name=cache_manager_name,
         )
 
-        refreshed = database.query_tdocs(config)
+        refreshed = await database.query_tdocs(config)
         return FetchMissingResult(refreshed=refreshed, fetch_result=fetch_result)
 
     # Default behavior - use unauthenticated portal method with WhatTheSpec fallback
-    fetch_result = fetch_missing_tdocs_batch(
+    fetch_result = await fetch_missing_tdocs_batch(
         database=database,
         missing_ids=missing,
         session=session,
@@ -399,12 +399,12 @@ def fetch_missing_tdocs(
     has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
     if credentials_unavailable or has_credentials_error:
         logger.info("Falling back to WhatTheSpec for missing TDocs due to credential issues")
-        fetch_result = fetch_via_whatthespec_batch(database, missing, session=session, cache_manager_name=cache_manager_name)
+        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, cache_manager_name=cache_manager_name)
         used_fallback = True
     else:
         used_fallback = False
 
-    refreshed = database.query_tdocs(config)
+    refreshed = await database.query_tdocs(config)
     return FetchMissingResult(
         refreshed=refreshed,
         fetch_result=fetch_result,

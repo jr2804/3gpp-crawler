@@ -150,7 +150,7 @@ def query_tdocs(
             results = await database.query_tdocs(config)
             if not no_fetch:
                 with create_cached_session() as session:
-                    result = fetch_missing_tdocs(
+                    result = await fetch_missing_tdocs(
                         database,
                         config,
                         results,

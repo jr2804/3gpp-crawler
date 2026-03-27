@@ -9,6 +9,7 @@ conversion is delegated to the unified extraction module.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from tdoc_crawler.config import resolve_cache_manager
@@ -41,12 +42,19 @@ def _get_meeting_info(meeting_id: int) -> str | None:
         Meeting short name if found, None otherwise.
     """
     try:
+        asyncio.get_running_loop()
+        return None
+    except RuntimeError:
+        pass
+
+    async def _resolve_meeting_short_name() -> str | None:
         manager = resolve_cache_manager()
-        with MeetingDatabase(manager.db_file) as db:
-            meetings = db._table_rows("meetings")
-            for meeting in meetings:
-                if meeting.meeting_id == meeting_id:
-                    return meeting.short_name
+        async with MeetingDatabase(manager.db_file) as db:
+            meeting = await db._get_meeting(meeting_id)
+            return meeting.short_name if meeting is not None else None
+
+    try:
+        return asyncio.run(_resolve_meeting_short_name())
     except Exception as exc:
         logger.debug("Failed to get meeting info for %s: %s", meeting_id, exc)
     return None

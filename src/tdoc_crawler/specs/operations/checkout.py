@@ -74,8 +74,23 @@ def checkout_specs(
     return downloader.checkout_specs(spec_numbers, doc_only, checkout_dir, release, sources=sources)
 
 
+async def checkout_specs_async(
+    spec_numbers: list[str],
+    checkout_dir: Path,
+    database: SpecDatabase,
+    release: str = "latest",
+    doc_only: bool = False,
+    cache_manager_name: str | None = None,
+) -> list[Path]:
+    """Async variant of checkout_specs for async call paths."""
+    sources = build_default_spec_sources(cache_manager_name=cache_manager_name)
+    downloader = SpecDownloads(database, cache_manager_name=cache_manager_name)
+    return await downloader.checkout_specs_async(spec_numbers, doc_only, checkout_dir, release, sources=sources)
+
+
 __all__ = [
     "build_default_spec_sources",
     "checkout_specs",
+    "checkout_specs_async",
     "clear_checkout_specs",
 ]

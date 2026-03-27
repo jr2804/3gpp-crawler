@@ -43,7 +43,7 @@ class TDocCrawler:
             raise TypeError(f"Expected TDocDatabase, got {type(database)}")
         self.database = database
 
-    def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> TDocCrawlResult:
+    async def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> TDocCrawlResult:
         """Execute a crawl using the provided configuration.
 
         Args:
@@ -53,7 +53,7 @@ class TDocCrawler:
         Returns:
             Summary of crawl results
         """
-        meetings = self._get_meetings_to_crawl(config)
+        meetings = await self._get_meetings_to_crawl(config)
         if not meetings:
             logger.warning("No meetings found matching criteria")
             return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found"])
@@ -65,7 +65,7 @@ class TDocCrawler:
 
         existing_ids: set[str] = set()
         if config.incremental:
-            existing_ids = {tdoc_id.upper() for tdoc_id in self.database.get_existing_tdoc_ids(config.working_groups)}
+            existing_ids = {tdoc_id.upper() for tdoc_id in await self.database.get_existing_tdoc_ids(config.working_groups)}
 
         targets = set(config.target_ids) if config.target_ids else None
 
@@ -75,7 +75,7 @@ class TDocCrawler:
         inserted = 0
         updated = 0
         if collected:
-            inserted, updated = self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
+            inserted, updated = await self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
 
         return TDocCrawlResult(
             processed=len(collected),
@@ -84,7 +84,7 @@ class TDocCrawler:
             errors=errors,
         )
 
-    def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list[MeetingMetadata]:
+    async def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list[MeetingMetadata]:
         """Query meetings from the database based on configuration filters."""
         meeting_config = MeetingQueryConfig(
             working_groups=config.working_groups,
@@ -94,7 +94,7 @@ class TDocCrawler:
             include_without_files=False,
         )
 
-        meetings = self.database.query_meetings(meeting_config)
+        meetings = await self.database.query_meetings(meeting_config)
 
         filtered = self._filter_meetings_by_ids(meetings, config.meeting_ids)
         filtered = self._filter_meetings_by_start_date(filtered, config.start_date)

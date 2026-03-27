@@ -246,9 +246,7 @@ def create_cached_session(
             session.mount("https://", adapter)
             if pool_config is not None:
                 logger.debug(
-                    "Configured connection pool without caching: "
-                    f"max_connections={pool_config.max_connections}, "
-                    f"max_per_host={pool_config.max_per_host}"
+                    f"Configured connection pool without caching: max_connections={pool_config.max_connections}, max_per_host={pool_config.max_per_host}"
                 )
 
         logger.debug("Creating plain HTTP session (caching disabled)")

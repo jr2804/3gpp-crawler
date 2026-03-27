@@ -88,7 +88,7 @@ def open_tdoc(
         async def _load_tdoc_metadata() -> Any:
             async with TDocDatabase(manager.db_file) as database:
                 results = await database.query_tdocs(config)
-                result = fetch_missing_tdocs(
+                result = await fetch_missing_tdocs(
                     database,
                     config,
                     results,
@@ -99,11 +99,11 @@ def open_tdoc(
                 )
                 if result.fetch_result and result.fetch_result.errors:
                     console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-                results = result.refreshed
-                if not results:
+                refreshed_results = result.refreshed
+                if not refreshed_results:
                     console.print(f"[red]TDoc {normalized_id} not found[/red]")
                     raise typer.Exit(code=1)
-                return results[0]
+                return refreshed_results[0]
 
         metadata = asyncio.run(_load_tdoc_metadata())
 
@@ -142,7 +142,7 @@ def checkout(
         async def _load_tdoc_results() -> list[Any]:
             async with TDocDatabase(manager.db_file) as database:
                 results = await database.query_tdocs(config)
-                result = fetch_missing_tdocs(
+                result = await fetch_missing_tdocs(
                     database,
                     config,
                     results,
@@ -153,10 +153,10 @@ def checkout(
                 )
                 if result.fetch_result and result.fetch_result.errors:
                     console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-                results = result.refreshed
-                if not results:
+                refreshed_results = result.refreshed
+                if not refreshed_results:
                     raise typer.Exit(code=1)
-                return results
+                return refreshed_results
 
         results = asyncio.run(_load_tdoc_results())
 

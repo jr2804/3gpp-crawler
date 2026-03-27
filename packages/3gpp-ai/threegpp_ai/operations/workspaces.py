@@ -13,7 +13,7 @@ from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.specs.operations.checkout import checkout_specs
+from tdoc_crawler.specs.operations.checkout import checkout_specs_async
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
@@ -560,16 +560,13 @@ async def checkout_spec_to_workspace(
     normalized = normalize_spec_number(spec_number)
     undotted = normalized.replace(".", "")  # e.g., "26.260" -> "26260"
     requested_release = release.strip()
+    cache_manager = resolve_cache_manager("default")
+    db_path = db_file if db_file is not None else cache_manager.db_file
+    resolved_release, version_codes = await resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
 
     # First check if already checked out with the SAME release version
     specs_dir = checkout_base / "Specs"
     if specs_dir.exists():
-        # Resolve release to actual version(s) to match against 3GPP version codes (e.g., "h00", "i10")
-        # We'll reuse the DB connection for checkout if needed
-        cache_manager = resolve_cache_manager("default")
-        db_path = db_file if db_file is not None else cache_manager.db_file
-        resolved_release, version_codes = await resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
-
         # Search for spec with matching version code
         for spec_dir in specs_dir.rglob("*"):
             if not spec_dir.is_dir():
@@ -587,7 +584,7 @@ async def checkout_spec_to_workspace(
     # Need to checkout the spec - reuse DB connection from resolve_spec_release_from_db
     try:
         async with SpecDatabase(db_path) as db:
-            checkout_paths = checkout_specs(
+            checkout_paths = await checkout_specs_async(
                 spec_numbers=[spec_number],
                 checkout_dir=checkout_base,
                 database=db,

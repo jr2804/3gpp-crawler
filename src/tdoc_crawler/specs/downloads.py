@@ -41,9 +41,20 @@ class SpecDownloads:
         sources: list[SpecSource] | None = None,
     ) -> list[Path]:
         """Download and extract spec documents to the checkout directory."""
+        return asyncio.run(self.checkout_specs_async(specs, doc_only, checkout_dir, release, sources=sources))
+
+    async def checkout_specs_async(
+        self,
+        specs: list[str],
+        doc_only: bool,
+        checkout_dir: Path,
+        release: str = "latest",
+        sources: list[SpecSource] | None = None,
+    ) -> list[Path]:
+        """Async variant of checkout_specs for async call paths."""
         results: list[Path] = []
         for spec in specs:
-            target_dir = self._checkout_single_spec(
+            target_dir = await self._checkout_single_spec(
                 spec=spec,
                 doc_only=doc_only,
                 checkout_dir=checkout_dir,
@@ -80,7 +91,7 @@ class SpecDownloads:
             return zips[0]
         return target_dir
 
-    def _checkout_single_spec(
+    async def _checkout_single_spec(
         self,
         spec: str,
         doc_only: bool,
@@ -93,7 +104,7 @@ class SpecDownloads:
             normalized = normalize_spec_number(spec)
             target_dir = self._build_target_dir(checkout_dir, normalized)
 
-            resolved = self._resolve_spec_url_with_fallback(spec, normalized, release, sources)
+            resolved = await self._resolve_spec_url_with_fallback(spec, normalized, release, sources)
             if resolved is None:
                 return None
             url, filename = resolved
@@ -103,7 +114,7 @@ class SpecDownloads:
 
             doc_only_success = False
             if doc_only:
-                doc_only_success = asyncio.run(self._attempt_doc_only_async(url, normalized, target_dir))
+                doc_only_success = await self._attempt_doc_only_async(url, normalized, target_dir)
 
             if not doc_only_success:
                 self._download_full_zip(url, target_dir / filename)
@@ -116,7 +127,7 @@ class SpecDownloads:
             _logger.error("Failed to checkout %s: %s", spec, exc)
             return None
 
-    def _resolve_spec_url_with_fallback(
+    async def _resolve_spec_url_with_fallback(
         self,
         spec: str,
         normalized: str,
@@ -125,27 +136,27 @@ class SpecDownloads:
     ) -> tuple[str, str] | None:
         """Resolve spec URL, optionally crawling sources when metadata is missing."""
         try:
-            return self._resolve_spec_url(spec, release)
+            return await self._resolve_spec_url(spec, release)
         except ValueError:
             if not sources:
                 _logger.warning("Spec metadata not found for %s and no sources provided", normalized)
                 return None
 
             _logger.info("Spec metadata not found for %s, attempting crawl...", normalized)
-            self._database.crawl_specs([normalized], release, sources)
+            await self._database.crawl_specs([normalized], release, sources)
 
             try:
-                return self._resolve_spec_url(normalized, release)
+                return await self._resolve_spec_url(normalized, release)
             except ValueError:
                 _logger.warning("Spec metadata still not found for %s after crawl", normalized)
                 return None
 
-    def _resolve_spec_url(self, spec: str, release: str | None) -> tuple[str, str]:
+    async def _resolve_spec_url(self, spec: str, release: str | None) -> tuple[str, str]:
         """Resolve spec number to download URL and filename."""
         release = release or "latest"
         normalized = normalize_spec_number(spec)
         series = f"{normalized.split('.', maxsplit=1)[0]}_series"
-        versions = self._database.get_spec_versions(normalized)
+        versions = await self._database.get_spec_versions(normalized)
         if not versions:
             raise ValueError(f"No versions found for spec {normalized}")
 
