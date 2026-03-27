@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
+
+from tdoc_crawler.logging import get_logger
 
 from .llm_client import LiteLLMClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def describe_figures(

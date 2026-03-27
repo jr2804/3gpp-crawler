@@ -6,17 +6,17 @@ into the LightRAG knowledge graph after document indexing.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 
 from .metadata import normalize_release_label
 from .rag import TDocRAG
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class EntityType(StrEnum):

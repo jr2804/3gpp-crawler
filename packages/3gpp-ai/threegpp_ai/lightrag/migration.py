@@ -15,15 +15,15 @@ Usage:
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 from typing import Any
 
 from lightrag.utils import compute_mdhash_id
+from tdoc_crawler.logging import get_logger
 
 from .shared_storage import SharedNanoVectorDBStorage, WorkspaceIndex
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def migrate_to_shared_storage(

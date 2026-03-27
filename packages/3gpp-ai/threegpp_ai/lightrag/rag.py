@@ -8,7 +8,6 @@ This module provides a thin wrapper around LightRAG with:
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
@@ -27,6 +26,7 @@ from lightrag.llm.openai import openai_complete, openai_embed
 from lightrag.llm.zhipu import zhipu_complete, zhipu_embedding
 from lightrag.utils import EmbeddingFunc
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.logging import get_logger
 
 from .config import LightRAGConfig, QueryMode, StorageBackend
 from .pg0_manager import Pg0Manager
@@ -87,7 +87,7 @@ zhipu_module.zhipu_complete_if_cache = patched_zhipu_complete_if_cache
 zhipu_module.zhipu_embedding = patched_zhipu_embedding
 
 STORAGES["SharedNanoVectorDBStorage"] = "threegpp_ai.lightrag.shared_storage"
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

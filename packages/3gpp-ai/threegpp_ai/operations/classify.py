@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from pathlib import Path
 
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.utils.misc import utc_now
 
 from threegpp_ai.models import DocumentClassification
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Heuristic patterns for classifying TDoc files
 FINAL_PATTERNS = [

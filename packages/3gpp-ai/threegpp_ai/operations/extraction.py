@@ -11,7 +11,6 @@ The functions:
 
 from __future__ import annotations
 
-import logging
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -19,6 +18,7 @@ from typing import Any
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
 from kreuzberg import extract_file_sync
+from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.models import ConversionError, ExtractionError
 from threegpp_ai.operations.extraction_result import (
@@ -33,7 +33,7 @@ from threegpp_ai.operations.extraction_result import (
 )
 from threegpp_ai.operations.figure_descriptor import describe_figures
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # File formats that need PDF conversion
 OFFICE_FORMATS = {".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"}

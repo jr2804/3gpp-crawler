@@ -4,16 +4,17 @@ This module manages pg0 lifecycle for PostgreSQL-backed LightRAG storage.
 pg0 is a zero-config embedded PostgreSQL with pgvector extension.
 """
 
-import logging
 from collections.abc import Generator
 from contextlib import contextmanager
+
+from tdoc_crawler.logging import get_logger
 
 try:
     from pg0 import Pg0 as _Pg0
 except ImportError:
     _Pg0 = None
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Pg0Manager:

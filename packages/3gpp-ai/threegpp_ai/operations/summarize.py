@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 
 from litellm import exceptions as litellm_exceptions
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
 
@@ -17,7 +17,7 @@ from .convert import extract_tdoc_structured
 from .llm_client import LiteLLMClient
 from .metrics import MetricType, get_metrics_tracker, timed_operation
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Input size limits for LLM prompts
 ABSTRACT_INPUT_LIMIT = 5000

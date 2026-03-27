@@ -6,11 +6,12 @@ for text extraction and artifact handling.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
+
+from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.models import ConversionError, ExtractionError
 from threegpp_ai.operations.conversion import OFFICE_FORMATS
@@ -20,7 +21,7 @@ from .config import LightRAGConfig
 from .metadata import RAGMetadata, enrich_text
 from .rag import TDocRAG
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # All supported formats (re-exported from conversion module for convenience)
 SUPPORTED_FORMATS = {".pdf", ".txt", ".md"} | OFFICE_FORMATS

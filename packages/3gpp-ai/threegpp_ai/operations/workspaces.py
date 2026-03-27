@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import shutil
 import sqlite3
@@ -13,6 +12,7 @@ import requests
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
@@ -28,12 +28,24 @@ from threegpp_ai.operations.workspace_registry import (
     WorkspaceRegistry,
 )
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
-async def resolve_spec_release_from_db(spec_number: str, requested_release: str, db_file: Path | None = None) -> str:
-    """Resolve a short release string (e.g., '16') to a full release designation (e.g., 'Rel-16') using available spec versions in the DB."""
+async def resolve_spec_release_from_db(spec_number: str, requested_release: str, db_file: Path | None = None) -> tuple[str, list[str]]:
+    """Resolve a short release string to a full release designation and return version codes.
+
+    Args:
+        spec_number: Spec number (e.g., "26.260")
+        requested_release: Release version (e.g., "16", "17.0.0")
+        db_file: Optional path to database file
+
+    Returns:
+        Tuple of (resolved_release, version_codes) where:
+        - resolved_release: Full release designation (e.g., "Rel-16")
+        - version_codes: List of version codes (e.g., ["h00", "i10"]) for the resolved release
+    """
     resolved = requested_release
+    version_codes: list[str] = []
     try:
         manager = resolve_cache_manager("default")
         db_path = db_file if db_file is not None else manager.db_file
@@ -43,9 +55,16 @@ async def resolve_spec_release_from_db(spec_number: str, requested_release: str,
                 available_releases = [entry.release for entry in versions if entry.release]
                 if available_releases:
                     resolved = resolve_release_to_full_version(requested_release, available_releases)
+                    # Extract version codes for the resolved release
+                    for entry in versions:
+                        if resolved is not None and entry.release != resolved:
+                            continue
+                        if "-" in entry.version:
+                            version_code = entry.version.split("-", 1)[1]
+                            version_codes.append(version_code)
     except (OSError, ValueError, sqlite3.Error) as exc:
         _logger.debug("Could not resolve release '%s' for %s: %s", requested_release, spec_number, exc)
-    return resolved
+    return resolved, version_codes
 
 
 def _get_registry() -> WorkspaceRegistry:
@@ -542,23 +561,10 @@ async def checkout_spec_to_workspace(
     specs_dir = checkout_base / "Specs"
     if specs_dir.exists():
         # Resolve release to actual version(s) to match against 3GPP version codes (e.g., "h00", "i10")
-        version_codes: list[str] = []
-        try:
-            resolved_release = await resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
-            cache_manager = resolve_cache_manager("default")
-            db_path = db_file if db_file is not None else cache_manager.db_file
-            async with SpecDatabase(db_path) as db:
-                versions = await db.get_spec_versions(spec_number)
-                if versions:
-                    for entry in versions:
-                        if resolved_release is not None and entry.release != resolved_release:
-                            continue
-                        if "-" in entry.version:
-                            # Extract version code from version string (e.g., "26.260" from "26.260-h00")
-                            version_code = entry.version.split("-", 1)[1]
-                            version_codes.append(version_code)
-        except (OSError, ValueError, sqlite3.Error) as exc:
-            _logger.debug("Could not resolve version codes for %s: %s", spec_number, exc)
+        # We'll reuse the DB connection for checkout if needed
+        cache_manager = resolve_cache_manager("default")
+        db_path = db_file if db_file is not None else cache_manager.db_file
+        resolved_release, version_codes = await resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
 
         # Search for spec with matching version code
         for spec_dir in specs_dir.rglob("*"):
@@ -574,29 +580,25 @@ async def checkout_spec_to_workspace(
             _logger.debug("Spec %s (release %s) already checked out at %s", spec_number, requested_release, spec_dir)
             return spec_dir
 
-    # Need to checkout the spec
+    # Need to checkout the spec - reuse DB connection from resolve_spec_release_from_db
     try:
-        # Resolve database path: use provided db_file or fall back to CacheManager
-        cache_manager = resolve_cache_manager("default")
-        db_path = db_file if db_file is not None else cache_manager.db_file
         async with SpecDatabase(db_path) as db:
-            # Checkout the spec
             checkout_paths = checkout_specs(
                 spec_numbers=[spec_number],
                 checkout_dir=checkout_base,
                 database=db,
-                release=requested_release,
+                release=resolved_release,
             )
 
             if checkout_paths and checkout_paths[0] and checkout_paths[0].exists():
-                _logger.info(f"Checked out spec {spec_number} (release {requested_release}) to {checkout_paths[0]}")
+                _logger.info(f"Checked out spec {spec_number} (release {resolved_release}) to {checkout_paths[0]}")
                 return checkout_paths[0]
 
-        _logger.warning(f"Failed to checkout spec {spec_number} (release {requested_release})")
-        return None
+            _logger.warning(f"Failed to checkout spec {spec_number} (release {resolved_release})")
+            return None
 
     except (OSError, ValueError, sqlite3.Error) as e:
-        _logger.warning(f"Error checking out spec {spec_number} (release {requested_release}): {e}")
+        _logger.warning(f"Error checking out spec {spec_number} (release {resolved_release}): {e}")
         return None
 
 

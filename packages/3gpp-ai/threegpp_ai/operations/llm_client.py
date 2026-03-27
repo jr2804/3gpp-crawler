@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import base64
-import logging
 import mimetypes
 from pathlib import Path
 
 import litellm
+from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.config import AiConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Default system prompt for technical document analysis
 DEFAULT_SYSTEM_PROMPT = """You are a technical document analyzer specializing in 3GPP TDoc documents.
