@@ -2,38 +2,38 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, auto
 
 
 class LibreOfficeFormat(StrEnum):
     """Supported LibreOffice output formats."""
 
-    ODT = "odt"
-    DOC = "doc"
-    DOCX = "docx"
-    RTF = "rtf"
-    PDF = "pdf"
-    HTML = "html"
-    XHTML = "xhtml"
-    TXT = "txt"
-    MD = "md"
-    EPUB = "epub"
-    FODT = "fodt"
+    ODT = auto()
+    DOC = auto()
+    DOCX = auto()
+    RTF = auto()
+    PDF = auto()
+    HTML = auto()
+    XHTML = auto()
+    TXT = auto()
+    MD = auto()
+    EPUB = auto()
+    FODT = auto()
 
-    ODS = "ods"
-    XLS = "xls"
-    XLSX = "xlsx"
-    CSV = "csv"
-    FODS = "fods"
+    ODS = auto()
+    XLS = auto()
+    XLSX = auto()
+    CSV = auto()
+    FODS = auto()
 
-    ODP = "odp"
-    PPT = "ppt"
-    PPTX = "pptx"
-    FODP = "fodp"
+    ODP = auto()
+    PPT = auto()
+    PPTX = auto()
+    FODP = auto()
 
-    ODG = "odg"
-    SVG = "svg"
-    FODG = "fodg"
+    ODG = auto()
+    SVG = auto()
+    FODG = auto()
 
 
 UNSUPPORTED_CONVERSIONS: frozenset[tuple[str, str]] = frozenset(
