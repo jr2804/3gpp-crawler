@@ -7,6 +7,7 @@ from the whatthespec.net community API.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 from pathlib import Path
 
 import requests
@@ -83,7 +84,15 @@ def resolve_via_whatthespec(
         async with MeetingDatabase(manager.db_file) as db:
             return await db.resolve_meeting_id(meeting_name) or 0
 
-    meeting_id = asyncio.run(resolve_meeting_id_async())
+    # asyncio.run() cannot be called from within a running event loop (e.g. when
+    # this sync function is invoked from an async caller).  Run in a thread that
+    # owns its own event loop to stay safe in both contexts.
+    try:
+        asyncio.get_running_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            meeting_id = pool.submit(asyncio.run, resolve_meeting_id_async()).result()
+    except RuntimeError:
+        meeting_id = asyncio.run(resolve_meeting_id_async())
 
     metadata = TDocMetadata(
         tdoc_id=resolved_id,
