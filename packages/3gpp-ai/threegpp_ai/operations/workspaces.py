@@ -22,6 +22,7 @@ from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.normalization import normalize_spec_number, resolve_release_to_full_version
 
+from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
 from threegpp_ai.operations.workspace_registry import (
     WorkspaceMember,
@@ -250,13 +251,16 @@ def list_workspace_members(
 
     Returns:
         List of WorkspaceMember.
+
+    Raises:
+        WorkspaceNotFoundError: If workspace does not exist.
     """
     normalized_workspace = normalize_workspace_name(workspace)
     registry = _get_registry()
 
     metadata = registry.get_workspace(normalized_workspace)
     if metadata is None:
-        return []
+        raise WorkspaceNotFoundError(f"Workspace '{normalized_workspace}' not found")
 
     return metadata.list_members(include_inactive=include_inactive)
 

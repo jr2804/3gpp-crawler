@@ -8,9 +8,9 @@ Usage:
     >>> await migrate_to_shared_storage(working_dir, embedding_model)
 """
 
-# TODO: Is this module needed at all? No need for legacy migration if we just switch
-# to shared storage for all new workspaces. Maybe just keep the consolidation function
-# for users who want to merge existing workspaces into shared storage?
+# This module provides essential functionality for migrating existing workspace
+# embeddings to shared storage format, eliminating duplicates and improving efficiency.
+# Used by the `tdoc-crawler ai rag migrate` command.
 
 from __future__ import annotations
 

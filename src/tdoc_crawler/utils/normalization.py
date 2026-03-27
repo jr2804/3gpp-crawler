@@ -267,3 +267,64 @@ def resolve_release_to_full_version(release: str, available_versions: list[str])
         raise ValueError(f"No version matches prefix {release_value}")
 
     raise ValueError(f"Invalid release type: {release_type}")
+
+
+def normalize_tdoc_id(tdoc_id: str) -> str:
+    """Normalize a TDoc ID to uppercase.
+
+    Args:
+        tdoc_id: TDoc identifier to normalize.
+
+    Returns:
+        Uppercase normalized TDoc ID.
+    """
+    return str(tdoc_id).strip().upper()
+
+
+def normalize_tdoc_ids(tdoc_ids: list[str] | None) -> list[str] | None:
+    """Normalize a list of TDoc IDs to uppercase.
+
+    Args:
+        tdoc_ids: List of TDoc identifiers to normalize.
+
+    Returns:
+        List of uppercase normalized TDoc IDs, or None if input is None.
+    """
+    if tdoc_ids is None:
+        return None
+    return [normalize_tdoc_id(tdoc_id) for tdoc_id in tdoc_ids]
+
+
+def normalize_portal_meeting_name(portal_meeting: str | None) -> str:
+    """Normalize portal meeting name to database format.
+
+    The portal uses format like "SA4#133-e" while the database uses "S4-133-e".
+    This function converts portal format to database format.
+
+    Args:
+        portal_meeting: Meeting name from portal (e.g., "SA4#133-e")
+
+    Returns:
+        Normalized meeting name (e.g., "S4-133-e")
+    """
+    if not portal_meeting:
+        return ""
+
+    # Replace "SA4#" with "S4-", "RAN1#" with "R1-", etc.
+    normalized = portal_meeting.replace("#", "-")
+
+    # Handle full working group names (SA, RAN, CT)
+    for full_name, short_prefix in [("SA", "S"), ("RAN", "R"), ("CT", "C")]:
+        # Match patterns like "SA4-" and replace with "S4-"
+        if normalized.startswith(f"{full_name}"):
+            # Extract subgroup number if present
+            for i, char in enumerate(normalized[len(full_name) :]):
+                if not char.isdigit():
+                    subgroup_num = normalized[len(full_name) : len(full_name) + i] if i > 0 else ""
+                    rest = normalized[len(full_name) + i :]
+                    if subgroup_num:
+                        normalized = f"{short_prefix}{subgroup_num}{rest}"
+                    break
+            break
+
+    return normalized

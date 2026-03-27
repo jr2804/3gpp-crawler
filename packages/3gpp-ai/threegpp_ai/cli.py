@@ -83,6 +83,7 @@ from threegpp_ai.lightrag.config import LightRAGConfig
 from threegpp_ai.lightrag.metadata import RAGMetadata
 from threegpp_ai.lightrag.processor import DocumentProcessor
 from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS
+from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import convert_document_to_markdown
@@ -802,7 +803,12 @@ def workspace_list_members(
     json_output: JsonOutputOption = False,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
-    members = list_workspace_members(workspace_name, include_inactive=include_inactive)
+
+    try:
+        members = list_workspace_members(workspace_name, include_inactive=include_inactive)
+    except WorkspaceNotFoundError:
+        console.print(f"[red]Workspace '{workspace_name}' not found[/red]")
+        raise typer.Exit(1)
 
     if json_output:
         typer.echo(
@@ -839,7 +845,13 @@ def workspace_process(
     json_output: JsonOutputOption = False,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
-    members = list_workspace_members(workspace_name, include_inactive=False)
+
+    try:
+        members = list_workspace_members(workspace_name, include_inactive=False)
+    except WorkspaceNotFoundError:
+        console.print(f"[red]Workspace '{workspace_name}' not found[/red]")
+        raise typer.Exit(1)
+
     if limit is not None and limit > 0:
         members = members[:limit]
 

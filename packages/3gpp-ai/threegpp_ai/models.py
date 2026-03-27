@@ -75,6 +75,10 @@ class EmbeddingDimensionError(AiError):
     """Embedding model dimension mismatch with stored vectors."""
 
 
+class WorkspaceNotFoundError(AiError):
+    """Workspace does not exist in registry."""
+
+
 class Workspace(BaseModel):
     """Logical workspace boundary for AI processing."""
 

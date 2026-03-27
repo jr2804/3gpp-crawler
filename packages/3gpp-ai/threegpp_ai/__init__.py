@@ -27,7 +27,7 @@ from threegpp_ai.lightrag import (
     create_metadata_from_dict,
     enrich_text,
 )
-from threegpp_ai.models import SourceKind, SummarizeResult
+from threegpp_ai.models import SourceKind, SummarizeResult, WorkspaceNotFoundError
 from threegpp_ai.operations.convert import convert_tdoc as convert_document
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
 from threegpp_ai.operations.summarize import summarize_tdoc as summarize_document
@@ -81,6 +81,7 @@ __all__ = [
     "SummarizeResult",
     "TDocProcessor",
     "TDocRAG",
+    "WorkspaceNotFoundError",
     "WorkspaceRegistry",
     "add_workspace_members",
     "checkout_spec_to_workspace",
