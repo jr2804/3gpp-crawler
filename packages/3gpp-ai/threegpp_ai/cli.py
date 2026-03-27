@@ -12,7 +12,7 @@ import shutil
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import typer
 import yaml
@@ -78,11 +78,10 @@ from threegpp_ai.args import (
     WorkspaceProcessForceOption,
     WorkspaceReleaseOption,
 )
-from threegpp_ai.lightrag.cli import app as rag_app
-from threegpp_ai.lightrag.config import LightRAGConfig
+from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
 from threegpp_ai.lightrag.metadata import RAGMetadata
 from threegpp_ai.lightrag.processor import DocumentProcessor
-from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS
+from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS, TDocRAG
 from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
@@ -98,7 +97,6 @@ workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
 providers_app = typer.Typer(help="List and manage AI providers")
 app.add_typer(workspace_app, name="workspace")
 app.add_typer(providers_app, name="providers")
-app.add_typer(rag_app, name="rag")
 
 console = get_console()
 _logger = get_logger(__name__)
@@ -562,7 +560,7 @@ def ai_convert(
     typer.echo(markdown_or_path)
 
 
-@workspace_app.command("create")
+@workspace_app.command("create", help="Create a new workspace")
 def workspace_create(
     name: WorkspaceNameArgument,
     auto_build: WorkspaceAutoBuildOption = False,
@@ -583,7 +581,7 @@ def workspace_create(
         console.print("[cyan]Activated as current workspace[/cyan]")
 
 
-@workspace_app.command("list")
+@workspace_app.command("list", help="List all workspaces")
 def workspace_list(
     json_output: JsonOutputOption = False,
 ) -> None:
@@ -619,7 +617,101 @@ def workspace_list(
     console.print(table)
 
 
-@workspace_app.command("info")
+@workspace_app.command("query")
+def workspace_query(
+    query: str = typer.Argument(..., help="Query string"),
+    mode: Annotated[
+        QueryMode,
+        typer.Option(
+            "--mode",
+            "-m",
+            case_sensitive=False,
+            help="Query mode (local, global, hybrid, naive)",
+        ),
+    ] = QueryMode.HYBRID,
+    workspace: WorkspaceNameOption = None,
+    json_output: JsonOutputOption = False,
+) -> None:
+    """Query the LightRAG knowledge graph."""
+    workspace_name = _resolve_workspace_name(workspace)
+
+    if not query:
+        console.print("[red]Error: query is required[/red]")
+        raise typer.Exit(1)
+
+    async def _run() -> str | None:
+        config = LightRAGConfig.from_env()
+        rag = TDocRAG(config)
+        await rag.start(workspace_name)
+        try:
+            result = await rag.query(query, mode=mode)
+            return result
+        finally:
+            await rag.stop()
+
+    result = asyncio.run(_run())
+
+    if json_output:
+        typer.echo(json.dumps({"query": query, "mode": mode.value, "result": result}))
+    else:
+        console.print(f"\n[bold]Query:[/bold] {query}")
+        console.print(f"[bold]Mode:[/bold] {mode.value}\n")
+        if result:
+            console.print(result)
+        else:
+            console.print("[yellow]No result returned[/yellow]")
+
+
+@workspace_app.command("status")
+def workspace_status(
+    verbose: bool = typer.Option("--verbose", "-v", help="Show full configuration"),
+) -> None:
+    """Show LightRAG configuration and status."""
+    config = LightRAGConfig.from_env()
+
+    # Header
+    console.print("\n[bold cyan]LightRAG Configuration[/bold cyan]")
+
+    # Database backend
+    backend = config.database.backend
+    backend_icon = "🗄️" if backend == StorageBackend.PG0 else "📁"
+    console.print(f"\n{backend_icon} [cyan]Storage backend:[/cyan] {backend.value}")
+
+    if backend == StorageBackend.PG0:
+        console.print(f"   Instance: [cyan]{config.database.pg0_instance_name}[/cyan]")
+        console.print(f"   Port: [cyan]{config.database.pg0_port}[/cyan]")
+        console.print(f"   Database: [cyan]{config.database.pg0_database}[/cyan]")
+    else:
+        console.print(f"   Working dir: [cyan]{config.working_dir}[/cyan]")
+
+    # LLM
+    console.print("\n🤖 [cyan]LLM:[/cyan]")
+    console.print(f"   Model: [cyan]{config.llm.model}[/cyan]")
+    console.print(f"   API Base: [cyan]{config.llm.api_base}[/cyan]")
+
+    # Embedding
+    console.print("\n🔢 [cyan]Embedding:[/cyan]")
+    console.print(f"   Model: [cyan]{config.embedding.model}[/cyan]")
+    console.print(f"   API Base: [cyan]{config.embedding.api_base}[/cyan]")
+
+    # Query defaults
+    console.print("\n🔍 [cyan]Query defaults:[/cyan]")
+    console.print(f"   Mode: [cyan]{config.default_query_mode.value}[/cyan]")
+    console.print(f"   Workspace: [cyan]{config.workspace}[/cyan]")
+
+    # Shared storage status
+    console.print(f"   Shared storage: [cyan]{'enabled' if config.shared_storage else 'disabled'}[/cyan]")
+
+    if verbose:
+        console.print("\n[bold]Full configuration:[/bold]")
+        console.print(f"   working_dir: {config.working_dir}")
+        console.print(f"   workspace: {config.workspace}")
+        console.print(f"   env_prefix: {config.model_config.get('env_prefix', 'N/A')}")
+
+    console.print()
+
+
+@workspace_app.command("info", help="Show detailed information about a workspace")
 def workspace_info(
     name: WorkspaceNameArgument,
     json_output: JsonOutputOption = False,
@@ -645,19 +737,19 @@ def workspace_info(
     console.print(table)
 
 
-@workspace_app.command("activate")
+@workspace_app.command("activate", help="Activate a workspace (set as current)")
 def workspace_activate(name: WorkspaceNameArgument) -> None:
     set_active_workspace(name)
     console.print(f"[green]Activated workspace: {normalize_workspace_name(name)}[/green]")
 
 
-@workspace_app.command("deactivate")
+@workspace_app.command("deactivate", help="Deactivate current workspace (reset to default)")
 def workspace_deactivate() -> None:
     set_active_workspace("default")
     console.print("[green]Reset active workspace to default[/green]")
 
 
-@workspace_app.command("clear-invalid")
+@workspace_app.command("clear-invalid", help="Remove invalid members from workspace")
 def workspace_clear_invalid(
     workspace: WorkspaceNameOption = None,
 ) -> None:
@@ -669,7 +761,7 @@ def workspace_clear_invalid(
         console.print(f"[yellow]No invalid members found in '{workspace_name}'[/yellow]")
 
 
-@workspace_app.command("clear")
+@workspace_app.command("clear", help="Clear LightRAG artifacts for a workspace")
 def workspace_clear(
     workspace: WorkspaceNameOption = None,
 ) -> None:
@@ -688,7 +780,7 @@ def workspace_clear(
     console.print(f"[green]Cleared LightRAG artifacts for '{workspace_name}'[/green]")
 
 
-@workspace_app.command("add-members")
+@workspace_app.command("add-members", help="Add members (TDocs/specs) to a workspace")
 def workspace_add_members(
     workspace: WorkspaceNameOption = None,
     items: WorkspaceItemsArgument = None,
@@ -796,7 +888,7 @@ def workspace_add_members(
     console.print(f"[green]Added {added} member(s) to '{workspace_name}'[/green]")
 
 
-@workspace_app.command("list-members")
+@workspace_app.command("list-members", help="List members in a workspace")
 def workspace_list_members(
     workspace: WorkspaceNameOption = None,
     include_inactive: WorkspaceIncludeInactiveOption = False,
@@ -837,7 +929,7 @@ def workspace_list_members(
     console.print(table)
 
 
-@workspace_app.command("process")
+@workspace_app.command("process", help="Process workspace members (checkout, convert, embed)")
 def workspace_process(
     workspace: WorkspaceNameOption = None,
     force: WorkspaceProcessForceOption = False,
@@ -904,7 +996,7 @@ def workspace_process(
         console.print(f"[red]Errors: {error_count}[/red]")
 
 
-@workspace_app.command("delete")
+@workspace_app.command("delete", help="Delete a workspace")
 def workspace_delete(
     name: WorkspaceNameArgument,
     preserve_artifacts: WorkspacePreserveArtifactsOption = True,

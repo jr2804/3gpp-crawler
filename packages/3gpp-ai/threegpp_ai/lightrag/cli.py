@@ -1,11 +1,8 @@
 """CLI commands for LightRAG integration.
 
-This module provides Typer commands for:
-- query: Query the knowledge graph
-- status: Show LightRAG configuration and status
+This module is deprecated - use workspace query and workspace status instead.
 
-Note: These commands are designed to be integrated into the main CLI
-via app.add_typer(rag_app). Direct import may cause circular dependencies.
+Note: These commands are now integrated into the main CLI under workspace subcommand.
 """
 
 from __future__ import annotations
@@ -16,13 +13,11 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from tdoc_crawler.config import CacheManager
 
 from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
-from threegpp_ai.lightrag.migration import consolidate_workspaces, migrate_to_shared_storage
 from threegpp_ai.lightrag.rag import TDocRAG
 
-app = typer.Typer(name="rag", help="LightRAG knowledge graph commands")
+app = typer.Typer(name="rag", help="LightRAG knowledge graph commands (deprecated)")
 console = Console()
 
 
@@ -128,79 +123,6 @@ def show_status(
         console.print(f"   env_prefix: {config.model_config.get('env_prefix', 'N/A')}")
 
     console.print()
-
-
-@app.command("migrate")
-def migrate_storage(
-    workspace: Annotated[
-        str | None,
-        typer.Option("--workspace", "-w", help="Specific workspace to migrate (default: all)"),
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", "-n", help="Analyze without making changes"),
-    ] = True,
-    consolidate: Annotated[
-        bool,
-        typer.Option("--consolidate", "-c", help="Run full consolidation (removes old files)"),
-    ] = False,
-) -> None:
-    """Migrate existing embeddings to shared storage.
-
-    This command consolidates duplicate embeddings across workspaces into a shared layer,
-    reducing storage usage and improving processing efficiency.
-
-    Examples:
-        # Analyze current state (dry run)
-        tdoc-crawler ai rag migrate --dry-run
-
-        # Migrate all workspaces
-        tdoc-crawler ai rag migrate
-
-        # Migrate specific workspace
-        tdoc-crawler ai rag migrate -w atias
-
-        # Full consolidation (removes old files)
-        tdoc-crawler ai rag migrate --consolidate
-    """
-    config = LightRAGConfig.from_env()
-    manager = CacheManager().register()
-    embedding_model_safe = config.embedding.model.replace(":", "-").replace("/", "-")
-    working_dir = manager.ai_embed_dir(embedding_model_safe)
-
-    if not working_dir.exists():
-        console.print(f"[yellow]Warning: Working directory does not exist yet: {working_dir}[/yellow]")
-        console.print("[yellow]Run 'tdoc-crawler ai workspace process' first to create embeddings[/yellow]")
-        raise typer.Exit(0)
-
-    console.print(f"\n[bold]Working directory:[/bold] {working_dir}")
-    console.print(f"[bold]Embedding model:[/bold] {config.embedding.model}")
-    console.print(f"[bold]Workspace:[/bold] {workspace or 'all'}")
-    console.print(f"[bold]Mode:[/bold] {'consolidate' if consolidate else 'migrate'}")
-    console.print(f"[bold]Dry run:[/bold] {dry_run}\n")
-
-    async def _migrate() -> None:
-        if consolidate:
-            await consolidate_workspaces(working_dir)
-        else:
-            stats = await migrate_to_shared_storage(
-                working_dir,
-                workspace=workspace,
-                dry_run=dry_run,
-            )
-
-            console.print("\n[bold cyan]Migration Results[/bold cyan]")
-            console.print(f"  Workspaces processed: [cyan]{stats['workspaces_processed']}[/cyan]")
-            console.print(f"  Chunks migrated: [green]{stats['chunks_migrated']}[/green]")
-            console.print(f"  Chunks deduplicated: [yellow]{stats['chunks_deduplicated']}[/yellow]")
-            console.print(f"  Storage saved: [green]{stats['storage_saved_bytes'] / (1024 * 1024):.2f} MB[/green]")
-
-            if stats["errors"]:
-                console.print(f"\n[red]Errors:[/red] {len(stats['errors'])}")
-                for error in stats["errors"]:
-                    console.print(f"  - {error}")
-
-    asyncio.run(_migrate())
 
 
 if __name__ == "__main__":
