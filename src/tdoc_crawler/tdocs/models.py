@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, datetime
-from enum import StrEnum
+from enum import StrEnum, auto
 
 import requests
 from packaging.version import Version
@@ -34,24 +34,24 @@ class TDocStatus(StrEnum):
     Any status not in this enum will raise a ValueError during parsing.
     """
 
-    RESERVED = "reserved"
-    AVAILABLE = "available"
-    REVISED = "revised"
-    AGREED = "agreed"
+    RESERVED = auto()
+    AVAILABLE = auto()
+    REVISED = auto()
+    AGREED = auto()
     CONDITIONALLY_AGREED = "conditionally agreed"
-    APPROVED = "approved"
+    APPROVED = auto()
     CONDITIONALLY_APPROVED = "conditionally approved"
     PARTIALLY_APPROVED = "partially approved"
-    TREATED = "treated"
-    ENDORSED = "endorsed"
+    TREATED = auto()
+    ENDORSED = auto()
     REPLIED_TO = "replied to"
-    MERGED = "merged"
+    MERGED = auto()
     NOT_PURSUED = "not pursued"
-    POSTPONED = "postponed"
-    NOTED = "noted"
+    POSTPONED = auto()
+    NOTED = auto()
     NOT_CONCLUDED = "not concluded"
-    WITHDRAWN = "withdrawn"
-    REISSUED = "reissued"
+    WITHDRAWN = auto()
+    REISSUED = auto()
     NOT_TREATED = "not treated"
 
     @classmethod

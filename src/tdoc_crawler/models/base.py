@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -15,16 +15,16 @@ from tdoc_crawler.config import resolve_cache_manager
 class OutputFormat(StrEnum):
     """Supported output formats for CLI responses."""
 
-    TABLE = "table"
-    JSON = "json"
-    YAML = "yaml"
+    TABLE = auto()
+    JSON = auto()
+    YAML = auto()
 
 
 class SortOrder(StrEnum):
     """Sort orders accepted by query operations."""
 
-    ASC = "asc"
-    DESC = "desc"
+    ASC = auto()
+    DESC = auto()
 
 
 _DEFAULT_TTL: int = 7200

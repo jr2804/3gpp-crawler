@@ -17,13 +17,13 @@ from threegpp_ai.operations.workspace_names import normalize_workspace_name
 class GraphNodeType(StrEnum):
     """Types of nodes in the knowledge graph."""
 
-    DOCUMENT = "document"
-    TDOC = "tdoc"
-    MEETING = "meeting"
-    SPEC = "spec"
+    DOCUMENT = auto()
+    TDOC = auto()
+    MEETING = auto()
+    SPEC = auto()
     WORK_ITEM = "work_item"
     CHANGE_REQUEST = "cr"
-    COMPANY = "company"
+    COMPANY = auto()
 
 
 # Use LLM to synthesize answer from graph + embeddings (GraphRAG)
@@ -32,11 +32,11 @@ class GraphNodeType(StrEnum):
 class GraphEdgeType(StrEnum):
     """Types of edges in the knowledge graph."""
 
-    DISCUSSES = "discusses"
-    REFERENCES = "references"
-    AUTHORED_BY = "authored_by"
-    PRESENTED_AT = "presented_at"
-    REVISION_OF = "revision_of"  # is_revision_of metadata relationship
+    DISCUSSES = auto()
+    REFERENCES = auto()
+    AUTHORED_BY = auto()
+    PRESENTED_AT = auto()
+    REVISION_OF = auto()  # is_revision_of metadata relationship
 
 
 class SourceKind(StrEnum):
