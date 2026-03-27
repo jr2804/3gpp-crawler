@@ -54,7 +54,7 @@ _ = Annotated[
     int | None,
     typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)", envvar="TDC_OVERALL_TIMEOUT"),
 ]
-OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format (table, json, yaml)", envvar="TDC_OUTPUT")]
+OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar="TDC_OUTPUT")]
 EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username", envvar="TDC_EOL_USERNAME")]
 EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password", envvar="TDC_EOL_PASSWORD")]
 PromptCredentialsOption = Annotated[
