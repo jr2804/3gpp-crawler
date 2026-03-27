@@ -122,24 +122,6 @@ class WorkspaceMember(BaseModel):
         return normalized
 
 
-class ArtifactScope(BaseModel):
-    """Workspace association metadata for generated artifacts."""
-
-    workspace_name: str = Field(..., description="Workspace identifier")
-    artifact_type: str = Field(..., description="Artifact type")
-    artifact_id: str = Field(..., description="Artifact identifier")
-    source_item_id: str | None = Field(None, description="Optional source item identifier")
-    created_at: datetime = Field(default_factory=utc_now, description="Association timestamp")
-
-    @field_validator("workspace_name")
-    @classmethod
-    def _normalize_workspace_name(cls, value: str) -> str:
-        if not value.strip():
-            msg = "workspace_name must not be empty"
-            raise ValueError(msg)
-        return normalize_workspace_name(value)
-
-
 class DocumentClassification(BaseModel):
     """Classification of a file within a TDoc folder."""
 
@@ -167,64 +149,6 @@ class DocumentClassification(BaseModel):
             msg = "confidence must be between 0.0 and 1.0"
             raise ValueError(msg)
         return value
-
-
-class DocumentChunk(BaseModel):
-    """A chunk of extracted document text with its embedding."""
-
-    chunk_id: str = Field(..., description="Unique chunk identifier '{document_id}:{chunk_index}'")
-    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
-    section_heading: str | None = Field(None, description="Heading for the chunk's section")
-    chunk_index: int = Field(..., ge=0, description="Position within the document")
-    text: str = Field(..., description="Chunk text content")
-    char_offset_start: int = Field(..., ge=0, description="Start offset in Markdown")
-    char_offset_end: int = Field(..., ge=0, description="End offset in Markdown")
-    vector: list[float] = Field(..., description="Embedding vector")
-    embedding_model: str = Field(..., description="Embedding model identifier")
-    created_at: datetime = Field(default_factory=utc_now, description="Embedding creation timestamp")
-
-    @property
-    def section(self) -> str | None:
-        return self.section_heading
-
-    @property
-    def content(self) -> str:
-        return self.text
-
-    @property
-    def embedding(self) -> list[float]:
-        return self.vector
-
-    @embedding.setter
-    def embedding(self, value: list[float]) -> None:
-        self.vector = value
-
-    @field_validator("document_id")
-    @classmethod
-    def _normalize_document_id(cls, value: str) -> str:
-        normalized = normalize_tdoc_id(value)
-        if not normalized:
-            msg = "document_id must not be empty"
-            raise ValueError(msg)
-        return normalized
-
-
-class QueryResult(BaseModel):
-    """Result from embedding similarity query."""
-
-    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
-    section: str = Field("", description="Section heading or empty string")
-    content: str = Field(..., description="Text content that matched the query")
-    score: float = Field(..., ge=0.0, le=1.0, description="Similarity score (0.0-1.0)")
-
-    @field_validator("document_id")
-    @classmethod
-    def _normalize_document_id(cls, value: str) -> str:
-        normalized = normalize_tdoc_id(value)
-        if not normalized:
-            msg = "document_id must not be empty"
-            raise ValueError(msg)
-        return normalized
 
 
 class ExtractedTableElement(BaseModel):
@@ -364,19 +288,10 @@ class SummarizeResult(BaseModel):
         return [str(kw).strip() for kw in value if str(kw).strip()]
 
 
-class GraphQueryResult(BaseModel):
-    """Knowledge graph query result."""
-
-    node: GraphNode = Field(..., description="Matched graph node")
-    connected_edges: list[GraphEdge] = Field(default_factory=list, description="Connected edges for context")
-
-
 __all__ = [
     "AiConfigError",
     "AiError",
-    "ArtifactScope",
     "ConversionError",
-    "DocumentChunk",
     "DocumentClassification",
     "DocumentSummary",
     "EmbeddingDimensionError",
@@ -385,9 +300,7 @@ __all__ = [
     "GraphEdgeType",
     "GraphNode",
     "GraphNodeType",
-    "GraphQueryResult",
     "LlmConfigError",
-    "QueryResult",
     "SourceKind",
     "SummarizeResult",
     "TDocNotFoundError",
