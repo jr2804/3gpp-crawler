@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import UTC, datetime
 from typing import Annotated
 
 import typer
-import yaml
 from dotenv import load_dotenv
 
 from tdoc_crawler.cli._shared import console, handle_clear_options
@@ -39,6 +37,7 @@ from tdoc_crawler.cli.args import (
     VerbosityOption,
     WorkingGroupOption,
 )
+from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import (
     meeting_to_dict,
     print_meeting_table,
@@ -116,7 +115,7 @@ def query_tdocs(
     try:
         format_val = OutputFormat(output_format.lower())
     except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, or yaml")
+        console.print("[red]Invalid output format; use table, json, jsonl, toon, or yaml")
         raise typer.Exit(code=2) from exc
 
     config = TDocQueryConfig(
@@ -190,12 +189,11 @@ def query_tdocs(
     # This functionality has been disabled as it doesn't make logical sense in CLI context.
     pass
 
-    if config.output_format is OutputFormat.JSON:
-        console.print(json.dumps([tdoc_to_dict(result, meeting_map) for result in results], indent=2))
-    elif config.output_format is OutputFormat.YAML:
-        console.print(yaml.dump([tdoc_to_dict(result, meeting_map) for result in results], sort_keys=False))
-    else:
+    if config.output_format is OutputFormat.TABLE:
         print_tdoc_table(results, meeting_map)
+    else:
+        data = [tdoc_to_dict(result, meeting_map) for result in results]
+        console.print(format_output(data, config.output_format))
 
 
 def query_meetings(
@@ -256,14 +254,15 @@ def query_meetings(
     try:
         output = OutputFormat(output_format.lower())
     except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, or yaml")
+        console.print("[red]Invalid output format; use table, json, ison, toon, or yaml")
         raise typer.Exit(code=2) from exc
-    if output is OutputFormat.JSON:
-        console.print(json.dumps([meeting_to_dict(meeting) for meeting in meetings], indent=2))
-    elif output is OutputFormat.YAML:
-        console.print(yaml.dump([meeting_to_dict(meeting) for meeting in meetings], sort_keys=False))
-    else:
+
+    output_str = output.value
+    if output_str == OutputFormat.TABLE.value:
         print_meeting_table(meetings)
+    else:
+        data = [meeting_to_dict(meeting) for meeting in meetings]
+        console.print(format_output(data, output))
 
 
 def query_specs(
@@ -296,7 +295,7 @@ def query_specs(
     try:
         output = OutputFormat(output_format.lower())
     except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, or yaml")
+        console.print("[red]Invalid output format; use table, json, jsonl, toon, or yaml")
         raise typer.Exit(code=2) from exc
 
     db_file = manager.db_file
@@ -327,12 +326,11 @@ def query_specs(
 
         asyncio.run(load_specs_for_checkout())
 
-    if output is OutputFormat.JSON:
-        console.print(json.dumps([spec_query_to_dict(result) for result in results], indent=2))
-    elif output is OutputFormat.YAML:
-        console.print(yaml.dump([spec_query_to_dict(result) for result in results], sort_keys=False))
-    else:
+    if output is OutputFormat.TABLE:
         print_spec_table(results)
+    else:
+        data = [spec_query_to_dict(result) for result in results]
+        console.print(format_output(data, output))
 
 
 __all__ = [

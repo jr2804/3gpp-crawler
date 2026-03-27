@@ -497,7 +497,7 @@ def _checkout_tdoc_if_needed(tdoc_id: str, metadata: TDocMetadata, checkout_base
         _logger.warning(f"Checkout returned invalid path for TDoc {tdoc_id}")
         return None
     except FileNotFoundError as e:
-        _logger.warning(f"TDoc {tdoc_id} not found or withdrawn: {e}")
+        _logger.warning(f"TDoc {tdoc_id} not found: {e}")
         return None
     except (OSError, ValueError) as e:
         _logger.warning(f"Error checking out TDoc {tdoc_id}: {e}")

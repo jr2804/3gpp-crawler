@@ -37,6 +37,9 @@ dependencies = [
     "pool-executors",
     "oxyde>=0.4.0",
     "truststore>=0.10.4",
+    "ison-py>=1.0.2",
+    "isonantic>=1.0.1",
+    "toon-format",
 ]
 
 [project.urls]
@@ -109,3 +112,4 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 pool-executors = { workspace = true }
+toon-format = { git = "https://github.com/toon-format/toon-python.git" }

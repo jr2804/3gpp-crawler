@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import date, datetime
 
 import typer
-import yaml
 from dotenv import load_dotenv
 
 from tdoc_crawler.cli._shared import console, create_progress_bar, handle_clear_options
@@ -47,6 +45,7 @@ from tdoc_crawler.cli.args import (
     WorkersOption,
     WorkingGroupOption,
 )
+from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_spec_crawl_table, spec_crawl_to_dict
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
@@ -397,7 +396,7 @@ def crawl_specs(
     try:
         output = OutputFormat(output_format.lower())
     except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, or yaml")
+        console.print("[red]Invalid output format; use table, json, ison, toon, or yaml")
         raise typer.Exit(code=2) from exc
 
     sources = build_default_spec_sources()
@@ -433,12 +432,11 @@ def crawl_specs(
 
         asyncio.run(checkout_specs_db())
 
-    if output is OutputFormat.JSON:
-        console.print(json.dumps([spec_crawl_to_dict(result) for result in results], indent=2))
-    elif output is OutputFormat.YAML:
-        console.print(yaml.dump([spec_crawl_to_dict(result) for result in results], sort_keys=False))
-    else:
+    if output is OutputFormat.TABLE:
         print_spec_crawl_table(results)
+    else:
+        data = [spec_crawl_to_dict(result) for result in results]
+        console.print(format_output(data, output))
 
 
 __all__ = [
