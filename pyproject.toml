@@ -36,6 +36,7 @@ dependencies = [
     "lxml>=6.0.2",
     "pool-executors",
     "oxyde>=0.4.0",
+    "truststore>=0.10.4",
 ]
 
 [project.urls]

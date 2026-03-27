@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient, PortalCredentialsError
 from tdoc_crawler.clients.portal import PortalClient as ReExportedPortalClient
@@ -76,6 +77,41 @@ class TestPortalClientSession:
         client._get_session()
         client.close()
         client.close()  # Should not raise
+
+    def test_get_session_passes_verify_to_cached_session(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Cached session creation should receive resolved verify mode."""
+        captured: dict[str, object] = {}
+
+        def _fake_create_cached_session(*args: object, **kwargs: object) -> requests.Session:
+            _ = args
+            captured.update(kwargs)
+            return requests.Session()
+
+        monkeypatch.setattr("tdoc_crawler.clients.portal.create_cached_session", _fake_create_cached_session)
+        client = PortalClient(verify=False)
+        session = client._get_session()
+        try:
+            assert captured["verify"] is False
+        finally:
+            session.close()
+
+    def test_get_auth_session_uses_non_cached_with_verify(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Auth session must remain non-cached and preserve verify mode."""
+        captured: dict[str, object] = {}
+
+        def _fake_create_cached_session(*args: object, **kwargs: object) -> requests.Session:
+            _ = args
+            captured.update(kwargs)
+            return requests.Session()
+
+        monkeypatch.setattr("tdoc_crawler.clients.portal.create_cached_session", _fake_create_cached_session)
+        client = PortalClient(verify=False)
+        session = client._get_auth_session()
+        try:
+            assert captured["http_cache_enabled"] is False
+            assert captured["verify"] is False
+        finally:
+            session.close()
 
 
 class TestPortalClientBrowserHeaders:

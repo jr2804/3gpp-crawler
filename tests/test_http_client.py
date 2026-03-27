@@ -14,6 +14,7 @@ from requests.adapters import HTTPAdapter
 
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME, CacheManager, reset_cache_managers
 from tdoc_crawler.http_client import PoolConfig, create_cached_session, download_to_file
+from tdoc_crawler.http_client.session import SSLContextCacheAdapter, SSLContextHTTPAdapter, resolve_ssl_verify
 from tdoc_crawler.models.base import HttpCacheConfig
 
 
@@ -383,6 +384,66 @@ class TestResolveHttpCacheConfig:
         assert isinstance(config, HttpCacheConfig)
         assert hasattr(config, "ttl")
         assert hasattr(config, "refresh_ttl_on_access")
+
+
+class TestResolveSslVerify:
+    """Tests for SSL verify resolution helper."""
+
+    def test_explicit_value_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Explicit function argument should override environment variables."""
+        monkeypatch.setenv("TDC_VERIFY_SSL", "false")
+        assert resolve_ssl_verify(True) is True
+
+    def test_env_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Known false env values should disable certificate validation."""
+        monkeypatch.setenv("TDC_VERIFY_SSL", "no")
+        assert resolve_ssl_verify() is False
+
+    def test_env_custom_ca_bundle(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Non-boolean env value should be treated as CA bundle path."""
+        monkeypatch.setenv("TDC_VERIFY_SSL", "C:/certs/corp.pem")
+        assert resolve_ssl_verify() == "C:/certs/corp.pem"
+
+    def test_default_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """SSL verification should be enabled by default."""
+        monkeypatch.delenv("TDC_VERIFY_SSL", raising=False)
+        assert resolve_ssl_verify() is True
+
+
+class TestSslContextAdapters:
+    """Tests for SSL-context aware adapter behavior."""
+
+    def test_non_cached_verify_true_uses_ssl_context_adapter(self) -> None:
+        """Non-cached sessions should mount SSL-aware adapters when verify=True."""
+        session = create_cached_session(http_cache_enabled=False, verify=True)
+        try:
+            assert isinstance(session.adapters["http://"], SSLContextHTTPAdapter)
+            assert isinstance(session.adapters["https://"], SSLContextHTTPAdapter)
+            assert session.verify is True
+        finally:
+            session.close()
+
+    def test_non_cached_verify_false_uses_default_adapter(self) -> None:
+        """Non-cached verify=False should use requests defaults when no pool override is set."""
+        session = create_cached_session(http_cache_enabled=False, verify=False)
+        try:
+            assert isinstance(session.adapters["http://"], HTTPAdapter)
+            assert isinstance(session.adapters["https://"], HTTPAdapter)
+            assert not isinstance(session.adapters["https://"], SSLContextHTTPAdapter)
+            assert session.verify is False
+        finally:
+            session.close()
+
+    def test_cached_verify_true_uses_ssl_cache_adapter(self, test_cache_dir: Path) -> None:
+        """Cached sessions should mount SSL-aware cache adapters when verify=True."""
+        CacheManager(root_path=test_cache_dir, name="ssl_cache_adapter").register()
+        session = create_cached_session(cache_manager_name="ssl_cache_adapter", verify=True)
+        try:
+            assert isinstance(session.adapters["http://"], SSLContextCacheAdapter)
+            assert isinstance(session.adapters["https://"], SSLContextCacheAdapter)
+            assert session.verify is True
+        finally:
+            session.close()
 
 
 if __name__ == "__main__":

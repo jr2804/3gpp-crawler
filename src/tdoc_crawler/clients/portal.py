@@ -18,9 +18,9 @@ from typing import Any
 
 import requests
 
-from tdoc_crawler.constants.urls import BROWSER_HEADERS, LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
+from tdoc_crawler.constants.urls import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
 from tdoc_crawler.credentials import resolve_credentials
-from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.http_client import create_cached_session, resolve_ssl_verify
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_page
@@ -62,6 +62,7 @@ class PortalClient:
         timeout: int = 30,
         http_cache: HttpCacheConfig | None = None,
         cache_manager_name: str | None = None,
+        verify: bool | str | None = None,
     ) -> None:
         """Initialize portal client.
 
@@ -71,13 +72,20 @@ class PortalClient:
             timeout: Request timeout in seconds
             http_cache: Optional HTTP cache configuration
             cache_manager_name: Optional cache manager name for resolving cache configuration
+            verify: SSL certificate verification mode (bool or CA bundle path)
         """
         self._credentials = credentials
         self._cache_manager_name = cache_manager_name
         self.timeout = timeout
         self._http_cache = http_cache
+        self._verify = verify
         self._authenticated = False
         self._session = session
+
+    @property
+    def _verify_resolved(self) -> bool | str:
+        """Return effective SSL verification mode."""
+        return resolve_ssl_verify(self._verify)
 
     @property
     def credentials(self) -> PortalCredentials | None:
@@ -290,20 +298,21 @@ class PortalClient:
             Session configured with browser-like headers for portal access
         """
         if self._session is None:
-            self._session = create_cached_session(http_cache=self._http_cache, cache_manager_name=self._cache_manager_name)
+            self._session = create_cached_session(
+                http_cache=self._http_cache,
+                cache_manager_name=self._cache_manager_name,
+                verify=self._verify_resolved,
+            )
 
         return self._session
 
-    @staticmethod
-    def _get_auth_session() -> requests.Session:
+    def _get_auth_session(self) -> requests.Session:
         """Get a non-cached session for authentication.
 
         Returns:
             Non-cached session with browser-like headers
         """
-        session = requests.Session()
-        session.headers.update(BROWSER_HEADERS)
-        return session
+        return create_cached_session(http_cache_enabled=False, verify=self._verify_resolved)
 
 
 __all__ = [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import ssl
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -11,6 +12,7 @@ import requests
 from hishel import SyncBaseStorage, SyncSqliteStorage
 from hishel.requests import CacheAdapter
 from requests.adapters import HTTPAdapter
+from truststore import SSLContext as TruststoreSSLContext
 from urllib3.util.retry import Retry
 
 from tdoc_crawler.config import resolve_cache_manager
@@ -19,6 +21,44 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import HttpCacheConfig
 
 logger = get_logger(__name__)
+
+SSL_DISABLED_ENV_VALUES = {"false", "0", "no", "off", "f", "n"}
+
+
+class SSLContextHTTPAdapter(HTTPAdapter):
+    """HTTP adapter that can enforce a specific SSL context."""
+
+    def __init__(self, *args: object, ssl_context: ssl.SSLContext | None = None, **kwargs: object) -> None:
+        self._ssl_context = ssl_context
+        super().__init__(*args, **kwargs)
+
+    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
+        if self._ssl_context is not None:
+            pool_kwargs["ssl_context"] = self._ssl_context
+        super().init_poolmanager(connections=connections, maxsize=maxsize, block=block, **pool_kwargs)
+
+    def proxy_manager_for(self, proxy: str, **proxy_kwargs: object) -> object:
+        if self._ssl_context is not None:
+            proxy_kwargs["ssl_context"] = self._ssl_context
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
+
+
+class SSLContextCacheAdapter(CacheAdapter):
+    """Cache adapter variant that can enforce a specific SSL context."""
+
+    def __init__(self, *args: object, ssl_context: ssl.SSLContext | None = None, **kwargs: object) -> None:
+        self._ssl_context = ssl_context
+        super().__init__(*args, **kwargs)
+
+    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
+        if self._ssl_context is not None:
+            pool_kwargs["ssl_context"] = self._ssl_context
+        super().init_poolmanager(connections=connections, maxsize=maxsize, block=block, **pool_kwargs)
+
+    def proxy_manager_for(self, proxy: str, **proxy_kwargs: object) -> object:
+        if self._ssl_context is not None:
+            proxy_kwargs["ssl_context"] = self._ssl_context
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 @dataclass
@@ -40,6 +80,50 @@ class PoolConfig:
     retry_attempts: int = 3
 
 
+def resolve_ssl_verify(verify: bool | str | None = None) -> bool | str:
+    """Resolve SSL verification behavior from explicit argument or environment.
+
+    Args:
+        verify: Optional explicit SSL verification mode.
+
+    Returns:
+        Either a boolean verification flag or a certificate bundle path.
+    """
+    if verify is not None:
+        resolved = verify
+    else:
+        env_value = os.getenv("TDC_VERIFY_SSL")
+        if env_value is None:
+            resolved = True
+        else:
+            normalized = env_value.strip().lower()
+            if normalized in SSL_DISABLED_ENV_VALUES:
+                resolved = False
+            elif normalized:
+                resolved = env_value.strip()
+            else:
+                resolved = True
+
+    if resolved is False:
+        logger.warning("SSL certificate verification is disabled (TDC_VERIFY_SSL=false). This is insecure.")
+
+    return resolved
+
+
+def _resolve_ssl_context(verify: bool | str) -> ssl.SSLContext | None:
+    """Build SSL context for adapter-level TLS verification.
+
+    Args:
+        verify: Resolved SSL verification behavior.
+
+    Returns:
+        SSL context when adapter-level override is needed, otherwise None.
+    """
+    if verify is True:
+        return TruststoreSSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    return None
+
+
 def download_to_file(
     url: str,
     destination: Path,
@@ -49,6 +133,7 @@ def download_to_file(
     cache_manager_name: str | None = None,
     http_cache_enabled: bool | None = None,
     pool_config: PoolConfig | None = None,
+    verify: bool | str | None = None,
 ) -> requests.Session | None:
     """Download a file from URL to destination path.
 
@@ -61,6 +146,7 @@ def download_to_file(
         cache_manager_name: Optional cache manager name to determine cache directory when creating a temporary session.
         http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
         pool_config: Optional connection pool configuration.
+        verify: SSL certificate verification mode. Can be bool or CA bundle path.
 
     Raises:
         ValueError: If URL scheme is not supported
@@ -80,6 +166,7 @@ def download_to_file(
             cache_manager_name=cache_manager_name,
             http_cache_enabled=http_cache_enabled,
             pool_config=pool_config,
+            verify=verify,
         )
         active_session = temp_session
     else:
@@ -109,6 +196,7 @@ def create_cached_session(
     cache_manager_name: str | None = None,
     http_cache_enabled: bool | None = None,
     pool_config: PoolConfig | None = None,
+    verify: bool | str | None = None,
 ) -> requests.Session:
     """Create a requests.Session with hishel caching enabled.
 
@@ -120,6 +208,7 @@ def create_cached_session(
         pool_config: Optional connection pool configuration.
                 When provided, pool settings are applied to the active adapter
                 (cache adapter when caching is enabled, HTTPAdapter otherwise).
+        verify: SSL certificate verification mode. Can be bool or CA bundle path.
 
     Returns:
         Configured requests.Session with caching enabled (unless disabled)
@@ -128,6 +217,10 @@ def create_cached_session(
     session = requests.Session()
     session.headers.update(BROWSER_HEADERS)
 
+    verify_mode = resolve_ssl_verify(verify)
+    ssl_context = _resolve_ssl_context(verify_mode)
+    session.verify = verify_mode
+
     # Check if caching is disabled via parameter or environment variable
     if http_cache_enabled is None:
         env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
@@ -135,21 +228,28 @@ def create_cached_session(
 
     # If caching is disabled, optionally configure a pooled HTTP adapter and return.
     if not http_cache_enabled:
-        if pool_config is not None:
+        if pool_config is not None or ssl_context is not None:
+            retry_attempts = pool_config.retry_attempts if pool_config and pool_config.enable_retry else 0
             retry_strategy = Retry(
-                total=pool_config.retry_attempts if pool_config.enable_retry else 0,
+                total=retry_attempts,
                 backoff_factor=1,
                 status_forcelist=[429, 500, 502, 503, 504],
                 allowed_methods=["HEAD", "GET", "OPTIONS"],
             )
-            adapter = HTTPAdapter(
-                pool_connections=pool_config.max_connections,
-                pool_maxsize=pool_config.max_per_host,
+            adapter = SSLContextHTTPAdapter(
+                pool_connections=pool_config.max_connections if pool_config is not None else 10,
+                pool_maxsize=pool_config.max_per_host if pool_config is not None else 10,
                 max_retries=retry_strategy,
+                ssl_context=ssl_context,
             )
             session.mount("http://", adapter)
             session.mount("https://", adapter)
-            logger.debug(f"Configured connection pool without caching: max_connections={pool_config.max_connections}, max_per_host={pool_config.max_per_host}")
+            if pool_config is not None:
+                logger.debug(
+                    "Configured connection pool without caching: "
+                    f"max_connections={pool_config.max_connections}, "
+                    f"max_per_host={pool_config.max_per_host}"
+                )
 
         logger.debug("Creating plain HTTP session (caching disabled)")
         return session
@@ -182,11 +282,12 @@ def create_cached_session(
     )
 
     # Create a single cache adapter with pool settings so both behaviors are active.
-    cache_adapter = CacheAdapter(
+    cache_adapter = SSLContextCacheAdapter(
         pool_connections=pool_config.max_connections if pool_config is not None else 10,
         pool_maxsize=pool_config.max_per_host if pool_config is not None else 10,
         max_retries=max_retries,
         storage=storage,
+        ssl_context=ssl_context,
     )
 
     # Mount the cache adapter
@@ -199,4 +300,11 @@ def create_cached_session(
     return session
 
 
-__all__ = ["PoolConfig", "create_cached_session", "download_to_file"]
+__all__ = [
+    "PoolConfig",
+    "SSLContextCacheAdapter",
+    "SSLContextHTTPAdapter",
+    "create_cached_session",
+    "download_to_file",
+    "resolve_ssl_verify",
+]
