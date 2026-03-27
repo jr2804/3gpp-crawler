@@ -17,6 +17,8 @@ class OutputFormat(StrEnum):
 
     TABLE = auto()
     JSON = auto()
+    ISON = auto()
+    TOON = auto()
     YAML = auto()
 
 
