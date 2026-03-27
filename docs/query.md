@@ -7,20 +7,20 @@ Query commands allow you to search and display metadata stored in your local dat
 Use a single command for AI-assisted retrieval across text, tables, figures, and equations:
 
 ```bash
-tdoc-crawler ai rag query --workspace <workspace_name> "your query here"
+tdoc-crawler ai workspace query --workspace <workspace_name> "your query here"
 ```
 
 Examples:
 
 ```bash
-tdoc-crawler ai rag query --workspace test-rag-elements "What are the bit rates in Table 3?"
-tdoc-crawler ai rag query --workspace test-rag-elements "Describe the architecture figure"
-tdoc-crawler ai rag query --workspace test-rag-elements "What is the throughput equation?"
+tdoc-crawler ai workspace query --workspace test-rag-elements "What are the bit rates in Table 3?"
+tdoc-crawler ai workspace query --workspace test-rag-elements "Describe the architecture figure"
+tdoc-crawler ai workspace query --workspace test-rag-elements "What is the throughput equation?"
 ```
 
 Notes:
 
-- Keep `ai rag query` as the single query entrypoint (no separate table/figure/equation query commands).
+- Keep `ai workspace query` as the single query entrypoint (no separate table/figure/equation query commands).
 - Retrieval uses enriched chunk content and element-aware metadata when available.
 
 ## Commands

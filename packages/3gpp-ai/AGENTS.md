@@ -141,8 +141,8 @@ Exposed via `tdoc-crawler` commands:
 
 ```bash
 tdoc-crawler ai workspace process
-tdoc-crawler ai rag query "your query"
-tdoc-crawler ai rag status
+tdoc-crawler ai workspace query "your query"
+tdoc-crawler ai workspace status
 ```
 
 ## Import Guidelines

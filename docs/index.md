@@ -25,10 +25,8 @@ PQ|- [**Query Documentation**](query.md) – How to search and display stored me
 - [**Open TDoc**](utils.md#open)
   #KK|- [**Checkout Specs**](utils.md#checkout-spec)
   #TQ|- **AI Commands**
-  #KM|- [**AI Process**](ai.md#ai-process) - Process TDocs through AI pipeline
-  #NH|- [**AI Status**](ai.md#ai-status) - Check processing status
-  #RD|- [**AI Query**](ai.md#ai-query) - Semantic search over TDocs
-  #YM|- [**AI Graph**](ai.md#ai-graph) - Query knowledge graph
-  #YQ|- [**AI Workspace**](ai.md#ai-workspace) - Manage workspaces
+  #KM|- [**AI Workspace**](ai.md#workspace-management) - Create and manage workspaces
+  #RD|- [**AI Query**](ai.md#querying) - Semantic search over TDocs
+  #YQ|- [**AI Summarize/Convert**](ai.md#single-tdoc-operations) - Single TDoc operations
 
 BJ|For a brief overview of all commands, see the [README.md](../README.md).

@@ -137,14 +137,14 @@ Once you have a workspace with documents, query using the single RAG command tha
 
 ```bash
 # Query a workspace
-tdoc-crawler ai rag query --workspace my-project "What are the bit rates in Table 3?"
+tdoc-crawler ai workspace query --workspace my-project "What are the bit rates in Table 3?"
 
 # Same command for figure/equation questions
-tdoc-crawler ai rag query --workspace my-project "Describe the architecture figure"
-tdoc-crawler ai rag query --workspace my-project "What is the throughput equation?"
+tdoc-crawler ai workspace query --workspace my-project "Describe the architecture figure"
+tdoc-crawler ai workspace query --workspace my-project "What is the throughput equation?"
 ```
 
-Note: `ai rag query` is the only query entrypoint. Do not use separate table/figure/equation query commands.
+Note: `ai workspace query` is the only query entrypoint. Do not use separate table/figure/equation query commands.
 
 ### 4. Workspace Maintenance
 
@@ -220,10 +220,10 @@ Query the knowledge base using semantic embeddings and knowledge graph (RAG + Gr
 
 ```bash
 # Query a specific workspace (single query command)
-tdoc-crawler ai rag query --workspace <workspace_name> "your query here"
+tdoc-crawler ai workspace query --workspace <workspace_name> "your query here"
 ````
 
-Note: Keep `ai rag query` as the single query interface. The query is a positional argument (no `--query` flag).
+Note: Keep `ai workspace query` as the single query interface. The query is a positional argument (no `--query` flag).
 
 #### Summarize a TDoc
 
