@@ -7,16 +7,20 @@
 ## Changes
 
 ### Removed Commands
+
 - `3gpp-ai rag migrate` - Removed migration functionality entirely
 - `3gpp-ai rag query` - Moved to `workspace query`
 - `3gpp-ai rag status` - Moved to `workspace status`
 
 ### New Commands (under workspace)
+
 - `3gpp-ai workspace query` - Query the LightRAG knowledge graph
 - `3gpp-ai workspace status` - Show LightRAG configuration and status
 
 ### Files Modified
+
 - `packages/3gpp-ai/threegpp_ai/cli.py`
+
   - Removed `rag_app` import and `app.add_typer(rag_app, name="rag")`
   - Added `workspace query` command
   - Added `workspace status` command
@@ -24,6 +28,7 @@
   - Added imports: `Annotated`, `QueryMode`, `StorageBackend`, `TDocRAG`
 
 - `packages/3gpp-ai/threegpp_ai/lightrag/cli.py`
+
   - Removed migrate command
   - Removed migration imports
   - Marked module as deprecated
@@ -31,6 +36,7 @@
 - `packages/3gpp-ai/threegpp_ai/lightrag/migration.py` - Deleted
 
 ### New CLI Structure
+
 ```
 3gpp-ai --help
 ├── summarize   (existing)
