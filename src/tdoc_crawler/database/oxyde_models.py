@@ -6,33 +6,41 @@ These models replace the previous pydantic-sqlite based persistence layer.
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from typing import Any
 
 from oxyde import Field, Model
+from pydantic import field_validator
 
 
 class WorkingGroupRecord(Model):
     """Reference data for working groups."""
 
-    tbid: int = Field(primary_key=True)
+    tbid: int = Field(db_pk=True)
     code: str
     name: str
+
+    class Meta:
+        is_table = True
 
 
 class SubWorkingGroupRecord(Model):
     """Reference data for subworking groups."""
 
-    subtb: int = Field(primary_key=True)
+    subtb: int = Field(db_pk=True)
     tbid: int
     code: str
     name: str
+
+    class Meta:
+        is_table = True
 
 
 class CrawlLogEntry(Model):
     """Log entry for crawl operations."""
 
-    log_id: str = Field(primary_key=True)
+    log_id: str = Field(db_pk=True)
     crawl_type: str
     start_time: datetime
     end_time: datetime | None = None
@@ -44,11 +52,14 @@ class CrawlLogEntry(Model):
     status: str = Field(default="RUNNING")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    class Meta:
+        is_table = True
+
 
 class MeetingMetadata(Model):
     """Metadata for 3GPP meetings."""
 
-    meeting_id: int = Field(primary_key=True)
+    meeting_id: int = Field(db_pk=True)
     tbid: int
     subtb: int | None = None
     short_name: str
@@ -63,11 +74,14 @@ class MeetingMetadata(Model):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    class Meta:
+        is_table = True
+
 
 class TDocMetadata(Model):
     """Metadata for TDoc documents."""
 
-    tdoc_id: str = Field(primary_key=True)
+    tdoc_id: str = Field(db_pk=True)
     meeting_id: int
     title: str
     url: str | None = None
@@ -86,11 +100,14 @@ class TDocMetadata(Model):
     validated: bool = Field(default=False)
     validation_failed: bool = Field(default=False)
 
+    class Meta:
+        is_table = True
+
 
 class Specification(Model):
     """Canonical specification identity and metadata."""
 
-    spec_number: str = Field(primary_key=True)
+    spec_number: str = Field(db_pk=True)
     spec_number_compact: str
     spec_type: str
     title: str
@@ -99,11 +116,14 @@ class Specification(Model):
     series: str
     latest_version: str | None = None
 
+    class Meta:
+        is_table = True
+
 
 class SpecificationSourceRecord(Model):
     """Source-specific metadata snapshot for specifications."""
 
-    record_id: str = Field(primary_key=True)
+    record_id: str = Field(db_pk=True)
     spec_number: str
     source_name: str
     source_identifier: str | None = None
@@ -111,21 +131,49 @@ class SpecificationSourceRecord(Model):
     versions: list[str] = Field(default_factory=list)
     fetched_at: datetime | None = None
 
+    @field_validator("metadata_payload", mode="before")
+    @classmethod
+    def _parse_metadata_payload(cls, value: dict[str, Any] | str) -> dict[str, Any]:
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return value
+
+    @field_validator("versions", mode="before")
+    @classmethod
+    def _parse_versions(cls, value: list[str] | str) -> list[str]:
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return []
+            return [str(item) for item in parsed] if isinstance(parsed, list) else []
+        return [str(item) for item in value]
+
+    class Meta:
+        is_table = True
+
 
 class SpecificationVersion(Model):
     """Version details for specifications."""
 
-    record_id: str = Field(primary_key=True)
+    record_id: str = Field(db_pk=True)
     spec_number: str
     version: str
     file_name: str
     source_name: str
 
+    class Meta:
+        is_table = True
+
 
 class SpecificationDownload(Model):
     """Download and extraction outcome for spec versions."""
 
-    record_id: str = Field(primary_key=True)
+    record_id: str = Field(db_pk=True)
     spec_number: str
     version: str
     download_url: str
@@ -136,6 +184,9 @@ class SpecificationDownload(Model):
     outcome_status: str
     outcome_message: str | None = None
     extracted_at: datetime | None = None
+
+    class Meta:
+        is_table = True
 
 
 __all__ = [

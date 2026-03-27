@@ -49,7 +49,7 @@ class TDocDatabase(MeetingDatabase):
                     "date_created": record.date_created or record.date_retrieved,
                 },
             )
-            await self.connection.save(created_record)
+            await TDocMetadata.objects.create(instance=created_record)
             return True, False
 
         if record.date_created is None and existing.date_created is not None:
@@ -57,7 +57,7 @@ class TDocDatabase(MeetingDatabase):
 
         changed = self._tdoc_changed(existing, record)
         updated_record = self._clone_tdoc(record, {"date_updated": now})
-        await self.connection.save(updated_record)
+        await updated_record.save()
         return False, changed
 
     async def bulk_upsert_tdocs(
@@ -170,7 +170,7 @@ class TDocDatabase(MeetingDatabase):
 
     async def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
         """Get a TDoc by ID."""
-        return await self.connection.get(TDocMetadata, tdoc_id.upper())
+        return await TDocMetadata.objects.filter(tdoc_id=tdoc_id.upper()).first()
 
     @classmethod
     def _meeting_matches_filters(
@@ -216,11 +216,27 @@ class TDocDatabase(MeetingDatabase):
         end_date: datetime | None,
     ) -> list[TDocMetadata]:
         """Filter records by retrieval datetime bounds."""
+
+        def _normalized_bound(value: datetime, bound: datetime) -> tuple[datetime, datetime]:
+            if value.tzinfo is None and bound.tzinfo is not None:
+                return value.replace(tzinfo=UTC), bound
+            if value.tzinfo is not None and bound.tzinfo is None:
+                return value, bound.replace(tzinfo=UTC)
+            return value, bound
+
         filtered = records
         if start_date is not None:
-            filtered = [record for record in filtered if record.date_retrieved and record.date_retrieved >= start_date]
+            filtered = [
+                record
+                for record in filtered
+                if record.date_retrieved and _normalized_bound(record.date_retrieved, start_date)[0] >= _normalized_bound(record.date_retrieved, start_date)[1]
+            ]
         if end_date is not None:
-            filtered = [record for record in filtered if record.date_retrieved and record.date_retrieved <= end_date]
+            filtered = [
+                record
+                for record in filtered
+                if record.date_retrieved and _normalized_bound(record.date_retrieved, end_date)[0] <= _normalized_bound(record.date_retrieved, end_date)[1]
+            ]
         return filtered
 
     @staticmethod

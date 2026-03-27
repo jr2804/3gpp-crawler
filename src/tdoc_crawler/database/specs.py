@@ -139,11 +139,11 @@ class SpecDatabase(DocDatabase):
         """Upsert a specification record."""
         existing = await self._get_specification(specification.spec_number)
         if existing is None:
-            await self.connection.save(specification)
+            await Specification.objects.create(instance=specification)
             return True, False
 
         changed = self._spec_changed(existing, specification)
-        await self.connection.save(specification)
+        await specification.save()
         return False, changed
 
     async def upsert_spec_source_record(self, record: SpecificationSourceRecord) -> tuple[bool, bool]:
@@ -160,11 +160,11 @@ class SpecDatabase(DocDatabase):
         )
         existing = await self._get_spec_source_record(record_id)
         if existing is None:
-            await self.connection.save(updated_record)
+            await SpecificationSourceRecord.objects.create(instance=updated_record)
             return True, False
 
         changed = self._spec_source_changed(existing, updated_record)
-        await self.connection.save(updated_record)
+        await updated_record.save()
         return False, changed
 
     async def upsert_spec_version(self, version: SpecificationVersion) -> tuple[bool, bool]:
@@ -179,18 +179,17 @@ class SpecDatabase(DocDatabase):
         )
         existing = await self._get_spec_version(record_id)
         if existing is None:
-            await self.connection.save(updated_version)
+            await SpecificationVersion.objects.create(instance=updated_version)
             return True, False
 
         changed = self._spec_version_changed(existing, updated_version)
-        await self.connection.save(updated_version)
+        await updated_version.save()
         return False, changed
 
     async def get_spec_versions(self, spec_number: str) -> list[SpecificationVersion]:
         """Get all versions for a spec."""
         try:
-            query = self.connection.query(SpecificationVersion).filter(spec_number=spec_number)
-            return await query.all()
+            return await SpecificationVersion.objects.filter(spec_number=spec_number).all()
         except Exception as exc:
             _logger.error("Failed to get spec versions for '%s': %s", spec_number, exc)
             raise DatabaseError("spec-versions-read-failed", detail=str(exc)) from exc
@@ -457,17 +456,17 @@ class SpecDatabase(DocDatabase):
         return await self._table_rows(Specification)
 
     async def _get_specification(self, spec_number: str) -> Specification | None:
-        return await self.connection.get(Specification, spec_number)
+        return await Specification.objects.filter(spec_number=spec_number).first()
 
     async def _get_spec_source_record(self, record_id: str) -> SpecificationSourceRecord | None:
         try:
-            return await self.connection.get(SpecificationSourceRecord, record_id)
+            return await SpecificationSourceRecord.objects.filter(record_id=record_id).first()
         except Exception as exc:
             _logger.warning("Failed to fetch spec source record '%s': %s", record_id, exc)
             return None
 
     async def _get_spec_version(self, record_id: str) -> SpecificationVersion | None:
-        return await self.connection.get(SpecificationVersion, record_id)
+        return await SpecificationVersion.objects.filter(record_id=record_id).first()
 
     @staticmethod
     def _spec_changed(current: Specification, candidate: Specification) -> bool:

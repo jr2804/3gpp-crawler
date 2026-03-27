@@ -53,7 +53,7 @@ class MeetingDatabase(DocDatabase):
                 created_at=now,
                 updated_at=now,
             )
-            await self.connection.save(created)
+            await MeetingMetadata.objects.create(instance=created)
             return True, False
 
         created_at = record.created_at or existing.created_at
@@ -74,7 +74,7 @@ class MeetingDatabase(DocDatabase):
             created_at=created_at,
             updated_at=now,
         )
-        await self.connection.save(updated)
+        await updated.save()
         return False, changed
 
     async def bulk_upsert_meetings(
@@ -273,7 +273,7 @@ class MeetingDatabase(DocDatabase):
 
     async def _get_meeting(self, meeting_id: int) -> MeetingMetadata | None:
         """Get a meeting by ID."""
-        return await self.connection.get(MeetingMetadata, meeting_id)
+        return await MeetingMetadata.objects.filter(meeting_id=meeting_id).first()
 
     # ------------------------------------------------------------------
     # Normalisation helpers
