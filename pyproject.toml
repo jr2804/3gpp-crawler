@@ -105,7 +105,8 @@ source = "uv-dynamic-versioning"
 
 [tool.uv-dynamic-versioning]
 vcs = "git"
-style = "semver"
+style = "pep440"
+bump = true
 
 [tool.uv.workspace]
 members = ["packages/*"]
