@@ -13,14 +13,13 @@ from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.specs.operations.checkout import checkout_specs_async
+from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, checkout_specs_async
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
 from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id
-from tdoc_crawler.utils.normalization import normalize_spec_number, resolve_release_to_full_version
+from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_tdoc_id, resolve_release_to_full_version
 
 from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
@@ -581,9 +580,21 @@ async def checkout_spec_to_workspace(
             _logger.debug("Spec %s (release %s) already checked out at %s", spec_number, requested_release, spec_dir)
             return spec_dir
 
-    # Need to checkout the spec - reuse DB connection from resolve_spec_release_from_db
+    # Need to checkout the spec - auto-crawl if not in database
     try:
         async with SpecDatabase(db_path) as db:
+            # Check if spec is in database, if not, crawl it first
+            versions = await db.get_spec_versions(normalized)
+            if not versions:
+                _logger.info("Spec %s not found in database, auto-crawling...", normalized)
+                sources = build_default_spec_sources()
+                await db.crawl_specs([normalized], resolved_release, sources)
+                # Re-check after crawl
+                versions = await db.get_spec_versions(normalized)
+                if not versions:
+                    _logger.warning("Spec %s not found after crawl - spec may not exist", normalized)
+                    return None
+
             checkout_paths = await checkout_specs_async(
                 spec_numbers=[spec_number],
                 checkout_dir=checkout_base,

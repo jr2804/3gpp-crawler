@@ -19,7 +19,7 @@ from rich.progress import MofNCompleteColumn, Progress, SpinnerColumn, TextColum
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.logging import get_console, get_logger
+from tdoc_crawler.logging import get_console, get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
@@ -851,7 +851,13 @@ def workspace_add_members(
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
     limit: WorkspaceLimitOption = None,
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output (INFO level logging)"),
 ) -> None:
+    # Set log level based on verbosity
+    if verbose:
+        set_verbosity("INFO")
+    else:
+        set_verbosity("WARNING")
     workspace_name = _resolve_workspace_name(workspace)
     kind_normalized = kind.lower().rstrip("s")
     source_kind = SourceKind(kind_normalized) if kind_normalized in {entry.value for entry in SourceKind} else SourceKind.OTHER

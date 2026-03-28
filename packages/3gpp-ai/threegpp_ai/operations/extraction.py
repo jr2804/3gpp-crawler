@@ -117,6 +117,8 @@ def _get_ai_directory(file_path: Path) -> Path:
     """Get the .ai directory for a file.
 
     Creates .ai folder next to the file if it doesn't exist.
+    If the file is already inside a .ai directory (e.g., converted PDF),
+    uses the parent directory instead to avoid nested .ai/.ai paths.
 
     Args:
         file_path: Path to source document.
@@ -124,6 +126,10 @@ def _get_ai_directory(file_path: Path) -> Path:
     Returns:
         Path to .ai directory.
     """
+    # If file is already inside a .ai folder, use the parent's parent
+    # to avoid creating .ai/.ai nested structure
+    if file_path.parent.name == ".ai":
+        return file_path.parent.parent / ".ai"
     return file_path.parent / ".ai"
 
 
