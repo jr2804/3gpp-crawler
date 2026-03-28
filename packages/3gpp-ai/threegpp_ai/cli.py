@@ -23,6 +23,7 @@ from tdoc_crawler.logging import get_console, get_logger
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
+from tdoc_crawler.utils.normalization import normalize_release_version
 
 from threegpp_ai import (
     SourceKind,
@@ -54,7 +55,7 @@ from threegpp_ai.args import (
     ConvertOutputOption,
     ConvertPdfOption,
     EndDateOption,
-    JsonOutputOption,
+    OutputFormatOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
@@ -85,7 +86,8 @@ from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import convert_document_to_markdown
 from threegpp_ai.operations.extraction import extract_document_structured
-from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
+from threegpp_ai.operations.workspace_registry import WorkspaceRegistry, normalize_spec_member_id
+from threegpp_ai.operations.workspace_utils import check_pdf_status
 
 # Load environment variables from .env file
 load_dotenv()
@@ -212,6 +214,18 @@ def _resolve_workspace_name(workspace: str | None) -> str:
     console.print("[red]No workspace specified and no active workspace set.[/red]")
     console.print("[red]Use -w <name> or '3gpp-ai workspace activate <name>'[/red]")
     raise typer.Exit(1)
+
+
+def _get_relative_path(source_path: str, base_path: Path) -> str:
+    """Convert absolute path to relative path from base, or return original if not under base."""
+    try:
+        source = Path(source_path)
+        base = Path(base_path)
+        # Try to compute relative path
+        return str(source.relative_to(base))
+    except ValueError:
+        # Path is not relative to base, return as-is
+        return source_path
 
 
 def _resolve_workspace_items(
@@ -341,8 +355,10 @@ async def _process_single_item(
         except Exception as e:
             _logger.debug("Failed to extract markdown for %s: %s", item, e)
 
-    resolved_release = await resolve_spec_release_from_db(item, release) if source_kind == SourceKind.SPEC and release else None
-    source_item_id = f"{item}-REL{resolved_release}" if resolved_release else item
+    resolved_release = None
+    if source_kind == SourceKind.SPEC and release:
+        resolved_release, _ = await resolve_spec_release_from_db(item, release)
+    source_item_id = f"{item}-REL{normalize_release_version(resolved_release)}" if resolved_release else item
     member = make_workspace_member(workspace, source_item_id, source_path, source_kind)
     return member, None, was_converted, was_md_extracted
 
@@ -544,7 +560,7 @@ def ai_convert(
     document_id: ConvertDocumentArgument,
     output: ConvertOutputOption = None,
     force: ConvertForceOption = False,
-    json_output: JsonOutputOption = False,
+    output_format: OutputFormatOption = "text",
 ) -> None:
     """Convert one TDoc and optionally persist markdown output."""
     markdown_or_path = asyncio.run(
@@ -552,7 +568,7 @@ def ai_convert(
     )
 
     if output:
-        if json_output:
+        if output_format == "json":
             _print_output(
                 {"output": str(output)},
                 OutputFormat.JSON,
@@ -562,7 +578,7 @@ def ai_convert(
             console.print(f"[green]Converted {document_id} to {output}[/green]")
         return
 
-    if json_output:
+    if output_format == "json":
         _print_output(
             {"markdown": markdown_or_path},
             OutputFormat.JSON,
@@ -578,14 +594,14 @@ def workspace_create(
     name: WorkspaceNameArgument,
     auto_build: WorkspaceAutoBuildOption = False,
     activate: WorkspaceActivateOption = True,
-    json_output: JsonOutputOption = False,
+    output_format: OutputFormatOption = "text",
 ) -> None:
     registry = create_workspace(name, auto_build=auto_build)
     workspace = registry.get_workspace(name)
     if activate:
         set_active_workspace(name)
 
-    if json_output:
+    if output_format == "json":
         _print_output(
             {"name": workspace.name if workspace else name, "auto_build": auto_build},
             OutputFormat.JSON,
@@ -600,7 +616,7 @@ def workspace_create(
 
 @workspace_app.command("list", help="List all workspaces")
 def workspace_list(
-    json_output: JsonOutputOption = False,
+    output_format: OutputFormatOption = "text",
 ) -> None:
     registry = WorkspaceRegistry.load()
     workspaces = registry.list_workspaces()
@@ -616,7 +632,7 @@ def workspace_list(
         for entry in workspaces
     ]
 
-    if json_output:
+    if output_format == "json":
         _print_output(
             workspace_rows,
             OutputFormat.JSON,
@@ -651,7 +667,7 @@ def workspace_query(
         ),
     ] = QueryMode.HYBRID,
     workspace: WorkspaceNameOption = None,
-    json_output: JsonOutputOption = False,
+    output_format: OutputFormatOption = "text",
 ) -> None:
     """Query the LightRAG knowledge graph."""
     workspace_name = _resolve_workspace_name(workspace)
@@ -672,7 +688,7 @@ def workspace_query(
 
     result = asyncio.run(_run())
 
-    if json_output:
+    if output_format == "json":
         _print_output(
             {"query": query, "mode": mode.value, "result": result},
             OutputFormat.JSON,
@@ -739,7 +755,7 @@ def workspace_status(
 @workspace_app.command("info", help="Show detailed information about a workspace")
 def workspace_info(
     name: WorkspaceNameArgument,
-    json_output: JsonOutputOption = False,
+    output_format: OutputFormatOption = "text",
 ) -> None:
     workspace = get_workspace(name)
     if workspace is None:
@@ -747,7 +763,7 @@ def workspace_info(
         raise typer.Exit(1)
 
     counts = get_workspace_member_counts(name)
-    if json_output:
+    if output_format == "json":
         _print_output(
             {"name": workspace.name, "auto_build": workspace.auto_build, "member_counts": counts},
             OutputFormat.JSON,
@@ -932,7 +948,7 @@ def workspace_add_members(
 def workspace_list_members(
     workspace: WorkspaceNameOption = None,
     include_inactive: WorkspaceIncludeInactiveOption = False,
-    json_output: JsonOutputOption = False,
+    output: ProvidersOutputOption = OutputFormat.TABLE,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -942,9 +958,12 @@ def workspace_list_members(
         console.print(f"[red]Workspace '{workspace_name}' not found[/red]")
         raise typer.Exit(1)
 
+    manager = resolve_cache_manager()
+    checkout_base = manager.checkout_dir
+
     member_rows = [
         {
-            "source_item_id": entry.source_item_id,
+            "source_item_id": normalize_spec_member_id(entry.source_item_id),
             "source_path": entry.source_path,
             "source_kind": entry.source_kind.value,
             "is_active": entry.is_active,
@@ -953,31 +972,35 @@ def workspace_list_members(
         for entry in members
     ]
 
-    if json_output:
+    if output is not OutputFormat.TABLE:
         _print_output(
             member_rows,
-            OutputFormat.JSON,
+            output,
             table_title=f"Members: {workspace_name}",
         )
         return
 
     table_rows = [
         {
+            "idx": str(i + 1),
             "source_id": row["source_item_id"],
             "kind": row["source_kind"],
-            "path": row["source_path"],
+            "path": _get_relative_path(str(row["source_path"]), checkout_base),
+            "pdf": check_pdf_status(str(row["source_path"])),
             "active": "Yes" if row["is_active"] else "No",
         }
-        for row in member_rows
+        for i, row in enumerate(member_rows)
     ]
     _print_output(
         table_rows,
         OutputFormat.TABLE,
         table_title=f"Members: {workspace_name}",
         table_columns=[
+            TableColumnSpec("idx", "#", style="dim"),
             TableColumnSpec("source_id", "Source ID", style="cyan"),
             TableColumnSpec("kind", "Kind", style="green"),
             TableColumnSpec("path", "Path", style="white"),
+            TableColumnSpec("pdf", "PDF", style="blue"),
             TableColumnSpec("active", "Active", style="yellow"),
         ],
     )
@@ -988,7 +1011,7 @@ def workspace_process(
     workspace: WorkspaceNameOption = None,
     force: WorkspaceProcessForceOption = False,
     limit: WorkspaceLimitOption = None,
-    json_output: JsonOutputOption = False,
+    output_format: OutputFormatOption = "text",
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -1039,7 +1062,7 @@ def workspace_process(
         "results": results,
     }
 
-    if json_output:
+    if output_format == "json":
         _print_output(payload, OutputFormat.JSON, table_title="Workspace Process")
         return
 

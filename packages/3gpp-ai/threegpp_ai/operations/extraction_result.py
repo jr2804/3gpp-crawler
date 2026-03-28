@@ -232,20 +232,22 @@ def persist_figures_from_kreuzberg_result(
     path_map: dict[str, Path] = {}
 
     for index, image in enumerate(image_items, start=1):
-        image_bytes = getattr(image, "content", None)
+        # Kreuzberg returns images as dicts with 'data', 'format', 'page_number' keys
+        if isinstance(image, dict):
+            image_bytes = image.get("data")
+            image_format = str(image.get("format", "png") or "png").lower()
+            page = image.get("page_number")
+        else:
+            image_bytes = getattr(image, "content", None)
+            image_format = str(getattr(image, "format", "png") or "png").lower()
+            page = getattr(image, "page_number", None)
+
         if not isinstance(image_bytes, bytes) or not image_bytes:
             continue
 
-        image_format = str(getattr(image, "format", "png") or "png").lower()
         extension = "jpg" if image_format == "jpeg" else image_format
 
-        if doc_stem:
-            # New naming: {doc_stem}_figure_{page}_{index}.{ext}
-            page = getattr(image, "page_number", None)
-            filename = f"{doc_stem}_figure_{page or 'unknown'}_{index}.{extension}"
-        else:
-            # Legacy naming for backward compatibility
-            filename = f"figure_{index}.{extension}"
+        filename = f"{doc_stem}_figure_{page or 'unknown'}_{index}.{extension}" if doc_stem else f"figure_{index}.{extension}"
 
         image_path = figures_dir / filename
         image_path.write_bytes(image_bytes)
@@ -327,14 +329,24 @@ def from_kreuzberg_result(
     figures: list[ExtractedFigureElement] = []
     for index, image in enumerate(image_items, start=1):
         figure_id = f"figure_{index}"
-        metadata = getattr(image, "metadata", None)
+        # Kreuzberg returns images as dicts with 'data', 'format', 'page_number' keys
+        if isinstance(image, dict):
+            page_number = image.get("page_number")
+            image_format = image.get("format")
+            metadata = image.get("metadata")
+            caption = image.get("caption")
+        else:
+            page_number = getattr(image, "page_number", None)
+            image_format = getattr(image, "format", None)
+            metadata = getattr(image, "metadata", None)
+            caption = getattr(image, "caption", None)
         figures.append(
             ExtractedFigureElement(
                 element_id=figure_id,
-                page_number=getattr(image, "page_number", None),
+                page_number=page_number,
                 image_path=(figure_paths or {}).get(figure_id),
-                image_format=getattr(image, "format", None),
-                caption=getattr(image, "caption", None),
+                image_format=image_format,
+                caption=caption,
                 description=(figure_descriptions or {}).get(figure_id),
                 metadata=metadata if isinstance(metadata, dict) else {},
             )

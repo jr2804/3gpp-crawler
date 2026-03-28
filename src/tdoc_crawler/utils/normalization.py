@@ -328,3 +328,39 @@ def normalize_portal_meeting_name(portal_meeting: str | None) -> str:
             break
 
     return normalized
+
+
+def normalize_release_version(release: str) -> str:
+    """Normalize a release version to three numeric components.
+
+    Pads partial versions with ".0" and strips "rel-" prefix.
+
+    Examples:
+        '19' -> '19.0.0'
+        '19.1' -> '19.1.0'
+        '19.1.2' -> '19.1.2'
+        'rel-19' -> '19.0.0'
+
+    Args:
+        release: Release version string.
+
+    Returns:
+        Normalized 3-component version string, or original string if not a valid version.
+    """
+    cleaned = release.strip()
+    if cleaned.lower().startswith("rel-"):
+        cleaned = cleaned[4:]
+
+    parts = [part for part in cleaned.split(".") if part != ""]
+    if not parts:
+        return release
+
+    if any(not part.isdigit() for part in parts):
+        return release
+
+    while len(parts) < 3:
+        parts.append("0")
+    if len(parts) > 3:
+        parts = parts[:3]
+
+    return ".".join(parts)

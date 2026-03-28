@@ -4,6 +4,7 @@
 "github:djinn-soul/CytoScnPy" = "latest"
 "github:AlmogBaku/debug-skill" = "latest"
 "github:rtk-ai/rtk" = "latest"
+#"github:arabold/docs-mcp-server" = "latest"
 
 "ruff" = "latest"
 "ty" = "latest"
@@ -80,6 +81,7 @@ shell = "pwsh -NoProfile -Command"
 run = [
     'cls',
     'bun x add-mcp -y -a {{usage.ai_agent}} "grepai mcp-serve"',
+    #'bun x add-mcp -y -a {{usage.ai_agent}} -n docs-mcp-server "grepai mcp-serve"',
     'bun x add-mcp -y -a {{usage.ai_agent}} -n cytoscnpy-mcp "cytoscnpy mcp-server"'
 ]
 
@@ -108,6 +110,7 @@ run = [
     "bun x skills add https://github.com/AlmogBaku/debug-skill -a universal -y", # for dab tool -> AlmogBaku/debug-skill
 	"bun x skills add yoanbernabeu/grepai-skills -a universal -y",
 	"bun x skills add AlmogBaku/debug-skill -a universal -y",
+	"bun x skills add https://github.com/arabold/docs-mcp-server -a universal -y",
 
     # 3GPP skills (TODO: fix - requires well-known endpoint)
     "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",

@@ -7,6 +7,7 @@ stored in a JSON file at ~/.tdoc-crawler/.ai/workspaces.json.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -14,11 +15,52 @@ from typing import Any
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.normalization import normalize_release_version
 
 from threegpp_ai.models import SourceKind
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, normalize_workspace_name
 
 logger = get_logger(__name__)
+
+
+def normalize_spec_member_id(source_item_id: str) -> str:
+    """Normalize spec member IDs to canonical format for display.
+
+    Handles legacy IDs where release tuple objects were stringified.
+
+    Examples:
+        26261-REL('19', []) -> 26261-REL19.0.0
+        26261-REL19 -> 26261-REL19.0.0
+        26261-REL19.1 -> 26261-REL19.1.0
+
+    Args:
+        source_item_id: The source item ID to normalize.
+
+    Returns:
+        Normalized source item ID with three-digit release version.
+    """
+    return _normalize_legacy_spec_member_id(source_item_id)
+
+
+def _normalize_legacy_spec_member_id(source_item_id: str) -> str:
+    """Normalize spec IDs to canonical three-digit release versions.
+
+    Examples:
+        26261-REL('19', []) -> 26261-REL19.0.0
+        26261-REL19 -> 26261-REL19.0.0
+        26261-REL19.1 -> 26261-REL19.1.0
+    """
+    legacy_match = re.match(r"^(?P<spec>\d+(?:\.\d+)?)-REL\('(?P<release>[^']+)', \[[^\]]*\]\)$", source_item_id)
+    if legacy_match is not None:
+        normalized_release = normalize_release_version(legacy_match.group("release"))
+        return f"{legacy_match.group('spec')}-REL{normalized_release}"
+
+    modern_match = re.match(r"^(?P<spec>\d+(?:\.\d+)?)-REL(?P<release>.+)$", source_item_id)
+    if modern_match is not None:
+        normalized_release = normalize_release_version(modern_match.group("release"))
+        return f"{modern_match.group('spec')}-REL{normalized_release}"
+
+    return source_item_id
 
 
 @dataclass
@@ -34,7 +76,7 @@ class WorkspaceMember:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "source_item_id": self.source_item_id,
+            "source_item_id": _normalize_legacy_spec_member_id(self.source_item_id),
             "source_path": self.source_path,
             "source_kind": self.source_kind.value,
             "added_by": self.added_by,
@@ -45,7 +87,7 @@ class WorkspaceMember:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> WorkspaceMember:
         return cls(
-            source_item_id=data["source_item_id"],
+            source_item_id=_normalize_legacy_spec_member_id(data["source_item_id"]),
             source_path=data["source_path"],
             source_kind=SourceKind(data.get("source_kind", "other")),
             added_by=data.get("added_by", ""),
@@ -74,19 +116,23 @@ class WorkspaceMetadata:
 
     def add_member(self, member: WorkspaceMember) -> None:
         """Add a member to the workspace."""
-        self.members = [m for m in self.members if m.get("source_item_id") != member.source_item_id]
+        normalized_target_id = _normalize_legacy_spec_member_id(member.source_item_id)
+        self.members = [m for m in self.members if _normalize_legacy_spec_member_id(str(m.get("source_item_id", ""))) != normalized_target_id]
+        member.source_item_id = normalized_target_id
         self.members.append(member.to_dict())
 
     def remove_member(self, source_item_id: str) -> bool:
         """Remove a member by source_item_id. Returns True if found and removed."""
+        normalized_target_id = _normalize_legacy_spec_member_id(source_item_id)
         original_count = len(self.members)
-        self.members = [m for m in self.members if m.get("source_item_id") != source_item_id]
+        self.members = [m for m in self.members if _normalize_legacy_spec_member_id(str(m.get("source_item_id", ""))) != normalized_target_id]
         return len(self.members) < original_count
 
     def deactivate_member(self, source_item_id: str) -> bool:
         """Deactivate a member by source_item_id. Returns True if found and deactivated."""
+        normalized_target_id = _normalize_legacy_spec_member_id(source_item_id)
         for member in self.members:
-            if member.get("source_item_id") == source_item_id:
+            if _normalize_legacy_spec_member_id(str(member.get("source_item_id", ""))) == normalized_target_id:
                 member["is_active"] = False
                 return True
         return False

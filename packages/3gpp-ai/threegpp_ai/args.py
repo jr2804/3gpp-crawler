@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
 # Common
-JsonOutputOption = Annotated[bool, typer.Option("--json", help="Output as JSON")]
+OutputFormatOption = Annotated[
+    Literal["text", "json", "yaml"],
+    typer.Option(
+        "--output-format",
+        help="Output format: 'text' (default), 'json', or 'yaml'",
+        envvar="TDC_AI_OUTPUT_FORMAT",
+    ),
+]
 CacheDirOption = Annotated[
     Path | None,
     typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR"),

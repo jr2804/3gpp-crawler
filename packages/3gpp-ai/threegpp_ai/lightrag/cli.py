@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 from rich.console import Console
@@ -37,10 +37,10 @@ def query_graph(
         str,
         typer.Option("--workspace", "-w", help="Workspace name"),
     ] = "default",
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", "-j", help="Output raw JSON"),
-    ] = False,
+    output_format: Annotated[
+        Literal["text", "json", "yaml"],
+        typer.Option("--output-format", help="Output format: 'text' (default), 'json', or 'yaml'"),
+    ] = "text",
 ) -> None:
     """Query the LightRAG knowledge graph.
 
@@ -62,7 +62,7 @@ def query_graph(
 
     result = asyncio.run(_run())
 
-    if json_output:
+    if output_format == "json":
         typer.echo(json.dumps({"query": query, "mode": mode.value, "result": result}))
     else:
         console.print(f"\n[bold]Query:[/bold] {query}")

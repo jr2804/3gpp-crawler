@@ -17,7 +17,7 @@ from typing import Any
 
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
-from kreuzberg import extract_file_sync
+from kreuzberg import ExtractionConfig, ImageExtractionConfig, PdfConfig, extract_file_sync
 from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.models import ConversionError, ExtractionError
@@ -39,6 +39,12 @@ logger = get_logger(__name__)
 OFFICE_FORMATS = {".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"}
 # All supported formats (PDF + Office formats + text files)
 SUPPORTED_FORMATS = {".pdf", ".txt", ".md"} | OFFICE_FORMATS
+
+# Kreuzberg config that enables image extraction from PDFs (disabled by default)
+_EXTRACTION_CONFIG = ExtractionConfig(
+    images=ImageExtractionConfig(),
+    pdf_options=PdfConfig(extract_images=True),
+)
 
 
 def _is_supported_format(file_path: Path) -> bool:
@@ -164,7 +170,7 @@ def _convert_via_libreoffice(
         converter = Converter()
         with tempfile.TemporaryDirectory() as tmpdir:
             conversion_result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
-            result = extract_file_sync(str(conversion_result.output_path))
+            result = extract_file_sync(str(conversion_result.output_path), config=_EXTRACTION_CONFIG)
             return _build_structured_from_result(
                 result,
                 ai_dir=ai_dir,
@@ -265,7 +271,7 @@ def extract_document_structured(
 
     # No valid cache found, perform fresh extraction
     if file_path.suffix.lower() == ".pdf" or file_path.suffix.lower() in {".txt", ".md"}:
-        result = extract_file_sync(str(file_path))
+        result = extract_file_sync(str(file_path), config=_EXTRACTION_CONFIG)
         extraction = _build_structured_from_result(
             result,
             ai_dir=ai_dir,
