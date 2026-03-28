@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import sys
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -38,12 +37,6 @@ def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> boo
     """Skip collecting AI tests when 3gpp-ai is unavailable."""
     return not _TDOC_AI_AVAILABLE
 
-
-# Mock kreuzberg which might not be installed in all environments.
-# The mock must expose all names imported by extract.py so that
-# ``from kreuzberg import ExtractionConfig, ...`` resolves.
-kreuzberg_mock = MagicMock()
-sys.modules["kreuzberg"] = kreuzberg_mock
 
 # URLs for downloading test data (fallback if files don't exist locally)
 TEST_DATA_URLS = [

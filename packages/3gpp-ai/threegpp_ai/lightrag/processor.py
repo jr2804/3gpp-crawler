@@ -15,7 +15,7 @@ from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.models import ConversionError, ExtractionError
 from threegpp_ai.operations.conversion import OFFICE_FORMATS
-from threegpp_ai.operations.extraction import extract_document_structured
+from threegpp_ai.operations.extraction import VlmOptions, extract_document_structured
 
 from .config import LightRAGConfig
 from .metadata import RAGMetadata, enrich_text
@@ -98,6 +98,7 @@ class DocumentProcessor:
         workspace: str | None = None,
         metadata: RAGMetadata | dict[str, Any] | None = None,
         extract_types: set[str] | None = None,
+        vlm_options: VlmOptions | None = None,
     ) -> ProcessingResult:
         """Process a single document file and insert into LightRAG.
 
@@ -108,6 +109,8 @@ class DocumentProcessor:
                 (3GPP-specific) or a generic dict for arbitrary documents.
             extract_types: Optional set of artifact types to extract/persist.
                 If None, extracts all types. Supported types: "tables", "figures", "equations".
+            vlm_options: Optional VLM features for extraction. Enables picture description
+                and/or formula enrichment using VLM pipelines.
 
         Returns:
             ProcessingResult with status and metadata.
@@ -125,6 +128,7 @@ class DocumentProcessor:
                 file_path,
                 metadata=None,  # Metadata enrichment happens at this level, not in extraction
                 extract_types=extract_types,
+                vlm_options=vlm_options,
             )
         except (ExtractionError, ConversionError) as e:
             logger.error("Extraction failed for %s: %s", file_path, e)

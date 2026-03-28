@@ -5,7 +5,7 @@ The AI module provides intelligent document processing capabilities for 3GPP doc
 **Key Features:**
 
 - **Classification** - Identify main documents in multi-file TDoc folders
-- **Extraction** - Convert DOCX/PDF to Markdown with keyword extraction and language detection (via Kreuzberg)
+- **Extraction** - Convert DOCX/PDF to Markdown with keyword extraction and language detection (via Docling)
 - **Structured Elements** - Preserve tables, figures, and equations with stable markers and metadata
 - **Embeddings** - Generate semantic vector representations for similarity search
 - **Summarization** - Create AI-powered abstracts
@@ -40,7 +40,7 @@ cd 3gpp-crawler
 uv sync --extra ai
 ```
 
-All required dependencies (Kreuzberg, LiteLLM, sentence-transformers, LanceDB) are installed automatically.
+All required dependencies (Docling, LiteLLM, sentence-transformers, LanceDB) are installed automatically.
 
 Internally, AI capabilities are provided by the optional `3gpp-ai` package, which is pulled in by `3gpp-crawler[ai]`.
 
@@ -179,6 +179,45 @@ When structured extraction is enabled, conversion and workspace processing may g
 - `*_figures.json`
 - `*_equations.json`
 
+### VLM Features (Optional)
+
+The AI module supports optional Vision-Language Model (VLM) features for enhanced document processing. These features are disabled by default and must be explicitly enabled.
+
+#### What VLM Provides
+
+| Feature | Description | Model |
+|---------|-------------|-------|
+| **Picture Description** | Generates detailed natural language descriptions of figures and diagrams | Granite Docling VLM |
+| **Formula Enrichment** | Provides enhanced LaTeX/MathML representation of mathematical formulas | Granite Docling VLM |
+
+#### GPU Requirements
+
+VLM features require a GPU with sufficient VRAM. If no GPU is available, the processing will fail or run very slowly. The standard pipeline (without VLM) works on CPU.
+
+#### Enabling VLM
+
+Use the `--vlm` flag with the workspace process command:
+
+```bash
+# Process with VLM features enabled
+tdoc-crawler ai workspace process -w my-project --vlm
+
+# Force reprocess with VLM
+tdoc-crawler ai workspace process -w my-project --vlm --force
+```
+
+When `--vlm` is specified, both `enable_picture_description` and `enable_formula_enrichment` are activated.
+
+#### Standard vs VLM Pipeline
+
+| Aspect | Standard Pipeline | VLM Pipeline |
+|--------|-------------------|--------------|
+| Table Detection | ✅ Enabled (Docling) | ✅ Enabled |
+| Formula Enrichment | ✅ Basic (CodeFormula) | ✅ Enhanced (VLM) |
+| Picture Description | ❌ Not available | ✅ VLM-generated descriptions |
+| GPU Required | No | Yes |
+| Processing Speed | Faster | Slower |
+
 ______________________________________________________________________
 
 ## CLI Commands
@@ -277,6 +316,9 @@ tdoc-crawler ai workspace process
 # Process with options
 tdoc-crawler ai workspace process -w my-project --force
 
+# Process with VLM features (requires GPU)
+tdoc-crawler ai workspace process -w my-project --vlm
+
 # Get workspace information with member counts
 tdoc-crawler ai workspace info my-project
 
@@ -359,8 +401,8 @@ Legacy batch-processing helpers are removed. Use the LightRAG interfaces exposed
 
 ## Supported File Types
 
-- **DOCX** - Primary format for extraction (via Kreuzberg)
-- **PDF** - Supported via Kreuzberg
+- **DOCX** - Primary format for extraction (via Docling)
+- **PDF** - Supported via Docling
 - **XLSX** - Handled as secondary files
 - **PPTX** - Handled as secondary files
 
@@ -384,7 +426,7 @@ ______________________________________________________________________
 
 ### Installation Issues
 
-**Problem:** `ModuleNotFoundError: No module named 'kreuzberg'`
+**Problem:** `ModuleNotFoundError: No module named 'docling'`
 
 **Solution:** Install the AI optional dependencies:
 
@@ -536,5 +578,5 @@ ______________________________________________________________________
 ## Additional Resources
 
 - [LiteLLM Provider Documentation](https://docs.litellm.ai/docs/providers) - Complete list of 100+ supported LLM providers
-- [Kreuzberg Documentation](https://docs.kreuzberg.dev/) - Document extraction library
+- [Docling Documentation](https://github.com/docling-project/docling) - Document extraction library
 - [LanceDB Documentation](https://lancedb.github.io/lancedb/) - Vector database

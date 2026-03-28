@@ -4,7 +4,7 @@ This package provides a thin wrapper around LightRAG with:
 - Multi-provider LLM and embedding support (ollama, openai, zhipu, jina, hf, etc.)
 - File-based or pg0-backed storage
 - Async context manager pattern
-- TDoc document processing with kreuzberg extraction
+- TDoc document processing with docling extraction
 
 Supported providers:
 - LLM: ollama, openai, zhipu, hf, lollms, azure_openai, nvidia_openai

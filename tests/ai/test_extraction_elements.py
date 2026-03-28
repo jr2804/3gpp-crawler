@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from threegpp_ai.lightrag import processor as processor_module
@@ -11,7 +10,7 @@ from threegpp_ai.lightrag.processor import DocumentProcessor, ProcessingResultSt
 from threegpp_ai.operations.extraction_result import (
     ExtractedTableElement,
     build_structured_extraction_result,
-    from_kreuzberg_result,
+    from_docling_result,
 )
 
 
@@ -28,35 +27,42 @@ def test_build_structured_extraction_result_defaults() -> None:
     assert result.equation_count == 0
 
 
-def test_from_kreuzberg_result_maps_tables_and_figures() -> None:
-    """Converter should map available tables/images into structured elements."""
-    fake_result = SimpleNamespace(
-        content="body\n\n$$ x = y + z $$",
-        tables=[
-            SimpleNamespace(
-                cells=[["a", "b"], ["c", "d"]],
-                markdown="|a|b|",
-                page_number=3,
-            )
-        ],
-        images=[
-            SimpleNamespace(
-                format="png",
-                page_number=4,
-                metadata={"width": 10, "height": 20},
-            )
-        ],
-        metadata={"source": "test"},
-    )
+def test_from_docling_result_maps_tables_and_figures() -> None:
+    """Converter should map available tables/pictures into structured elements."""
 
-    mapped = from_kreuzberg_result(fake_result)
-    assert mapped.content.startswith("body")
+    class FakeTableData:
+        def __init__(self, cells: list[list[str]]) -> None:
+            self.grid = cells
+            self.page_number = 3
+
+    class FakeTable:
+        def __init__(self, cells: list[list[str]]) -> None:
+            self.data = FakeTableData(cells)
+            self.markdown = "|a|b|\n|-|-|\n|c|d|"
+
+        def export_to_markdown(self, *, doc: object = None) -> str:
+            return self.markdown
+
+    class FakeDoc:
+        def __init__(self) -> None:
+            self.tables = [FakeTable([["a", "b"], ["c", "d"]])]
+            self.pictures = []
+
+        def export_to_markdown(self) -> str:
+            return "body text\n\n$$ x = y + z $$"
+
+    class FakeResult:
+        def __init__(self) -> None:
+            self.document = FakeDoc()
+            self.metadata = {"source": "test"}
+
+    mapped = from_docling_result(FakeResult())
+    assert mapped.content.startswith("body text")
     assert "$$ x = y + z $$" in mapped.content
     assert mapped.table_count == 1
-    assert mapped.figure_count == 1
+    assert mapped.figure_count == 0
     assert mapped.equation_count == 1
     assert "<!-- table:id=table_1" in mapped.content
-    assert "<!-- figure:id=figure_1" in mapped.content
     assert "<!-- equation:id=equation_1" in mapped.content
 
     table = mapped.tables[0]
@@ -65,12 +71,6 @@ def test_from_kreuzberg_result_maps_tables_and_figures() -> None:
     assert table.page_number == 3
     assert table.row_count == 2
     assert table.column_count == 2
-
-    figure = mapped.figures[0]
-    assert figure.element_id == "figure_1"
-    assert figure.page_number == 4
-    assert figure.image_format == "png"
-    assert figure.metadata == {"width": 10, "height": 20}
 
 
 @pytest.mark.asyncio
@@ -81,7 +81,7 @@ async def test_processor_process_file_reports_structured_counts(monkeypatch: pyt
         return None
 
     # Mock extract_document_structured in the processor module where it's imported
-    # This prevents actual kreuzberg extraction
+    # This prevents actual docling extraction
     monkeypatch.setattr(
         processor_module,
         "extract_document_structured",

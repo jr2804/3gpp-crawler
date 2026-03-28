@@ -14,6 +14,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from docling.document_converter import ConversionResult
+from docling_core.types.doc.document import DescriptionAnnotation
+
 from threegpp_ai.models import (
     ExtractedEquationElement,
     ExtractedFigureElement,
@@ -209,22 +212,27 @@ def persist_figures_from_extraction(
     return path_map
 
 
-def persist_figures_from_kreuzberg_result(
-    result: Any,
+def persist_figures_from_docling_result(
+    result: ConversionResult,
     figures_dir: Path,
     doc_stem: str | None = None,
 ) -> dict[str, Path]:
     """Persist extracted figure bytes to disk and return resolved paths.
 
     Args:
-        result: Object returned by kreuzberg extract APIs.
+        result: Object returned by docling DocumentConverter.convert().
         figures_dir: Target directory for figure artifacts.
         doc_stem: Document stem for naming (e.g., "S4-250638"). If None, uses legacy naming.
 
     Returns:
         Mapping from generated figure id (figure_N) to file path.
     """
-    image_items: Sequence[Any] = getattr(result, "images", []) or []
+    # Docling stores pictures in result.document.pictures
+    doc = getattr(result, "document", None)
+    if doc is None:
+        return {}
+
+    image_items: Sequence[Any] = getattr(doc, "pictures", []) or []
     if not image_items:
         return {}
 
@@ -232,15 +240,14 @@ def persist_figures_from_kreuzberg_result(
     path_map: dict[str, Path] = {}
 
     for index, image in enumerate(image_items, start=1):
-        # Kreuzberg returns images as dicts with 'data', 'format', 'page_number' keys
-        if isinstance(image, dict):
-            image_bytes = image.get("data")
-            image_format = str(image.get("format", "png") or "png").lower()
-            page = image.get("page_number")
-        else:
-            image_bytes = getattr(image, "content", None)
-            image_format = str(getattr(image, "format", "png") or "png").lower()
-            page = getattr(image, "page_number", None)
+        # Docling PictureItem.get_image(doc) returns image bytes
+        try:
+            image_bytes = image.get_image(doc)
+        except Exception:
+            image_bytes = None
+
+        image_format = str(getattr(image, "format", "png") or "png").lower()
+        page = getattr(image, "page_number", None)
 
         if not isinstance(image_bytes, bytes) or not image_bytes:
             continue
@@ -285,61 +292,90 @@ def build_structured_extraction_result(
     )
 
 
-def from_kreuzberg_result(
-    result: Any,
-    *,
-    figure_paths: dict[str, str] | None = None,
-    figure_descriptions: dict[str, str] | None = None,
-) -> StructuredExtractionResult:
-    """Convert a kreuzberg extraction result into the canonical payload.
-
-    The converter is tolerant to partial/missing fields so existing behavior
-    remains stable while richer extraction support is rolled out.
-
-    Args:
-        result: Object returned by kreuzberg extract APIs.
-        figure_paths: Optional mapping from figure id to resolved file path.
-        figure_descriptions: Optional mapping from figure id to generated description.
-
-    Returns:
-        Canonical structured extraction result.
-    """
-    content = getattr(result, "content", "") or ""
-    table_items: Sequence[Any] = getattr(result, "tables", []) or []
-    image_items: Sequence[Any] = getattr(result, "images", []) or []
-
+def _extract_tables_from_docling(doc: Any) -> list[ExtractedTableElement]:
+    """Extract table elements from a docling document."""
     tables: list[ExtractedTableElement] = []
+    table_items: Sequence[Any] = getattr(doc, "tables", []) or []
     for index, table in enumerate(table_items, start=1):
-        cells_raw = getattr(table, "cells", []) or []
-        cells = [[str(cell) for cell in row] for row in cells_raw if isinstance(row, list)]
+        table_data = getattr(table, "data", None)
+        cells_raw: list[Any] = []
+        if table_data is not None:
+            cells_raw = getattr(table_data, "grid", []) or []
+
+        cells = []
+        for row in cells_raw:
+            row_cells: list[str] = []
+            for cell in row:
+                text = getattr(cell, "text", "") if hasattr(cell, "text") else str(cell) if cell else ""
+                row_cells.append(text)
+            cells.append(row_cells)
+
         row_count = len(cells)
         col_count = max((len(row) for row in cells), default=0)
+
+        table_markdown: str | None = None
+        if hasattr(table, "export_to_markdown"):
+            try:
+                table_markdown = table.export_to_markdown(doc=doc)
+            except TypeError:
+                table_markdown = table.export_to_markdown() if hasattr(table, "export_to_markdown") else None
+
         tables.append(
             ExtractedTableElement(
                 element_id=f"table_{index}",
-                page_number=getattr(table, "page_number", None),
+                page_number=getattr(table_data, "page_number", None) if table_data else None,
                 row_count=row_count,
                 column_count=col_count,
                 cells=cells,
-                markdown=getattr(table, "markdown", None),
-                caption=getattr(table, "caption", None),
+                markdown=table_markdown,
+                caption=None,
             )
         )
+    return tables
 
+
+def _extract_figures_from_docling(
+    doc: Any,
+    figure_paths: dict[str, str] | None,
+    figure_descriptions: dict[str, str] | None,
+) -> list[ExtractedFigureElement]:
+    """Extract figure elements from a docling document."""
     figures: list[ExtractedFigureElement] = []
+    image_items: Sequence[Any] = getattr(doc, "pictures", []) or []
     for index, image in enumerate(image_items, start=1):
         figure_id = f"figure_{index}"
-        # Kreuzberg returns images as dicts with 'data', 'format', 'page_number' keys
-        if isinstance(image, dict):
-            page_number = image.get("page_number")
-            image_format = image.get("format")
-            metadata = image.get("metadata")
-            caption = image.get("caption")
-        else:
-            page_number = getattr(image, "page_number", None)
-            image_format = getattr(image, "format", None)
-            metadata = getattr(image, "metadata", None)
-            caption = getattr(image, "caption", None)
+        page_number = getattr(image, "page_number", None)
+        image_format: str | None = None
+        caption: str | None = None
+        image_metadata: dict[str, Any] = {}
+
+        if hasattr(image, "caption_text"):
+            try:
+                ct = image.caption_text(doc)
+                caption = ct if isinstance(ct, str) else None
+            except TypeError:
+                caption = None
+
+        if hasattr(image, "image"):
+            img_obj = image.image
+            if hasattr(img_obj, "type"):
+                image_format = getattr(img_obj, "type", "").lower().replace("image/", "")
+            if hasattr(img_obj, "data"):
+                image_metadata["data"] = getattr(img_obj, "data", None)
+
+        # Determine description priority: figure_descriptions > caption > VLM annotation
+        description: str | None = (figure_descriptions or {}).get(figure_id)
+        if not description and caption:
+            description = caption
+        # Try to get VLM-generated description from annotations
+        if not description and hasattr(image, "annotations"):
+            for annotation in getattr(image, "annotations", []) or []:
+                if isinstance(annotation, DescriptionAnnotation):
+                    vlm_description = getattr(annotation, "text", None)
+                    if vlm_description:
+                        description = vlm_description
+                        break
+
         figures.append(
             ExtractedFigureElement(
                 element_id=figure_id,
@@ -347,11 +383,42 @@ def from_kreuzberg_result(
                 image_path=(figure_paths or {}).get(figure_id),
                 image_format=image_format,
                 caption=caption,
-                description=(figure_descriptions or {}).get(figure_id),
-                metadata=metadata if isinstance(metadata, dict) else {},
+                description=description,
+                metadata=image_metadata,
             )
         )
+    return figures
 
+
+def from_docling_result(
+    result: ConversionResult,
+    *,
+    figure_paths: dict[str, str] | None = None,
+    figure_descriptions: dict[str, str] | None = None,
+) -> StructuredExtractionResult:
+    """Convert a docling extraction result into the canonical payload.
+
+    The converter is tolerant to partial/missing fields so existing behavior
+    remains stable while richer extraction support is rolled out.
+
+    Args:
+        result: Object returned by docling DocumentConverter.convert().
+        figure_paths: Optional mapping from figure id to resolved file path.
+        figure_descriptions: Optional mapping from figure id to generated description.
+
+    Returns:
+        Canonical structured extraction result.
+    """
+    doc = getattr(result, "document", None)
+    if doc is None:
+        return build_structured_extraction_result(content="")
+
+    content = getattr(doc, "export_to_markdown", lambda: "")()
+    if not content:
+        content = ""
+
+    tables = _extract_tables_from_docling(doc)
+    figures = _extract_figures_from_docling(doc, figure_paths, figure_descriptions)
     equations = _detect_equations(content)
 
     marker_lines: list[str] = []
@@ -361,14 +428,16 @@ def from_kreuzberg_result(
     if marker_lines:
         content = f"{content.rstrip()}\n\n" + "\n".join(marker_lines) + "\n"
 
-    result_metadata = getattr(result, "metadata", None)
-    normalized_metadata = result_metadata if isinstance(result_metadata, dict) else {}
+    result_metadata: dict[str, Any] = {}
+    if hasattr(result, "metadata"):
+        result_metadata = getattr(result, "metadata", {}) or {}
+
     return build_structured_extraction_result(
         content=content,
         tables=tables,
         figures=figures,
         equations=equations,
-        metadata=normalized_metadata,
+        metadata=result_metadata,
     )
 
 
@@ -469,11 +538,11 @@ __all__ = [
     "ExtractedTableElement",
     "StructuredExtractionResult",
     "build_structured_extraction_result",
-    "from_kreuzberg_result",
+    "from_docling_result",
     "has_cached_artifacts",
     "persist_equations_from_extraction",
+    "persist_figures_from_docling_result",
     "persist_figures_from_extraction",
-    "persist_figures_from_kreuzberg_result",
     "persist_tables_from_extraction",
     "read_cached_artifacts",
 ]

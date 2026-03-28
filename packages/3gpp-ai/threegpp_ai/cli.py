@@ -85,7 +85,7 @@ from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import convert_document_to_markdown
-from threegpp_ai.operations.extraction import extract_document_structured
+from threegpp_ai.operations.extraction import VlmOptions, extract_document_structured
 from threegpp_ai.operations.workspace_registry import WorkspaceRegistry, normalize_spec_member_id
 from threegpp_ai.operations.workspace_utils import check_pdf_status
 
@@ -493,6 +493,7 @@ async def _process_workspace_members(
     workspace: str,
     members: list[Any],
     on_progress: Callable[[int, str], None] | None = None,
+    vlm_options: VlmOptions | None = None,
 ) -> list[dict[str, Any]]:
     """Process workspace members with optional progress callback.
 
@@ -500,6 +501,7 @@ async def _process_workspace_members(
         workspace: Workspace name
         members: List of workspace members to process
         on_progress: Optional callback(completed_count, source_item_id) called after each member
+        vlm_options: Optional VLM features for extraction.
 
     Returns:
         List of processing results
@@ -524,7 +526,7 @@ async def _process_workspace_members(
                 continue
 
             metadata = await _try_build_tdoc_metadata(member.source_item_id)
-            process_result = await processor.process_file(file_path, workspace, metadata=metadata)
+            process_result = await processor.process_file(file_path, workspace, metadata=metadata, vlm_options=vlm_options)
             results.append(
                 {
                     "source_item_id": member.source_item_id,
@@ -1012,6 +1014,7 @@ def workspace_process(
     force: WorkspaceProcessForceOption = False,
     limit: WorkspaceLimitOption = None,
     output_format: OutputFormatOption = "text",
+    vlm: bool = typer.Option("--vlm", help="Enable VLM picture description and formula enrichment"),
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -1031,6 +1034,11 @@ def workspace_process(
     if force:
         _logger.info("--force provided; process currently reprocesses selected members directly")
 
+    # Build VLM options if --vlm flag is set
+    vlm_options: VlmOptions | None = None
+    if vlm:
+        vlm_options = VlmOptions(enable_picture_description=True, enable_formula_enrichment=True)
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -1046,7 +1054,7 @@ def workspace_process(
             completed = count
             progress.update(task, completed=completed, description=f"[cyan]{source_item_id}")
 
-        results = asyncio.run(_process_workspace_members(workspace_name, members, on_progress=on_progress))
+        results = asyncio.run(_process_workspace_members(workspace_name, members, on_progress=on_progress, vlm_options=vlm_options))
         progress.update(task, completed=len(results), description="[cyan]Processing complete")
 
     success_count = sum(1 for row in results if row["status"] == "success")

@@ -5,29 +5,42 @@ This module provides a generic extraction interface that works with various docu
 
 The functions:
 * extract_document_structured: Main unified extraction function
-* extract_document_text: Shared kreuzberg extraction logic
+* extract_document_text: Shared docling extraction logic
 * _convert_office_to_pdf: Office format conversion helper
 """
 
 from __future__ import annotations
 
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
-from kreuzberg import ExtractionConfig, ImageExtractionConfig, PdfConfig, extract_file_sync
+from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import (
+    AcceleratorOptions,
+    CodeFormulaVlmOptions,
+    TableStructureOptions,
+    ThreadedPdfPipelineOptions,
+    VlmConvertOptions,
+    VlmPipelineOptions,
+)
+from docling.document_converter import DocumentConverter, FormatOption
+from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+from docling.pipeline.vlm_pipeline import VlmPipeline
 from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.models import ConversionError, ExtractionError
 from threegpp_ai.operations.extraction_result import (
     StructuredExtractionResult,
     build_structured_extraction_result,
-    from_kreuzberg_result,
+    from_docling_result,
     persist_equations_from_extraction,
+    persist_figures_from_docling_result,
     persist_figures_from_extraction,
-    persist_figures_from_kreuzberg_result,
     persist_tables_from_extraction,
     read_cached_artifacts,
 )
@@ -35,16 +48,64 @@ from threegpp_ai.operations.figure_descriptor import describe_figures
 
 logger = get_logger(__name__)
 
+
+@dataclass
+class VlmOptions:
+    """Optional VLM features for extraction.
+
+    When any feature is enabled, the VlmPipeline is used instead of StandardPdfPipeline.
+    VLM features require GPU but provide better picture descriptions and formula enrichment.
+    """
+
+    enable_picture_description: bool = False
+    enable_formula_enrichment: bool = False
+
+
+def _create_pdf_converter(vlm_options: VlmOptions | None = None) -> DocumentConverter:
+    """Create a DocumentConverter for PDF extraction.
+
+    Args:
+        vlm_options: Optional VLM features. If None, uses StandardPdfPipeline with
+            enhanced options (table structure, accelerator). If any VLM feature is
+            enabled, uses VlmPipeline with Granite Docling.
+
+    Returns:
+        Configured DocumentConverter for PDF processing.
+    """
+    if vlm_options is None or (not vlm_options.enable_picture_description and not vlm_options.enable_formula_enrichment):
+        # Standard pipeline with enhanced options
+        options = ThreadedPdfPipelineOptions(
+            do_table_structure=True,
+            table_structure_options=TableStructureOptions(do_cell_matching=True),
+            accelerator_options=AcceleratorOptions(num_threads=4),
+            do_formula_enrichment=True,
+            code_formula_options=CodeFormulaVlmOptions.from_preset("granite_docling"),
+        )
+        pdf_format_option = FormatOption(
+            pipeline_cls=StandardPdfPipeline,
+            backend=DoclingParseDocumentBackend,
+            pipeline_options=options,
+        )
+    else:
+        # VLM pipeline with Granite Docling
+        vlm_opts = VlmPipelineOptions(
+            do_picture_description=vlm_options.enable_picture_description,
+            picture_description_options=None,  # Use default Granite Docling
+            images_scale=2.0,
+            generate_picture_images=True,
+            vlm_options=VlmConvertOptions.from_preset("granite_docling"),
+        )
+        pdf_format_option = FormatOption(
+            pipeline_cls=VlmPipeline,
+            pipeline_options=vlm_opts,
+        )
+    return DocumentConverter(format_options={InputFormat.PDF: pdf_format_option})
+
+
 # File formats that need PDF conversion
 OFFICE_FORMATS = {".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"}
 # All supported formats (PDF + Office formats + text files)
 SUPPORTED_FORMATS = {".pdf", ".txt", ".md"} | OFFICE_FORMATS
-
-# Kreuzberg config that enables image extraction from PDFs (disabled by default)
-_EXTRACTION_CONFIG = ExtractionConfig(
-    images=ImageExtractionConfig(),
-    pdf_options=PdfConfig(extract_images=True),
-)
 
 
 def _is_supported_format(file_path: Path) -> bool:
@@ -119,10 +180,10 @@ def _build_structured_from_result(
     doc_stem: str | None = None,
     extract_types: set[str] | None = None,
 ) -> StructuredExtractionResult:
-    """Build structured extraction from kreuzberg result.
+    """Build structured extraction from docling result.
 
     Args:
-        result: Object returned by kreuzberg extract APIs.
+        result: Object returned by docling DocumentConverter.convert().
         ai_dir: Optional .ai directory for artifact storage.
         doc_stem: Document stem for naming artifacts.
         extract_types: Optional set of artifact types to extract/persist.
@@ -135,11 +196,11 @@ def _build_structured_from_result(
 
     if ai_dir is not None and extract_types is not None and "figures" in extract_types:
         figures_dir = ai_dir / "figures"
-        persisted = persist_figures_from_kreuzberg_result(result, figures_dir, doc_stem=doc_stem)
+        persisted = persist_figures_from_docling_result(result, figures_dir, doc_stem=doc_stem)
         figure_paths = {key: str(path) for key, path in persisted.items()}
         figure_descriptions = describe_figures(persisted, enabled=True)
 
-    return from_kreuzberg_result(
+    return from_docling_result(
         result,
         figure_paths=figure_paths,
         figure_descriptions=figure_descriptions,
@@ -151,6 +212,7 @@ def _convert_via_libreoffice(
     ai_dir: Path | None = None,
     doc_stem: str | None = None,
     extract_types: set[str] | None = None,
+    vlm_options: VlmOptions | None = None,
 ) -> StructuredExtractionResult:
     """Convert non-PDF document to structured extraction via LibreOffice.
 
@@ -159,6 +221,7 @@ def _convert_via_libreoffice(
         ai_dir: Optional .ai directory for artifact storage.
         doc_stem: Document stem for naming artifacts.
         extract_types: Optional set of artifact types to extract/persist.
+        vlm_options: Optional VLM features for PDF extraction.
 
     Returns:
         Structured extraction payload.
@@ -170,9 +233,10 @@ def _convert_via_libreoffice(
         converter = Converter()
         with tempfile.TemporaryDirectory() as tmpdir:
             conversion_result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
-            result = extract_file_sync(str(conversion_result.output_path), config=_EXTRACTION_CONFIG)
+            converter_docling = _create_pdf_converter(vlm_options=vlm_options)
+            docling_result = converter_docling.convert(str(conversion_result.output_path))
             return _build_structured_from_result(
-                result,
+                docling_result,
                 ai_dir=ai_dir,
                 doc_stem=doc_stem,
                 extract_types=extract_types,
@@ -212,13 +276,14 @@ def extract_document_structured(
     metadata: dict[str, Any] | None = None,
     force: bool = False,
     extract_types: set[str] | None = None,
+    vlm_options: VlmOptions | None = None,
 ) -> StructuredExtractionResult:
     """Extract a document into a canonical structured payload.
 
     This is the main unified extraction function that handles:
-    - PDF files: Direct extraction via kreuzberg
+    - PDF files: Direct extraction via docling
     - Office files (DOCX, DOC, etc.): Convert to PDF, then extract
-    - Text files (TXT, MD): Direct extraction via kreuzberg
+    - Text files (TXT, MD): Direct extraction via docling
 
     Caching:
     - Checks for existing .md file in .ai subdirectory
@@ -233,6 +298,9 @@ def extract_document_structured(
         force: If True, re-extract even if cached artifacts exist.
         extract_types: Optional set of artifact types to extract/persist.
             If None, extracts all types. Supported types: "tables", "figures", "equations".
+        vlm_options: Optional VLM features for extraction. Enables picture description
+            and/or formula enrichment using VLM pipelines. If None, uses standard
+            extraction with formula enrichment.
 
     Returns:
         StructuredExtractionResult with content, tables, figures, and equations.
@@ -270,8 +338,18 @@ def extract_document_structured(
             )
 
     # No valid cache found, perform fresh extraction
-    if file_path.suffix.lower() == ".pdf" or file_path.suffix.lower() in {".txt", ".md"}:
-        result = extract_file_sync(str(file_path), config=_EXTRACTION_CONFIG)
+    if file_path.suffix.lower() == ".pdf":
+        converter = _create_pdf_converter(vlm_options=vlm_options)
+        result = converter.convert(str(file_path))
+        extraction = _build_structured_from_result(
+            result,
+            ai_dir=ai_dir,
+            doc_stem=doc_stem,
+            extract_types=extract_types,
+        )
+    elif file_path.suffix.lower() in {".txt", ".md"}:
+        converter = DocumentConverter()
+        result = converter.convert(str(file_path))
         extraction = _build_structured_from_result(
             result,
             ai_dir=ai_dir,
@@ -285,6 +363,7 @@ def extract_document_structured(
             ai_dir=ai_dir,
             doc_stem=doc_stem,
             extract_types=extract_types,
+            vlm_options=vlm_options,
         )
 
     # Ensure .ai directory exists
@@ -303,8 +382,9 @@ def extract_document_structured(
 def extract_document_text(
     file_path: Path,
     force: bool = False,
+    vlm_options: VlmOptions | None = None,
 ) -> str:
-    """Extract plain text content from a document using kreuzberg.
+    """Extract plain text content from a document using docling.
 
     For office documents, first converts to PDF using convert-lo.
     Returns just the text content without structured artifacts.
@@ -312,6 +392,7 @@ def extract_document_text(
     Args:
         file_path: Path to the document file.
         force: If True, re-extract even if cached markdown exists.
+        vlm_options: Optional VLM features for extraction.
 
     Returns:
         Extracted text content as a string.
@@ -325,11 +406,13 @@ def extract_document_text(
         metadata=None,
         force=force,
         extract_types=set(),  # No artifacts needed for text-only extraction
+        vlm_options=vlm_options,
     )
     return extraction.content
 
 
 __all__ = [
+    "VlmOptions",
     "extract_document_structured",
     "extract_document_text",
 ]

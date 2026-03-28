@@ -153,7 +153,7 @@ from tdoc_ai import LightRAGConfig, TDocRAG, TDocProcessor
 
 ## Extraction
 
-LightRAG uses `kreuzberg` for text extraction before chunking and ingestion.
+LightRAG uses `docling` for text, table, and figure extraction before chunking and ingestion.
 
 ## Deprecated/Removed
 

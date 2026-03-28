@@ -6,26 +6,58 @@ This document describes the document processing pipeline for converting and summ
 
 ```
 summarize S4-250001 --force
-       │
-       ▼
+        │
+        ▼
 fetch_tdoc_files() ──► resolve_via_whatthespec()
-       │                      │
-       │                      ▼
-       │               checkout_tdoc() ──► Downloads if missing
-       │
-       ▼
+        │                      │
+        │                      ▼
+        │               checkout_tdoc() ──► Downloads if missing
+        │
+        ▼
 convert_tdoc_to_markdown()
-       │
-       ├──► Already PDF? ──► kreuzberg.extract_file_sync()
-       │
-       └──► DOCX/DOC? ──► convert-lo (LibreOffice) ──► PDF ──► kreuzberg
-                           │
-                           ▼
-                    Cache to .ai/<id>.md
-       │
-       ▼
+        │
+        ├──► Already PDF? ──► docling (DocumentConverter)
+        │
+        └──► DOCX/DOC? ──► convert-lo (LibreOffice) ──► PDF ──► docling
+                            │
+                            ▼
+                     Cache to .ai/<id>.md
+        │
+        ▼
 LLM Summarization
 ```
+
+### VLM Pipeline (Optional)
+
+When `--vlm` flag is used, the pipeline uses the VLM-powered extraction:
+
+```
+workspace process --vlm
+        │
+        ▼
+        ▼ (for each document)
+        │
+        ▼
+convert_tdoc_to_markdown(vlm_options=VlmOptions(...))
+        │
+        ▼
+VlmPipeline (Granite Docling)
+        ├──► Enhanced picture descriptions (VLM-generated)
+        └──► Enhanced formula enrichment (VLM-enhanced)
+        │
+        ▼
+Standard Extraction Outputs + VLM Artifacts
+```
+
+**Key Differences:**
+
+| Feature | Standard Pipeline | VLM Pipeline |
+|---------|-------------------|---------------|
+| Pipeline | `StandardPdfPipeline` | `VlmPipeline` |
+| Table Structure | ✅ `do_table_structure=True` | ✅ Enabled |
+| Formula Enrichment | ✅ `CodeFormulaVlmOptions` | ✅ Enhanced |
+| Picture Description | ❌ Not available | ✅ VLM-generated |
+| GPU Required | No | Yes |
 
 ## Components
 
@@ -54,8 +86,10 @@ Converts TDoc to markdown using full pipeline.
 
 1. Fetch TDoc files via `fetch_tdoc_files()`
 1. Convert to PDF if needed (via convert-lo / LibreOffice)
-1. Extract text using kreuzberg
+1. Extract text using docling (Standard or VLM pipeline)
 1. Cache markdown to `.ai/<id>.md`
+
+**Table Structure Detection:** Available in both Standard and VLM modes. The Standard pipeline uses `do_table_structure=True` with `TableStructureOptions(do_cell_matching=True)`. The VLM pipeline provides enhanced detection.
 
 **Caching:**
 
@@ -107,7 +141,7 @@ To force re-conversion:
 | Library | Purpose |
 |---------|---------|
 | `convert-lo` | DOCX/DOC to PDF conversion via LibreOffice |
-| `kreuzberg` | PDF/DOCX to markdown text extraction |
+| `docling` | PDF/DOCX to markdown text extraction |
 | `litellm` | LLM summarization |
 | `whatthespec` | TDoc metadata lookup |
 

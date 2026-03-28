@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 import tiktoken
 from tdoc_crawler.logging import get_logger
@@ -350,11 +351,43 @@ def chunk_document(content: str, config: ChunkingConfig | None = None) -> list[s
     return result
 
 
+def chunk_hybrid(dl_doc: Any, *, max_tokens: int = 100_000) -> list[str]:
+    """Chunk a docling document using HybridChunker for semantic boundaries.
+
+    HybridChunker preserves document structure (headings, paragraphs, tables, figures)
+    and creates chunks with proper semantic boundaries. This replaces the older
+    regex-based chunking strategies.
+
+    Args:
+        dl_doc: A docling DoclingDocument (result.document from ConvertResult).
+        max_tokens: Maximum tokens per chunk.
+
+    Returns:
+        List of text chunks.
+    """
+    from docling.chunking import HybridChunker
+
+    chunker = HybridChunker(max_tokens=max_tokens)
+    chunks: list[str] = []
+    for chunk in chunker.chunk(dl_doc):
+        text = getattr(chunk, "text", "") if hasattr(chunk, "text") else str(chunk)
+        if text:
+            chunks.append(text)
+    return chunks
+    chunks: list[str] = []
+    for chunk in chunker.chunk(dl_doc):
+        text = getattr(chunk, "text", "") if hasattr(chunk, "text") else str(chunk)
+        if text:
+            chunks.append(text)
+    return chunks
+
+
 __all__ = [
     "ChunkingConfig",
     "ChunkingStrategy",
     "chunk_by_tokens",
     "chunk_document",
+    "chunk_hybrid",
     "chunk_semantic",
     "chunk_structural",
     "chunk_with_overlap",
