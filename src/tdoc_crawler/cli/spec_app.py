@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Annotated
+
 import typer
 
+from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import CacheDirOption, VerbosityOption
+from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.crawl import crawl_specs
 from tdoc_crawler.cli.query import query_specs
 from tdoc_crawler.cli.specs import checkout_spec, open_spec
@@ -21,11 +26,30 @@ HELP_PANEL_QUERY = "Query Commands"
 @spec_app.callback()
 def _spec_app_callback(
     ctx: typer.Context,
+    config_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--config",
+            "-c",
+            help="Path to configuration file (overrides discovered config)",
+            exists=True,
+            readable=True,
+        ),
+    ] = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Global CLI options for the spec-only app."""
-    _ = ctx, cache_dir
+    # Load and validate config at startup
+    config = load_cli_config(ctx, config_file)
+
+    # Handle deprecated --cache-dir
+    if cache_dir:
+        from tdoc_crawler.config import CacheManager
+
+        console.print("[yellow]Warning: --cache-dir is deprecated, use config file[/yellow]")
+        CacheManager(cache_dir).register()
+
     set_verbosity(verbosity)
 
 
