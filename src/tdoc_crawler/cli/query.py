@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import typer
-from dotenv import load_dotenv
 
 from tdoc_crawler.cli._shared import console, handle_clear_options
 from tdoc_crawler.cli.args import (
@@ -61,8 +60,6 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs, check
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
-
-load_dotenv()
 
 HELP_PANEL = "Query Commands"
 

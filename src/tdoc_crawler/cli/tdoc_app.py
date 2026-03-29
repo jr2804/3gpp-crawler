@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
-import asyncio
-import zipfile
-from typing import Any, cast
-
-import typer
+# Load environment variables from .env file before any other imports
+# that might read from environment. This ensures .env values are available
+# for TDocCrawlerConfig and other components.
 from dotenv import load_dotenv
-from rich.table import Table
 
-from tdoc_crawler.cli._shared import console, create_progress_bar
-from tdoc_crawler.cli.args import (
+load_dotenv()
+
+import asyncio  # noqa: E402
+import zipfile  # noqa: E402
+from typing import Any, cast  # noqa: E402
+
+import typer  # noqa: E402
+from rich.table import Table  # noqa: E402
+
+from tdoc_crawler.cli._shared import console, create_progress_bar  # noqa: E402
+from tdoc_crawler.cli.args import (  # noqa: E402
     CacheDirOption,
     CheckoutTDocIdsArgument,
     EolPasswordOption,
@@ -23,21 +29,19 @@ from tdoc_crawler.cli.args import (
     UseWhatTheSpecOption,
     VerbosityOption,
 )
-from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
-from tdoc_crawler.cli.query import query_meetings, query_tdocs
-from tdoc_crawler.cli.utils import launch_file
-from tdoc_crawler.config import CacheManager
-from tdoc_crawler.credentials import set_credentials
-from tdoc_crawler.database import MeetingDatabase, TDocDatabase
-from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
-from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.tdocs.models import TDocQueryConfig
-from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
-from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
-from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
-
-load_dotenv()
+from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs  # noqa: E402
+from tdoc_crawler.cli.query import query_meetings, query_tdocs  # noqa: E402
+from tdoc_crawler.cli.utils import launch_file  # noqa: E402
+from tdoc_crawler.config import CacheManager  # noqa: E402
+from tdoc_crawler.credentials import set_credentials  # noqa: E402
+from tdoc_crawler.database import MeetingDatabase, TDocDatabase  # noqa: E402
+from tdoc_crawler.http_client import create_cached_session  # noqa: E402
+from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY  # noqa: E402
+from tdoc_crawler.logging import set_verbosity  # noqa: E402
+from tdoc_crawler.tdocs.models import TDocQueryConfig  # noqa: E402
+from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file  # noqa: E402
+from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs  # noqa: E402
+from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids  # noqa: E402
 
 tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
 
@@ -268,4 +272,4 @@ tdoc_app.command("qt", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_tdoc
 tdoc_app.command("qm", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_meetings)
 
 
-__all__ = ["app"]
+__all__ = ["tdoc_app"]

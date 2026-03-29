@@ -6,7 +6,6 @@ import asyncio
 from datetime import date, datetime
 
 import typer
-from dotenv import load_dotenv
 
 from tdoc_crawler.cli._shared import console, create_progress_bar, handle_clear_options
 from tdoc_crawler.cli.args import (
@@ -66,8 +65,6 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs, check
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
-
-load_dotenv()
 
 HELP_PANEL = "Crawling Commands"
 

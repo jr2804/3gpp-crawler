@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from dotenv import load_dotenv
 
 from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
@@ -28,8 +27,6 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.specs.operations.checkout import build_default_spec_sources
 from tdoc_crawler.utils.parse import collect_spec_numbers
-
-load_dotenv()
 
 HELP_PANEL = "Main Commands"
 
