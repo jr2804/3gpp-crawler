@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING
 import typer
 from rich.console import Console
 
+from tdoc_crawler.config import TDocCrawlerConfig
+
 if TYPE_CHECKING:
-    from tdoc_crawler.config import TDocCrawlerConfig
+    pass
 
 console = Console()
 
@@ -17,7 +19,7 @@ console = Console()
 def load_cli_config(
     ctx: typer.Context,
     config_file: Path | None = None,
-) -> "TDocCrawlerConfig":
+) -> TDocCrawlerConfig:
     """Load and validate TDocCrawlerConfig for CLI use.
 
     Loads config from (in precedence order):
@@ -39,8 +41,6 @@ def load_cli_config(
     Raises:
         typer.Exit: If config validation fails
     """
-    from tdoc_crawler.config import TDocCrawlerConfig
-
     try:
         # Load config with optional explicit file
         config = TDocCrawlerConfig.from_settings(
