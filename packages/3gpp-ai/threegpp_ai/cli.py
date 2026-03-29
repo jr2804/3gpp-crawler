@@ -15,7 +15,7 @@ from typing import Any
 
 import typer
 from dotenv import load_dotenv
-from rich.progress import MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.config import CacheManager, resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
@@ -1044,6 +1044,7 @@ def _embed_members(
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
                 MofNCompleteColumn(),
                 TimeElapsedColumn(),
                 console=console,
@@ -1179,6 +1180,7 @@ def workspace_process(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
         console=console,
