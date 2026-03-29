@@ -90,13 +90,13 @@ def _create_pdf_converter(vlm_options: VlmOptions | None = None) -> DocumentConv
         # VLM pipeline with Granite Docling
         vlm_opts = VlmPipelineOptions(
             do_picture_description=vlm_options.enable_picture_description,
-            picture_description_options=None,  # Use default Granite Docling
             images_scale=2.0,
             generate_picture_images=True,
             vlm_options=VlmConvertOptions.from_preset("granite_docling"),
         )
         pdf_format_option = FormatOption(
             pipeline_cls=VlmPipeline,
+            backend=DoclingParseDocumentBackend,
             pipeline_options=vlm_opts,
         )
     return DocumentConverter(format_options={InputFormat.PDF: pdf_format_option})
