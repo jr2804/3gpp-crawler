@@ -7,8 +7,8 @@ import re
 
 from litellm import exceptions as litellm_exceptions
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 from threegpp_ai.config import AiConfig
 from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult

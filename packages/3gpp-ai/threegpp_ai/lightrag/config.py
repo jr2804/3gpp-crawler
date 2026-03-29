@@ -161,11 +161,6 @@ class DatabaseConfig(BaseSettings):
         description="pg0 database name",
     )
 
-    @property
-    def pg_uri(self) -> str:
-        """Return PostgreSQL connection URI for pg0."""
-        return f"postgresql://postgres:postgres@localhost:{self.pg0_port}/{self.pg0_database}"
-
     model_config = SettingsConfigDict(env_prefix="LIGHTRAG_DB_")
 
 

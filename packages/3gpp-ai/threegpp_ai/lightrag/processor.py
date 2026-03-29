@@ -232,37 +232,6 @@ class DocumentProcessor:
                 equation_count=extraction.equation_count,
             )
 
-    async def process_folder(
-        self,
-        folder: Path,
-        workspace: str | None = None,
-        recursive: bool = True,
-    ) -> list[ProcessingResult]:
-        """Process all supported documents in a folder.
-
-        Args:
-            folder: Path to the folder containing documents.
-            workspace: Workspace name for LightRAG.
-            recursive: If True, search subdirectories recursively.
-
-        Returns:
-            List of ProcessingResults for each file.
-        """
-        workspace = workspace or "default"
-        results: list[ProcessingResult] = []
-
-        await self.rag.start(workspace)
-        try:
-            glob_pattern = "**/*" if recursive else "*"
-            for file_path in sorted(folder.glob(glob_pattern)):
-                if file_path.is_file() and self.is_supported(file_path):
-                    result = await self.process_file(file_path, workspace)
-                    results.append(result)
-        finally:
-            await self.rag.stop()
-
-        return results
-
     @staticmethod
     def is_supported(file_path: Path) -> bool:
         """Check if a file format is supported for extraction."""

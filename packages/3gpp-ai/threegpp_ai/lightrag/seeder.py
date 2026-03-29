@@ -11,7 +11,6 @@ from enum import StrEnum
 from typing import Any
 
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 
 from .metadata import normalize_release_label
 from .rag import TDocRAG
@@ -122,74 +121,6 @@ class EntitySeeder:
             self._error_count += 1
             return False
 
-    async def seed_tdoc(
-        self,
-        tdoc_id: str,
-        title: str | None = None,
-        meeting: str | None = None,
-        wg: str | None = None,
-        spec_refs: list[str] | None = None,
-    ) -> bool:
-        """Seed a TDoc entity with optional relationships.
-
-        Args:
-            tdoc_id: TDoc identifier (e.g., "S4-250001")
-            title: Document title
-            meeting: Meeting code (e.g., "SA4#131-bis")
-            wg: Working group (e.g., "SA4")
-            spec_refs: List of referenced specifications
-
-        Returns:
-            True if seeding was successful.
-        """
-        # Normalize tdoc_id
-        tdoc_id = normalize_tdoc_id(tdoc_id)
-
-        # Create TDoc entity
-        description = f"3GPP Temporary Document {tdoc_id}"
-        if title:
-            description += f": {title}"
-
-        metadata: dict[str, Any] = {}
-        if meeting:
-            metadata["meeting"] = meeting
-        if wg:
-            metadata["working_group"] = wg
-        if spec_refs:
-            metadata["spec_refs"] = spec_refs
-
-        seed = EntitySeed(
-            name=tdoc_id,
-            entity_type=EntityType.TDOC,
-            description=description,
-            metadata=metadata,
-        )
-
-        success = await self.seed_entity(seed)
-
-        # Create relationships to specifications
-        if success and spec_refs:
-            for spec_ref in spec_refs:
-                # Seed specification entity first
-                await self.seed_specification(spec_ref)
-                # Create relationship
-                await self.rag._rag.acreate_relation(  # type: ignore[attr-defined]
-                    tdoc_id,
-                    spec_ref,
-                    "REFERENCES",
-                )
-
-        # Create relationship to meeting
-        if success and meeting:
-            await self.seed_meeting(meeting, wg)
-            await self.rag._rag.acreate_relation(  # type: ignore[attr-defined]
-                tdoc_id,
-                meeting,
-                "PRESENTED_AT",
-            )
-
-        return success
-
     async def seed_specification(
         self,
         spec_number: str,
@@ -266,52 +197,3 @@ class EntitySeeder:
         )
 
         return await self.seed_entity(seed)
-
-    async def seed_working_group(
-        self,
-        wg_code: str,
-        tsg: str | None = None,
-        full_name: str | None = None,
-    ) -> bool:
-        """Seed a working group entity.
-
-        Args:
-            wg_code: Working group code (e.g., "SA4", "RAN1")
-            tsg: Parent TSG (e.g., "SA", "RAN", "CT")
-            full_name: Full working group name
-
-        Returns:
-            True if seeding was successful.
-        """
-        wg_code = wg_code.strip().upper()
-
-        description = f"3GPP Working Group {wg_code}"
-        if full_name:
-            description += f": {full_name}"
-
-        metadata: dict[str, Any] = {}
-        if tsg:
-            metadata["tsg"] = tsg.upper()
-        if full_name:
-            metadata["full_name"] = full_name
-
-        seed = EntitySeed(
-            name=wg_code,
-            entity_type=EntityType.WORKING_GROUP,
-            description=description,
-            metadata=metadata,
-        )
-
-        return await self.seed_entity(seed)
-
-    def get_stats(self) -> dict[str, int]:
-        """Get seeding statistics.
-
-        Returns:
-            Dictionary with created, updated, and error counts.
-        """
-        return {
-            "created": self._created_count,
-            "updated": self._updated_count,
-            "errors": self._error_count,
-        }

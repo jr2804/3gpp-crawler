@@ -333,19 +333,6 @@ class WorkspaceRegistry:
         self.active = normalized_name
         logger.info(f"Set active workspace to '{normalized_name}'")
 
-    def get_active(self) -> WorkspaceMetadata:
-        """Get the active workspace metadata.
-
-        Returns:
-            Active WorkspaceMetadata.
-        """
-        metadata = self.workspaces.get(self.active)
-        if metadata is None:
-            # Fallback to default if active is invalid
-            self.active = DEFAULT_WORKSPACE
-            metadata = self.workspaces[DEFAULT_WORKSPACE]
-        return metadata
-
     @classmethod
     def load(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
         """Load registry from JSON file.

@@ -8,7 +8,6 @@ from typing import Literal
 
 import litellm
 from pydantic import Field, field_validator, model_validator
-from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.models import BaseConfigModel
 
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -110,13 +109,6 @@ class AiConfig(BaseConfigModel):
         "simple",
         description="Level of graph query answer generation (simple|medium|advanced)",
     )
-
-    @property
-    def ai_cache_dir(self) -> Path:
-        # Use CacheManager to resolve the embedding directory
-        # e.g., ~/.tdoc-crawler/.ai/sentence-transformers/all-MiniLM-L6-v2
-        # The ai_embed_dir method handles the provider/model subdirectory structure
-        return resolve_cache_manager(self.cache_manager_name).ai_embed_dir(self.embedding_model)
 
     @classmethod
     def from_env(cls, **overrides: str | int | Path | None) -> AiConfig:

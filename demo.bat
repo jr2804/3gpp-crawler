@@ -13,6 +13,7 @@ tdoc-crawler query-tdocs --agenda "*atias*" --start-date 2018
 3gpp-ai workspace create atias
 :: 3gpp-ai workspace activate atias
 3gpp-ai workspace add-members --kind tdocs --agenda "*atias*" --start-date 2017
+3gpp-ai workspace add-members S4-260109 --kind tdocs
 3gpp-ai workspace add-members 26131 26132 26260 26261 21905 --kind specs --release 19
 3gpp-ai workspace add-members 26260 --kind specs --release 18.1.0
 3gpp-ai workspace add-members 26260 26261 --kind specs --release 18.0.0

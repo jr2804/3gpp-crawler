@@ -363,38 +363,6 @@ async def _process_single_item(
     return member, None, was_converted, was_md_extracted
 
 
-def _build_workspace_members(
-    *,
-    workspace: str,
-    items: list[str],
-    source_kind: SourceKind,
-    checkout: bool,
-    release: str | None,
-) -> tuple[list[Any], list[tuple[str, str]]]:
-    manager = resolve_cache_manager()
-    members: list[Any] = []
-    skipped: list[tuple[str, str]] = []
-
-    async def _build_members() -> tuple[list[Any], list[tuple[str, str]]]:
-        for item in items:
-            member, skip_reason, _, _ = await _process_single_item(
-                item=item,
-                workspace=workspace,
-                source_kind=source_kind,
-                checkout=checkout,
-                release=release,
-                convert_pdf=False,  # Conversion handled separately in CLI
-                manager=manager,
-            )
-            if skip_reason:
-                skipped.append((item, skip_reason))
-            else:
-                members.append(member)
-        return members, skipped
-
-    return asyncio.run(_build_members())
-
-
 def _resolve_process_file(path: Path) -> Path | None:
     """Resolve the actual document file from a path or directory.
 

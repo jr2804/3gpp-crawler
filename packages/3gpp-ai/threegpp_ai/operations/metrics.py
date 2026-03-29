@@ -141,17 +141,6 @@ class MetricsTracker:
             "avg_duration": total_duration / total if total > 0 else 0.0,
         }
 
-    def by_type(self, metric_type: MetricType) -> list[DocumentMetric]:
-        """Get metrics filtered by type.
-
-        Args:
-            metric_type: Type to filter by.
-
-        Returns:
-            List of matching metrics.
-        """
-        return [m for m in self._metrics if m.metric_type == metric_type]
-
     def clear(self) -> None:
         """Clear all recorded metrics."""
         self._metrics.clear()

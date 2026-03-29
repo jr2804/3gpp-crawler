@@ -4,9 +4,6 @@ This module manages pg0 lifecycle for PostgreSQL-backed LightRAG storage.
 pg0 is a zero-config embedded PostgreSQL with pgvector extension.
 """
 
-from collections.abc import Generator
-from contextlib import contextmanager
-
 from tdoc_crawler.logging import get_logger
 
 try:
@@ -82,33 +79,13 @@ class Pg0Manager:
         if self._pg and self._started:
             self._pg.stop()
             logger.info("pg0 stopped")
-            self._started = False
 
-    def is_running(self) -> bool:
-        """Check if pg0 is currently running."""
-        return self._started
+            self._started = False
 
     @property
     def uri(self) -> str:
         """Return PostgreSQL connection URI."""
         return f"postgresql://postgres:postgres@localhost:{self.port}/{self.database}"
-
-    @contextmanager
-    def running(self) -> Generator[str]:
-        """Context manager for pg0 lifecycle.
-
-        Yields:
-            PostgreSQL connection URI.
-
-        Example:
-            >>> manager = Pg0Manager()
-            >>> with manager.running() as uri:
-            ...     # use PostgreSQL
-        """
-        try:
-            yield self.start()
-        finally:
-            self.stop()
 
 
 class Pg0Error(Exception):
