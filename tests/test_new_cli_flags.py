@@ -9,7 +9,7 @@ import pytest
 from packaging.version import Version
 from typer.testing import CliRunner
 
-from tdoc_crawler.cli.app import app
+from tdoc_crawler.cli import tdoc_app
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
@@ -48,13 +48,13 @@ def sample_tdoc_metadata() -> TDocMetadata:
 class TestNewCLIFlags:
     """Test suite for new CLI flags in open and checkout commands."""
 
-    @patch("tdoc_crawler.cli.app.CacheManager")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.create_cached_session")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.set_credentials")
+    @patch("tdoc_crawler.cli.tdoc_app.CacheManager")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     def test_open_with_full_metadata_flag(
         self,
         mock_set_creds: Mock,
@@ -90,7 +90,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(app, ["open", "S4-260001", "--full-metadata", "--cache-dir", str(tmp_path)])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--full-metadata", "--cache-dir", str(tmp_path)])
 
         # Verify
         assert result.exit_code == 0
@@ -99,13 +99,13 @@ class TestNewCLIFlags:
         assert kwargs["full_metadata"] is True
         assert kwargs["use_whatthespec"] is False
 
-    @patch("tdoc_crawler.cli.app.CacheManager")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.create_cached_session")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.set_credentials")
+    @patch("tdoc_crawler.cli.tdoc_app.CacheManager")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     def test_open_with_whatthespec_flag(
         self,
         mock_set_creds: Mock,
@@ -141,7 +141,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(app, ["open", "S4-260001", "--use-whatthespec", "--cache-dir", str(tmp_path)])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--use-whatthespec", "--cache-dir", str(tmp_path)])
 
         # Verify
         assert result.exit_code == 0
@@ -149,13 +149,13 @@ class TestNewCLIFlags:
         args, kwargs = mock_fetch.call_args
         assert kwargs["use_whatthespec"] is True
 
-    @patch("tdoc_crawler.cli.app.CacheManager")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.create_cached_session")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.set_credentials")
+    @patch("tdoc_crawler.cli.tdoc_app.CacheManager")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     def test_open_with_both_flags(
         self,
         mock_set_creds: Mock,
@@ -191,7 +191,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(app, ["open", "S4-260001", "--full-metadata", "--use-whatthespec", "--cache-dir", str(tmp_path)])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--full-metadata", "--use-whatthespec", "--cache-dir", str(tmp_path)])
 
         # Verify
         assert result.exit_code == 0
@@ -200,12 +200,12 @@ class TestNewCLIFlags:
         assert kwargs["full_metadata"] is True
         assert kwargs["use_whatthespec"] is True
 
-    @patch("tdoc_crawler.cli.app.CacheManager")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.create_cached_session")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.app.set_credentials")
+    @patch("tdoc_crawler.cli.tdoc_app.CacheManager")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     def test_checkout_with_full_metadata_flag(
         self,
         mock_set_creds: Mock,
@@ -240,7 +240,7 @@ class TestNewCLIFlags:
         mock_checkout.return_value = tmp_path / "S4-260001.zip"
 
         # Execute
-        result = runner.invoke(app, ["checkout", "S4-260001", "--full-metadata", "--cache-dir", str(tmp_path)])
+        result = runner.invoke(tdoc_app, ["checkout", "S4-260001", "--full-metadata", "--cache-dir", str(tmp_path)])
 
         # Verify
         assert result.exit_code == 0
@@ -248,12 +248,12 @@ class TestNewCLIFlags:
         args, kwargs = mock_fetch.call_args
         assert kwargs["full_metadata"] is True
 
-    @patch("tdoc_crawler.cli.app.CacheManager")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.create_cached_session")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.app.set_credentials")
+    @patch("tdoc_crawler.cli.tdoc_app.CacheManager")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     def test_checkout_with_whatthespec_flag(
         self,
         mock_set_creds: Mock,
@@ -288,7 +288,7 @@ class TestNewCLIFlags:
         mock_checkout.return_value = tmp_path / "S4-260001.zip"
 
         # Execute
-        result = runner.invoke(app, ["checkout", "S4-260001", "--use-whatthespec", "--cache-dir", str(tmp_path)])
+        result = runner.invoke(tdoc_app, ["checkout", "S4-260001", "--use-whatthespec", "--cache-dir", str(tmp_path)])
 
         # Verify
         assert result.exit_code == 0
@@ -296,13 +296,13 @@ class TestNewCLIFlags:
         args, kwargs = mock_fetch.call_args
         assert kwargs["use_whatthespec"] is True
 
-    @patch("tdoc_crawler.cli.app.CacheManager")
-    @patch("tdoc_crawler.cli.app.TDocDatabase")
-    @patch("tdoc_crawler.cli.app.create_cached_session")
-    @patch("tdoc_crawler.cli.app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.app.prepare_tdoc_file")
-    @patch("tdoc_crawler.cli.app.launch_file")
-    @patch("tdoc_crawler.cli.app.set_credentials")
+    @patch("tdoc_crawler.cli.tdoc_app.CacheManager")
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     def test_default_behavior_unchanged(
         self,
         mock_set_creds: Mock,
@@ -338,7 +338,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(app, ["open", "S4-260001", "--cache-dir", str(tmp_path)])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--cache-dir", str(tmp_path)])
 
         # Verify
         assert result.exit_code == 0

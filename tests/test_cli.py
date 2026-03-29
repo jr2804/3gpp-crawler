@@ -10,7 +10,7 @@ import pytest
 from packaging.version import Version
 from typer.testing import CliRunner
 
-from tdoc_crawler.cli import app
+from tdoc_crawler.cli import tdoc_app
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.working_groups import WorkingGroup
@@ -52,8 +52,8 @@ class TestCrawlCommand:
         )
 
         result = runner.invoke(
-            app,
-            ["crawl-tdocs", "--cache-dir", str(test_cache_dir), "--limit-tdocs", "10"],
+            tdoc_app,
+            ["crawl", "--cache-dir", str(test_cache_dir), "--limit-tdocs", "10"],
         )
 
         assert result.exit_code == 0
@@ -88,8 +88,8 @@ class TestCrawlCommand:
         )
 
         result = runner.invoke(
-            app,
-            ["crawl-tdocs", "--cache-dir", str(test_cache_dir), "--working-group", "RAN"],
+            tdoc_app,
+            ["crawl", "--cache-dir", str(test_cache_dir), "--working-group", "RAN"],
         )
 
         assert result.exit_code == 0
@@ -125,7 +125,7 @@ class TestCrawlMeetingsCommand:
         )
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             [
                 "crawl-meetings",
                 "--cache-dir",
@@ -156,8 +156,8 @@ class TestQueryCommand:
         mock_db.query_tdocs = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            app,
-            ["query-tdocs", "--cache-dir", str(test_cache_dir)],
+            tdoc_app,
+            ["query", "--cache-dir", str(test_cache_dir)],
         )
 
         assert result.exit_code == 0
@@ -176,8 +176,8 @@ class TestQueryCommand:
         mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs)
 
         result = runner.invoke(
-            app,
-            ["query-tdocs", "--cache-dir", str(test_cache_dir), "--output", "table"],
+            tdoc_app,
+            ["query", "--cache-dir", str(test_cache_dir), "--output", "table"],
         )
 
         assert result.exit_code == 0
@@ -196,8 +196,8 @@ class TestQueryCommand:
         mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs[:1])
 
         result = runner.invoke(
-            app,
-            ["query-tdocs", "--cache-dir", str(test_cache_dir), "--output", "json"],
+            tdoc_app,
+            ["query", "--cache-dir", str(test_cache_dir), "--output", "json"],
         )
 
         assert result.exit_code == 0
@@ -217,8 +217,8 @@ class TestQueryCommand:
         mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs[:1])
 
         result = runner.invoke(
-            app,
-            ["query-tdocs", "R1-2301234", "--cache-dir", str(test_cache_dir)],
+            tdoc_app,
+            ["query", "R1-2301234", "--cache-dir", str(test_cache_dir)],
         )
 
         assert result.exit_code == 0
@@ -239,7 +239,7 @@ class TestQueryMeetingsCommand:
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["query-meetings", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -258,7 +258,7 @@ class TestQueryMeetingsCommand:
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "SA4"],
         )
 
@@ -279,7 +279,7 @@ class TestQueryMeetingsCommand:
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "S4"],
         )
 
@@ -300,7 +300,7 @@ class TestQueryMeetingsCommand:
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "RP"],
         )
 
@@ -321,7 +321,7 @@ class TestQueryMeetingsCommand:
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["query-meetings", "--cache-dir", str(test_cache_dir), "-w", "SP"],
         )
 
@@ -342,7 +342,7 @@ class TestQueryMeetingsCommand:
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["query-meetings", "--cache-dir", str(test_cache_dir), "-w", "SA", "-s", "S4"],
         )
 
@@ -373,7 +373,7 @@ class TestStatsCommand:
         asyncio.run(_prepare_db())
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["stats", "--cache-dir", str(test_db_path.parent)],
         )
 
@@ -387,7 +387,7 @@ class TestStatsCommand:
     ) -> None:
         """Test stats command with missing database."""
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["stats", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -421,7 +421,7 @@ class TestOpenCommand:
         mock_prepare.return_value = mock_file
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["open", "R1-2301234", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -441,7 +441,7 @@ class TestOpenCommand:
         mock_db.query_tdocs.return_value = []
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["open", "INVALID-ID", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -510,7 +510,7 @@ class TestOpenCommand:
         mock_prepare.return_value = mock_file
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["open", "S4-260001", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -577,7 +577,7 @@ class TestOpenCommand:
         mock_prepare.return_value = mock_file
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["open", "R1-260001", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -665,7 +665,7 @@ class TestCheckoutCommand:
         )
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["checkout", "S4-260001", "S4-260002", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -708,7 +708,7 @@ class TestCheckoutCommand:
         )
 
         result = runner.invoke(
-            app,
+            tdoc_app,
             ["checkout", "S4-999999", "--cache-dir", str(test_cache_dir)],
         )
 
@@ -750,7 +750,7 @@ class TestEnvironmentVariables:
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_CACHE_DIR", str(test_cache_dir))
 
-        result = runner.invoke(app, ["crawl-tdocs"])
+        result = runner.invoke(tdoc_app, ["crawl"])
 
         assert result.exit_code == 0
         mock_crawler.crawl.assert_called_once()
@@ -783,7 +783,7 @@ class TestEnvironmentVariables:
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_WORKERS", "8")
 
-        result = runner.invoke(app, ["crawl-tdocs"])
+        result = runner.invoke(tdoc_app, ["crawl"])
 
         assert result.exit_code == 0
         mock_crawler.crawl.assert_called_once()
@@ -806,7 +806,7 @@ class TestEnvironmentVariables:
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_WORKING_GROUP", "SA")
 
-        result = runner.invoke(app, ["query-meetings"])
+        result = runner.invoke(tdoc_app, ["query-meetings"])
 
         assert result.exit_code == 0
         # Verify working group filter was applied
@@ -828,7 +828,7 @@ class TestEnvironmentVariables:
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_OUTPUT", "json")
 
-        result = runner.invoke(app, ["query-tdocs"])
+        result = runner.invoke(tdoc_app, ["query"])
 
         assert result.exit_code == 0
 
@@ -840,7 +840,7 @@ class TestEnvironmentVariables:
         # Note: TDC_VERBOSE has been removed - verbose mode is now controlled by --verbose flag only
 
         # But override with CLI argument
-        result = runner.invoke(app, ["--help"])
+        result = runner.invoke(tdoc_app, ["--help"])
 
         # Help command should succeed regardless
         assert result.exit_code == 0
@@ -864,7 +864,7 @@ class TestEnvironmentVariables:
         db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
         db_file.touch()
 
-        result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
+        result = runner.invoke(tdoc_app, ["stats", "--cache-dir", str(test_cache_dir)])
 
         # Verify resolve_credentials was called
         # (Actual credential resolution happens via Typer's envvar parameter)
@@ -887,7 +887,7 @@ class TestEnvironmentVariables:
         db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
         db_file.touch()
 
-        result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
+        result = runner.invoke(tdoc_app, ["stats", "--cache-dir", str(test_cache_dir)])
 
         assert result.exit_code == 0
 
@@ -907,7 +907,7 @@ class TestEnvironmentVariables:
         monkeypatch.setenv("TDC_START_DATE", "2024-01-01")
         monkeypatch.setenv("TDC_END_DATE", "2024-12-31")
 
-        result = runner.invoke(app, ["query-tdocs"])
+        result = runner.invoke(tdoc_app, ["query"])
 
         assert result.exit_code == 0
 
@@ -930,6 +930,6 @@ class TestEnvironmentVariables:
         db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
         db_file.touch()
 
-        result = runner.invoke(app, ["stats", "--cache-dir", str(test_cache_dir)])
+        result = runner.invoke(tdoc_app, ["stats", "--cache-dir", str(test_cache_dir)])
 
         assert result.exit_code == 0

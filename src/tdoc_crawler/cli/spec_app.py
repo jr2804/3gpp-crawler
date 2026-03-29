@@ -30,14 +30,14 @@ def _spec_app_callback(
 
 
 # Register crawl commands
-spec_app.command("crawl-specs", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_specs)
+spec_app.command("crawl", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_specs)
 
 # Register query commands
-spec_app.command("query-specs", rich_help_panel=HELP_PANEL_QUERY)(query_specs)
+spec_app.command("query", rich_help_panel=HELP_PANEL_QUERY)(query_specs)
 
 # Register spec commands
-spec_app.command("checkout-spec", rich_help_panel=HELP_PANEL_MAIN)(checkout_spec)
-spec_app.command("open-spec", rich_help_panel=HELP_PANEL_MAIN)(open_spec)
+spec_app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)(checkout_spec)
+spec_app.command("open", rich_help_panel=HELP_PANEL_MAIN)(open_spec)
 
 
 __all__ = ["spec_app"]

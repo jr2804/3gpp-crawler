@@ -40,6 +40,7 @@ dependencies = [
     "ison-py>=1.0.2",
     "isonantic>=1.0.1",
     "toon-format",
+    "pydantic-settings>=2.13.1",
 ]
 
 [project.urls]
@@ -65,7 +66,7 @@ requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-tdoc-crawler = "tdoc_crawler.cli.tdoc_app:app"
+tdoc-crawler = "tdoc_crawler.cli.tdoc_app:tdoc_app"
 spec-crawler = "tdoc_crawler.cli.spec_app:spec_app"
 
 [tool.pytest.ini_options]

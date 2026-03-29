@@ -1,6 +1,6 @@
 """Main entry point for tdoc-crawler CLI."""
 
-from tdoc_crawler.cli import app
+from tdoc_crawler.cli import tdoc_app
 
 if __name__ == "__main__":
-    app()
+    tdoc_app()
