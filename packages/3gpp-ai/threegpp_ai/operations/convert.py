@@ -24,7 +24,7 @@ from threegpp_ai.operations.conversion import (
     ConverterBackend,
     ConverterConfig,
 )
-from threegpp_ai.operations.extraction import extract_document_structured
+from threegpp_ai.operations.extraction import AcceleratorConfig, VlmOptions, extract_document_structured
 from threegpp_ai.operations.extraction_result import StructuredExtractionResult
 from threegpp_ai.operations.fetch_tdoc import fetch_tdoc_files
 from threegpp_ai.operations.metrics import MetricType, get_metrics_tracker, timed_operation
@@ -168,6 +168,8 @@ def convert_document_to_markdown(
     output_path: Path | None = None,
     force: bool = False,
     converter_config: ConverterConfig | None = None,
+    vlm_options: VlmOptions | None = None,
+    accelerator_config: AcceleratorConfig | None = None,
 ) -> str:
     """Convert TDoc to markdown using the unified extraction pipeline.
 
@@ -186,6 +188,8 @@ def convert_document_to_markdown(
         output_path: Optional path to write markdown file
         force: Force reconversion even if cached
         converter_config: Optional converter configuration (unused, kept for API compatibility)
+        vlm_options: Optional VLM features for extraction.
+        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
 
     Returns:
         Markdown content string
@@ -199,6 +203,8 @@ def convert_document_to_markdown(
     extraction = extract_document_structured_from_tdoc(
         document_id=document_id,
         force=force,
+        vlm_options=vlm_options,
+        accelerator_config=accelerator_config,
     )
 
     # Get TDoc metadata for header
@@ -222,6 +228,8 @@ def extract_document_structured_from_tdoc(
     document_id: str,
     force: bool = False,
     extract_types: set[str] | None = None,
+    vlm_options: VlmOptions | None = None,
+    accelerator_config: AcceleratorConfig | None = None,
 ) -> StructuredExtractionResult:
     """Extract a TDoc into the canonical structured payload.
 
@@ -233,6 +241,8 @@ def extract_document_structured_from_tdoc(
         force: Force reconversion even if cached markdown exists.
         extract_types: Optional set of artifact types to extract/persist.
             If None, extracts all types. Supported types: "tables", "figures", "equations".
+        vlm_options: Optional VLM features for extraction.
+        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
 
     Returns:
         Structured extraction result.
@@ -269,6 +279,8 @@ def extract_document_structured_from_tdoc(
             metadata=metadata_dict,
             force=force,
             extract_types=extract_types,
+            vlm_options=vlm_options,
+            accelerator_config=accelerator_config,
         )
 
 

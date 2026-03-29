@@ -19,9 +19,9 @@ from typing import Any
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
 from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
+from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import (
-    AcceleratorOptions,
     CodeFormulaVlmOptions,
     TableStructureOptions,
     ThreadedPdfPipelineOptions,
@@ -61,26 +61,77 @@ class VlmOptions:
     enable_formula_enrichment: bool = False
 
 
-def _create_pdf_converter(vlm_options: VlmOptions | None = None) -> DocumentConverter:
+# Map of user-facing device strings to AcceleratorDevice enum values
+_DEVICE_MAP: dict[str, AcceleratorDevice] = {
+    "auto": AcceleratorDevice.AUTO,
+    "cpu": AcceleratorDevice.CPU,
+    "cuda": AcceleratorDevice.CUDA,
+    "mps": AcceleratorDevice.MPS,
+    "xpu": AcceleratorDevice.XPU,
+}
+
+
+@dataclass
+class AcceleratorConfig:
+    """Accelerator configuration for Docling document processing.
+
+    Controls GPU/CPU device selection, thread count, and batch sizes.
+    All fields have sensible defaults — Docling auto-detects CUDA when available.
+
+    Attributes:
+        device: Compute device — one of: auto, cpu, cuda, mps, xpu, or cuda:N.
+        num_threads: Thread count for CPU-bound operations.
+        batch_size: Unified batch size for OCR, layout, and table structure.
+            None leaves each at Docling's default. Higher values benefit GPU.
+    """
+
+    device: str = "auto"
+    num_threads: int = 4
+    batch_size: int | None = None
+
+    def to_accelerator_options(self) -> AcceleratorOptions:
+        """Convert to Docling's AcceleratorOptions."""
+        device_lower = self.device.strip().lower()
+        device = _DEVICE_MAP.get(device_lower, AcceleratorDevice.AUTO)
+        return AcceleratorOptions(num_threads=self.num_threads, device=device)
+
+    def apply_batch_sizes(self, options: ThreadedPdfPipelineOptions) -> None:
+        """Apply batch size overrides to pipeline options if configured."""
+        if self.batch_size is not None and self.batch_size > 0:
+            options.ocr_batch_size = self.batch_size
+            options.layout_batch_size = self.batch_size
+            options.table_batch_size = max(1, self.batch_size // 16)
+
+
+def _create_pdf_converter(
+    vlm_options: VlmOptions | None = None,
+    accelerator_config: AcceleratorConfig | None = None,
+) -> DocumentConverter:
     """Create a DocumentConverter for PDF extraction.
 
     Args:
         vlm_options: Optional VLM features. If None, uses StandardPdfPipeline with
             enhanced options (table structure, accelerator). If any VLM feature is
             enabled, uses VlmPipeline with Granite Docling.
+        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
+            If None, uses defaults (auto device, 4 threads).
 
     Returns:
         Configured DocumentConverter for PDF processing.
     """
+    accel = accelerator_config or AcceleratorConfig()
+    accelerator_options = accel.to_accelerator_options()
+
     if vlm_options is None or (not vlm_options.enable_picture_description and not vlm_options.enable_formula_enrichment):
         # Standard pipeline with enhanced options
         options = ThreadedPdfPipelineOptions(
             do_table_structure=True,
             table_structure_options=TableStructureOptions(do_cell_matching=True),
-            accelerator_options=AcceleratorOptions(num_threads=4),
+            accelerator_options=accelerator_options,
             do_formula_enrichment=True,
             code_formula_options=CodeFormulaVlmOptions.from_preset("granite_docling"),
         )
+        accel.apply_batch_sizes(options)
         pdf_format_option = FormatOption(
             pipeline_cls=StandardPdfPipeline,
             backend=DoclingParseDocumentBackend,
@@ -93,6 +144,7 @@ def _create_pdf_converter(vlm_options: VlmOptions | None = None) -> DocumentConv
             images_scale=2.0,
             generate_picture_images=True,
             vlm_options=VlmConvertOptions.from_preset("granite_docling"),
+            accelerator_options=accelerator_options,
         )
         pdf_format_option = FormatOption(
             pipeline_cls=VlmPipeline,
@@ -219,6 +271,7 @@ def _convert_via_libreoffice(
     doc_stem: str | None = None,
     extract_types: set[str] | None = None,
     vlm_options: VlmOptions | None = None,
+    accelerator_config: AcceleratorConfig | None = None,
 ) -> StructuredExtractionResult:
     """Convert non-PDF document to structured extraction via LibreOffice.
 
@@ -228,6 +281,7 @@ def _convert_via_libreoffice(
         doc_stem: Document stem for naming artifacts.
         extract_types: Optional set of artifact types to extract/persist.
         vlm_options: Optional VLM features for PDF extraction.
+        accelerator_config: Optional accelerator settings.
 
     Returns:
         Structured extraction payload.
@@ -239,7 +293,7 @@ def _convert_via_libreoffice(
         converter = Converter()
         with tempfile.TemporaryDirectory() as tmpdir:
             conversion_result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
-            converter_docling = _create_pdf_converter(vlm_options=vlm_options)
+            converter_docling = _create_pdf_converter(vlm_options=vlm_options, accelerator_config=accelerator_config)
             docling_result = converter_docling.convert(str(conversion_result.output_path))
             return _build_structured_from_result(
                 docling_result,
@@ -283,6 +337,7 @@ def extract_document_structured(
     force: bool = False,
     extract_types: set[str] | None = None,
     vlm_options: VlmOptions | None = None,
+    accelerator_config: AcceleratorConfig | None = None,
 ) -> StructuredExtractionResult:
     """Extract a document into a canonical structured payload.
 
@@ -307,6 +362,7 @@ def extract_document_structured(
         vlm_options: Optional VLM features for extraction. Enables picture description
             and/or formula enrichment using VLM pipelines. If None, uses standard
             extraction with formula enrichment.
+        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
 
     Returns:
         StructuredExtractionResult with content, tables, figures, and equations.
@@ -345,7 +401,7 @@ def extract_document_structured(
 
     # No valid cache found, perform fresh extraction
     if file_path.suffix.lower() == ".pdf":
-        converter = _create_pdf_converter(vlm_options=vlm_options)
+        converter = _create_pdf_converter(vlm_options=vlm_options, accelerator_config=accelerator_config)
         result = converter.convert(str(file_path))
         extraction = _build_structured_from_result(
             result,
@@ -370,6 +426,7 @@ def extract_document_structured(
             doc_stem=doc_stem,
             extract_types=extract_types,
             vlm_options=vlm_options,
+            accelerator_config=accelerator_config,
         )
 
     # Ensure .ai directory exists
@@ -389,6 +446,7 @@ def extract_document_text(
     file_path: Path,
     force: bool = False,
     vlm_options: VlmOptions | None = None,
+    accelerator_config: AcceleratorConfig | None = None,
 ) -> str:
     """Extract plain text content from a document using docling.
 
@@ -399,6 +457,7 @@ def extract_document_text(
         file_path: Path to the document file.
         force: If True, re-extract even if cached markdown exists.
         vlm_options: Optional VLM features for extraction.
+        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
 
     Returns:
         Extracted text content as a string.
@@ -413,11 +472,13 @@ def extract_document_text(
         force=force,
         extract_types=set(),  # No artifacts needed for text-only extraction
         vlm_options=vlm_options,
+        accelerator_config=accelerator_config,
     )
     return extraction.content
 
 
 __all__ = [
+    "AcceleratorConfig",
     "VlmOptions",
     "extract_document_structured",
     "extract_document_text",
