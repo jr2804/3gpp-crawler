@@ -36,7 +36,7 @@ from pool_executors.pool_executors import SerialPoolExecutor, create_executor
 
 ### Domain-Specific Imports
 
-Use domain-specific imports (legacy `crawlers/` package was removed):
+Use domain-specific imports:
 
 ```python
 from tdoc_crawler.tdocs import TDocCrawler
@@ -47,7 +47,7 @@ from tdoc_crawler.specs import SpecDatabase
 
 ## Anti-Duplication in Tests
 
-**CRITICAL:** Do not re-implement or copy logic from `src/` into `tests/`. Tests should import and verify actual implementation. If code is hard to test, refactor it to be more testable.
+**CRITICAL:** Do not re-implement or copy logic from `src/` or `packages/` into `tests/`. Tests should import and verify actual implementation. If code is hard to test, refactor it to be more testable.
 
 **Use fixtures** from `conftest.py` to avoid duplicating setup code:
 
