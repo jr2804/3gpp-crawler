@@ -12,7 +12,6 @@ from rich.table import Table
 
 from tdoc_crawler.cli._shared import console, create_progress_bar
 from tdoc_crawler.cli.args import (
-    CacheDirOption,
     CheckoutTDocIdsArgument,
     EolPasswordOption,
     EolUsernameOption,
@@ -24,6 +23,7 @@ from tdoc_crawler.cli.args import (
     VerbosityOption,
 )
 from tdoc_crawler.cli.config import load_cli_config
+from tdoc_crawler.cli.config_cmd import config_app
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.utils import launch_file
@@ -46,6 +46,11 @@ HELP_PANEL_MAIN = "Main Commands"
 HELP_PANEL_CRAWLING = "Crawling Commands"
 
 HELP_PANEL_QUERY = "Query Commands"
+
+HELP_PANEL_CONFIG = "Configuration Commands"
+
+# Register config sub-app
+tdoc_app.add_typer(config_app, name="config", help="Manage configuration")
 
 
 @tdoc_app.callback()
@@ -72,7 +77,7 @@ def _app_callback(
 ) -> None:
     """Global CLI options."""
     # Load and validate config at startup
-    config = load_cli_config(ctx, config_file)
+    load_cli_config(ctx, config_file)
 
     # For backward compatibility: if --cache-dir provided, it overrides config
     if cache_dir:
