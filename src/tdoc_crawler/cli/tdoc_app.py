@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
-# Load environment variables from .env file before any other imports
-# that might read from environment. This ensures .env values are available
-# for TDocCrawlerConfig and other components.
-from dotenv import load_dotenv
+import asyncio
+import zipfile
+from pathlib import Path
+from typing import Annotated, Any, cast
 
-load_dotenv()
+import typer
+from rich.table import Table
 
-import asyncio  # noqa: E402
-import zipfile  # noqa: E402
-from typing import Any, cast  # noqa: E402
-
-import typer  # noqa: E402
-from rich.table import Table  # noqa: E402
-
-from tdoc_crawler.cli._shared import console, create_progress_bar  # noqa: E402
-from tdoc_crawler.cli.args import (  # noqa: E402
+from tdoc_crawler.cli._shared import console, create_progress_bar
+from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutTDocIdsArgument,
     EolPasswordOption,
@@ -29,19 +23,20 @@ from tdoc_crawler.cli.args import (  # noqa: E402
     UseWhatTheSpecOption,
     VerbosityOption,
 )
-from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs  # noqa: E402
-from tdoc_crawler.cli.query import query_meetings, query_tdocs  # noqa: E402
-from tdoc_crawler.cli.utils import launch_file  # noqa: E402
-from tdoc_crawler.config import CacheManager  # noqa: E402
-from tdoc_crawler.credentials import set_credentials  # noqa: E402
-from tdoc_crawler.database import MeetingDatabase, TDocDatabase  # noqa: E402
-from tdoc_crawler.http_client import create_cached_session  # noqa: E402
-from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY  # noqa: E402
-from tdoc_crawler.logging import set_verbosity  # noqa: E402
-from tdoc_crawler.tdocs.models import TDocQueryConfig  # noqa: E402
-from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file  # noqa: E402
-from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs  # noqa: E402
-from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids  # noqa: E402
+from tdoc_crawler.cli.config import load_cli_config
+from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
+from tdoc_crawler.cli.query import query_meetings, query_tdocs
+from tdoc_crawler.cli.utils import launch_file
+from tdoc_crawler.config import CacheManager
+from tdoc_crawler.credentials import set_credentials
+from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
+from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
+from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
+from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
 
 tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
 
@@ -56,10 +51,34 @@ HELP_PANEL_QUERY = "Query Commands"
 @tdoc_app.callback()
 def _app_callback(
     ctx: typer.Context,
-    cache_dir: CacheDirOption = None,
+    config_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--config",
+            "-c",
+            help="Path to configuration file (overrides discovered config)",
+            exists=True,
+            readable=True,
+        ),
+    ] = None,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--cache-dir",
+            help="Cache directory (deprecated: use config file)",
+            envvar="TDC_CACHE_DIR",
+        ),
+    ] = None,
 ) -> None:
     """Global CLI options."""
-    pass  # No global options currently
+    # Load and validate config at startup
+    config = load_cli_config(ctx, config_file)
+
+    # For backward compatibility: if --cache-dir provided, it overrides config
+    if cache_dir:
+        console.print("[yellow]Warning: --cache-dir is deprecated, use config file[/yellow]")
+        # Create new CacheManager with explicit cache_dir
+        CacheManager(cache_dir).register()
 
 
 # Register crawl commands
@@ -74,13 +93,13 @@ tdoc_app.command("query-meetings", rich_help_panel=HELP_PANEL_QUERY)(query_meeti
 
 @tdoc_app.command("open", rich_help_panel=HELP_PANEL_MAIN)
 def open_tdoc(
+    ctx: typer.Context,
     tdoc_id: TDocIdArgument,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Download, extract, and open a TDoc file."""
@@ -88,7 +107,9 @@ def open_tdoc(
 
     set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
-    manager = CacheManager(cache_dir).register()
+    # Get config from context (set in callback)
+    crawler_config = ctx.obj
+    manager = CacheManager(config=crawler_config).register()
 
     normalized_id = normalize_tdoc_id(tdoc_id)
 
@@ -139,6 +160,7 @@ def open_tdoc(
 
 @tdoc_app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)
 def checkout(
+    ctx: typer.Context,
     tdoc_ids: CheckoutTDocIdsArgument,
     force: ForceOption = False,
     full_metadata: FullMetadataOption = False,
@@ -146,7 +168,6 @@ def checkout(
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Download and extract TDoc(s) to checkout folder."""
@@ -154,7 +175,9 @@ def checkout(
 
     set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
-    manager = CacheManager(cache_dir).register()
+    # Get config from context (set in callback)
+    crawler_config = ctx.obj
+    manager = CacheManager(config=crawler_config).register()
 
     normalized_ids = normalize_tdoc_ids(tdoc_ids)
 
@@ -220,13 +243,15 @@ def checkout(
 
 @tdoc_app.command("stats", rich_help_panel=HELP_PANEL_MAIN)
 def stats(
-    cache_dir: CacheDirOption = None,
+    ctx: typer.Context,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Display database statistics."""
     set_verbosity(verbosity)
 
-    manager = CacheManager(cache_dir).register()
+    # Get config from context (set in callback)
+    crawler_config = ctx.obj
+    manager = CacheManager(config=crawler_config).register()
 
     if not (db_file := manager.db_file).exists():
         console.print(f"[red]Database not found: {db_file}[/red]")
