@@ -79,6 +79,7 @@ def _build_spec_versions(
 
         spec_versions.append(
             SpecificationVersion(
+                record_id=f"{normalized}:{parse_spec_version_nbr(version)}:{source_name}",
                 spec_number=normalized,
                 version=parse_spec_version_nbr(version),
                 file_name=file_name,
@@ -353,6 +354,7 @@ class SpecDatabase(DocDatabase):
 
             source_records.append(
                 SpecificationSourceRecord(
+                    record_id=f"{normalized}:{source_name}",
                     spec_number=normalized,
                     source_name=source_name,
                     source_identifier=source_identifier if isinstance(source_identifier, str) else None,
