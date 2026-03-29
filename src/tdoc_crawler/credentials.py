@@ -7,6 +7,7 @@ import sys
 
 import typer
 
+from tdoc_crawler.config.settings import CredentialsConfig
 from tdoc_crawler.models.base import PortalCredentials
 
 
@@ -27,32 +28,41 @@ def set_credentials(username: str | None, password: str | None, prompt: bool | N
 
 
 def resolve_credentials(
-    username: str | None,
-    password: str | None,
+    username: str | None = None,
+    password: str | None = None,
     prompt: bool | None = None,
+    credentials_config: CredentialsConfig | None = None,
 ) -> PortalCredentials | None:
-    """Resolve portal credentials from parameters, environment, or prompt.
+    """Resolve portal credentials with TDocCrawlerConfig integration.
 
-    Resolution order:
+    Resolution order (per D-03):
     1. CLI parameters (username, password)
-    2. Environment variables (TDC_EOL_USERNAME, TDC_EOL_PASSWORD)
-    3. Interactive prompt (if TDC_EOL_PROMPT=true or prompt=True, and stdin is a TTY)
+    2. credentials_config values (from config file)
+    3. Environment variables (TDC_EOL_USERNAME, TDC_EOL_PASSWORD)
+    4. Interactive prompt (if enabled)
 
     Args:
-        username: CLI-provided username
-        password: CLI-provided password
-        prompt: Whether to prompt interactively. If None, reads from EOL_PROMPT env var.
+        username: CLI-provided username (highest precedence)
+        password: CLI-provided password (highest precedence)
+        prompt: Whether to prompt interactively
+        credentials_config: Optional CredentialsConfig from TDocCrawlerConfig
 
     Returns:
         PortalCredentials instance if resolved, None otherwise
     """
-    resolved_username = username or os.getenv("TDC_EOL_USERNAME")
-    resolved_password = password or os.getenv("TDC_EOL_PASSWORD")
+    # Resolution order: CLI > Config > Env > Prompt
+    resolved_username = username or (credentials_config.username if credentials_config else None) or os.getenv("TDC_EOL_USERNAME")
+    resolved_password = password or (credentials_config.password if credentials_config else None) or os.getenv("TDC_EOL_PASSWORD")
 
     if resolved_username and resolved_password:
         return PortalCredentials(username=resolved_username, password=resolved_password)
 
-    should_prompt = prompt if prompt is not None else os.getenv("TDC_EOL_PROMPT", "").lower() in ("true", "1", "yes")
+    # Determine if we should prompt
+    config_prompt = credentials_config.prompt if credentials_config else None
+    should_prompt = prompt if prompt is not None else (config_prompt.lower() in ("true", "1", "yes") if config_prompt else None)
+    if should_prompt is None:
+        should_prompt = os.getenv("TDC_EOL_PROMPT", "").lower() in ("true", "1", "yes")
+
     if should_prompt and not sys.stdin.isatty():
         should_prompt = False
 

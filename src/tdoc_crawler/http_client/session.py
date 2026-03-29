@@ -16,6 +16,7 @@ from truststore import SSLContext as TruststoreSSLContext
 from urllib3.util.retry import Retry
 
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.constants.urls import BROWSER_HEADERS
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import HttpCacheConfig
@@ -80,17 +81,30 @@ class PoolConfig:
     retry_attempts: int = 3
 
 
-def resolve_ssl_verify(verify: bool | str | None = None) -> bool | str:
+def resolve_ssl_verify(
+    verify: bool | str | None = None,
+    http_config: HttpConfig | None = None,
+) -> bool | str:
     """Resolve SSL verification behavior from explicit argument or environment.
+
+    Resolution order:
+    1. Explicit `verify` parameter
+    2. http_config.verify_ssl if provided
+    3. TDC_VERIFY_SSL environment variable
+    4. Default (True)
 
     Args:
         verify: Optional explicit SSL verification mode.
+        http_config: Optional HttpConfig from TDocCrawlerConfig. When provided,
+                    settings are taken from here with fallback to env vars.
 
     Returns:
         Either a boolean verification flag or a certificate bundle path.
     """
     if verify is not None:
         resolved = verify
+    elif http_config is not None:
+        resolved = http_config.verify_ssl
     else:
         env_value = os.getenv("TDC_VERIFY_SSL")
         if env_value is None:
@@ -105,7 +119,7 @@ def resolve_ssl_verify(verify: bool | str | None = None) -> bool | str:
                 resolved = True
 
     if resolved is False:
-        logger.warning("SSL certificate verification is disabled (TDC_VERIFY_SSL=false). This is insecure.")
+        logger.warning("SSL certificate verification is disabled. This is insecure.")
 
     return resolved
 
@@ -134,6 +148,7 @@ def download_to_file(
     http_cache_enabled: bool | None = None,
     pool_config: PoolConfig | None = None,
     verify: bool | str | None = None,
+    http_config: HttpConfig | None = None,
 ) -> requests.Session | None:
     """Download a file from URL to destination path.
 
@@ -147,6 +162,8 @@ def download_to_file(
         http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
         pool_config: Optional connection pool configuration.
         verify: SSL certificate verification mode. Can be bool or CA bundle path.
+        http_config: Optional HttpConfig from TDocCrawlerConfig. When provided,
+                    settings are taken from here with fallback to env vars.
 
     Raises:
         ValueError: If URL scheme is not supported
@@ -167,6 +184,7 @@ def download_to_file(
             http_cache_enabled=http_cache_enabled,
             pool_config=pool_config,
             verify=verify,
+            http_config=http_config,
         )
         active_session = temp_session
     else:
@@ -197,6 +215,7 @@ def create_cached_session(
     http_cache_enabled: bool | None = None,
     pool_config: PoolConfig | None = None,
     verify: bool | str | None = None,
+    http_config: HttpConfig | None = None,
 ) -> requests.Session:
     """Create a requests.Session with hishel caching enabled.
 
@@ -209,6 +228,8 @@ def create_cached_session(
                 When provided, pool settings are applied to the active adapter
                 (cache adapter when caching is enabled, HTTPAdapter otherwise).
         verify: SSL certificate verification mode. Can be bool or CA bundle path.
+        http_config: Optional HttpConfig from TDocCrawlerConfig. When provided,
+                    settings are taken from here with fallback to env vars.
 
     Returns:
         Configured requests.Session with caching enabled (unless disabled)
@@ -217,14 +238,19 @@ def create_cached_session(
     session = requests.Session()
     session.headers.update(BROWSER_HEADERS)
 
-    verify_mode = resolve_ssl_verify(verify)
+    # Use http_config for SSL if no explicit verify provided
+    verify_mode = http_config.verify_ssl if verify is None and http_config is not None else resolve_ssl_verify(verify, http_config)
     ssl_context = _resolve_ssl_context(verify_mode)
     session.verify = verify_mode
 
-    # Check if caching is disabled via parameter or environment variable
+    # Check if caching is disabled via parameter, http_config, or environment variable
     if http_cache_enabled is None:
-        env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
-        http_cache_enabled = env_enabled not in ("false", "0", "no", "off", "f", "n")
+        if http_config is not None:
+            http_cache_enabled = http_config.cache_enabled
+        else:
+            # Fallback to env var (backward compatibility)
+            env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
+            http_cache_enabled = env_enabled not in ("false", "0", "no", "off", "f", "n")
 
     # If caching is disabled, optionally configure a pooled HTTP adapter and return.
     if not http_cache_enabled:
