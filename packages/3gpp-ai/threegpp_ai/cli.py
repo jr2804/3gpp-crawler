@@ -480,27 +480,26 @@ async def _process_workspace_members(
             # Ensure document is available: checkout + convert to PDF if needed
             file_path = _resolve_process_file(Path(member.source_path))
 
-            if file_path is None or not file_path.exists():
-                if checkout and member.source_kind in (SourceKind.TDOC, SourceKind.SPEC):
-                    # Try to checkout the document
-                    checkout_path: Path | None = None
-                    if member.source_kind == SourceKind.TDOC:
-                        checkout_path = await checkout_tdoc_to_workspace(
-                            member.source_item_id,
-                            manager.checkout_dir,
-                            workspace,
-                            db_file=manager.db_file,
-                        )
-                    elif member.source_kind == SourceKind.SPEC:
-                        checkout_path = await checkout_spec_to_workspace(
-                            member.source_item_id,
-                            manager.checkout_dir,
-                            workspace,
-                            "latest",
-                            db_file=manager.db_file,
-                        )
-                    if checkout_path is not None:
-                        file_path = _resolve_process_file(checkout_path)
+            if (file_path is None or not file_path.exists()) and checkout and member.source_kind in (SourceKind.TDOC, SourceKind.SPEC):
+                # Try to checkout the document
+                checkout_path: Path | None = None
+                if member.source_kind == SourceKind.TDOC:
+                    checkout_path = await checkout_tdoc_to_workspace(
+                        member.source_item_id,
+                        manager.checkout_dir,
+                        workspace,
+                        db_file=manager.db_file,
+                    )
+                elif member.source_kind == SourceKind.SPEC:
+                    checkout_path = await checkout_spec_to_workspace(
+                        member.source_item_id,
+                        manager.checkout_dir,
+                        workspace,
+                        "latest",
+                        db_file=manager.db_file,
+                    )
+                if checkout_path is not None:
+                    file_path = _resolve_process_file(checkout_path)
 
             if file_path is None or not file_path.exists():
                 results.append(
@@ -569,35 +568,24 @@ def ai_summarize(
 @app.command("convert", help="Convert a single TDoc to markdown format.")
 def ai_convert(
     document_id: ConvertDocumentArgument,
-    output: ConvertOutputOption = None,
+    output_path: ConvertOutputOption = None,
     force: ConvertForceOption = False,
-    output_format: OutputFormatOption = "text",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
 ) -> None:
     """Convert one TDoc and optionally persist markdown output."""
     markdown_or_path = asyncio.run(
-        convert_tdoc_to_markdown(document_id=document_id, output_path=output, force=force),
+        convert_tdoc_to_markdown(document_id=document_id, output_path=output_path, force=force),
     )
 
-    if output:
-        if output_format == "json":
-            _print_output(
-                {"output": str(output)},
-                OutputFormat.JSON,
-                table_title="Convert Result",
-            )
-        else:
-            console.print(f"[green]Converted {document_id} to {output}[/green]")
+    output = OutputFormat(output_format.lower())
+    if output_path:
+        _print_output({"output": str(output_path)}, output, table_title="Convert Result")
         return
 
-    if output_format == "json":
-        _print_output(
-            {"markdown": markdown_or_path},
-            OutputFormat.JSON,
-            table_title="Convert Result",
-        )
-        return
-
-    typer.echo(markdown_or_path)
+    if output is OutputFormat.TABLE:
+        typer.echo(markdown_or_path)
+    else:
+        _print_output({"markdown": markdown_or_path}, output, table_title="Convert Result")
 
 
 @workspace_app.command("create", help="Create a new workspace")
@@ -605,29 +593,29 @@ def workspace_create(
     name: WorkspaceNameArgument,
     auto_build: WorkspaceAutoBuildOption = False,
     activate: WorkspaceActivateOption = True,
-    output_format: OutputFormatOption = "text",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
 ) -> None:
     registry = create_workspace(name, auto_build=auto_build)
     workspace = registry.get_workspace(name)
     if activate:
         set_active_workspace(name)
 
-    if output_format == "json":
+    output = OutputFormat(output_format.lower())
+    if output is OutputFormat.TABLE:
+        console.print(f"[green]Created workspace: {normalize_workspace_name(name)}[/green]")
+        if activate:
+            console.print("[cyan]Activated as current workspace[/cyan]")
+    else:
         _print_output(
             {"name": workspace.name if workspace else name, "auto_build": auto_build},
-            OutputFormat.JSON,
+            output,
             table_title="Workspace Create",
         )
-        return
-
-    console.print(f"[green]Created workspace: {normalize_workspace_name(name)}[/green]")
-    if activate:
-        console.print("[cyan]Activated as current workspace[/cyan]")
 
 
 @workspace_app.command("list", help="List all workspaces")
 def workspace_list(
-    output_format: OutputFormatOption = "text",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
 ) -> None:
     registry = WorkspaceRegistry.load()
     workspaces = registry.list_workspaces()
@@ -643,17 +631,10 @@ def workspace_list(
         for entry in workspaces
     ]
 
-    if output_format == "json":
-        _print_output(
-            workspace_rows,
-            OutputFormat.JSON,
-            table_title="Workspaces",
-        )
-        return
-
+    output = OutputFormat(output_format.lower())
     _print_output(
         workspace_rows,
-        OutputFormat.TABLE,
+        output,
         table_title="Workspaces",
         table_columns=[
             TableColumnSpec("name", "Name", style="cyan"),
@@ -670,7 +651,7 @@ def workspace_query(
     query: str = typer.Argument(..., help="Query string"),
     mode: QueryModeOption = QueryMode.HYBRID,
     workspace: WorkspaceNameOption = None,
-    output_format: OutputFormatOption = "text",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
 ) -> None:
     """Query the LightRAG knowledge graph."""
     workspace_name = _resolve_workspace_name(workspace)
@@ -691,19 +672,20 @@ def workspace_query(
 
     result = asyncio.run(_run())
 
-    if output_format == "json":
-        _print_output(
-            {"query": query, "mode": mode.value, "result": result},
-            OutputFormat.JSON,
-            table_title="Workspace Query",
-        )
-    else:
+    output = OutputFormat(output_format.lower())
+    if output is OutputFormat.TABLE:
         console.print(f"\n[bold]Query:[/bold] {query}")
         console.print(f"[bold]Mode:[/bold] {mode.value}\n")
         if result:
             console.print(result)
         else:
             console.print("[yellow]No result returned[/yellow]")
+    else:
+        _print_output(
+            {"query": query, "mode": mode.value, "result": result},
+            output,
+            table_title="Workspace Query",
+        )
 
 
 @workspace_app.command("status")
@@ -758,7 +740,7 @@ def workspace_status(
 @workspace_app.command("info", help="Show detailed information about a workspace")
 def workspace_info(
     name: WorkspaceNameArgument,
-    output_format: OutputFormatOption = "text",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
 ) -> None:
     workspace = get_workspace(name)
     if workspace is None:
@@ -766,29 +748,29 @@ def workspace_info(
         raise typer.Exit(1)
 
     counts = get_workspace_member_counts(name)
-    if output_format == "json":
+    output = OutputFormat(output_format.lower())
+    if output is OutputFormat.TABLE:
+        _print_output(
+            [
+                {"field": "Auto-build", "value": "Yes" if workspace.auto_build else "No"},
+                {"field": "Total Members", "value": counts["total"]},
+                {"field": "TDocs", "value": counts["tdoc"]},
+                {"field": "Specs", "value": counts["spec"]},
+                {"field": "Other", "value": counts["other"]},
+            ],
+            output,
+            table_title=f"Workspace: {workspace.name}",
+            table_columns=[
+                TableColumnSpec("field", "Field", style="cyan"),
+                TableColumnSpec("value", "Value", style="green"),
+            ],
+        )
+    else:
         _print_output(
             {"name": workspace.name, "auto_build": workspace.auto_build, "member_counts": counts},
-            OutputFormat.JSON,
+            output,
             table_title=f"Workspace: {workspace.name}",
         )
-        return
-
-    _print_output(
-        [
-            {"field": "Auto-build", "value": "Yes" if workspace.auto_build else "No"},
-            {"field": "Total Members", "value": counts["total"]},
-            {"field": "TDocs", "value": counts["tdoc"]},
-            {"field": "Specs", "value": counts["spec"]},
-            {"field": "Other", "value": counts["other"]},
-        ],
-        OutputFormat.TABLE,
-        table_title=f"Workspace: {workspace.name}",
-        table_columns=[
-            TableColumnSpec("field", "Field", style="cyan"),
-            TableColumnSpec("value", "Value", style="green"),
-        ],
-    )
 
 
 @workspace_app.command("activate", help="Activate a workspace (set as current)")
@@ -1020,7 +1002,7 @@ def workspace_process(
     workspace: WorkspaceNameOption = None,
     force: WorkspaceProcessForceOption = False,
     limit: WorkspaceLimitOption = None,
-    output_format: OutputFormatOption = "text",
+    output_format: OutputFormatOption = OutputFormat.TABLE.value,
     checkout: WorkspaceCheckoutOption = True,
     vlm: WorkspaceProcessVlmOption = None,
 ) -> None:
@@ -1080,15 +1062,15 @@ def workspace_process(
         "results": results,
     }
 
-    if output_format == "json":
-        _print_output(payload, OutputFormat.JSON, table_title="Workspace Process")
-        return
-
-    console.print(f"[green]Processed: {success_count}[/green]")
-    if skipped_count:
-        console.print(f"[yellow]Skipped: {skipped_count}[/yellow]")
-    if error_count:
-        console.print(f"[red]Errors: {error_count}[/red]")
+    output = OutputFormat(output_format.lower())
+    if output is OutputFormat.TABLE:
+        console.print(f"[green]Processed: {success_count}[/green]")
+        if skipped_count:
+            console.print(f"[yellow]Skipped: {skipped_count}[/yellow]")
+        if error_count:
+            console.print(f"[red]Errors: {error_count}[/red]")
+    else:
+        _print_output(payload, output, table_title="Workspace Process")
 
 
 @workspace_app.command("delete", help="Delete a workspace")

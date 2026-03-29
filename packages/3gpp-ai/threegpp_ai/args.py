@@ -3,21 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
-
 from tdoc_crawler.models.base import OutputFormat
+
 from threegpp_ai.lightrag.config import QueryMode
 
 # Common
 OutputFormatOption = Annotated[
-    Literal["text", "json", "yaml"],
-    typer.Option(
-        "--output-format",
-        help="Output format: 'text' (default), 'json', or 'yaml'",
-        envvar="TDC_AI_OUTPUT_FORMAT",
-    ),
+    str,
+    typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar="TDC_AI_OUTPUT_FORMAT"),
 ]
 CacheDirOption = Annotated[
     Path | None,
