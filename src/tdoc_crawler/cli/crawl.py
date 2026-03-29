@@ -218,7 +218,6 @@ def crawl_tdocs(
             if checkout:
                 checkout_limit = limit_tdocs if limit_tdocs and limit_tdocs > 0 else None
                 query_config = TDocQueryConfig(
-                    cache_dir=manager.root,
                     working_groups=working_groups,
                     limit=checkout_limit,
                     order=SortOrder.DESC,

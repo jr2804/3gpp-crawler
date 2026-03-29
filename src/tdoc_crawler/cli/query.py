@@ -116,7 +116,6 @@ def query_tdocs(
         raise typer.Exit(code=2) from exc
 
     config = TDocQueryConfig(
-        cache_dir=manager.root,
         output_format=format_val,
         tdoc_ids=tdoc_ids,
         working_groups=working_groups,

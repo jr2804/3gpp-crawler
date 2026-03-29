@@ -2,7 +2,7 @@
 
 import fnmatch
 from collections.abc import Callable, Iterable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from tdoc_crawler.database.meetings import MeetingDatabase
@@ -243,8 +243,8 @@ class TDocDatabase(MeetingDatabase):
     def _filter_by_meeting_dates(
         records: list[TDocMetadata],
         meeting_map: dict[int, Any],
-        meeting_start_date: datetime | None,
-        meeting_end_date: datetime | None,
+        meeting_start_date: date | None,
+        meeting_end_date: date | None,
     ) -> list[TDocMetadata]:
         """Filter records by start/end date of the related meeting."""
         filtered = records
