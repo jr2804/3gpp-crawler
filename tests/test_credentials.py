@@ -58,8 +58,12 @@ class TestCredentialsWithConfig:
         assert result.username == "env_user"
         assert result.password == "env_pass"
 
-    def test_resolve_returns_none_when_no_creds(self) -> None:
+    def test_resolve_returns_none_when_no_creds(self, monkeypatch) -> None:
         """Returns None when no credentials found anywhere."""
+        # Clear any existing env vars that might interfere
+        monkeypatch.delenv("TDC_EOL_USERNAME", raising=False)
+        monkeypatch.delenv("TDC_EOL_PASSWORD", raising=False)
+
         result = resolve_credentials()
 
         assert result is None
@@ -134,8 +138,12 @@ class TestCredentialsBackwardCompatibility:
         assert result.username == "legacy_user"
         assert result.password == "legacy_pass"
 
-    def test_resolve_with_cli_only(self) -> None:
+    def test_resolve_with_cli_only(self, monkeypatch) -> None:
         """CLI-only credentials still work."""
+        # Clear any existing env vars
+        monkeypatch.delenv("TDC_EOL_USERNAME", raising=False)
+        monkeypatch.delenv("TDC_EOL_PASSWORD", raising=False)
+
         result = resolve_credentials(username="direct_user", password="direct_pass")
 
         assert result is not None
