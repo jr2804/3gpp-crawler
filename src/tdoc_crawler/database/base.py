@@ -59,13 +59,6 @@ class DocDatabase:
     # ------------------------------------------------------------------
     # Core accessors and utilities
     # ------------------------------------------------------------------
-    @property
-    def connection(self) -> AsyncDatabase:
-        """Expose the underlying AsyncDatabase instance (read-only)."""
-        if self._database is None:
-            raise DatabaseError.connection_not_open()
-        return self._database
-
     async def clear_tdocs(self) -> int:
         """Clear all TDoc records from database.
 

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.text import Text
 
-from tdoc_crawler.utils.parse import SpecificationVersionNumber, parse_spec_version, parse_spec_version_nbr
+from tdoc_crawler.utils.parse import SpecificationVersionNumber, parse_spec_version_nbr
 
 
 class Specification(BaseModel):
@@ -29,13 +29,6 @@ class Specification(BaseModel):
     working_group: str
     series: str
     latest_version: SpecificationVersionNumber | None = None
-
-    @property
-    def latest_version_number(self) -> Version | None:
-        """Return latest version as comparable Version object."""
-        if self.latest_version is None:
-            return None
-        return parse_spec_version(self.latest_version)
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         _ = (console, options)
@@ -78,11 +71,6 @@ class SpecificationVersion(BaseModel):
     version: SpecificationVersionNumber
     file_name: str
     source_name: str
-
-    @property
-    def version_number(self) -> Version:
-        """Return version as comparable Version object."""
-        return parse_spec_version(self.version)
 
     @field_validator("version", mode="before")
     @classmethod

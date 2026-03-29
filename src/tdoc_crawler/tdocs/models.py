@@ -6,7 +6,6 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from enum import StrEnum, auto
 
-import requests
 from packaging.version import Version
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
@@ -19,9 +18,9 @@ from tdoc_crawler.models.base import (
 )
 from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id, normalize_tdoc_ids
 from tdoc_crawler.utils.misc import utc_now
-from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr, parse_agenda_item_version
+from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
+from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr
 
 _logger = get_logger(__name__)
 
@@ -99,11 +98,6 @@ class TDocMetadata(BaseModel):
     status: str | None = Field(None, description="Document status as reported by the portal")
 
     @property
-    def agenda_item_version(self) -> Version:
-        """Return agenda item number as comparable Version object."""
-        return parse_agenda_item_version(self.agenda_item_nbr)
-
-    @property
     def is_valid(self) -> bool:
         """Check if TDoc metadata is valid and downloadable.
 
@@ -121,56 +115,6 @@ class TDocMetadata(BaseModel):
             return False
         # Check for placeholder/corrupt URL patterns
         return not ("/.../" in self.url or "..." in self.url)
-
-    @property
-    def has_valid_url(self) -> bool:
-        """Check if URL is present and valid (alias for is_valid)."""
-        return self.is_valid
-
-    def validate_url_accessible(self, timeout: int = 10) -> bool:
-        """Validate that the URL is accessible via HTTP.
-
-        Makes an HTTP HEAD request to check if the URL returns a successful
-        status code (2xx or 3xx). This is a lightweight check that doesn't
-        download the full file.
-
-        Args:
-            timeout: Request timeout in seconds (default: 10)
-
-        Returns:
-            True if URL is accessible (2xx/3xx status), False otherwise
-
-        Note:
-            Returns False for network errors, timeouts, or 4xx/5xx responses.
-            Logs warnings for failed requests.
-        """
-        if not self.is_valid:
-            _logger.debug(f"URL validation skipped for {self.tdoc_id}: basic validation failed")
-            return False
-        url = self.url
-        if url is None:
-            return False
-
-        is_accessible = False
-        try:
-            # Use HEAD request to check accessibility without downloading
-            response = requests.head(url, timeout=timeout, allow_redirects=True)
-
-            # Check for successful response (2xx or 3xx)
-            if response.status_code < 400:
-                _logger.debug(f"URL accessible for {self.tdoc_id}: {url} (status {response.status_code})")
-                is_accessible = True
-            else:
-                _logger.warning(f"URL returned error for {self.tdoc_id}: {url} (status {response.status_code})")
-
-        except requests.exceptions.Timeout:
-            _logger.warning(f"URL validation timeout for {self.tdoc_id}: {url}")
-        except requests.exceptions.ConnectionError as exc:
-            _logger.warning(f"URL validation connection error for {self.tdoc_id}: {exc}")
-        except requests.exceptions.RequestException as exc:
-            _logger.warning(f"URL validation failed for {self.tdoc_id}: {exc}")
-
-        return is_accessible
 
     @classmethod
     @field_serializer("agenda_item_nbr")

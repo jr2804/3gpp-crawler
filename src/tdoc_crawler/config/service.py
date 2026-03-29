@@ -76,17 +76,5 @@ class ConfigService:
             self._http_cache = HttpCacheConfig.resolve_http_cache_config(cache_file=self.cache_manager.http_cache_file)
         return self._http_cache
 
-    @classmethod
-    def from_env(cls, cache_manager_name: str | None = None) -> ConfigService:
-        """Create ConfigService loading settings from environment variables.
-
-        Args:
-            cache_manager_name: Optional name for the CacheManager to use.
-
-        Returns:
-            ConfigService instance configured from the environment.
-        """
-        return cls(cache_manager_name=cache_manager_name)
-
 
 __all__ = ["ConfigService"]
