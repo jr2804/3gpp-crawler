@@ -1,7 +1,9 @@
 """Utility functions for meeting data normalization.
 
 Note: normalize_portal_meeting_name is now centralized in tdoc_crawler.utils.normalization.
-This module re-exports it for backward compatibility.
+Import directly from there:
+
+    from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
 """
 
 from __future__ import annotations
@@ -10,7 +12,6 @@ import re
 
 from tdoc_crawler.models.subworking_groups import SubWorkingGroup
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
 
 
 def normalize_working_group_alias(alias: str) -> WorkingGroup:
@@ -82,7 +83,6 @@ def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
 
 
 __all__ = [
-    "normalize_portal_meeting_name",
     "normalize_subgroup_alias",
     "normalize_working_group_alias",
 ]

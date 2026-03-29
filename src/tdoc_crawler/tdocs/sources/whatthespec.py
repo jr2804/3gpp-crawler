@@ -19,7 +19,7 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id
+from tdoc_crawler.utils.normalization import normalize_tdoc_id
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 logger = get_logger(__name__)

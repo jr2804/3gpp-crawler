@@ -11,8 +11,8 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.tdocs.models import TDocQueryConfig
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id
 from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 _logger = get_logger(__name__)
 

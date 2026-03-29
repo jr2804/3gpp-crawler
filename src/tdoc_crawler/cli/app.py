@@ -36,7 +36,7 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id, normalize_tdoc_ids
+from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
 
 load_dotenv()
 
