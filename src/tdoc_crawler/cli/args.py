@@ -105,7 +105,7 @@ ReleaseOption = Annotated[
     typer.Option(
         "--release",
         help=(
-            "Spec release selector. Values: 'latest' (default), 'all', or explicit version. "
+            "Spec release selector. Values: 'latest', 'all', or explicit version. "
             "Version formats: 18.0.0, 18.1 (=18.1.x), 18 (=18.x.y). "
             "Prefixes supported: v18, v18.1, v18.1.2, Rel-18, rel18 (case-insensitive)."
         ),
@@ -152,7 +152,7 @@ NoProgressOption = Annotated[
 
 # Options - AI
 SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
-SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count (default: 200)")]
+SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count")]
 SummarizeForceOption = Annotated[
     bool,
     typer.Option("--force", "-f", help="Force reconversion even if cached"),
@@ -172,7 +172,7 @@ ConvertForceOption = Annotated[
 QueryArgument = Annotated[str | None, typer.Argument(help="Semantic search query")]
 WorkspaceNameOption = Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")]
 EmbeddingTopKOption = Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")]
-QueryMaxWordsOption = Annotated[int, typer.Option("--words", help="Maximum word count for LLM answer (default: 300)")]
+QueryMaxWordsOption = Annotated[int, typer.Option("--words", help="Maximum word count for LLM answer")]
 
 _ = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")]
 EmbeddingBackendOption = Annotated[
@@ -202,8 +202,9 @@ WorkspaceAutoBuildOption = Annotated[
 WorkspaceActivateOption = Annotated[
     bool,
     typer.Option(
+        True,
         "--activate/--no-activate",
-        help="Activate workspace after creation (default: activate)",
+        help="Activate workspace after creation",
         envvar="TDC_AI_WORKSPACE_ACTIVATE",
     ),
 ]
@@ -226,5 +227,5 @@ WorkspaceProcessForceOption = Annotated[bool, typer.Option("--force", help="Forc
 
 WorkspacePreserveArtifactsOption = Annotated[
     bool,
-    typer.Option("--preserve-artifacts/--no-preserve-artifacts", help="Preserve artifacts (default: yes)"),
+    typer.Option("--preserve-artifacts/--no-preserve-artifacts", help="Preserve artifacts"),
 ]

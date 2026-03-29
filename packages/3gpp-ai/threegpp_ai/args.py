@@ -22,7 +22,7 @@ CacheDirOption = Annotated[
 
 # Summarize
 SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
-SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count (default: 200)")]
+SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count")]
 SummarizeForceOption = Annotated[bool, typer.Option("--force", "-f", help="Force reconversion even if cached")]
 
 # Convert
@@ -38,7 +38,7 @@ WorkspaceNameArgument = Annotated[str, typer.Argument(help="Workspace name")]
 WorkspaceNameOption = Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")]
 WorkspaceActivateOption = Annotated[
     bool,
-    typer.Option("--activate/--no-activate", help="Activate workspace after creation (default: activate)"),
+    typer.Option("--activate/--no-activate", help="Activate workspace after creation"),
 ]
 WorkspaceAutoBuildOption = Annotated[
     bool,
@@ -60,6 +60,13 @@ ConvertMdOption = Annotated[
         envvar="TDC_AI_CONVERT_MD",
     ),
 ]
+WorkspaceEmbedOption = Annotated[
+    bool,
+    typer.Option(
+        "--embed",
+        help="Insert extracted documents into LightRAG knowledge graph (implies --convert-md)",
+    ),
+]
 WorkspaceReleaseOption = Annotated[
     str | None,
     typer.Option(
@@ -71,7 +78,7 @@ WorkspaceLimitOption = Annotated[int | None, typer.Option("--limit", help="Maxim
 WorkspaceIncludeInactiveOption = Annotated[bool, typer.Option("--include-inactive", help="Include inactive members")]
 WorkspaceProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing of all members")]
 WorkspaceProcessVlmOption = Annotated[
-    bool | None,
+    bool,
     typer.Option(
         "--vlm/--no-vlm",
         help="Enable VLM picture description and formula enrichment",
@@ -83,6 +90,32 @@ WorkspacePreserveArtifactsOption = Annotated[
     typer.Option(
         "--preserve-artifacts/--delete-artifacts",
         help="Preserve LightRAG artifacts (embeddings, index). --delete-artifacts removes only LightRAG data, not document artifacts (.ai folders)",
+    ),
+]
+
+# Accelerator options for Docling extraction
+AcceleratorDeviceOption = Annotated[
+    str,
+    typer.Option(
+        "--device",
+        help="Compute device for document extraction: auto, cpu, cuda, mps, xpu, or cuda:N",
+        envvar="TDC_AI_DEVICE",
+    ),
+]
+AcceleratorThreadsOption = Annotated[
+    int,
+    typer.Option(
+        "--threads",
+        help="Number of threads for CPU-bound extraction operations",
+        envvar="TDC_AI_NUM_THREADS",
+    ),
+]
+AcceleratorBatchSizeOption = Annotated[
+    int,
+    typer.Option(
+        "--batch-size",
+        help="Batch size for OCR, layout, and table structure. Higher values benefit GPU",
+        envvar="TDC_AI_BATCH_SIZE",
     ),
 ]
 
