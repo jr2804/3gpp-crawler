@@ -7,8 +7,7 @@ structured 3GPP metadata to document text before LightRAG insertion.
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id
-from tdoc_crawler.utils.normalization import normalize_release
+from tdoc_crawler.utils.normalization import normalize_release, normalize_tdoc_id
 
 
 def normalize_release_label(release: str | None) -> str | None:

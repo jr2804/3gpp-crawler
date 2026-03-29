@@ -17,7 +17,7 @@ from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from tdoc_crawler.tdocs.utils import normalize_tdoc_id
+from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 from threegpp_ai.models import ExtractionError
 from threegpp_ai.operations.conversion import (
