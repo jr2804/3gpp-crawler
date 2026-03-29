@@ -22,6 +22,8 @@ class WorkingGroupRecord(Model):
     name: str
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -34,6 +36,8 @@ class SubWorkingGroupRecord(Model):
     name: str
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -53,6 +57,8 @@ class CrawlLogEntry(Model):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -75,6 +81,8 @@ class MeetingMetadata(Model):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -101,6 +109,8 @@ class TDocMetadata(Model):
     validation_failed: bool = Field(default=False)
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -117,6 +127,8 @@ class Specification(Model):
     latest_version: str | None = None
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -154,6 +166,8 @@ class SpecificationSourceRecord(Model):
         return [str(item) for item in value]
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -167,6 +181,8 @@ class SpecificationVersion(Model):
     source_name: str
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
@@ -186,6 +202,8 @@ class SpecificationDownload(Model):
     extracted_at: datetime | None = None
 
     class Meta:
+        """Oxyde table configuration."""
+
         is_table = True
 
 
