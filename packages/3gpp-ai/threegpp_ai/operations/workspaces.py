@@ -21,12 +21,9 @@ from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_tdoc_id, resolve_release_to_full_version
 
-from threegpp_ai.models import WorkspaceNotFoundError
+from threegpp_ai.models import WorkspaceMember, WorkspaceNotFoundError
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
-from threegpp_ai.operations.workspace_registry import (
-    WorkspaceMember,
-    WorkspaceRegistry,
-)
+from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
 
 _logger = get_logger(__name__)
 
@@ -384,8 +381,9 @@ def make_workspace_member(
     Returns:
         WorkspaceMember instance.
     """
-    normalize_workspace_name(workspace)
+    normalized_workspace = normalize_workspace_name(workspace) if workspace else ""
     return WorkspaceMember(
+        workspace_name=normalized_workspace,
         source_item_id=source_item_id,
         source_path=str(source_path),
         source_kind=source_kind,

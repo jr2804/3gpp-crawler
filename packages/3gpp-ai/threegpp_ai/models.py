@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any
@@ -79,51 +80,48 @@ class WorkspaceNotFoundError(AiError):
     """Workspace does not exist in registry."""
 
 
-class Workspace(BaseModel):
+@dataclass
+class Workspace:
     """Logical workspace boundary for AI processing."""
 
-    workspace_name: str = Field(..., description="Normalized workspace identifier")
-    created_at: datetime = Field(default_factory=utc_now, description="Creation timestamp")
-    updated_at: datetime = Field(default_factory=utc_now, description="Last update timestamp")
-    is_default: bool = Field(False, description="Whether this workspace is the default workspace")
-    auto_build: bool | None = Field(default=False, description="Whether to auto-build embeddings on TDoc add")
+    workspace_name: str = field(metadata={"description": "Normalized workspace identifier"})
+    created_at: datetime = field(default_factory=utc_now, metadata={"description": "Creation timestamp"})
+    updated_at: datetime = field(default_factory=utc_now, metadata={"description": "Last update timestamp"})
+    is_default: bool = field(default=False, metadata={"description": "Whether this workspace is the default workspace"})
+    auto_build: bool | None = field(default=False, metadata={"description": "Whether to auto-build embeddings on TDoc add"})
 
-    @field_validator("workspace_name")
-    @classmethod
-    def _normalize_workspace_name(cls, value: str) -> str:
-        if not value.strip():
+    def __post_init__(self) -> None:
+        """Normalize workspace_name after initialization."""
+        if not self.workspace_name.strip():
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
-        return normalize_workspace_name(value)
+        self.workspace_name = normalize_workspace_name(self.workspace_name)
 
 
-class WorkspaceMember(BaseModel):
+@dataclass
+class WorkspaceMember:
     """Source item assigned to one workspace corpus."""
 
-    workspace_name: str = Field(..., description="Workspace identifier")
-    source_item_id: str = Field(..., description="Stable source item identifier")
-    source_path: str = Field(..., description="Path or locator of the source item")
-    source_kind: SourceKind = Field(..., description="Type of source item")
-    added_at: datetime = Field(default_factory=utc_now, description="Registration timestamp")
-    added_by: str | None = Field(None, description="Actor that registered the source")
-    is_active: bool = Field(True, description="Membership active flag")
+    workspace_name: str = field(metadata={"description": "Workspace identifier"})
+    source_item_id: str = field(metadata={"description": "Stable source item identifier"})
+    source_path: str = field(metadata={"description": "Path or locator of the source item"})
+    source_kind: SourceKind = field(metadata={"description": "Type of source item"})
+    added_at: datetime = field(default_factory=utc_now, metadata={"description": "Registration timestamp"})
+    added_by: str | None = field(default=None, metadata={"description": "Actor that registered the source"})
+    is_active: bool = field(default=True, metadata={"description": "Membership active flag"})
 
-    @field_validator("workspace_name")
-    @classmethod
-    def _normalize_workspace_name(cls, value: str) -> str:
-        if not value.strip():
+    def __post_init__(self) -> None:
+        """Normalize fields after initialization."""
+        if not self.workspace_name.strip():
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
-        return normalize_workspace_name(value)
+        self.workspace_name = normalize_workspace_name(self.workspace_name)
 
-    @field_validator("source_item_id")
-    @classmethod
-    def _normalize_source_item_id(cls, value: str) -> str:
-        normalized = normalize_tdoc_id(value)
+        normalized = normalize_tdoc_id(self.source_item_id)
         if not normalized:
             msg = "source_item_id must not be empty"
             raise ValueError(msg)
-        return normalized
+        self.source_item_id = normalized
 
 
 class DocumentClassification(BaseModel):
