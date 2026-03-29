@@ -237,7 +237,8 @@ Thumbs.db
 
 # Agent skills that are downloaded/installed from external sources
 skills-lock.json
-.agents
+/.agents
+skills/
 
 # Dolt database files (added by bd init)
 .dolt/
