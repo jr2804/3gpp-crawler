@@ -6,6 +6,26 @@ import os
 from pathlib import Path
 from typing import Self
 
+# Import settings and sources modules
+from tdoc_crawler.config.compat import (
+    DEPRECATED_ENV_VARS,
+    ENV_VAR_MAPPINGS,
+    log_deprecation_warning,
+)
+from tdoc_crawler.config.settings import (
+    CrawlConfig,
+    CredentialsConfig,
+    HttpConfig,
+    PathConfig,
+    TDocCrawlerConfig,
+)
+from tdoc_crawler.config.sources import (
+    ConfigLoadError,
+    discover_config_files,
+    load_config_file,
+    merge_configs,
+)
+
 # Fallback path if no argument or env var is provided
 DEFAULT_CACHE_DIR = Path.home() / ".3gpp-crawler"
 DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
@@ -16,6 +36,31 @@ DEFAULT_MANAGER = "default"
 DEFAULT_AI_CACHE_DIRNAME = "lightrag"  # subdirectory under root cache dir for AI-related files
 
 WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
+
+__all__ = [
+    "DEFAULT_AI_CACHE_DIRNAME",
+    "DEFAULT_CACHE_DIR",
+    "DEFAULT_CHECKOUT_DIRNAME",
+    "DEFAULT_DATABASE_FILENAME",
+    "DEFAULT_HTTP_CACHE_FILENAME",
+    "DEFAULT_MANAGER",
+    "DEPRECATED_ENV_VARS",
+    "ENV_VAR_MAPPINGS",
+    "CacheManager",
+    "ConfigLoadError",
+    "CrawlConfig",
+    "CredentialsConfig",
+    "HttpConfig",
+    "PathConfig",
+    "TDocCrawlerConfig",
+    "discover_config_files",
+    "load_config_file",
+    "log_deprecation_warning",
+    "merge_configs",
+    "register_cache_manager",
+    "reset_cache_managers",
+    "resolve_cache_manager",
+]
 
 _cache_managers: dict[str, CacheManager] = {}
 
@@ -56,32 +101,47 @@ class CacheManager:
     Acts as the single source of truth for where files are stored.
     """
 
-    def __init__(self, root_path: Path | None = None, ai_cache_dir: Path | None = None, name: str = DEFAULT_MANAGER, ensure_paths: bool = True) -> None:
+    def __init__(
+        self,
+        root_path: Path | None = None,
+        ai_cache_dir: Path | None = None,
+        name: str = DEFAULT_MANAGER,
+        ensure_paths: bool = True,
+        config: TDocCrawlerConfig | None = None,
+    ) -> None:
         """Initialize cache manager.
 
         Args:
             root_path: Explicit root path. If None, tries TDC_CACHE_DIR env var,
-                       then falls back to DEFAULT_CACHE_DIR.
-            ai_cache_dir: Explicit AI cache directory path. If None, defaults to root_path/lightrag or TDC_AI_STORE_PATH env var if set.
+                       then falls back to DEFAULT_CACHE_DIR. Ignored if config is provided.
+            ai_cache_dir: Explicit AI cache directory path. If None, defaults to root_path/lightrag
+                         or TDC_AI_STORE_PATH env var if set. Ignored if config is provided.
             name: Optional name to register this manager under. If provided, the manager is registered upon initialization.
             ensure_paths: If True, will create the root directory if it doesn't exist.
+            config: Optional TDocCrawlerConfig to use for path resolution. If provided,
+                    config.path.cache_dir and config.path.ai_cache_dir are used.
         """
         self.name = name
 
-        if root_path:
+        if config is not None:
+            # Use config for path resolution (preferred)
+            self.root = config.path.cache_dir
+            self.ai_cache_dir = config.path.ai_cache_dir
+        elif root_path:
             self.root = root_path
         else:
+            # Fallback to env var (will be removed in future version)
             env_cache_dir = os.getenv("TDC_CACHE_DIR")
             self.root = Path(env_cache_dir) if env_cache_dir else DEFAULT_CACHE_DIR
 
-        if ai_cache_dir:
-            self.ai_cache_dir = ai_cache_dir.resolve()
-        else:
+        if config is None and not ai_cache_dir:
             env_ai_cache_dir = os.getenv("TDC_AI_STORE_PATH")
             if env_ai_cache_dir:
                 self.ai_cache_dir = Path(env_ai_cache_dir).resolve()
             else:
                 self.ai_cache_dir = (self.root / DEFAULT_AI_CACHE_DIRNAME).resolve()
+        elif ai_cache_dir:
+            self.ai_cache_dir = ai_cache_dir.resolve()
 
         if ensure_paths:
             self.ensure_paths()

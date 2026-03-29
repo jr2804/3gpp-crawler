@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass
 from enum import StrEnum, auto
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from tdoc_crawler.config import resolve_cache_manager
+
+if TYPE_CHECKING:
+    from tdoc_crawler.config.settings import HttpConfig
 
 
 class OutputFormat(StrEnum):
@@ -36,12 +41,44 @@ _DEFAULT_MAX_RETRIES: int = 3
 
 @dataclass
 class HttpCacheConfig:
-    """HTTP cache configuration for hishel caching."""
+    """HTTP cache configuration for hishel caching.
+
+    .. deprecated::
+        Use TDocCrawlerConfig.http instead. HttpCacheConfig will be removed in v2.0.
+    """
 
     ttl: int = _DEFAULT_TTL
     refresh_ttl_on_access: bool = _DEFAULT_TTL_ON_ACCESS
     max_retries: int = _DEFAULT_MAX_RETRIES
     cache_file: Path | None = None
+
+    def __post_init__(self) -> None:
+        """Emit deprecation warning when HttpCacheConfig is instantiated."""
+        warnings.warn(
+            "HttpCacheConfig is deprecated, use TDocCrawlerConfig.http instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    @classmethod
+    def from_http_config(cls, http_config: HttpConfig) -> HttpCacheConfig:
+        """Create HttpCacheConfig from TDocCrawlerConfig.http.
+
+        This factory method allows migration from the deprecated HttpCacheConfig
+        to the new HttpConfig while maintaining compatibility with existing code.
+
+        Args:
+            http_config: HttpConfig from TDocCrawlerConfig
+
+        Returns:
+            HttpCacheConfig instance (still emits deprecation warning)
+        """
+        return cls(
+            ttl=http_config.cache_ttl,
+            refresh_ttl_on_access=http_config.cache_refresh_on_access,
+            max_retries=http_config.max_retries,
+            cache_file=None,  # Cache file path is handled by CacheManager
+        )
 
     @classmethod
     def resolve_http_cache_config(
@@ -53,6 +90,9 @@ class HttpCacheConfig:
     ) -> HttpCacheConfig:
         """Resolve HTTP cache configuration from CLI parameters and environment variables.
 
+        .. deprecated::
+            Use TDocCrawlerConfig.from_settings().http instead.
+
         Args:
             cache_ttl: TTL for cache entries (CLI parameter)
             cache_refresh_on_access: Whether to refresh TTL on access (CLI parameter)
@@ -62,6 +102,11 @@ class HttpCacheConfig:
         Returns:
             HttpCacheConfig instance with resolved values
         """
+        warnings.warn(
+            "HttpCacheConfig.resolve_http_cache_config() is deprecated, use TDocCrawlerConfig.from_settings().http instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Check CLI parameters first, then environment variables, then defaults
         if cache_ttl is not None:
             ttl = cache_ttl
