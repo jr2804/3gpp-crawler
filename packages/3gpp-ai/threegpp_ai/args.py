@@ -7,6 +7,9 @@ from typing import Annotated, Literal
 
 import typer
 
+from tdoc_crawler.models.base import OutputFormat
+from threegpp_ai.lightrag.config import QueryMode
+
 # Common
 OutputFormatOption = Annotated[
     Literal["text", "json", "yaml"],
@@ -71,6 +74,14 @@ WorkspaceReleaseOption = Annotated[
 WorkspaceLimitOption = Annotated[int | None, typer.Option("--limit", help="Maximum items to add")]
 WorkspaceIncludeInactiveOption = Annotated[bool, typer.Option("--include-inactive", help="Include inactive members")]
 WorkspaceProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing of all members")]
+WorkspaceProcessVlmOption = Annotated[
+    bool | None,
+    typer.Option(
+        "--vlm/--no-vlm",
+        help="Enable VLM picture description and formula enrichment",
+        envvar="TDC_AI_VLM",
+    ),
+]
 WorkspacePreserveArtifactsOption = Annotated[
     bool,
     typer.Option(
@@ -111,4 +122,26 @@ AgendaPatternOption = Annotated[
 AgendaPatternExcludeOption = Annotated[
     list[str] | None,
     typer.Option("--agenda-ex", help="Glob pattern to exclude agenda field (repeatable)"),
+]
+
+# Providers
+ProvidersOutputOption = Annotated[
+    OutputFormat,
+    typer.Option(
+        "--output",
+        "-o",
+        case_sensitive=False,
+        help="Output format (table, json, ison, toon, yaml)",
+    ),
+]
+
+# Query
+QueryModeOption = Annotated[
+    QueryMode,
+    typer.Option(
+        "--mode",
+        "-m",
+        case_sensitive=False,
+        help="Query mode (local, global, hybrid, naive)",
+    ),
 ]

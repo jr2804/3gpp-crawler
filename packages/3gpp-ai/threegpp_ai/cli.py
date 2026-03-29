@@ -11,7 +11,7 @@ import shutil
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
 import typer
 from dotenv import load_dotenv
@@ -56,6 +56,8 @@ from threegpp_ai.args import (
     ConvertPdfOption,
     EndDateOption,
     OutputFormatOption,
+    ProvidersOutputOption,
+    QueryModeOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
@@ -75,6 +77,7 @@ from threegpp_ai.args import (
     WorkspaceNameOption,
     WorkspacePreserveArtifactsOption,
     WorkspaceProcessForceOption,
+    WorkspaceProcessVlmOption,
     WorkspaceReleaseOption,
 )
 from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
@@ -100,17 +103,6 @@ app.add_typer(providers_app, name="providers")
 
 console = get_console()
 _logger = get_logger(__name__)
-
-
-ProvidersOutputOption = Annotated[
-    OutputFormat,
-    typer.Option(
-        "--output",
-        "-o",
-        case_sensitive=False,
-        help="Output format (table, json, ison, toon, yaml)",
-    ),
-]
 
 
 def _print_output(
@@ -461,6 +453,8 @@ async def _process_workspace_members(
     workspace: str,
     members: list[Any],
     on_progress: Callable[[int, str], None] | None = None,
+    checkout: bool = True,
+    convert_md: bool = False,
     vlm_options: VlmOptions | None = None,
 ) -> list[dict[str, Any]]:
     """Process workspace members with optional progress callback.
@@ -469,6 +463,8 @@ async def _process_workspace_members(
         workspace: Workspace name
         members: List of workspace members to process
         on_progress: Optional callback(completed_count, source_item_id) called after each member
+        checkout: Whether to checkout documents if not available
+        convert_md: Whether to extract markdown (implies PDF conversion)
         vlm_options: Optional VLM features for extraction.
 
     Returns:
@@ -476,11 +472,36 @@ async def _process_workspace_members(
     """
     processor = DocumentProcessor(LightRAGConfig.from_env())
     results: list[dict[str, Any]] = []
+    manager = resolve_cache_manager()
 
     await processor.rag.start(workspace)
     try:
         for member in members:
+            # Ensure document is available: checkout + convert to PDF if needed
             file_path = _resolve_process_file(Path(member.source_path))
+
+            if file_path is None or not file_path.exists():
+                if checkout and member.source_kind in (SourceKind.TDOC, SourceKind.SPEC):
+                    # Try to checkout the document
+                    checkout_path: Path | None = None
+                    if member.source_kind == SourceKind.TDOC:
+                        checkout_path = await checkout_tdoc_to_workspace(
+                            member.source_item_id,
+                            manager.checkout_dir,
+                            workspace,
+                            db_file=manager.db_file,
+                        )
+                    elif member.source_kind == SourceKind.SPEC:
+                        checkout_path = await checkout_spec_to_workspace(
+                            member.source_item_id,
+                            manager.checkout_dir,
+                            workspace,
+                            "latest",
+                            db_file=manager.db_file,
+                        )
+                    if checkout_path is not None:
+                        file_path = _resolve_process_file(checkout_path)
+
             if file_path is None or not file_path.exists():
                 results.append(
                     {
@@ -492,6 +513,26 @@ async def _process_workspace_members(
                 if on_progress:
                     on_progress(len(results), member.source_item_id)
                 continue
+
+            # Convert to PDF if it's an office format and convert_md is enabled
+            if convert_md:
+                doc_file = _resolve_process_file(Path(member.source_path))
+                if doc_file is not None and doc_file.suffix.lower() in OFFICE_FORMATS:
+                    pdf_path = _convert_member_to_pdf(make_workspace_member(workspace, member.source_item_id, member.source_path, member.source_kind))
+                    if pdf_path is not None:
+                        file_path = pdf_path
+                    elif doc_file.suffix.lower() not in {".pdf", ".txt", ".md"}:
+                        # Could not convert and not a directly processable format
+                        results.append(
+                            {
+                                "source_item_id": member.source_item_id,
+                                "status": "skipped",
+                                "reason": "office document could not be converted to PDF",
+                            },
+                        )
+                        if on_progress:
+                            on_progress(len(results), member.source_item_id)
+                        continue
 
             metadata = await _try_build_tdoc_metadata(member.source_item_id)
             process_result = await processor.process_file(file_path, workspace, metadata=metadata, vlm_options=vlm_options)
@@ -627,15 +668,7 @@ def workspace_list(
 @workspace_app.command("query")
 def workspace_query(
     query: str = typer.Argument(..., help="Query string"),
-    mode: Annotated[
-        QueryMode,
-        typer.Option(
-            "--mode",
-            "-m",
-            case_sensitive=False,
-            help="Query mode (local, global, hybrid, naive)",
-        ),
-    ] = QueryMode.HYBRID,
+    mode: QueryModeOption = QueryMode.HYBRID,
     workspace: WorkspaceNameOption = None,
     output_format: OutputFormatOption = "text",
 ) -> None:
@@ -982,13 +1015,14 @@ def workspace_list_members(
     )
 
 
-@workspace_app.command("process", help="Process workspace members (checkout, convert, embed)")
+@workspace_app.command("process", help="Process workspace members (checkout, convert, extract, embed)")
 def workspace_process(
     workspace: WorkspaceNameOption = None,
     force: WorkspaceProcessForceOption = False,
     limit: WorkspaceLimitOption = None,
     output_format: OutputFormatOption = "text",
-    vlm: bool = typer.Option("--vlm", help="Enable VLM picture description and formula enrichment"),
+    checkout: WorkspaceCheckoutOption = True,
+    vlm: WorkspaceProcessVlmOption = None,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -1028,7 +1062,9 @@ def workspace_process(
             completed = count
             progress.update(task, completed=completed, description=f"[cyan]{source_item_id}")
 
-        results = asyncio.run(_process_workspace_members(workspace_name, members, on_progress=on_progress, vlm_options=vlm_options))
+        results = asyncio.run(
+            _process_workspace_members(workspace_name, members, on_progress=on_progress, checkout=checkout, convert_md=True, vlm_options=vlm_options)
+        )
         progress.update(task, completed=len(results), description="[cyan]Processing complete")
 
     success_count = sum(1 for row in results if row["status"] == "success")
