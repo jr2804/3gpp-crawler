@@ -90,6 +90,7 @@ run = [
     "cls",
     # python skills
     "bun x skills add https://github.com/sickn33/antigravity-awesome-skills -a universal -y -s python-pro -s python-packaging -s python-testing-patterns",
+    "bun x skills add https://github.com/jiatastic/open-python-skills -a universal -y -s ty-skills -s pydantic",
 
     # anti-AI hallucination skills
     "bun x skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
@@ -102,6 +103,7 @@ run = [
     # skills for other tools
     "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
 	"bun x skills add https://github.com/FlorianBruniaux/claude-code-ultimate-guide/tree/main/examples -s rtk-optimizer -a universal -y",
+    "bun x skills add run-llama/llamaparse-agent-skills --skill liteparse -a universal -y",
 
     # skill for teddi-mcp/-cli
     "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
@@ -113,7 +115,7 @@ run = [
 	"bun x skills add https://github.com/arabold/docs-mcp-server -a universal -y",
 
     # 3GPP skills (TODO: fix - requires well-known endpoint)
-    "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
+    "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills --skill '*' -a universal -y",
 
 
 ]
