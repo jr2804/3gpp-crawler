@@ -158,25 +158,25 @@ class TestCreateMetadataFromDict:
 
 
 @pytest.mark.asyncio
-async def test_rag_insert_passes_metadata_kwargs() -> None:
-    """TDocRAG.insert should pass metadata kwargs through to LightRAG ainsert."""
+async def test_rag_insert_passes_file_paths() -> None:
+    """TDocRAG.insert should pass file_paths through to LightRAG ainsert."""
 
     class _FakeRag:
         def __init__(self) -> None:
             self.called_with: tuple[str, dict] | None = None
 
-        async def ainsert(self, text: str, **kwargs: dict) -> None:
+        async def ainsert(self, text: str, **kwargs: object) -> None:
             self.called_with = (text, kwargs)
 
     rag = TDocRAG(LightRAGConfig())
     fake = _FakeRag()
     rag._rag = fake  # type: ignore[assignment]
 
-    await rag.insert("sample", metadata={"element_type": "table", "page": 2})
+    await rag.insert("sample", file_paths=["/path/to/doc.docx"])
 
     assert fake.called_with is not None
     assert fake.called_with[0] == "sample"
-    assert fake.called_with[1]["metadata"]["element_type"] == "table"
+    assert fake.called_with[1]["file_paths"] == ["/path/to/doc.docx"]
 
 
 @pytest.mark.asyncio
@@ -216,25 +216,3 @@ async def test_rag_query_empty_workspace_returns_empty_result() -> None:
     result = await rag.query("any", mode="naive")
 
     assert result == ""
-
-
-@pytest.mark.asyncio
-async def test_rag_insert_retries_without_kwargs_for_older_lightrag() -> None:
-    """TDocRAG.insert retries without kwargs when LightRAG rejects metadata args."""
-
-    class _LegacyRag:
-        def __init__(self) -> None:
-            self.calls = 0
-
-        async def ainsert(self, text: str, **kwargs: dict) -> None:
-            self.calls += 1
-            if kwargs:
-                raise TypeError("LightRAG.ainsert() got an unexpected keyword argument 'metadata'")
-
-    rag = TDocRAG(LightRAGConfig())
-    legacy = _LegacyRag()
-    rag._rag = legacy  # type: ignore[assignment]
-
-    await rag.insert("sample", metadata={"element_type": "table"})
-
-    assert legacy.calls == 2

@@ -286,25 +286,21 @@ class TDocRAG:
             self._pg0_manager.stop()
             self._pg0_manager = None
 
-    async def insert(self, text: str, **kwargs: Any) -> None:
+    async def insert(
+        self,
+        text: str,
+        file_paths: list[str] | None = None,
+    ) -> None:
         """Insert document text into the knowledge graph.
 
         Args:
-            text: Document text to insert
-            **kwargs: Additional arguments passed to rag.ainsert()
+            text: Document text to insert.
+            file_paths: Optional file paths for citation tracking in the graph.
         """
         if not self._rag:
             raise RuntimeError("TDocRAG not started. Call start() first.")
 
-        try:
-            await self._rag.ainsert(text, **kwargs)
-        except TypeError as exc:
-            message = str(exc)
-            if "unexpected keyword argument" in message and kwargs:
-                logger.warning("LightRAG ainsert does not accept kwargs in this version; retrying without kwargs")
-                await self._rag.ainsert(text)
-                return
-            raise
+        await self._rag.ainsert(text, file_paths=file_paths)
 
     async def query(
         self,

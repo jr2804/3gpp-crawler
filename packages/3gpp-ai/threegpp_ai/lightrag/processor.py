@@ -167,33 +167,9 @@ class DocumentProcessor:
                 text = "---\n" + "\n".join(meta_lines) + "\n---\n\n" + text
                 logger.debug("Enriched %s with generic metadata", file_path.name)
 
-        # Insert into LightRAG
+        # Insert into LightRAG — file_paths enables citation tracking in the graph
         try:
-            insert_metadata: dict[str, object] = {
-                "element_type": "document",
-                "table_count": extraction.table_count,
-                "figure_count": extraction.figure_count,
-                "equation_count": extraction.equation_count,
-                "table_ids": [table.element_id for table in extraction.tables],
-                "figure_ids": [figure.element_id for figure in extraction.figures],
-                "equation_ids": [equation.element_id for equation in extraction.equations],
-            }
-
-            # Add 3GPP-specific metadata if RAGMetadata provided
-            if isinstance(metadata, RAGMetadata):
-                insert_metadata.update(
-                    {
-                        "source_doc": metadata.tdoc_id,
-                        "doc_type": "tdoc",
-                        "meeting": metadata.meeting,
-                        "wg": metadata.wg,
-                    }
-                )
-            elif isinstance(metadata, dict):
-                # Store generic metadata as-is
-                insert_metadata["source_metadata"] = metadata
-
-            await self.rag.insert(text, metadata=insert_metadata)
+            await self.rag.insert(text, file_paths=[str(file_path)])
 
             # Track document in workspace index if shared storage is enabled
             if self.rag.workspace_index is not None and isinstance(metadata, RAGMetadata):
