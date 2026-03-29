@@ -7,27 +7,10 @@ structured 3GPP metadata to document text before LightRAG insertion.
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from tdoc_crawler.utils.normalization import normalize_release, normalize_tdoc_id
-
-
-def normalize_release_label(release: str | None) -> str | None:
-    """Normalize release strings to a stable label format for metadata display."""
-    normalized_label: str | None = None
-    if release is not None:
-        cleaned = release.strip()
-        if cleaned:
-            normalized_label = cleaned
-            try:
-                release_type, normalized_value, _ = normalize_release(cleaned)
-                if release_type == "latest":
-                    normalized_label = "latest"
-                elif release_type == "all":
-                    normalized_label = "all"
-                elif normalized_value is not None:
-                    normalized_label = f"Rel-{normalized_value.lstrip('-')}"
-            except ValueError:
-                pass
-    return normalized_label
+from tdoc_crawler.utils.normalization import (
+    normalize_release_label,
+    normalize_tdoc_id,
+)
 
 
 class RAGMetadata(BaseModel):

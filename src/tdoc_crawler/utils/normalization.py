@@ -10,6 +10,33 @@ _RANGE_SPLIT_PATTERN = re.compile(r"\s*([-:])\s*")
 _RELEASE_PREFIX_PATTERN = re.compile(r"^(?:v|rel|rel[-])", re.IGNORECASE)
 
 
+def normalize_release_label(release: str | None) -> str | None:
+    """Normalize release strings to a stable label format for metadata display.
+
+    Args:
+        release: Raw release string (e.g., "18", "Rel-18", "latest")
+
+    Returns:
+        Normalized label (e.g., "Rel-18", "latest", "all") or None if input is None/empty
+    """
+    normalized_label: str | None = None
+    if release is not None:
+        cleaned = release.strip()
+        if cleaned:
+            normalized_label = cleaned
+            try:
+                release_type, normalized_value, _ = normalize_release(cleaned)
+                if release_type == "latest":
+                    normalized_label = "latest"
+                elif release_type == "all":
+                    normalized_label = "all"
+                elif normalized_value is not None:
+                    normalized_label = f"Rel-{normalized_value.lstrip('-')}"
+            except ValueError:
+                pass
+    return normalized_label
+
+
 class NormalizationError(ValueError):
     """Raised when spec identifier normalization or expansion fails."""
 
