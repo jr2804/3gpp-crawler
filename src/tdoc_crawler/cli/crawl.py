@@ -55,7 +55,8 @@ from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawler, MeetingCrawlResult
-from tdoc_crawler.models.base import CrawlLimits, OutputFormat, SortOrder
+from tdoc_crawler.models.base import OutputFormat, SortOrder
+from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, checkout_specs
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
