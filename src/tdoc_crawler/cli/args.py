@@ -7,6 +7,8 @@ from typing import Annotated, Literal
 
 import typer
 
+from tdoc_crawler.config import ConfigEnvVar
+
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
 TDocIdArgument = Annotated[str, typer.Argument(help="TDoc identifier to download and open")]
@@ -16,26 +18,27 @@ SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) t
 # Options - TDocs/Meetings
 WorkingGroupOption = Annotated[
     list[str] | None,
-    typer.Option("--working-group", "-w", help="Filter by working group (e.g., 'R'/'RAN', 'S'/'SA', 'C'/'CT')", envvar="TDC_WORKING_GROUP"),
+    typer.Option("--working-group", "-w", help="Filter by working group (e.g., 'R'/'RAN', 'S'/'SA', 'C'/'CT')", envvar=ConfigEnvVar.TDC_WORKING_GROUP.name),
 ]
 SubgroupOption = Annotated[
     list[str] | None,
-    typer.Option("--sub-group", "-s", help="Filter by sub-working group (e.g., 'R2/RAN2, SA4, CT1, CP, ...')", envvar="TDC_SUB_GROUP"),
+    typer.Option("--sub-group", "-s", help="Filter by sub-working group (e.g., 'R2/RAN2, SA4, CT1, CP, ...')", envvar=ConfigEnvVar.TDC_SUB_GROUP.name),
 ]
-LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar="TDC_LIMIT_MEETINGS")]
+LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar=ConfigEnvVar.TDC_LIMIT_MEETINGS.name)]
 LimitMeetingsPerSubWgOption = Annotated[
-    int | None, typer.Option("--limit-meetings-per-subwg", help="Limit meetings per sub-working group", envvar="TDC_LIMIT_MEETINGS_PER_SUBWG")
+    int | None,
+    typer.Option("--limit-meetings-per-subwg", help="Limit meetings per sub-working group", envvar=ConfigEnvVar.TDC_LIMIT_MEETINGS_PER_SUBWG.name),
 ]
 LimitSubWgsOption = Annotated[int | None, typer.Option("--limit-subwgs", help="Limit number of sub-working groups")]
 LimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")]
 OrderOption = Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")]
 StartDateOption = Annotated[
     str | None,
-    typer.Option("--start-date", help="Filter from ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar="TDC_START_DATE"),
+    typer.Option("--start-date", help="Filter from ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar=ConfigEnvVar.TDC_START_DATE.name),
 ]
 EndDateOption = Annotated[
     str | None,
-    typer.Option("--end-date", help="Filter until ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar="TDC_END_DATE"),
+    typer.Option("--end-date", help="Filter until ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar=ConfigEnvVar.TDC_END_DATE.name),
 ]
 NoFetchOption = Annotated[
     bool,
@@ -48,15 +51,15 @@ IncrementalOption = Annotated[
         help=("When true, skip items already present in the database (incremental mode). Use --full to re-scan everything."),
     ),
 ]
-LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar="TDC_LIMIT_TDOCS")]
+LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar=ConfigEnvVar.TDC_LIMIT_TDOCS.name)]
 ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
 _ = Annotated[
     int | None,
-    typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)", envvar="TDC_OVERALL_TIMEOUT"),
+    typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)", envvar=ConfigEnvVar.TDC_OVERALL_TIMEOUT.name),
 ]
-OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar="TDC_OUTPUT")]
-EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username", envvar="TDC_EOL_USERNAME")]
-EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password", envvar="TDC_EOL_PASSWORD")]
+OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar=ConfigEnvVar.TDC_OUTPUT.name)]
+EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username", envvar=ConfigEnvVar.TDC_EOL_USERNAME.name)]
+EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password", envvar=ConfigEnvVar.TDC_EOL_PASSWORD.name)]
 PromptCredentialsOption = Annotated[
     bool | None,
     typer.Option("--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing"),
@@ -69,27 +72,29 @@ FullMetadataOption = Annotated[bool, typer.Option("--full-metadata", help="Fetch
 # Glob pattern filters for TDocs
 SourcePatternOption = Annotated[
     list[str] | None,
-    typer.Option("--source", help="Glob pattern for source field (e.g., '*huawei*'). Multiple values are OR'd.", envvar="TDC_SOURCE_PATTERN"),
+    typer.Option("--source", help="Glob pattern for source field (e.g., '*huawei*'). Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_SOURCE_PATTERN.name),
 ]
 SourcePatternExcludeOption = Annotated[
     list[str] | None,
-    typer.Option("--source-ex", help="Glob pattern to exclude source field. Multiple values are OR'd.", envvar="TDC_SOURCE_PATTERN_EXCLUDE"),
+    typer.Option("--source-ex", help="Glob pattern to exclude source field. Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_SOURCE_PATTERN_EXCLUDE.name),
 ]
 TitlePatternOption = Annotated[
     list[str] | None,
-    typer.Option("--title", help="Glob pattern for title field (e.g., '*AI*'). Multiple values are OR'd.", envvar="TDC_TITLE_PATTERN"),
+    typer.Option("--title", help="Glob pattern for title field (e.g., '*AI*'). Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_TITLE_PATTERN.name),
 ]
 TitlePatternExcludeOption = Annotated[
     list[str] | None,
-    typer.Option("--title-ex", help="Glob pattern to exclude title field. Multiple values are OR'd.", envvar="TDC_TITLE_PATTERN_EXCLUDE"),
+    typer.Option("--title-ex", help="Glob pattern to exclude title field. Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_TITLE_PATTERN_EXCLUDE.name),
 ]
 AgendaPatternOption = Annotated[
     list[str] | None,
-    typer.Option("--agenda", help="Glob pattern for agenda_item_text field. Multiple values are OR'd.", envvar="TDC_AGENDA_PATTERN"),
+    typer.Option("--agenda", help="Glob pattern for agenda_item_text field. Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_AGENDA_PATTERN.name),
 ]
 AgendaPatternExcludeOption = Annotated[
     list[str] | None,
-    typer.Option("--agenda-ex", help="Glob pattern to exclude agenda_item_text field. Multiple values are OR'd.", envvar="TDC_AGENDA_PATTERN_EXCLUDE"),
+    typer.Option(
+        "--agenda-ex", help="Glob pattern to exclude agenda_item_text field. Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_AGENDA_PATTERN_EXCLUDE.name
+    ),
 ]
 
 
@@ -114,22 +119,24 @@ ReleaseOption = Annotated[
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download")]
 
 # Options - General/Common
-CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR")]
+CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name)]
 ClearDbOption = Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")]
 CheckoutOption = Annotated[
-    bool, typer.Option("--checkout/--no-checkout", help="Download and extract metadata results to checkout folder", envvar="TDC_CHECKOUT")
+    bool,
+    typer.Option("--checkout/--no-checkout", help="Download and extract metadata results to checkout folder", envvar=ConfigEnvVar.TDC_CHECKOUT.name),
 ]
-CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Directory for checkout files", envvar="TDC_CHECKOUT_DIR")]
-WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers", envvar="TDC_WORKERS")]
-MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts", envvar="TDC_MAX_RETRIES")]
-TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds", envvar="TDC_TIMEOUT")]
+CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Directory for checkout files", envvar=ConfigEnvVar.TDC_CHECKOUT_DIR.name)]
+WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers", envvar=ConfigEnvVar.TDC_WORKERS.name)]
+MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts", envvar=ConfigEnvVar.TDC_MAX_RETRIES.name)]
+TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds", envvar=ConfigEnvVar.TDC_TIMEOUT.name)]
 VerbosityOption = Annotated[
     str,
-    typer.Option("--verbosity", "-v", help="Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)", envvar="TDC_VERBOSITY"),
+    typer.Option("--verbosity", "-v", help="Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)", envvar=ConfigEnvVar.TDC_VERBOSITY.name),
 ]
 
 UseWhatTheSpecOption = Annotated[
-    bool, typer.Option("--use-whatthespec/--no-use-whatthespec", help="Use WhatTheSpec API for fetching", envvar="TDC_USE_WHATTHESPEC")
+    bool,
+    typer.Option("--use-whatthespec/--no-use-whatthespec", help="Use WhatTheSpec API for fetching", envvar=ConfigEnvVar.TDC_USE_WHATTHESPEC.name),
 ]
 
 
@@ -140,7 +147,7 @@ HttpCacheOption = Annotated[
     typer.Option(
         "--http-cache/--no-http-cache",
         help="Enable/disable HTTP caching. If not specified, uses HTTP_CACHE_ENABLED env var or defaults to enabled.",
-        envvar="HTTP_CACHE_ENABLED",
+        envvar=ConfigEnvVar.HTTP_CACHE_ENABLED.name,
     ),
 ]
 
@@ -181,7 +188,7 @@ EmbeddingBackendOption = Annotated[
         "--accelerate",
         "-a",
         help="Embedding backend (torch, onnx, openvino)",
-        envvar="TDC_AI_EMBEDDING_BACKEND",
+        envvar=ConfigEnvVar.TDC_AI_EMBEDDING_BACKEND.name,
     ),
 ]
 _ = Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")]
@@ -205,7 +212,7 @@ WorkspaceActivateOption = Annotated[
         True,
         "--activate/--no-activate",
         help="Activate workspace after creation",
-        envvar="TDC_AI_WORKSPACE_ACTIVATE",
+        envvar=ConfigEnvVar.TDC_AI_WORKSPACE_ACTIVATE.name,
     ),
 ]
 

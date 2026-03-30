@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from tdoc_crawler.config import ConfigEnvVar
 from tdoc_crawler.models.base import OutputFormat
 
 from threegpp_ai.lightrag.config import QueryMode
@@ -13,11 +14,11 @@ from threegpp_ai.lightrag.config import QueryMode
 # Common
 OutputFormatOption = Annotated[
     str,
-    typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar="TDC_AI_OUTPUT_FORMAT"),
+    typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar=ConfigEnvVar.TDC_AI_OUTPUT_FORMAT.name),
 ]
 CacheDirOption = Annotated[
     Path | None,
-    typer.Option("--cache-dir", "-c", help="Cache directory", envvar="TDC_CACHE_DIR"),
+    typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name),
 ]
 
 # Summarize
@@ -49,7 +50,12 @@ WorkspaceKindOption = Annotated[str, typer.Option("--kind", help="Source kind (t
 WorkspaceCheckoutOption = Annotated[bool, typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present")]
 ConvertPdfOption = Annotated[
     bool,
-    typer.Option("--convert-pdf/--no-convert-pdf", "-cp", help="Convert office documents to PDF during add-members", envvar="TDC_AI_CONVERT_PDF"),
+    typer.Option(
+        "--convert-pdf/--no-convert-pdf",
+        "-cp",
+        help="Convert office documents to PDF during add-members",
+        envvar=ConfigEnvVar.TDC_AI_CONVERT_PDF.name,
+    ),
 ]
 ConvertMdOption = Annotated[
     bool,
@@ -57,7 +63,7 @@ ConvertMdOption = Annotated[
         "--convert-md/--no-convert-md",
         "-cm",
         help="Extract markdown from PDFs (implies --convert-pdf). Saves tables, figures, equations, metadata to .ai folder",
-        envvar="TDC_AI_CONVERT_MD",
+        envvar=ConfigEnvVar.TDC_AI_CONVERT_MD.name,
     ),
 ]
 WorkspaceEmbedOption = Annotated[
@@ -82,7 +88,7 @@ WorkspaceProcessVlmOption = Annotated[
     typer.Option(
         "--vlm/--no-vlm",
         help="Enable VLM picture description and formula enrichment",
-        envvar="TDC_AI_VLM",
+        envvar=ConfigEnvVar.TDC_AI_VLM.name,
     ),
 ]
 WorkspacePreserveArtifactsOption = Annotated[
@@ -99,7 +105,7 @@ AcceleratorDeviceOption = Annotated[
     typer.Option(
         "--device",
         help="Compute device for document extraction: auto, cpu, cuda, mps, xpu, or cuda:N",
-        envvar="TDC_AI_DEVICE",
+        envvar=ConfigEnvVar.TDC_AI_DEVICE.name,
     ),
 ]
 AcceleratorThreadsOption = Annotated[
@@ -107,7 +113,7 @@ AcceleratorThreadsOption = Annotated[
     typer.Option(
         "--threads",
         help="Number of threads for CPU-bound extraction operations",
-        envvar="TDC_AI_NUM_THREADS",
+        envvar=ConfigEnvVar.TDC_AI_NUM_THREADS.name,
     ),
 ]
 AcceleratorBatchSizeOption = Annotated[
@@ -115,7 +121,7 @@ AcceleratorBatchSizeOption = Annotated[
     typer.Option(
         "--batch-size",
         help="Batch size for OCR, layout, and table structure. Higher values benefit GPU",
-        envvar="TDC_AI_BATCH_SIZE",
+        envvar=ConfigEnvVar.TDC_AI_BATCH_SIZE.name,
     ),
 ]
 

@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Self
 
 # Import settings and sources modules
-from tdoc_crawler.config.compat import (
+from tdoc_crawler.config.env_vars import (
     DEPRECATED_ENV_VARS,
     ENV_VAR_MAPPINGS,
+    ConfigEnvVar,
     log_deprecation_warning,
 )
 from tdoc_crawler.config.settings import (
@@ -47,6 +48,7 @@ __all__ = [
     "DEPRECATED_ENV_VARS",
     "ENV_VAR_MAPPINGS",
     "CacheManager",
+    "ConfigEnvVar",
     "ConfigLoadError",
     "CrawlConfig",
     "CredentialsConfig",
