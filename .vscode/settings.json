@@ -4,5 +4,8 @@
         {
             "file": "${workspaceFolder}/.vscode/commit-instructions.md"
         }
+    ],
+    "ruff.path": [
+        "d:\\userdata\\mise\\data\\shims\\ruff.exe"
     ]
 }
