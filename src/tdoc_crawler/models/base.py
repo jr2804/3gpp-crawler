@@ -7,14 +7,11 @@ import warnings
 from dataclasses import dataclass
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from tdoc_crawler.config import resolve_cache_manager
-
-if TYPE_CHECKING:
-    from tdoc_crawler.config.settings import HttpConfig
+from tdoc_crawler.config.settings import HttpConfig
 
 
 class OutputFormat(StrEnum):
