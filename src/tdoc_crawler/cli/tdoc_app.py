@@ -23,7 +23,8 @@ from tdoc_crawler.cli.args import (
     VerbosityOption,
 )
 from tdoc_crawler.cli.config import load_cli_config
-from tdoc_crawler.cli.config_cmd import config_app
+from tdoc_crawler.cli.config_app import config_app
+from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.utils import launch_file
@@ -40,14 +41,6 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_i
 
 tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
 
-
-HELP_PANEL_MAIN = "Main Commands"
-
-HELP_PANEL_CRAWLING = "Crawling Commands"
-
-HELP_PANEL_QUERY = "Query Commands"
-
-HELP_PANEL_CONFIG = "Configuration Commands"
 
 # Register config sub-app
 tdoc_app.add_typer(config_app, name="config", help="Manage configuration")

@@ -7,9 +7,11 @@ from typing import Annotated
 
 import typer
 
+from tdoc_crawler.cli import config_app
 from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import CacheDirOption, VerbosityOption
 from tdoc_crawler.cli.config import load_cli_config
+from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_specs
 from tdoc_crawler.cli.query import query_specs
 from tdoc_crawler.cli.specs import checkout_spec, open_spec
@@ -17,12 +19,10 @@ from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 
-spec_app = typer.Typer(help="3GPP Crawler - Technical Specifications")
+spec_app = typer.Typer(help="3GPP Crawler for Technical Specifications/Reports")
 
-HELP_PANEL_MAIN = "Main Commands"
-HELP_PANEL_CRAWLING = "Crawling Commands"
-HELP_PANEL_QUERY = "Query Commands"
-
+# Register config sub-app
+spec_app.add_typer(config_app, name="config", help="Manage configuration")
 
 @spec_app.callback()
 def _spec_app_callback(

@@ -13,6 +13,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 
+from tdoc_crawler.cli.constants import HELP_PANEL_CONFIG, SECTION_DESCRIPTIONS
 from tdoc_crawler.config.export import ConfigExporter
 from tdoc_crawler.config.settings import TDocCrawlerConfig
 
@@ -53,7 +54,7 @@ ConfigDocsSectionOption = Annotated[
 config_app = typer.Typer(help="Manage configuration")
 
 
-@config_app.command("init")
+@config_app.command("init", rich_help_panel=HELP_PANEL_CONFIG)
 def config_init(
     output: ConfigInitOutputOption,
     format: ConfigInitFormatOption = "toml",
@@ -70,22 +71,13 @@ def config_init(
         raise typer.Exit(1)
 
 
-@config_app.command("show")
+@config_app.command("show", rich_help_panel=HELP_PANEL_CONFIG)
 def config_show(
     format: ConfigShowFormatOption = "toml",
 ) -> None:
     """Display current configuration (stdout)."""
     exporter = ConfigExporter()
     print(exporter.export(format))
-
-
-# Section help text mapping
-SECTION_DESCRIPTIONS = {
-    "path": "File system paths (cache_dir, db_file, checkout_dir, ai_cache_dir)",
-    "http": "HTTP client settings (timeout, retries, caching, SSL)",
-    "credentials": "ETSI Online portal credentials (username, password)",
-    "crawl": "Crawling filters and limits (working_group, date range, workers)",
-}
 
 
 def _check_path_exists(path: Path) -> tuple[bool, str]:
@@ -205,7 +197,7 @@ def _display_validation_results(issues: list[tuple[str, str]], strict: bool) -> 
     raise typer.Exit(3)
 
 
-@config_app.command("validate")
+@config_app.command("validate", rich_help_panel=HELP_PANEL_CONFIG)
 def config_validate(
     file: ConfigValidateFileOption = None,
     strict: ConfigValidateStrictOption = False,
@@ -236,7 +228,7 @@ def config_validate(
     _display_validation_results(issues, strict)
 
 
-@config_app.command("docs")
+@config_app.command("docs", rich_help_panel=HELP_PANEL_CONFIG)
 def config_docs(
     section: ConfigDocsSectionOption = None,
 ) -> None:
