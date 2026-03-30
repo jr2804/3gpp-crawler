@@ -62,6 +62,7 @@ Notes:
 | Pydantic model | `src/tdoc_crawler/models/` | Data validation, serialization |
 | HTTP caching | `src/tdoc_crawler/http_client.py` | `create_cached_session()` |
 | Path management | `src/tdoc_crawler/config/__init__.py` | `CacheManager`, `resolve_cache_manager()` |
+| Configuration | `src/tdoc_crawler/config/settings.py` | `TDocCrawlerConfig`, pydantic-settings |
 | Test structure | `tests/test_crawler.py` | Fixtures, mocking, isolation |
 
 ## Heuristics (quick decisions)
@@ -113,7 +114,49 @@ Notes:
 | TSG | Technical Specification Group (SA, RAN, CT) |
 | Portal | 3GPP EOL authenticated portal |
 
-## CacheManager Pattern (CRITICAL)
+## Configuration System (NEW in v1.0)
+
+**Two complementary systems:**
+
+1. **`TDocCrawlerConfig`** (pydantic-settings) — Type-safe configuration from files/env vars
+2. **`CacheManager`** (runtime paths) — File system path resolution
+
+### TDocCrawlerConfig (Settings)
+
+Use for **all configurable behavior** (timeouts, credentials, limits, etc.):
+
+```python
+from tdoc_crawler.config import TDocCrawlerConfig
+
+# Load with automatic discovery (3gpp-crawler.toml, env vars)
+config = TDocCrawlerConfig.from_settings()
+
+# Or with explicit config file
+config = TDocCrawlerConfig.from_settings(config_file=Path("./my-config.toml"))
+
+# Access nested config
+config.path.cache_dir      # Path to cache directory
+config.http.timeout        # HTTP timeout in seconds
+config.credentials.username  # Portal username
+config.crawl.workers       # Concurrent crawl workers
+```
+
+**Config file discovery order** (later overrides earlier):
+1. Global: `~/.config/3gpp-crawler/config.toml`
+2. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
+3. Config dir: `.config/.3gpp-crawler/conf.d/*.toml` (alphabetical)
+
+**Precedence:** CLI args > Config file > Environment variables > Defaults
+
+**Supported formats:** TOML (primary), YAML, JSON
+
+**Environment variable prefixes:**
+- `TDC_*` — Path settings
+- `TDC_EOL_*` — Portal credentials
+- `TDC_CRAWL_*` — Crawl filters
+- `HTTP_CACHE_*` — HTTP cache settings
+
+### CacheManager Pattern (Runtime Paths)
 
 **Single Source of Truth:** All file paths MUST use `CacheManager` from `src/tdoc_crawler/config/__init__.py`.
 
@@ -177,6 +220,16 @@ except CacheManagerNotRegisteredError:
 
 # ✅ CORRECT - simply resolve it, without an argument. Let it burn if not registered!
 manager = resolve_cache_manager()
+```
+
+### Configuration CLI Commands
+
+```bash
+# Generate default config file
+tdoc-crawler config init --output 3gpp-crawler.toml
+
+# Show current configuration (env + files + defaults)
+tdoc-crawler config show
 ```
 
 ## Antipaterns (what NOT to do)
