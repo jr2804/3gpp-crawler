@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any
@@ -106,7 +106,7 @@ class WorkspaceMember:
     source_item_id: str = field(metadata={"description": "Stable source item identifier"})
     source_path: str = field(metadata={"description": "Path or locator of the source item"})
     source_kind: SourceKind = field(metadata={"description": "Type of source item"})
-    added_at: datetime = field(default_factory=utc_now, metadata={"description": "Registration timestamp"})
+    added_at: datetime | str = field(default_factory=utc_now, metadata={"description": "Registration timestamp"})
     added_by: str | None = field(default=None, metadata={"description": "Actor that registered the source"})
     is_active: bool = field(default=True, metadata={"description": "Membership active flag"})
 
@@ -121,7 +121,21 @@ class WorkspaceMember:
         if not normalized:
             msg = "source_item_id must not be empty"
             raise ValueError(msg)
+
         self.source_item_id = normalized
+        self.source_kind = SourceKind(self.source_kind)  # Ensure source_kind is a SourceKind enum
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict compatible with WorkspaceMetadata storage.
+
+        Returns added_at as ISO string for JSON serialization.
+        """
+        result = asdict(self)
+        result["source_kind"] = self.source_kind.value
+        result["added_by"] = self.added_by or ""
+        result["added_at"] = self.added_at.isoformat() if isinstance(self.added_at, datetime) else self.added_at
+        return result
+
 
 
 class DocumentClassification(BaseModel):

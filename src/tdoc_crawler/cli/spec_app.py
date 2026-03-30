@@ -24,6 +24,7 @@ spec_app = typer.Typer(help="3GPP Crawler for Technical Specifications/Reports")
 # Register config sub-app
 spec_app.add_typer(config_app, name="config", help="Manage configuration")
 
+
 @spec_app.callback()
 def _spec_app_callback(
     ctx: typer.Context,
