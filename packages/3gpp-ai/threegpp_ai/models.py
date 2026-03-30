@@ -137,7 +137,6 @@ class WorkspaceMember:
         return result
 
 
-
 class DocumentClassification(BaseModel):
     """Classification of a file within a TDoc folder."""
 

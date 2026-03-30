@@ -44,7 +44,6 @@ from tdoc_crawler.cli.args import (
     WorkersOption,
     WorkingGroupOption,
 )
-from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_spec_crawl_table, spec_crawl_to_dict
 from tdoc_crawler.config import CacheManager, TDocCrawlerConfig
