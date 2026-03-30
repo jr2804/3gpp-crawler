@@ -70,13 +70,13 @@ def _app_callback(
 ) -> None:
     """Global CLI options."""
     # Load and validate config at startup
-    load_cli_config(ctx, config_file)
+    config = load_cli_config(ctx, config_file)
 
-    # For backward compatibility: if --cache-dir provided, it overrides config
-    if cache_dir:
+    # Override cache_dir if provided (deprecated but still supported)
+    if cache_dir is not None:
         console.print("[yellow]Warning: --cache-dir is deprecated, use config file[/yellow]")
-        # Create new CacheManager with explicit cache_dir
-        CacheManager(cache_dir).register()
+        config.path.cache_dir = cache_dir
+        ctx.obj = config
 
 
 # Register crawl commands

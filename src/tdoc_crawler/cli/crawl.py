@@ -44,9 +44,10 @@ from tdoc_crawler.cli.args import (
     WorkersOption,
     WorkingGroupOption,
 )
+from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_spec_crawl_table, spec_crawl_to_dict
-from tdoc_crawler.config import CacheManager
+from tdoc_crawler.config import CacheManager, TDocCrawlerConfig
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.database.specs import SpecCrawlResult, SpecDatabase
@@ -55,8 +56,7 @@ from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawler, MeetingCrawlResult
-from tdoc_crawler.models.base import HttpCacheConfig, OutputFormat, SortOrder
-from tdoc_crawler.models.crawl_limits import CrawlLimits
+from tdoc_crawler.models.base import CrawlLimits, OutputFormat, SortOrder
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, checkout_specs
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
@@ -110,15 +110,14 @@ def crawl_tdocs(
     """
     set_verbosity(verbosity)
 
-    manager = CacheManager(cache_dir).register()
+    crawler_config = TDocCrawlerConfig.from_settings()
+    # Override cache_dir if provided (deprecated but still supported)
+    if cache_dir is not None:
+        crawler_config.path.cache_dir = cache_dir
+    crawler_config.ensure_paths()
+
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
-
-    limits = CrawlLimits.build(limit_tdocs, limit_meetings, limit_meetings_per_subwg, limit_subwgs)
-
-    http_cache = HttpCacheConfig.resolve_http_cache_config(
-        cache_ttl=None, cache_refresh_on_access=None, max_retries=max_retries, cache_file=manager.http_cache_file
-    )
 
     config = TDocCrawlConfig(
         working_groups=working_groups,
@@ -132,12 +131,11 @@ def crawl_tdocs(
         overall_timeout=overall_timeout,
         timeout=timeout,
         max_retries=max_retries,
-        limits=limits,
+        limits=CrawlLimits.build(limit_tdocs, limit_meetings, limit_meetings_per_subwg, limit_subwgs),
         target_ids=None,
-        http_cache=http_cache,
     )
 
-    db_file = manager.db_file
+    db_file = crawler_config.path.db_file
 
     scope_parts = []
 
@@ -174,7 +172,7 @@ def crawl_tdocs(
 
     handle_clear_options(
         db_file,
-        manager.checkout_dir,
+        crawler_config.path.checkout_dir,
         TDocDatabase,
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
@@ -233,7 +231,7 @@ def crawl_tdocs(
                 results = await database.query_tdocs(query_config)
 
                 with create_cached_session(http_cache_enabled=http_cache_enabled) as session:
-                    checkout_result = checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
+                    checkout_result = checkout_tdocs(results, crawler_config.path.checkout_dir, force=False, session=session)
 
                 console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
                 if checkout_result.error_count:
