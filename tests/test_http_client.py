@@ -13,6 +13,7 @@ from hishel.requests import CacheAdapter
 from requests.adapters import HTTPAdapter
 
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME, CacheManager, reset_cache_managers
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.http_client import PoolConfig, create_cached_session, download_to_file
 from tdoc_crawler.http_client.session import SSLContextCacheAdapter, SSLContextHTTPAdapter, resolve_ssl_verify
 from tdoc_crawler.models.base import HttpCacheConfig
@@ -460,8 +461,6 @@ class TestHttpSessionWithConfig:
 
     def test_resolve_ssl_verify_uses_http_config(self) -> None:
         """resolve_ssl_verify uses http_config.verify_ssl when no explicit verify."""
-        from tdoc_crawler.config.settings import HttpConfig
-
         http_config = HttpConfig(verify_ssl=False)
 
         result = resolve_ssl_verify(http_config=http_config)
@@ -470,15 +469,13 @@ class TestHttpSessionWithConfig:
 
     def test_resolve_ssl_verify_explicit_overrides_config(self) -> None:
         """Explicit verify parameter takes precedence over http_config."""
-        from tdoc_crawler.config.settings import HttpConfig
-
         http_config = HttpConfig(verify_ssl=False)
 
         result = resolve_ssl_verify(verify=True, http_config=http_config)
 
         assert result is True
 
-    def test_resolve_ssl_verify_fallback_to_env(self, monkeypatch) -> None:
+    def test_resolve_ssl_verify_fallback_to_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Without http_config, falls back to env var."""
         monkeypatch.setenv("TDC_VERIFY_SSL", "false")
 
@@ -488,8 +485,6 @@ class TestHttpSessionWithConfig:
 
     def test_create_cached_session_uses_config_cache_enabled(self, test_cache_dir: Path) -> None:
         """create_cached_session respects http_config.cache_enabled=False."""
-        from tdoc_crawler.config.settings import HttpConfig
-
         CacheManager(root_path=test_cache_dir, name="test_config_cache").register()
         http_config = HttpConfig(cache_enabled=False)
 
@@ -503,21 +498,19 @@ class TestHttpSessionWithConfig:
 
     def test_create_cached_session_explicit_overrides_config(self, test_cache_dir: Path) -> None:
         """Explicit http_cache_enabled overrides http_config."""
-        from tdoc_crawler.config.settings import HttpConfig
-
         CacheManager(root_path=test_cache_dir, name="test_explicit_override").register()
-        http_config = HttpConfig(cache_enabled=False)
+        http_config = HttpConfig(cache_enabled=True)
 
-        # Explicit True should override config False
         session = create_cached_session(
             cache_manager_name="test_explicit_override",
             http_config=http_config,
-            http_cache_enabled=True,
+            http_cache_enabled=False,
         )
 
+        # Explicit False should override http_config.cache_enabled=True
         assert session is not None
-        # Should have cache adapter since explicit True overrides config False
-        assert isinstance(session.adapters["http://"], CacheAdapter)
+        # Should have plain HTTP adapter since caching is explicitly disabled
+        assert isinstance(session.adapters["http://"], SSLContextHTTPAdapter)
         session.close()
 
 
