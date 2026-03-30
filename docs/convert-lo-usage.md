@@ -145,8 +145,8 @@ converter.convert(
 `convert-lo` handles format conversion only. Structured AI extraction artifacts are produced by the AI pipeline commands:
 
 ```bash
-tdoc-crawler ai convert <tdoc_id> --output <file>.md
-tdoc-crawler ai workspace process --workspace <workspace_name>
+3gpp-ai convert <tdoc_id> --output <file>.md
+3gpp-ai workspace process --workspace <workspace_name>
 ```
 
 When structured extraction is enabled, these AI commands may emit sidecars next to markdown output:

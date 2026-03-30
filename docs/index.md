@@ -21,10 +21,10 @@ PQ|- [**Query Documentation**](query.md) – How to search and display stored me
 
 - [**Crawl-Meetings**](crawl.md#crawl-meetings) (`cm`)
 - [**Crawl-TDocs**](crawl.md#crawl-tdocs) (`ct`)
-- [**Query-TDocs**](query.md#query-tdocs) (`qt`)
+- [**Query-TDocs**](query.md#query-tdocs-alias-qt) (`qt`)
 - [**Open TDoc**](utils.md#open)
   #KK|- [**Checkout Specs**](utils.md#checkout-spec)
-  #TQ|- **AI Commands**
+  #TQ|- **AI Commands** (via `3gpp-ai` CLI)
   #KM|- [**AI Workspace**](ai.md#workspace-management) - Create and manage workspaces
   #RD|- [**AI Query**](ai.md#querying) - Semantic search over TDocs
   #YQ|- [**AI Summarize/Convert**](ai.md#single-tdoc-operations) - Single TDoc operations

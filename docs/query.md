@@ -4,28 +4,28 @@ Query commands allow you to search and display metadata stored in your local dat
 
 ## AI RAG Query
 
-Use a single command for AI-assisted retrieval across text, tables, figures, and equations:
+Use a single command for AI-assisted retrieval across text, tables, figures, and equations (requires `3gpp-ai` package):
 
 ```bash
-tdoc-crawler ai workspace query --workspace <workspace_name> "your query here"
+3gpp-ai workspace query --workspace <workspace_name> "your query here"
 ```
 
 Examples:
 
 ```bash
-tdoc-crawler ai workspace query --workspace test-rag-elements "What are the bit rates in Table 3?"
-tdoc-crawler ai workspace query --workspace test-rag-elements "Describe the architecture figure"
-tdoc-crawler ai workspace query --workspace test-rag-elements "What is the throughput equation?"
+3gpp-ai workspace query --workspace test-rag-elements "What are the bit rates in Table 3?"
+3gpp-ai workspace query --workspace test-rag-elements "Describe the architecture figure"
+3gpp-ai workspace query --workspace test-rag-elements "What is the throughput equation?"
 ```
 
 Notes:
 
-- Keep `ai workspace query` as the single query entrypoint (no separate table/figure/equation query commands).
+- Keep `workspace query` as the single query entrypoint (no separate table/figure/equation query commands).
 - Retrieval uses enriched chunk content and element-aware metadata when available.
 
 ## Commands
 
-### `query-tdocs` (alias: `qt`)
+### `query` (TDocs) (alias: `qt`)
 
 Search for TDocs by ID, working group, or date range.
 
@@ -46,20 +46,20 @@ If you query a TDoc ID that is not in your database, `tdoc-crawler` automaticall
 
 ```bash
 # Query specific TDoc (auto-fetches if missing)
-tdoc-crawler query-tdocs R1-2400001
+tdoc-crawler query R1-2400001
 
 # Filter by working group and limit
-tdoc-crawler query-tdocs --working-group RAN --limit 20
+tdoc-crawler query --working-group RAN --limit 20
 
 # Export results as JSON
-tdoc-crawler query-tdocs R1-2400001 --output json
+tdoc-crawler query R1-2400001 --output json
 ```
 
 ______________________________________________________________________
 
 ### `query-meetings` (alias: `qm`)
 
-Browse meeting schedules and metadata. Unlike `query-tdocs`, this command only searches already-crawled meetings.
+Browse meeting schedules and metadata. Unlike `query` (TDocs), this command only searches already-crawled meetings.
 
 **Options:**
 
@@ -85,7 +85,7 @@ tdoc-crawler query-meetings --output yaml
 
 ______________________________________________________________________
 
-### `query-specs` (alias: `qs`)
+### `query` (Specs)
 
 Query technical specification metadata from the local catalog.
 
@@ -101,8 +101,8 @@ Query technical specification metadata from the local catalog.
 
 ```bash
 # Query specific spec
-spec-crawler query-specs 23.501
+spec-crawler query 23.501
 
 # Filter by status
-spec-crawler query-specs --status "Under change control"
+spec-crawler query --status "Under change control"
 ```

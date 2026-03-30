@@ -137,12 +137,15 @@ Optionally use pg0 for PostgreSQL-backed storage.
 
 ## CLI Integration
 
-Exposed via `tdoc-crawler` commands:
+The `3gpp-ai` package provides its own standalone CLI entrypoint:
 
 ```bash
-tdoc-crawler ai workspace process
-tdoc-crawler ai workspace query "your query"
-tdoc-crawler ai workspace status
+3gpp-ai workspace process
+3gpp-ai workspace query "your query"
+3gpp-ai workspace status
+3gpp-ai summarize <tdoc_id>
+3gpp-ai convert <tdoc_id>
+3gpp-ai providers list
 ```
 
 ## Import Guidelines
