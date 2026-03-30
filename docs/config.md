@@ -7,9 +7,10 @@ This guide covers the configuration system for 3gpp-crawler, including config fi
 The 3gpp-crawler uses a composable configuration system with two complementary parts:
 
 1. **TDocCrawlerConfig** (pydantic-settings) — Type-safe configuration from files/env vars
-2. **CacheManager** (runtime paths) — File system path resolution
+1. **CacheManager** (runtime paths) — File system path resolution
 
 Configuration can be provided via:
+
 - Config files (TOML, YAML, JSON)
 - Environment variables
 - CLI arguments
@@ -19,8 +20,8 @@ Configuration can be provided via:
 Config files are discovered in this order (later files override earlier):
 
 1. `~/.config/3gpp-crawler/config.toml` (global)
-2. `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml` (project)
-3. `.config/3gpp-crawler/conf.d/*.toml` (config directory, alphabetically)
+1. `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml` (project)
+1. `.config/3gpp-crawler/conf.d/*.toml` (config directory, alphabetically)
 
 **Precedence:** CLI args > Config file > Environment variables > Defaults
 
@@ -158,11 +159,12 @@ If you have an existing `.env` file, you can migrate to the new config file appr
 ### Migration Steps
 
 1. **Generate a default config file:**
+
    ```bash
    tdoc-crawler config init --output 3gpp-crawler.toml
    ```
 
-2. **Copy values from your .env:**
+1. **Copy values from your .env:**
    | .env Variable | Config File Setting |
    |----------------|---------------------|
    | TDC_CACHE_DIR | path.cache_dir |
@@ -176,12 +178,14 @@ If you have an existing `.env` file, you can migrate to the new config file appr
    | TDC_WORKING_GROUP | crawl.working_group |
    | TDC_LIMIT_TDOCS | crawl.limit |
 
-3. **Validate your config:**
+1. **Validate your config:**
+
    ```bash
    tdoc-crawler config validate
    ```
 
-4. **Remove .env when ready:**
+1. **Remove .env when ready:**
+
    ```bash
    rm .env  # after confirming config works
    ```
@@ -191,9 +195,9 @@ If you have an existing `.env` file, you can migrate to the new config file appr
 Config files override env vars (later files override earlier):
 
 1. `~/.config/3gpp-crawler/config.toml` (global)
-2. `./3gpp-crawler.toml` (project)
-3. `./.3gpp-crawler.toml` (project alternative)
-4. `./.config/3gpp-crawler/conf.d/*.toml` (config dir)
+1. `./3gpp-crawler.toml` (project)
+1. `./.3gpp-crawler.toml` (project alternative)
+1. `./.config/3gpp-crawler/conf.d/*.toml` (config dir)
 
 **CLI args always win** — `--cache-dir` overrides everything.
 
@@ -256,6 +260,6 @@ For backward compatibility, environment variables are still supported:
 
 See `.env.example` for the complete list.
 
----
+______________________________________________________________________
 
 *This reference is auto-generated. Run `uv run python scripts/generate_config_docs.py` to update.*

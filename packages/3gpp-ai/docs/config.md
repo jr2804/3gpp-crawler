@@ -45,6 +45,7 @@ The 3gpp-ai package supports two configuration approaches:
 You can use `3gpp-crawler.toml` as base config and `3gpp-ai.toml` for AI-specific overrides:
 
 **3gpp-crawler.toml (base):**
+
 ```toml
 [path]
 cache_dir = "~/.3gpp-crawler"
@@ -54,6 +55,7 @@ timeout = 30
 ```
 
 **3gpp-ai.toml (override):**
+
 ```toml
 [ai]
 llm_model = "openrouter/anthropic/claude-3-sonnet"
@@ -81,6 +83,7 @@ manager.ai_embed_dir("qwen3-embedding:0.6b")  # ~/.3gpp-crawler/lightrag/qwen3-e
 Format: `<provider>/<model_name>`
 
 Examples:
+
 - `openrouter/openrouter/free` - Free tier
 - `openrouter/anthropic/claude-3-sonnet` - Anthropic via OpenRouter
 - `ollama/llama3` - Local Ollama
@@ -90,6 +93,7 @@ Examples:
 Format: `<provider>/<model_name>`
 
 Examples:
+
 - `sentence-transformers/all-MiniLM-L6-v2` - Default
 - `ollama/nomic-embed-text` - Local Ollama
 - `ollama/qwen3-embedding:0.6b` - Qwen embedding
