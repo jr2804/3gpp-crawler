@@ -2,12 +2,12 @@
 cls
 call .venv\scripts\activate.bat
 
-:: SET TDC_AI_CONVERT_MD=1
-SET TDC_AI_VLM=1
+SET TDC_AI_CONVERT_MD=1
+SET TDC_AI_VLM=0
 
 tdoc-crawler crawl-meetings -s S4
-tdoc-crawler crawl-tdocs --start-date 2016
-tdoc-crawler query-tdocs --agenda "*atias*" --start-date 2018
+tdoc-crawler crawl --start-date 2016
+tdoc-crawler query --agenda "*atias*" --start-date 2018
 
 3gpp-ai workspace deactivate
 3gpp-ai workspace delete atias --delete-artifacts
