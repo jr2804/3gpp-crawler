@@ -36,6 +36,17 @@ class DocDatabase:
         self.cache_dir = db_file.parent
         self._database: AsyncDatabase | None = None
 
+    @property
+    def connection(self) -> AsyncDatabase:
+        """Return the underlying AsyncDatabase connection.
+
+        Raises:
+            DatabaseError: If accessed outside of context manager
+        """
+        if self._database is None:
+            raise DatabaseError.connection_not_open()
+        return self._database
+
     # ------------------------------------------------------------------
     # Context manager lifecycle
     # ------------------------------------------------------------------

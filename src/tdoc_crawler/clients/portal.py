@@ -299,7 +299,7 @@ class PortalClient:
         """
         if self._session is None:
             self._session = create_cached_session(
-                http_cache=self._http_cache,
+                http_config=self._http_cache,
                 cache_manager_name=self._cache_manager_name,
                 verify=self._verify_resolved,
             )
