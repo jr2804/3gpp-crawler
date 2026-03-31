@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.logging import get_logger
@@ -32,8 +33,6 @@ def fetch_meeting_document_list_subinterpreter(
     Returns:
         JSON string containing list of TDocMetadata or error information
     """
-    from pathlib import Path
-
     try:
         # Fetch document list for the meeting
         tdoc_metadata_list = fetch_meeting_document_list(
