@@ -14,15 +14,17 @@ For backward compatibility, standalone functions are also provided.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 import requests
 
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.constants.urls import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.http_client import create_cached_session, resolve_ssl_verify
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models.base import HttpCacheConfig, PortalCredentials
+from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_page
 from tdoc_crawler.tdocs.models import TDocMetadata
 
@@ -60,8 +62,8 @@ class PortalClient:
         session: requests.Session | None = None,
         credentials: PortalCredentials | None = None,
         timeout: int = 30,
-        http_cache: HttpCacheConfig | None = None,
-        cache_manager_name: str | None = None,
+        http_config: HttpConfig | None = None,
+        http_cache_file: Path | None = None,
         verify: bool | str | None = None,
     ) -> None:
         """Initialize portal client.
@@ -70,14 +72,14 @@ class PortalClient:
             session: Optional requests.Session to reuse
             credentials: Optional portal credentials (if not provided, will attempt to resolve registered credentials)
             timeout: Request timeout in seconds
-            http_cache: Optional HTTP cache configuration
-            cache_manager_name: Optional cache manager name for resolving cache configuration
+            http_config: Optional HTTP configuration from ThreeGPPConfig
+            http_cache_file: Optional explicit path to the HTTP cache database
             verify: SSL certificate verification mode (bool or CA bundle path)
         """
         self._credentials = credentials
-        self._cache_manager_name = cache_manager_name
+        self._http_cache_file = http_cache_file
         self.timeout = timeout
-        self._http_cache = http_cache
+        self._http_config = http_config
         self._verify = verify
         self._authenticated = False
         self._session = session
@@ -299,8 +301,8 @@ class PortalClient:
         """
         if self._session is None:
             self._session = create_cached_session(
-                http_config=self._http_cache,
-                cache_manager_name=self._cache_manager_name,
+                http_config=self._http_config,
+                http_cache_file=self._http_cache_file,
                 verify=self._verify_resolved,
             )
 

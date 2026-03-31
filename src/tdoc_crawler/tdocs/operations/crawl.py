@@ -16,7 +16,6 @@ from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
-from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 from tdoc_crawler.workers.tdoc_worker import fetch_meeting_document_list_subinterpreter
@@ -57,7 +56,12 @@ class TDocCrawler:
             logger.warning("No meetings found matching criteria")
             return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found"])
 
-        meetings = self._apply_meeting_limits(meetings, config.limits)
+        meetings = self._apply_meeting_limits(
+            meetings,
+            config.limit_meetings,
+            config.limit_meetings_per_subwg,
+            config.limit_subwgs,
+        )
         if not meetings:
             logger.warning("Meetings filtered out by limits configuration")
             return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found after applying limits"])
@@ -88,7 +92,7 @@ class TDocCrawler:
         meeting_config = MeetingQueryConfig(
             working_groups=config.working_groups,
             subgroups=config.subgroups,
-            limit=config.limits.limit_meetings,
+            limit=config.limit_meetings,
             order=SortOrder.DESC,
             include_without_files=False,
         )
@@ -111,7 +115,7 @@ class TDocCrawler:
         """Launch subinterpreter workers to crawl meetings via document lists."""
         errors: list[str] = []
         seen_ids: set[str] = set()
-        max_tdocs = self._resolve_max_tdocs(config.limits.limit_tdocs)
+        max_tdocs = self._resolve_max_tdocs(config.limit_tdocs)
         targets = self._normalize_targets(targets)
 
         executor, executor_type = self._create_executor_for_workers(config.workers)
@@ -150,12 +154,18 @@ class TDocCrawler:
         return errors
 
     @classmethod
-    def _apply_meeting_limits(cls, meetings: list[MeetingMetadata], limits: CrawlLimits) -> list[MeetingMetadata]:
+    def _apply_meeting_limits(
+        cls,
+        meetings: list[MeetingMetadata],
+        limit_meetings: int | None,
+        limit_meetings_per_subwg: int | None,
+        limit_subwgs: int | None,
+    ) -> list[MeetingMetadata]:
         """Apply crawl limits to the meeting list."""
         limited = list(meetings)
-        limited = cls._apply_total_meeting_limit(limited, limits.limit_meetings)
-        limited = cls._apply_meetings_per_subwg_limit(limited, limits.limit_meetings_per_subwg)
-        limited = cls._apply_subworking_group_limit(limited, limits.limit_subwgs)
+        limited = cls._apply_total_meeting_limit(limited, limit_meetings)
+        limited = cls._apply_meetings_per_subwg_limit(limited, limit_meetings_per_subwg)
+        limited = cls._apply_subworking_group_limit(limited, limit_subwgs)
         return limited
 
     @classmethod
@@ -243,8 +253,7 @@ class TDocCrawler:
                 fetch_meeting_document_list_subinterpreter,
                 meeting_id=meeting.meeting_id,
                 timeout=config.timeout,
-                http_cache=config.http_cache,
-                cache_manager_name=config.cache_manager_name,
+                http_config=config.http_config,
                 files_url=meeting.files_url,
             )
             futures[future] = meeting

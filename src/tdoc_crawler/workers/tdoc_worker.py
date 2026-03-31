@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models import HttpCacheConfig
 from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
 
 _ = get_logger(__name__)
@@ -14,8 +14,8 @@ _ = get_logger(__name__)
 def fetch_meeting_document_list_subinterpreter(
     meeting_id: int,
     timeout: int,
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
+    http_config: HttpConfig | None = None,
+    http_cache_file: str | None = None,
     files_url: str | None = None,
 ) -> str:
     """Fetch meeting document list in subinterpreter context.
@@ -25,20 +25,22 @@ def fetch_meeting_document_list_subinterpreter(
     Args:
         meeting_id: Meeting identifier
         timeout: Request timeout in seconds
-        http_cache: Optional HTTP cache configuration for caching document list responses
-        cache_manager_name: Optional name of cache manager to use for HTTP caching
+        http_config: Optional HTTP configuration from ThreeGPPConfig
+        http_cache_file: Optional string path to the HTTP cache database
         files_url: Optional HTTP directory containing meeting documents (for URL construction)
 
     Returns:
         JSON string containing list of TDocMetadata or error information
     """
+    from pathlib import Path
+
     try:
         # Fetch document list for the meeting
         tdoc_metadata_list = fetch_meeting_document_list(
             meeting_id=meeting_id,
             timeout=timeout,
-            http_cache=http_cache,
-            cache_manager_name=cache_manager_name,
+            http_config=http_config,
+            http_cache_file=Path(http_cache_file) if http_cache_file else None,
             files_url=files_url,
         )
 

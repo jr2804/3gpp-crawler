@@ -14,9 +14,9 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr
@@ -31,8 +31,8 @@ class DocumentListError(Exception):
 def fetch_meeting_document_list(
     meeting_id: int,
     timeout: int = 30,
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
+    http_config: HttpConfig | None = None,
+    http_cache_file: Path | None = None,
     files_url: str | None = None,
 ) -> list[TDocMetadata]:
     """Fetch all TDoc metadata for a meeting via document list Excel file.
@@ -40,8 +40,8 @@ def fetch_meeting_document_list(
     Args:
         meeting_id: 3GPP meeting identifier
         timeout: Request timeout in seconds
-        http_cache: Optional HTTP cache configuration for caching document list responses
-        cache_manager_name: Optional name of cache manager to use for HTTP caching
+        http_config: Optional HTTP configuration from ThreeGPPConfig
+        http_cache_file: Optional explicit path to the HTTP cache database
         files_url: Optional HTTP directory containing meeting documents (for URL construction)
 
     Returns:
@@ -56,8 +56,8 @@ def fetch_meeting_document_list(
 
     # Create cached session (no credentials required)
     session = create_cached_session(
-        http_cache=http_cache,
-        cache_manager_name=cache_manager_name,
+        http_config=http_config,
+        http_cache_file=http_cache_file,
     )
 
     try:
@@ -419,8 +419,8 @@ class DocumentListSource(TDocSource):
         try:
             tdocs = fetch_meeting_document_list(
                 meeting_id=meeting_id,
-                http_cache=self.config.http_cache,
-                cache_manager_name=self.config.cache_manager_name,
+                http_config=self.config.http_config,
+                http_cache_file=self.config.http_cache_file,
                 timeout=timeout,
             )
             _logger.info(f"Fetched {len(tdocs)} TDocs from document list for meeting {meeting_id}")

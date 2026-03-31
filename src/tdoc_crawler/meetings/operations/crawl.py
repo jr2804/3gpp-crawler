@@ -13,7 +13,6 @@ from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
-from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.models.subworking_groups import (
     CODE_INDEX,
     SUBWORKING_GROUP_RECORDS,
@@ -61,12 +60,12 @@ class MeetingCrawler:
         errors: list[str] = []
         meetings: list[MeetingMetadata] = []
 
-        working_groups = self._limit_working_groups(config.working_groups, config.limits)
+        working_groups = self._limit_working_groups(config.working_groups, config.limit_subwgs)
         existing_ids: set[int] = set()
         if config.incremental:
             existing_ids = await self.database.get_existing_meeting_ids(working_groups)
         credentials = resolve_credentials(None, None)
-        session = create_cached_session(cache_manager_name=config.cache_manager_name, http_cache=config.http_cache)
+        session = create_cached_session(http_config=config.http_config)
         if credentials is not None:
             session.auth = (credentials.username, credentials.password)
 
@@ -84,7 +83,7 @@ class MeetingCrawler:
         finally:
             session.close()
 
-        filtered = self._apply_limits(meetings, config.limits)
+        filtered = self._apply_limits(meetings, config.limit_meetings, config.limit_meetings_per_subwg)
         inserted = 0
         updated = 0
         if filtered:
@@ -130,14 +129,15 @@ class MeetingCrawler:
     def _apply_limits(
         self,
         meetings: list[MeetingMetadata],
-        limits: CrawlLimits,
+        limit_meetings: int | None,
+        limit_meetings_per_subwg: int | None,
     ) -> list[MeetingMetadata]:
         """Apply all meeting limits from crawl configuration."""
         if not meetings:
             return []
         filtered = list(meetings)
-        filtered = self._limit_meetings_per_subwg(filtered, limits.limit_meetings_per_subwg)
-        filtered = self._limit_meetings(filtered, limits.limit_meetings)
+        filtered = self._limit_meetings_per_subwg(filtered, limit_meetings_per_subwg)
+        filtered = self._limit_meetings(filtered, limit_meetings)
         return filtered
 
     @staticmethod
@@ -175,13 +175,12 @@ class MeetingCrawler:
     @staticmethod
     def _limit_working_groups(
         working_groups: list[WorkingGroup],
-        limits: CrawlLimits,
+        limit_subwgs: int | None,
     ) -> list[WorkingGroup]:
         """Apply working group limits from crawl configuration."""
-        if limits.limit_subwgs is None or limits.limit_subwgs == 0:
+        if limit_subwgs is None or limit_subwgs == 0:
             return working_groups
-        limit = limits.limit_subwgs
-        return working_groups[:limit] if limit > 0 else working_groups[limit:]
+        return working_groups[:limit_subwgs] if limit_subwgs > 0 else working_groups[limit_subwgs:]
 
     @staticmethod
     def _limit_meetings_per_subwg(

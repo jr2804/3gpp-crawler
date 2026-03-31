@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import ssl
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,15 +14,11 @@ from requests.adapters import HTTPAdapter
 from truststore import SSLContext as TruststoreSSLContext
 from urllib3.util.retry import Retry
 
-from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.config.settings import HttpConfig
+from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.constants.urls import BROWSER_HEADERS
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models import HttpCacheConfig
 
 logger = get_logger(__name__)
-
-SSL_DISABLED_ENV_VALUES = {"false", "0", "no", "off", "f", "n"}
 
 
 class SSLContextHTTPAdapter(HTTPAdapter):
@@ -85,18 +80,16 @@ def resolve_ssl_verify(
     verify: bool | str | None = None,
     http_config: HttpConfig | None = None,
 ) -> bool | str:
-    """Resolve SSL verification behavior from explicit argument or environment.
+    """Resolve SSL verification behavior from explicit argument or HttpConfig.
 
     Resolution order:
     1. Explicit `verify` parameter
     2. http_config.verify_ssl if provided
-    3. TDC_VERIFY_SSL environment variable
-    4. Default (True)
+    3. Default (True)
 
     Args:
         verify: Optional explicit SSL verification mode.
-        http_config: Optional HttpConfig from TDocCrawlerConfig. When provided,
-                    settings are taken from here with fallback to env vars.
+        http_config: Optional HttpConfig. When provided, verify_ssl is used as fallback.
 
     Returns:
         Either a boolean verification flag or a certificate bundle path.
@@ -106,17 +99,7 @@ def resolve_ssl_verify(
     elif http_config is not None:
         resolved = http_config.verify_ssl
     else:
-        env_value = os.getenv("TDC_VERIFY_SSL")
-        if env_value is None:
-            resolved = True
-        else:
-            normalized = env_value.strip().lower()
-            if normalized in SSL_DISABLED_ENV_VALUES:
-                resolved = False
-            elif normalized:
-                resolved = env_value.strip()
-            else:
-                resolved = True
+        resolved = True
 
     if resolved is False:
         logger.warning("SSL certificate verification is disabled. This is insecure.")
@@ -143,8 +126,7 @@ def download_to_file(
     destination: Path,
     session: requests.Session | None = None,
     close_session: bool = True,
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
+    http_cache_file: Path | None = None,
     http_cache_enabled: bool | None = None,
     pool_config: PoolConfig | None = None,
     verify: bool | str | None = None,
@@ -157,13 +139,11 @@ def download_to_file(
         destination: Destination path
         session: Optional requests.Session to reuse. If None, a temporary cached session is created.
         close_session: Whether to close the session after download. Only applicable if a temporary session is created.
-        http_cache: Optional HTTP cache configuration
-        cache_manager_name: Optional cache manager name to determine cache directory when creating a temporary session.
-        http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
+        http_cache_file: Optional explicit path to the HTTP cache database. Falls back to PathConfig default.
+        http_cache_enabled: Whether to enable HTTP caching. If None, defaults to http_config.cache_enabled or True.
         pool_config: Optional connection pool configuration.
         verify: SSL certificate verification mode. Can be bool or CA bundle path.
-        http_config: Optional HttpConfig from TDocCrawlerConfig. When provided,
-                    settings are taken from here with fallback to env vars.
+        http_config: HttpConfig from ThreeGPPConfig. Controls caching, retries, SSL.
 
     Raises:
         ValueError: If URL scheme is not supported
@@ -179,8 +159,7 @@ def download_to_file(
     temp_session: requests.Session | None = None
     if session is None:
         temp_session = create_cached_session(
-            http_cache=http_cache,
-            cache_manager_name=cache_manager_name,
+            http_cache_file=http_cache_file,
             http_cache_enabled=http_cache_enabled,
             pool_config=pool_config,
             verify=verify,
@@ -210,8 +189,7 @@ def download_to_file(
 
 
 def create_cached_session(
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
+    http_cache_file: Path | None = None,
     http_cache_enabled: bool | None = None,
     pool_config: PoolConfig | None = None,
     verify: bool | str | None = None,
@@ -220,16 +198,14 @@ def create_cached_session(
     """Create a requests.Session with hishel caching enabled.
 
     Args:
-        http_cache: HTTP cache configuration
-        cache_manager_name: Optional cache manager name to determine cache configuration.
-        http_cache_enabled: Whether to enable HTTP caching. If None, defaults to True.
-                         Can be set via HTTP_CACHE_ENABLED environment variable.
+        http_cache_file: Optional explicit path to the HTTP cache database.
+                         Falls back to PathConfig().http_cache_file when caching is enabled.
+        http_cache_enabled: Whether to enable HTTP caching. If None, uses http_config.cache_enabled or True.
         pool_config: Optional connection pool configuration.
                 When provided, pool settings are applied to the active adapter
                 (cache adapter when caching is enabled, HTTPAdapter otherwise).
         verify: SSL certificate verification mode. Can be bool or CA bundle path.
-        http_config: Optional HttpConfig from TDocCrawlerConfig. When provided,
-                    settings are taken from here with fallback to env vars.
+        http_config: HttpConfig from ThreeGPPConfig. Controls caching TTL, retries, SSL.
 
     Returns:
         Configured requests.Session with caching enabled (unless disabled)
@@ -243,14 +219,9 @@ def create_cached_session(
     ssl_context = _resolve_ssl_context(verify_mode)
     session.verify = verify_mode
 
-    # Check if caching is disabled via parameter, http_config, or environment variable
+    # Resolve cache enabled flag: explicit param → http_config → default True
     if http_cache_enabled is None:
-        if http_config is not None:
-            http_cache_enabled = http_config.cache_enabled
-        else:
-            # Fallback to env var (backward compatibility)
-            env_enabled = os.getenv("HTTP_CACHE_ENABLED", "").lower()
-            http_cache_enabled = env_enabled not in ("false", "0", "no", "off", "f", "n")
+        http_cache_enabled = http_config.cache_enabled if http_config is not None else True
 
     # If caching is disabled, optionally configure a pooled HTTP adapter and return.
     if not http_cache_enabled:
@@ -278,26 +249,28 @@ def create_cached_session(
         logger.debug("Creating plain HTTP session (caching disabled)")
         return session
 
-    http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
-    if http_cache.cache_file is None:
-        # If no explicit cache file is provided, determine it using the cache manager
-        manager = resolve_cache_manager(cache_manager_name)
-        http_cache.cache_file = str(manager.http_cache_file)
+    # Resolve cache settings from http_config or defaults
+    ttl = http_config.cache_ttl if http_config is not None else 7200
+    refresh_ttl_on_access = http_config.cache_refresh_on_access if http_config is not None else True
+    max_retries_count = http_config.max_retries if http_config is not None else 3
 
-    logger.debug(f"Creating cached HTTP session with cache_db={http_cache.cache_file})")
-    logger.debug(f"HTTP cache config: ttl={http_cache.ttl}, refresh_ttl_on_access={http_cache.refresh_ttl_on_access}, max_retries={http_cache.max_retries}")
+    # Determine cache file path — use explicit param or fall back to PathConfig default
+    cache_file = str(http_cache_file) if http_cache_file is not None else str(PathConfig().http_cache_file)
+
+    logger.debug(f"Creating cached HTTP session with cache_db={cache_file})")
+    logger.debug(f"HTTP cache config: ttl={ttl}, refresh_ttl_on_access={refresh_ttl_on_access}, max_retries={max_retries_count}")
 
     # Create SQLite storage backend
     storage = SyncSqliteStorage(
-        database_path=str(http_cache.cache_file),
-        default_ttl=http_cache.ttl,
-        refresh_ttl_on_access=http_cache.refresh_ttl_on_access,
+        database_path=cache_file,
+        default_ttl=ttl,
+        refresh_ttl_on_access=refresh_ttl_on_access,
     )
     storage = cast(SyncBaseStorage, storage)
 
     # Configure retry strategy for the cache adapter.
     # If pool_config is set, reuse its retry settings so caching + pooling share one adapter.
-    retry_attempts = pool_config.retry_attempts if pool_config and pool_config.enable_retry else http_cache.max_retries
+    retry_attempts = pool_config.retry_attempts if pool_config and pool_config.enable_retry else max_retries_count
     max_retries = Retry(
         total=retry_attempts,
         backoff_factor=1,

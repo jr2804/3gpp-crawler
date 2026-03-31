@@ -7,15 +7,15 @@ abstraction to fetch metadata from various sources (WhatTheSpec, Portal, etc.).
 from __future__ import annotations
 
 from enum import Enum
+from pathlib import Path
 
 import requests
 from pydantic import ValidationError
 
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.sources import (
@@ -89,108 +89,23 @@ def create_source(
         raise ValueError(f"Unknown fetch method: {method}")
 
 
-'''
-def fetch_tdoc(
-    tdoc_id: str,
-    full_metadata: bool = False,
-    use_whatthespec: bool = False,
-    session: requests.Session | None = None,
-    timeout: int = 30,
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
-) -> TDocMetadata:
-    """Fetch TDoc using the appropriate method based on flags.
-
-    Args:
-        tdoc_id: TDoc identifier (e.g., "S4-260001")
-        full_metadata: If True, fetch full metadata (requires credentials for portal)
-        use_whatthespec: If True, always use WhatTheSpec method
-        credentials: Portal credentials (required for authenticated portal method)
-        session: Optional requests.Session to reuse
-        timeout: Request timeout in seconds
-        http_cache: HTTP cache configuration
-        cache_manager_name: Optional cache manager name
-
-    Returns:
-        TDocMetadata with available information
-
-    Raises:
-        ValueError: If required credentials are missing
-    """
-    manager = resolve_cache_manager(cache_manager_name)
-
-    # Determine fetch method
-    if use_whatthespec:
-        method = FetchMethod.WHATTHESPEC
-    elif full_metadata:
-        method = FetchMethod.PORTAL_FULL_METADATA
-    else:
-        method = FetchMethod.PORTAL_URL_ONLY
-
-    # Handle URL-only method separately (doesn't use source abstraction)
-    if method == FetchMethod.PORTAL_URL_ONLY:
-
-        logger.debug(f"Fetching {tdoc_id} via unauthenticated 3GPP portal")
-        client = create_portal_client(cache_dir=manager.root, timeout=min(timeout, 15), session=session)
-        url = client.extract_tdoc_url(tdoc_id)
-
-        return TDocMetadata(
-            tdoc_id=tdoc_id.upper(),
-            meeting_id=0,
-            title="",
-            url=url,
-            source="",
-            contact="",
-            tdoc_type="unknown",
-            for_purpose="unknown",
-            agenda_item_nbr=Version("0"),
-            agenda_item_text="Unknown",
-            status=None,
-            meeting_name=None,
-            is_revision_of=None,
-            file_size=None,
-            date_created=None,
-            validated=False,
-            validation_failed=False,
-        )
-
-    # Create source configuration
-    config = TDocSourceConfig(
-        cache_manager_name=cache_manager_name,
-        http_cache=http_cache,
-        timeout=timeout,
-    )
-
-    # Create and use appropriate source
-    source = create_source(method, config, session)
-    logger.debug(f"Fetching {tdoc_id} via {source.source_name}")
-
-    metadata = source.fetch_by_id(tdoc_id, db_file=manager.db_file, timeout=timeout)
-    if metadata is None:
-        raise ValueError(f"TDoc {tdoc_id} not found via {source.source_name}")
-
-    return metadata
-'''
-
-
 async def fetch_missing_tdocs_batch(
     database: TDocDatabase,
     missing_ids: list[str],
     session: requests.Session | None = None,
     timeout: int = 30,
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
+    http_config: HttpConfig | None = None,
+    http_cache_file: Path | None = None,
 ) -> TDocCrawlResult:
     """Fetch multiple missing TDocs using portal authentication.
 
     Args:
         database: Database instance for storing results
         missing_ids: List of TDoc IDs to fetch
-        credentials: Portal credentials (auto-resolved if None)
-        http_cache: HTTP cache configuration
+        http_config: HTTP configuration from ThreeGPPConfig
         timeout: Request timeout in seconds
         session: Optional requests.Session to reuse
-        cache_manager_name: Optional cache manager name
+        http_cache_file: Optional path to HTTP cache database file
 
     Returns:
         TDocCrawlResult with fetch statistics
@@ -201,8 +116,8 @@ async def fetch_missing_tdocs_batch(
 
     # Create source configuration and portal source
     config = TDocSourceConfig(
-        http_cache=http_cache,
-        cache_manager_name=cache_manager_name,
+        http_config=http_config,
+        http_cache_file=http_cache_file,
         timeout=timeout,
     )
     source = PortalSource(config=config)
@@ -255,18 +170,20 @@ async def fetch_missing_tdocs_batch(
 async def fetch_via_whatthespec_batch(
     database: TDocDatabase,
     missing_ids: list[str],
-    http_cache: HttpCacheConfig | None = None,
+    http_config: HttpConfig | None = None,
     session: requests.Session | None = None,
-    cache_manager_name: str | None = None,
+    http_cache_file: Path | None = None,
+    db_file: Path | None = None,
 ) -> TDocCrawlResult:
     """Fetch multiple missing TDocs using WhatTheSpec.net API.
 
     Args:
         database: Database instance for storing results
         missing_ids: List of TDoc IDs to fetch
-        http_cache: HTTP cache configuration
+        http_config: HTTP configuration from ThreeGPPConfig
         session: Optional requests.Session to reuse
-        cache_manager_name: Optional cache manager name
+        http_cache_file: Optional path to HTTP cache database file
+        db_file: Optional path to metadata database file
 
     Returns:
         TDocCrawlResult with fetch statistics
@@ -277,15 +194,15 @@ async def fetch_via_whatthespec_batch(
 
     # Create source configuration and WhatTheSpec source
     config = TDocSourceConfig(
-        http_cache=http_cache,
-        cache_manager_name=cache_manager_name,
+        http_config=http_config,
+        http_cache_file=http_cache_file,
     )
     source = WhatTheSpecSource(config=config, session=session)
-    manager = resolve_cache_manager(cache_manager_name)
+    resolved_db_file = db_file if db_file is not None else PathConfig().db_file
 
     for tdoc_id in missing_ids:
         try:
-            metadata = source.fetch_by_id(tdoc_id, db_file=manager.db_file)
+            metadata = source.fetch_by_id(tdoc_id, db_file=resolved_db_file)
             if metadata:
                 inserted, updated = await database.upsert_tdoc(metadata)
                 if inserted:
@@ -317,7 +234,8 @@ async def fetch_missing_tdocs(
     full_metadata: bool = False,
     use_whatthespec: bool = False,
     session: requests.Session | None = None,
-    cache_manager_name: str | None = None,
+    http_cache_file: Path | None = None,
+    db_file: Path | None = None,
 ) -> FetchMissingResult:
     """Fetch missing TDocs if any are requested but not found in database.
 
@@ -330,7 +248,8 @@ async def fetch_missing_tdocs(
         full_metadata: If True, fetch full metadata from portal
         use_whatthespec: If True, always use WhatTheSpec
         session: Optional requests.Session to reuse
-        cache_manager_name: Optional cache manager name
+        http_cache_file: Optional path to HTTP cache database file
+        db_file: Optional path to metadata database file
 
     Returns:
         FetchMissingResult with updated results and fetch statistics
@@ -354,7 +273,7 @@ async def fetch_missing_tdocs(
 
     # Handle use_whatthespec flag - always use WhatTheSpec method
     if use_whatthespec:
-        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, cache_manager_name=cache_manager_name)
+        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
         refreshed = await database.query_tdocs(config)
         return FetchMissingResult(
             refreshed=refreshed,
@@ -381,7 +300,7 @@ async def fetch_missing_tdocs(
             database=database,
             missing_ids=missing,
             session=session,
-            cache_manager_name=cache_manager_name,
+            http_cache_file=http_cache_file,
         )
 
         refreshed = await database.query_tdocs(config)
@@ -392,14 +311,14 @@ async def fetch_missing_tdocs(
         database=database,
         missing_ids=missing,
         session=session,
-        cache_manager_name=cache_manager_name,
+        http_cache_file=http_cache_file,
     )
 
     # Check if we should try whatthespec fallback
     has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
     if credentials_unavailable or has_credentials_error:
         logger.info("Falling back to WhatTheSpec for missing TDocs due to credential issues")
-        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, cache_manager_name=cache_manager_name)
+        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
         used_fallback = True
     else:
         used_fallback = False

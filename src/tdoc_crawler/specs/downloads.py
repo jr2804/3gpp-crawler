@@ -8,7 +8,7 @@ from typing import Any
 import requests
 from zipinspect import HTTPZipReader
 
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import download_to_file
@@ -23,9 +23,9 @@ _logger = get_logger(__name__)
 class SpecDownloads:
     """Download and extraction utilities for specs."""
 
-    def __init__(self, database: SpecDatabase, cache_manager_name: str | None = None) -> None:
+    def __init__(self, database: SpecDatabase, http_cache_file: Path | None = None) -> None:
         self._database = database
-        self._cache_manager = resolve_cache_manager(cache_manager_name)
+        self._http_cache_file = http_cache_file if http_cache_file is not None else PathConfig().http_cache_file
         self.session: requests.Session | None = None
 
     def __del__(self) -> None:
@@ -181,7 +181,7 @@ class SpecDownloads:
 
     def _download_full_zip(self, url: str, target_path: Path) -> None:
         """Download full zip file, re-use session if already created for doc-only attempt."""
-        self.session = download_to_file(url, target_path, session=self.session, close_session=False, cache_manager_name=self._cache_manager.name)
+        self.session = download_to_file(url, target_path, session=self.session, close_session=False, http_cache_file=self._http_cache_file)
 
     @staticmethod
     def _filter_versions_by_release(

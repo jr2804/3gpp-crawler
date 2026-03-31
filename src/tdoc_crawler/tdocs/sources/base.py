@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from tdoc_crawler.models.base import HttpCacheConfig
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 
@@ -77,19 +77,22 @@ class TDocSourceConfig:
     def __init__(
         self,
         timeout: int = 30,
-        http_cache: HttpCacheConfig | None = None,
-        cache_manager_name: str | None = None,
+        http_config: HttpConfig | None = None,
+        http_cache_file: Path | None = None,
+        db_file: Path | None = None,
     ) -> None:
         """Initialize source configuration.
 
         Args:
             timeout: Request timeout in seconds
-            http_cache: HTTP cache configuration
-            cache_manager_name: Optional name of cache manager to use
+            http_config: HTTP configuration from ThreeGPPConfig
+            http_cache_file: Optional explicit path to the HTTP cache database
+            db_file: Optional explicit path to the metadata database
         """
-        self.http_cache = http_cache or HttpCacheConfig.resolve_http_cache_config()
+        self.http_config = http_config
         self.timeout = timeout
-        self.cache_manager_name = cache_manager_name
+        self.http_cache_file = http_cache_file
+        self.db_file = db_file
 
 
 __all__ = [

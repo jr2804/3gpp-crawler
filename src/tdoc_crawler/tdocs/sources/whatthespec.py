@@ -12,11 +12,10 @@ from pathlib import Path
 
 import requests
 
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
@@ -35,8 +34,9 @@ def resolve_via_whatthespec(
     tdoc_id: str,
     session: requests.Session | None = None,
     timeout: int = 30,
-    http_cache: HttpCacheConfig | None = None,
-    cache_manager_name: str | None = None,
+    http_config: HttpConfig | None = None,
+    http_cache_file: Path | None = None,
+    db_file: Path | None = None,
 ) -> TDocMetadata | None:
     """Resolve TDoc metadata from whatthespec.net API.
 
@@ -44,15 +44,16 @@ def resolve_via_whatthespec(
         tdoc_id: TDoc identifier (e.g., "S4-260001").
         session: Optional requests.Session to reuse.
         timeout: Request timeout in seconds.
-        http_cache: HTTP cache configuration for hishel.
-        cache_manager_name: Optional name of the cache manager to use for HTTP caching.
+        http_config: HTTP configuration from ThreeGPPConfig.
+        http_cache_file: Optional explicit path to the HTTP cache database.
+        db_file: Optional explicit path to the metadata database for meeting resolution.
 
     Returns:
         TDocMetadata if found, otherwise None.
     """
     temp_session: requests.Session | None = None
     if session is None:
-        temp_session = create_cached_session(cache_manager_name=cache_manager_name, http_cache=http_cache)
+        temp_session = create_cached_session(http_cache_file=http_cache_file, http_config=http_config)
         active_session = temp_session
     else:
         active_session = session
@@ -80,8 +81,8 @@ def resolve_via_whatthespec(
     agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
 
     async def resolve_meeting_id_async() -> int:
-        manager = resolve_cache_manager(cache_manager_name)
-        async with MeetingDatabase(manager.db_file) as db:
+        resolved_db_file = db_file if db_file is not None else PathConfig().db_file
+        async with MeetingDatabase(resolved_db_file) as db:
             return await db.resolve_meeting_id(meeting_name) or 0
 
     # asyncio.run() cannot be called from within a running event loop (e.g. when
@@ -157,10 +158,11 @@ class WhatTheSpecSource(TDocSource):
         try:
             metadata = resolve_via_whatthespec(
                 tdoc_id=tdoc_id,
-                http_cache=self.config.http_cache,
+                http_config=self.config.http_config,
                 timeout=timeout,
                 session=self.session,
-                cache_manager_name=self.config.cache_manager_name,
+                http_cache_file=self.config.http_cache_file,
+                db_file=self.config.db_file,
             )
             return metadata
         except Exception as exc:

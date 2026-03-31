@@ -1,10 +1,11 @@
 """3GPP portal metadata fetcher for specs."""
 
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models.base import HttpCacheConfig
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
 _logger = get_logger(__name__)
@@ -16,13 +17,13 @@ class SpecNotFoundError(Exception):
     pass
 
 
-def fetch_threegpp_metadata(spec_number: str, http_cache: HttpCacheConfig | None = None, cache_manager_name: str | None = None) -> dict[str, object]:
+def fetch_threegpp_metadata(spec_number: str, http_config: HttpConfig | None = None, http_cache_file: Path | None = None) -> dict[str, object]:
     """Fetch spec metadata via 3GPP.org redirect flow.
 
     Args:
         spec_number: Spec number to fetch (e.g., "26.131").
-        http_cache: Optional HTTP cache configuration
-        cache_manager_name: Optional name of cache manager to use for HTTP caching.
+        http_config: Optional HTTP configuration from ThreeGPPConfig
+        http_cache_file: Optional explicit path to the HTTP cache database.
 
     Returns:
         Dictionary containing spec metadata from 3GPP portal.
@@ -35,7 +36,7 @@ def fetch_threegpp_metadata(spec_number: str, http_cache: HttpCacheConfig | None
     compact = normalized.replace(".", "")
     url = f"https://www.3gpp.org/dynareport/{compact}.htm"
 
-    session = create_cached_session(http_cache=http_cache, cache_manager_name=cache_manager_name)
+    session = create_cached_session(http_config=http_config, http_cache_file=http_cache_file)
     response = session.get(url, timeout=30, allow_redirects=True)
     response.raise_for_status()
 
