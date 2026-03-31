@@ -46,7 +46,7 @@ from tdoc_crawler.cli.args import (
 )
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_spec_crawl_table, spec_crawl_to_dict
-from tdoc_crawler.config import CacheManager, TDocCrawlerConfig
+from tdoc_crawler.config import TDocCrawlerConfig
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.database.specs import SpecCrawlResult, SpecDatabase
@@ -56,7 +56,6 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawler, MeetingCrawlResult
 from tdoc_crawler.models.base import OutputFormat, SortOrder
-from tdoc_crawler.models.crawl_limits import CrawlLimits
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, checkout_specs
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
@@ -131,7 +130,10 @@ def crawl_tdocs(
         overall_timeout=overall_timeout,
         timeout=timeout,
         max_retries=max_retries,
-        limits=CrawlLimits.build(limit_tdocs, limit_meetings, limit_meetings_per_subwg, limit_subwgs),
+        limit_tdocs=limit_tdocs,
+        limit_meetings=limit_meetings,
+        limit_meetings_per_subwg=limit_meetings_per_subwg,
+        limit_subwgs=limit_subwgs,
         target_ids=None,
     )
 
@@ -278,11 +280,13 @@ def crawl_meetings(
     set_verbosity(verbosity)
     set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
-    manager = CacheManager(cache_dir).register()
+    crawler_config = TDocCrawlerConfig.from_settings()
+    if cache_dir is not None:
+        crawler_config.path.cache_dir = cache_dir
+    crawler_config.ensure_paths()
 
     subgroups = parse_subgroups(subgroup)
     working_groups = parse_working_groups(working_group, subgroups)
-    limits = CrawlLimits.build(None, limit_meetings, limit_meetings_per_subwg, limit_subwgs)
 
     config = MeetingCrawlConfig(
         working_groups=working_groups,
@@ -291,10 +295,12 @@ def crawl_meetings(
         include_without_files=include_without_files,
         max_retries=max_retries,
         timeout=timeout,
-        limits=limits,
+        limit_meetings=limit_meetings,
+        limit_meetings_per_subwg=limit_meetings_per_subwg,
+        limit_subwgs=limit_subwgs,
     )
 
-    db_file = manager.db_file
+    db_file = crawler_config.path.db_file
 
     scope_parts = []
     if subgroups:
@@ -305,7 +311,7 @@ def crawl_meetings(
 
     handle_clear_options(
         db_file,
-        manager.checkout_dir,
+        crawler_config.path.checkout_dir,
         MeetingDatabase,
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
@@ -367,7 +373,7 @@ def crawl_meetings(
         meetings = asyncio.run(fetch_checkout_meetings())
 
         with create_cached_session() as session:
-            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_file, session=session)
+            checkout_meeting_tdocs(meetings, crawler_config.path.checkout_dir, crawler_config.path.http_cache_file, session=session)
 
 
 def crawl_specs(
@@ -383,7 +389,10 @@ def crawl_specs(
 ) -> None:
     """Crawl spec metadata from configured sources."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir).register()
+    crawler_config = TDocCrawlerConfig.from_settings()
+    if cache_dir is not None:
+        crawler_config.path.cache_dir = cache_dir
+    crawler_config.ensure_paths()
     spec_numbers = spec_numbers or []
 
     specs = collect_spec_numbers(spec_numbers, spec_file)
@@ -396,15 +405,15 @@ def crawl_specs(
     sources = build_default_spec_sources()
 
     handle_clear_options(
-        manager.db_file,
-        manager.checkout_dir,
+        crawler_config.path.db_file,
+        crawler_config.path.checkout_dir,
         SpecDatabase,
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
     )
 
     async def crawl_specs_db() -> list[SpecCrawlResult]:
-        async with SpecDatabase(manager.db_file) as database:
+        async with SpecDatabase(crawler_config.path.db_file) as database:
             return await database.crawl_specs(specs, release, sources)
 
     results = asyncio.run(crawl_specs_db())
@@ -416,10 +425,10 @@ def crawl_specs(
     if checkout:
 
         async def checkout_specs_db() -> None:
-            async with SpecDatabase(manager.db_file) as database:
+            async with SpecDatabase(crawler_config.path.db_file) as database:
                 checkout_specs(
                     [result.spec_number for result in results],
-                    manager.checkout_dir,
+                    crawler_config.path.checkout_dir,
                     database,
                     release=release,
                 )

@@ -45,7 +45,7 @@ from tdoc_crawler.cli.printing import (
     spec_query_to_dict,
     tdoc_to_dict,
 )
-from tdoc_crawler.config import CacheManager
+from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import create_cached_session
@@ -89,7 +89,7 @@ def query_tdocs(
 ) -> None:
     """Query TDoc metadata from database."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir).register()
+    path = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
 
     working_groups = parse_working_groups(working_group)
     try:
@@ -131,10 +131,10 @@ def query_tdocs(
         agenda_pattern_exclude=agenda_ex,
     )
 
-    db_file = manager.db_file
+    db_file = path.db_file
     handle_clear_options(
         db_file,
-        manager.checkout_dir,
+        path.checkout_dir,
         TDocDatabase,
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
@@ -150,7 +150,6 @@ def query_tdocs(
                         config,
                         results,
                         session=session,
-                        cache_manager_name=manager.name,
                     )
                     if result.fetch_result and result.fetch_result.errors:
                         console.print(
@@ -169,7 +168,7 @@ def query_tdocs(
 
     if checkout:
         with create_cached_session() as session:
-            checkout_tdocs(results, manager.checkout_dir, force=False, session=session)
+            checkout_tdocs(results, path.checkout_dir, force=False, session=session)
 
     # Build meeting map for enriched output
     async def load_meeting_map() -> dict:
@@ -207,7 +206,7 @@ def query_meetings(
 ) -> None:
     """Query meeting metadata from database."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir).register()
+    path = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
     working_groups = parse_working_groups(working_group)
     subgroups = parse_subgroups(subgroup)
     try:
@@ -224,10 +223,10 @@ def query_meetings(
         include_without_files=include_without_files,
     )
 
-    db_file = manager.db_file
+    db_file = path.db_file
     handle_clear_options(
         db_file,
-        manager.checkout_dir,
+        path.checkout_dir,
         MeetingDatabase,
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
@@ -245,7 +244,7 @@ def query_meetings(
 
     if checkout:
         with create_cached_session() as session:
-            checkout_meeting_tdocs(meetings, manager.checkout_dir, manager.http_cache_file, session=session)
+            checkout_meeting_tdocs(meetings, path.checkout_dir, path.http_cache_file, session=session)
 
     try:
         output = OutputFormat(output_format.lower())
@@ -276,7 +275,7 @@ def query_specs(
 ) -> None:
     """Query spec metadata from database."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir).register()
+    path = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
     specs = collect_spec_numbers(spec_numbers, spec_file)
     working_groups = parse_working_groups(working_group)
     wg_filter = working_groups[0].value if working_groups else None
@@ -294,10 +293,10 @@ def query_specs(
         console.print("[red]Invalid output format; use table, json, jsonl, toon, or yaml")
         raise typer.Exit(code=2) from exc
 
-    db_file = manager.db_file
+    db_file = path.db_file
     handle_clear_options(
         db_file,
-        manager.checkout_dir,
+        path.checkout_dir,
         SpecDatabase,
         clear_tdocs=clear_tdocs,
         clear_specs=clear_specs,
@@ -318,7 +317,7 @@ def query_specs(
 
         async def load_specs_for_checkout() -> None:
             async with SpecDatabase(db_file) as database:
-                checkout_specs(spec_list, manager.checkout_dir, database, release="latest")
+                checkout_specs(spec_list, path.checkout_dir, database, release="latest")
 
         asyncio.run(load_specs_for_checkout())
 

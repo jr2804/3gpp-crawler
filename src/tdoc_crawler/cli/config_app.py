@@ -15,7 +15,7 @@ from rich.table import Table
 
 from tdoc_crawler.cli.constants import HELP_PANEL_CONFIG, SECTION_DESCRIPTIONS
 from tdoc_crawler.config.export import ConfigExporter
-from tdoc_crawler.config.settings import TDocCrawlerConfig
+from tdoc_crawler.config.settings import ThreeGPPConfig
 
 FormatType = Literal["toml", "yaml", "json"]
 
@@ -93,7 +93,7 @@ def _check_path_exists(path: Path) -> tuple[bool, str]:
         return False, f" ({e})"
 
 
-def _validate_config_values(config: TDocCrawlerConfig) -> list[tuple[str, str]]:
+def _validate_config_values(config: ThreeGPPConfig) -> list[tuple[str, str]]:
     """Validate config values and return list of (severity, message) tuples."""
     issues: list[tuple[str, str]] = []
 
@@ -136,7 +136,7 @@ def _validate_config_values(config: TDocCrawlerConfig) -> list[tuple[str, str]]:
     return issues
 
 
-def _validate_from_file(file: Path) -> TDocCrawlerConfig:
+def _validate_from_file(file: Path) -> ThreeGPPConfig:
     """Load config from a specific file with validation."""
     if not file.exists():
         rprint(f"[red]Error: File not found:[/red] {file}")
@@ -156,7 +156,7 @@ def _validate_from_file(file: Path) -> TDocCrawlerConfig:
 
     # Load and validate
     try:
-        return TDocCrawlerConfig.from_settings(config_file=file)
+        return ThreeGPPConfig.from_settings(config_file=file)
     except ValidationError as e:
         rprint(f"[red]Validation error in {file}:[/red]")
         for error in e.errors():
@@ -214,7 +214,7 @@ def config_validate(
         config = _validate_from_file(file)
     else:
         try:
-            config = TDocCrawlerConfig.from_settings()
+            config = ThreeGPPConfig.from_settings()
         except ValidationError as e:
             rprint("[red]Validation error in discovered config:[/red]")
             for error in e.errors():
@@ -245,8 +245,8 @@ def config_docs(
         "crawl": [],
     }
 
-    # Introspect TDocCrawlerConfig
-    config = TDocCrawlerConfig()
+    # Introspect ThreeGPPConfig
+    config = ThreeGPPConfig()
     config_data = config.model_dump()
 
     for section_name, section_model in [

@@ -15,7 +15,6 @@ from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HEL
 from tdoc_crawler.cli.crawl import crawl_specs
 from tdoc_crawler.cli.query import query_specs
 from tdoc_crawler.cli.specs import checkout_spec, open_spec
-from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 
@@ -43,12 +42,13 @@ def _spec_app_callback(
 ) -> None:
     """Global CLI options for the spec-only app."""
     # Load and validate config at startup
-    load_cli_config(ctx, config_file)
+    config = load_cli_config(ctx, config_file)
 
     # Handle deprecated --cache-dir
-    if cache_dir:
+    if cache_dir is not None:
         console.print("[yellow]Warning: --cache-dir is deprecated, use config file[/yellow]")
-        CacheManager(cache_dir).register()
+        config.path.cache_dir = cache_dir
+        ctx.obj = config
 
     set_verbosity(verbosity)
 

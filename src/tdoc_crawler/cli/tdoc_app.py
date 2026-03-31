@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
-import zipfile
-from pathlib import Path
-from typing import Annotated, Any, cast
+from dotenv import load_dotenv
 
-import typer
+load_dotenv()
+
+import asyncio  # noqa: E402
+import zipfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Annotated, Any, cast  # noqa: E402
+
+import typer  # noqa: E402
 from rich.table import Table
 
 from tdoc_crawler.cli._shared import console, create_progress_bar
@@ -28,7 +32,6 @@ from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HEL
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.utils import launch_file
-from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
@@ -107,7 +110,6 @@ def open_tdoc(
 
     # Get config from context (set in callback)
     crawler_config = ctx.obj
-    manager = CacheManager(config=crawler_config).register()
 
     normalized_id = normalize_tdoc_id(tdoc_id)
 
@@ -117,7 +119,7 @@ def open_tdoc(
 
         async def _load_tdoc_metadata() -> Any:
 
-            async with TDocDatabase(manager.db_file) as database:
+            async with TDocDatabase(crawler_config.path.db_file) as database:
                 results = await database.query_tdocs(config)
 
                 result = await fetch_missing_tdocs(
@@ -127,7 +129,6 @@ def open_tdoc(
                     full_metadata=full_metadata,
                     use_whatthespec=use_whatthespec,
                     session=session,
-                    cache_manager_name=manager.name,
                 )
 
                 if result.fetch_result and result.fetch_result.errors:
@@ -145,7 +146,7 @@ def open_tdoc(
         metadata = asyncio.run(_load_tdoc_metadata())
 
         try:
-            tdoc_file = prepare_tdoc_file(metadata, manager.checkout_dir, session=session)
+            tdoc_file = prepare_tdoc_file(metadata, crawler_config.path.checkout_dir, session=session)
 
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             console.print(f"[red]Failed to prepare TDoc {normalized_id}: {exc}")
@@ -175,7 +176,6 @@ def checkout(
 
     # Get config from context (set in callback)
     crawler_config = ctx.obj
-    manager = CacheManager(config=crawler_config).register()
 
     normalized_ids = normalize_tdoc_ids(tdoc_ids)
 
@@ -185,7 +185,7 @@ def checkout(
 
         async def _load_tdoc_results() -> list[Any]:
 
-            async with TDocDatabase(manager.db_file) as database:
+            async with TDocDatabase(crawler_config.path.db_file) as database:
                 results = await database.query_tdocs(config)
 
                 result = await fetch_missing_tdocs(
@@ -195,7 +195,6 @@ def checkout(
                     full_metadata=full_metadata,
                     use_whatthespec=use_whatthespec,
                     session=session,
-                    cache_manager_name=manager.name,
                 )
 
                 if result.fetch_result and result.fetch_result.errors:
@@ -209,7 +208,7 @@ def checkout(
 
         results = asyncio.run(_load_tdoc_results())
 
-        checkout_dir = manager.checkout_dir
+        checkout_dir = crawler_config.path.checkout_dir
 
         success_count = 0
 
@@ -249,9 +248,8 @@ def stats(
 
     # Get config from context (set in callback)
     crawler_config = ctx.obj
-    manager = CacheManager(config=crawler_config).register()
 
-    if not (db_file := manager.db_file).exists():
+    if not (db_file := crawler_config.path.db_file).exists():
         console.print(f"[red]Database not found: {db_file}[/red]")
 
         raise typer.Exit(code=1)

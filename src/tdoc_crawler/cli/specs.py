@@ -20,7 +20,7 @@ from tdoc_crawler.cli.args import (
 )
 from tdoc_crawler.cli.printing import print_checkout_results
 from tdoc_crawler.cli.utils import launch_file
-from tdoc_crawler.config import CacheManager
+from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
@@ -42,7 +42,7 @@ def checkout_spec(
 ) -> None:
     """Download and extract spec documents."""
     set_verbosity(verbosity)
-    manager = CacheManager(cache_dir).register()
+    path = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
     if spec_numbers is None:
         spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
@@ -50,10 +50,10 @@ def checkout_spec(
         console.print("[red]No specs provided[/red]")
         raise typer.Exit(code=1)
 
-    effective_checkout_dir = checkout_dir or manager.checkout_dir
+    effective_checkout_dir = checkout_dir or path.checkout_dir
     sources = build_default_spec_sources()
 
-    db_file = manager.db_file
+    db_file = path.db_file
 
     async def _run_checkout() -> list[Path]:
         async with SpecDatabase(db_file) as database:
@@ -75,12 +75,12 @@ def open_spec(
     """Download and open a spec document."""
     set_verbosity(verbosity)
     normalized = spec.strip()
-    manager = CacheManager(cache_dir).register()
-    checkout_dir = manager.checkout_dir
+    path = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
+    checkout_dir = path.checkout_dir
 
     sources = build_default_spec_sources()
 
-    db_file = manager.db_file
+    db_file = path.db_file
 
     async def _run_open() -> Path:
         async with SpecDatabase(db_file) as database:
