@@ -11,7 +11,7 @@ from packaging.version import Version
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
-from tdoc_crawler.config import CacheManager
+from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -53,7 +53,7 @@ class TestCrawlCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["crawl", "--cache-dir", str(test_cache_dir), "--limit-tdocs", "10"],
+            ["--cache-dir", str(test_cache_dir), "crawl", "--limit-tdocs", "10"],
         )
 
         assert result.exit_code == 0
@@ -89,7 +89,7 @@ class TestCrawlCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["crawl", "--cache-dir", str(test_cache_dir), "--working-group", "RAN"],
+            ["--cache-dir", str(test_cache_dir), "crawl", "--working-group", "RAN"],
         )
 
         assert result.exit_code == 0
@@ -157,7 +157,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "query"],
         )
 
         assert result.exit_code == 0
@@ -177,7 +177,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query", "--cache-dir", str(test_cache_dir), "--output", "table"],
+            ["--cache-dir", str(test_cache_dir), "query", "--output", "table"],
         )
 
         assert result.exit_code == 0
@@ -197,7 +197,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query", "--cache-dir", str(test_cache_dir), "--output", "json"],
+            ["--cache-dir", str(test_cache_dir), "query", "--output", "json"],
         )
 
         assert result.exit_code == 0
@@ -218,7 +218,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query", "R1-2301234", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "query", "R1-2301234"],
         )
 
         assert result.exit_code == 0
@@ -240,7 +240,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query-meetings", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "query-meetings"],
         )
 
         assert result.exit_code == 0
@@ -259,7 +259,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "SA4"],
+            ["--cache-dir", str(test_cache_dir), "query-meetings", "-s", "SA4"],
         )
 
         assert result.exit_code == 0
@@ -280,7 +280,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "S4"],
+            ["--cache-dir", str(test_cache_dir), "query-meetings", "-s", "S4"],
         )
 
         assert result.exit_code == 0
@@ -301,7 +301,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query-meetings", "--cache-dir", str(test_cache_dir), "-s", "RP"],
+            ["--cache-dir", str(test_cache_dir), "query-meetings", "-s", "RP"],
         )
 
         assert result.exit_code == 0
@@ -322,7 +322,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query-meetings", "--cache-dir", str(test_cache_dir), "-w", "SP"],
+            ["--cache-dir", str(test_cache_dir), "query-meetings", "-w", "SP"],
         )
 
         assert result.exit_code == 0
@@ -343,7 +343,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["query-meetings", "--cache-dir", str(test_cache_dir), "-w", "SA", "-s", "S4"],
+            ["--cache-dir", str(test_cache_dir), "query-meetings", "-w", "SA", "-s", "S4"],
         )
 
         assert result.exit_code == 0
@@ -374,7 +374,7 @@ class TestStatsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["stats", "--cache-dir", str(test_db_path.parent)],
+            ["--cache-dir", str(test_db_path.parent), "stats"],
         )
 
         assert result.exit_code == 0
@@ -388,7 +388,7 @@ class TestStatsCommand:
         """Test stats command with missing database."""
         result = runner.invoke(
             tdoc_app,
-            ["stats", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "stats"],
         )
 
         assert result.exit_code == 1
@@ -422,7 +422,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["open", "R1-2301234", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "open", "R1-2301234"],
         )
 
         assert result.exit_code == 0
@@ -442,7 +442,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["open", "INVALID-ID", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "open", "INVALID-ID"],
         )
 
         assert result.exit_code == 1
@@ -511,7 +511,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["open", "S4-260001", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "open", "S4-260001"],
         )
 
         assert result.exit_code == 0
@@ -578,7 +578,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["open", "R1-260001", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "open", "R1-260001"],
         )
 
         # Should succeed (exit code 0) and use whatthespec fallback
@@ -666,7 +666,7 @@ class TestCheckoutCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["checkout", "S4-260001", "S4-260002", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "checkout", "S4-260001", "S4-260002"],
         )
 
         assert result.exit_code == 0
@@ -709,7 +709,7 @@ class TestCheckoutCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["checkout", "S4-999999", "--cache-dir", str(test_cache_dir)],
+            ["--cache-dir", str(test_cache_dir), "checkout", "S4-999999"],
         )
 
         # Should exit with error code due to missing TDoc
@@ -861,10 +861,10 @@ class TestEnvironmentVariables:
         mock_resolve.return_value = None
 
         # Create minimal database file for stats command
-        db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
+        db_file = PathConfig(cache_dir=test_cache_dir).db_file
         db_file.touch()
 
-        result = runner.invoke(tdoc_app, ["stats", "--cache-dir", str(test_cache_dir)])
+        result = runner.invoke(tdoc_app, ["--cache-dir", str(test_cache_dir), "stats"])
 
         # Verify resolve_credentials was called
         # (Actual credential resolution happens via Typer's envvar parameter)
@@ -884,10 +884,10 @@ class TestEnvironmentVariables:
         mock_resolve.return_value = None
 
         # Create minimal database file for stats command
-        db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
+        db_file = PathConfig(cache_dir=test_cache_dir).db_file
         db_file.touch()
 
-        result = runner.invoke(tdoc_app, ["stats", "--cache-dir", str(test_cache_dir)])
+        result = runner.invoke(tdoc_app, ["--cache-dir", str(test_cache_dir), "stats"])
 
         assert result.exit_code == 0
 
@@ -927,9 +927,9 @@ class TestEnvironmentVariables:
         mock_resolve.return_value = None
 
         # Create minimal database file for stats command
-        db_file = CacheManager(test_cache_dir, ensure_paths=True).db_file
+        db_file = PathConfig(cache_dir=test_cache_dir).db_file
         db_file.touch()
 
-        result = runner.invoke(tdoc_app, ["stats", "--cache-dir", str(test_cache_dir)])
+        result = runner.invoke(tdoc_app, ["--cache-dir", str(test_cache_dir), "stats"])
 
         assert result.exit_code == 0

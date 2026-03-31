@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
-from tdoc_crawler.config import CacheManager, register_cache_manager, resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -33,11 +33,6 @@ def test_cache_dir(tmp_path: Path) -> Path:
     """
     cache_dir = tmp_path / "test-cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-
-    # Register cache manager for tests (use force=True to allow re-registration)
-    cache_manager = CacheManager(cache_dir, name="default", ensure_paths=True)
-    register_cache_manager(cache_manager, force=True)
-
     return cache_dir
 
 
@@ -51,7 +46,7 @@ def test_db_path(test_cache_dir: Path) -> Path:
     Returns:
         Path to test database
     """
-    return resolve_cache_manager().db_file
+    return PathConfig(cache_dir=test_cache_dir).db_file
 
 
 @pytest.fixture
@@ -252,8 +247,3 @@ def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, o
 if __name__ == "__main__":
     pass
 # end of file
-
-# Register default cache manager at module level for all tests
-# This ensures AiConfig.from_env() works even when tests don't explicitly use test_cache_dir fixture
-_cache_manager = CacheManager(ensure_paths=False, name="default")
-_cache_manager.register(force=True)

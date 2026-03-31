@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tdoc_crawler.config import CacheManager
 from tdoc_crawler.specs.downloads import SpecDownloads
 
 
@@ -15,16 +14,11 @@ def mock_db() -> MagicMock:
 
 
 @pytest.fixture
-def mock_cache_manager(tmp_path: Path) -> CacheManager:
+def downloader(mock_db: MagicMock, tmp_path: Path) -> SpecDownloads:
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    return CacheManager(root_path=cache_dir, name="test")
-
-
-@pytest.fixture
-def downloader(mock_db: MagicMock, mock_cache_manager: CacheManager) -> SpecDownloads:
-    mock_cache_manager.register()
-    return SpecDownloads(mock_db, cache_manager_name="test")
+    http_cache_file = cache_dir / "http-cache.sqlite3"
+    return SpecDownloads(mock_db, http_cache_file=http_cache_file)
 
 
 class TestSpecDownloads:

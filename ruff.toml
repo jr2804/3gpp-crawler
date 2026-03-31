@@ -66,6 +66,9 @@ max-locals = 20
 [lint.per-file-ignores]
 "tests/*.py" = ["S101", "S106", "PLR6301", "S603", "PLW1510"]
 "tests/**/*.py" = ["S101", "S106", "PLR6301", "S603", "PLW1510"]
+# load_dotenv() must run before all other imports to populate env vars before pydantic-settings reads them
+"src/tdoc_crawler/cli/tdoc_app.py" = ["E402"]
+"packages/3gpp-ai/threegpp_ai/cli.py" = ["E402"]
 
 [lint.pydocstyle]
 convention = "google"

@@ -126,7 +126,6 @@ def test_checkout_spec_to_workspace_reuses_latest_resolved_release(tmp_path: Pat
             return versions
 
     monkeypatch.setattr(workspace_ops, "SpecDatabase", _FakeSpecDb)
-    monkeypatch.setattr(workspace_ops, "resolve_cache_manager", lambda _name="default": SimpleNamespace(db_file=tmp_path / "db.sqlite3"))
 
     called = {"count": 0}
 
@@ -134,7 +133,7 @@ def test_checkout_spec_to_workspace_reuses_latest_resolved_release(tmp_path: Pat
         called["count"] += 1
         return []
 
-    monkeypatch.setattr(workspace_ops, "checkout_specs", _checkout_specs_not_expected)
+    monkeypatch.setattr(workspace_ops, "checkout_specs_async", _checkout_specs_not_expected)
 
     resolved = asyncio.run(workspace_ops.checkout_spec_to_workspace("26260", checkout_base, "default", release="latest"))
 
@@ -171,7 +170,6 @@ def test_checkout_spec_to_workspace_falls_back_to_checkout_when_release_mismatch
             return versions
 
     monkeypatch.setattr(workspace_ops, "SpecDatabase", _FakeSpecDb)
-    monkeypatch.setattr(workspace_ops, "resolve_cache_manager", lambda _name="default": SimpleNamespace(db_file=tmp_path / "db.sqlite3"))
 
     checked_out = checkout_base / "Specs" / "26.260-h10"
     checked_out.mkdir(parents=True)
@@ -180,7 +178,7 @@ def test_checkout_spec_to_workspace_falls_back_to_checkout_when_release_mismatch
         assert kwargs["release"] == "17"
         return [checked_out]
 
-    monkeypatch.setattr(workspace_ops, "checkout_specs", _checkout_specs)
+    monkeypatch.setattr(workspace_ops, "checkout_specs_async", _checkout_specs)
 
     resolved = asyncio.run(workspace_ops.checkout_spec_to_workspace("26260", checkout_base, "default", release="17"))
 
