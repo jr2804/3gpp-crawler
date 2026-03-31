@@ -191,16 +191,17 @@ class MeetingCrawler:
         """Limit number of meetings per sub-working group."""
         if limit is None or limit == 0:
             return meetings
-        order: dict[WorkingGroup, list[int]] = defaultdict(list)
+        order: dict[int, list[int]] = defaultdict(list)
         for meeting in meetings:
-            sequence = order[meeting.working_group]
+            wg_id = meeting.subtb or meeting.tbid
+            sequence = order[wg_id]
             if meeting.meeting_id not in sequence:
                 sequence.append(meeting.meeting_id)
-        allowed_ids: dict[WorkingGroup, set[int]] = {}
-        for working_group, sequence in order.items():
+        allowed_ids: dict[int, set[int]] = {}
+        for wg_id, sequence in order.items():
             selected = sequence[:limit] if limit > 0 else sequence[limit:]
-            allowed_ids[working_group] = set(selected)
-        return [meeting for meeting in meetings if meeting.meeting_id in allowed_ids.get(meeting.working_group, {meeting.meeting_id})]
+            allowed_ids[wg_id] = set(selected)
+        return [meeting for meeting in meetings if meeting.meeting_id in allowed_ids.get(meeting.subtb or meeting.tbid, {meeting.meeting_id})]
 
     @staticmethod
     def _limit_meetings(

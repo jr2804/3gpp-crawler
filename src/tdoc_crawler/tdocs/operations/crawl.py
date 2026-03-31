@@ -17,7 +17,6 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.crawl_limits import CrawlLimits
-from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 from tdoc_crawler.workers.tdoc_worker import fetch_meeting_document_list_subinterpreter
@@ -306,14 +305,14 @@ class TDocCrawler:
             return meetings
 
         max_per_subwg = abs(per_subwg_limit)
-        per_subwg_counts: dict[WorkingGroup, int] = {}
+        per_subwg_counts: dict[int, int] = {}
         filtered: list[MeetingMetadata] = []
         for meeting in meetings:
-            working_group = meeting.working_group
-            count = per_subwg_counts.get(working_group, 0)
+            wg_id = meeting.subtb or meeting.tbid
+            count = per_subwg_counts.get(wg_id, 0)
             if count >= max_per_subwg:
                 continue
-            per_subwg_counts[working_group] = count + 1
+            per_subwg_counts[wg_id] = count + 1
             filtered.append(meeting)
         return filtered
 
@@ -324,16 +323,16 @@ class TDocCrawler:
             return meetings
 
         max_groups = abs(limit_subwgs)
-        seen_groups: set[WorkingGroup] = set()
+        seen_groups: set[int] = set()
         filtered: list[MeetingMetadata] = []
         for meeting in meetings:
-            working_group = meeting.working_group
-            if working_group in seen_groups:
+            wg_id = meeting.subtb or meeting.tbid
+            if wg_id in seen_groups:
                 filtered.append(meeting)
                 continue
             if len(seen_groups) >= max_groups:
                 continue
-            seen_groups.add(working_group)
+            seen_groups.add(wg_id)
             filtered.append(meeting)
         return filtered
 
