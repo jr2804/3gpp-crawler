@@ -19,7 +19,7 @@ class TestCredentialsWithConfig:
 
         assert result is not None
         assert result.username == "config_user"
-        assert result.password == "config_pass" # noqa: S105
+        assert result.password == "config_pass"  # noqa: S105
 
     def test_resolve_cli_overrides_config(self) -> None:
         """CLI parameters take precedence over credentials_config."""
@@ -32,7 +32,7 @@ class TestCredentialsWithConfig:
         )
 
         assert result.username == "cli_user"
-        assert result.password == "cli_pass" # noqa: S105
+        assert result.password == "cli_pass"  # noqa: S105
 
     def test_resolve_config_overrides_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """credentials_config takes precedence over env vars."""
@@ -44,7 +44,7 @@ class TestCredentialsWithConfig:
 
         # Config should win over env
         assert result.username == "config_user"
-        assert result.password == "config_pass" # noqa: S105
+        assert result.password == "config_pass"  # noqa: S105
 
     def test_resolve_env_when_no_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Without credentials_config, falls back to env vars."""
@@ -54,7 +54,7 @@ class TestCredentialsWithConfig:
         result = resolve_credentials()
 
         assert result.username == "env_user"
-        assert result.password == "env_pass" # noqa: S105
+        assert result.password == "env_pass"  # noqa: S105
 
     def test_resolve_returns_none_when_no_creds(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Returns None when no credentials found anywhere."""
@@ -94,7 +94,7 @@ class TestCredentialsResolutionOrder:
 
         # CLI should win
         assert result.username == "cli_user"
-        assert result.password == "cli_pass" # noqa: S105
+        assert result.password == "cli_pass"  # noqa: S105
 
     def test_config_beats_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Config values should override env vars."""
@@ -105,7 +105,7 @@ class TestCredentialsResolutionOrder:
         result = resolve_credentials(credentials_config=config)
 
         assert result.username == "config_user"
-        assert result.password == "config_pass" # noqa: S105
+        assert result.password == "config_pass"  # noqa: S105
 
     def test_env_beats_prompt(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Env vars should prevent prompting."""
@@ -134,7 +134,7 @@ class TestCredentialsBackwardCompatibility:
 
         assert result is not None
         assert result.username == "legacy_user"
-        assert result.password == "legacy_pass" # noqa: S105
+        assert result.password == "legacy_pass"  # noqa: S105
 
     def test_resolve_with_cli_only(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """CLI-only credentials still work."""
@@ -146,4 +146,4 @@ class TestCredentialsBackwardCompatibility:
 
         assert result is not None
         assert result.username == "direct_user"
-        assert result.password == "direct_pass" # noqa: S105
+        assert result.password == "direct_pass"  # noqa: S105
