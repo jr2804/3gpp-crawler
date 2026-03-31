@@ -52,7 +52,7 @@ class LiteLLMClient:
         Returns:
             Generated text.
         """
-        cfg = AiConfig.from_env()
+        cfg = AiConfig()
         if cfg.llm_api_base is not None and cfg.llm_api_key is None:
             msg = f"LLM API base URL is set ({cfg.llm_api_base}) but API key is missing. Please set TDC_AI_LLM_API_KEY environment variable."
             logger.warning(msg)

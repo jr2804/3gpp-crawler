@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.logging import get_logger
@@ -44,8 +44,7 @@ async def resolve_spec_release_from_db(spec_number: str, requested_release: str,
     resolved = requested_release
     version_codes: list[str] = []
     try:
-        manager = resolve_cache_manager("default")
-        db_path = db_file if db_file is not None else manager.db_file
+        db_path = db_file if db_file is not None else PathConfig().db_file
         async with SpecDatabase(db_path) as db:
             versions = await db.get_spec_versions(spec_number)
             if versions:
@@ -169,8 +168,7 @@ def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> 
         try:
             # Get embedding model from environment to locate artifacts
             embedding_model = os.getenv("TDC_AI_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-            manager = resolve_cache_manager()
-            workspace_artifacts_dir = manager.ai_embed_dir(embedding_model) / normalized_workspace
+            workspace_artifacts_dir = PathConfig().ai_embed_dir(embedding_model) / normalized_workspace
 
             if workspace_artifacts_dir.exists():
                 shutil.rmtree(workspace_artifacts_dir)
@@ -548,7 +546,7 @@ async def checkout_spec_to_workspace(
         workspace: Workspace name
         release: Spec release version (e.g., "16.3.0", "17.0.0") or "latest"
         db_file: Optional path to database file for spec lookup. If None, uses
-                CacheManager to resolve the default database path.
+                PathConfig to resolve the default database path.
 
     Returns:
         Path to the checked out spec folder, or None if checkout failed
@@ -557,10 +555,8 @@ async def checkout_spec_to_workspace(
     normalized = normalize_spec_number(spec_number)
     undotted = normalized.replace(".", "")  # e.g., "26.260" -> "26260"
     requested_release = release.strip()
-    cache_manager = resolve_cache_manager("default")
-    db_path = db_file if db_file is not None else cache_manager.db_file
+    db_path = db_file if db_file is not None else PathConfig().db_file
     resolved_release, version_codes = await resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
-
     # First check if already checked out with the SAME release version
     specs_dir = checkout_base / "Specs"
     if specs_dir.exists():

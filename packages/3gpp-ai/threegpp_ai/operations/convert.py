@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
@@ -48,8 +48,7 @@ def _get_meeting_info(meeting_id: int) -> str | None:
         pass
 
     async def _resolve_meeting_short_name() -> str | None:
-        manager = resolve_cache_manager()
-        async with MeetingDatabase(manager.db_file) as db:
+        async with MeetingDatabase(PathConfig().db_file) as db:
             meeting = await db._get_meeting(meeting_id)
             return meeting.short_name if meeting is not None else None
 

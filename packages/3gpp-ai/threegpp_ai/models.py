@@ -235,7 +235,7 @@ class DocumentSummary(BaseModel):
     decisions: list[str] = Field(default_factory=list, description="Decisions recorded")
     affected_specs: list[str] = Field(default_factory=list, description="Affected specification IDs")
     llm_model: str = Field(
-        default_factory=lambda: AiConfig.from_env().llm_model,
+        default_factory=lambda: AiConfig().llm_model,
         description="Model used for generation",
     )
     prompt_version: str = Field("v1", description="Prompt template version")

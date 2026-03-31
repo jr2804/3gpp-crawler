@@ -25,7 +25,7 @@ from lightrag.llm.ollama import ollama_embed, ollama_model_complete
 from lightrag.llm.openai import openai_complete, openai_embed
 from lightrag.llm.zhipu import zhipu_complete, zhipu_embedding
 from lightrag.utils import EmbeddingFunc
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.logging import get_logger
 
 from .config import LightRAGConfig, QueryMode, StorageBackend
@@ -199,12 +199,11 @@ class TDocRAG:
             self._pg0_manager.start()
             logger.info("Using pg0 at %s", self._pg0_manager.uri)
 
-        # Prepare working directory using CacheManager (single source of truth)
+        # Prepare working directory using PathConfig (single source of truth)
         # Structure: ~/.3gpp-crawler/lightrag/{embedding_model}/
         # LightRAG will create workspace subdirectory internally
-        manager = resolve_cache_manager()
         embedding_model_safe = self.config.embedding.model.replace(":", "-").replace("/", "-")
-        working_dir = manager.ai_embed_dir(embedding_model_safe)
+        working_dir = PathConfig().ai_embed_dir(embedding_model_safe)
         working_dir.mkdir(parents=True, exist_ok=True)
         self._working_dir = working_dir
         logger.info("Using working directory: %s", working_dir)

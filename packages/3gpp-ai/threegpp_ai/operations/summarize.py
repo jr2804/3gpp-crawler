@@ -135,7 +135,7 @@ def summarize_document(
     Returns:
         DocumentSummary object.
     """
-    config = AiConfig.from_env()
+    config = AiConfig()
 
     # Get LLM client
     client = _get_llm_client()
@@ -324,7 +324,7 @@ def summarize_tdoc(
         content = extraction.content
 
         # Get LLM client
-        config = AiConfig.from_env()
+        config = AiConfig()
         client = _get_llm_client()
 
         # Generate summary

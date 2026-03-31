@@ -11,13 +11,13 @@ import shutil
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 from dotenv import load_dotenv
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
-from tdoc_crawler.config import CacheManager, resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_console, get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat, SortOrder
@@ -84,6 +84,8 @@ from threegpp_ai.args import (
     WorkspaceProcessVlmOption,
     WorkspaceReleaseOption,
 )
+from threegpp_ai.config import ThreeGPPAIConfig
+from threegpp_ai.config_app import config_app
 from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
 from threegpp_ai.lightrag.metadata import RAGMetadata
 from threegpp_ai.lightrag.processor import DocumentProcessor
@@ -104,6 +106,7 @@ workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
 providers_app = typer.Typer(help="List and manage AI providers")
 app.add_typer(workspace_app, name="workspace")
 app.add_typer(providers_app, name="providers")
+app.add_typer(config_app, name="config")
 
 console = get_console()
 _logger = get_logger(__name__)
@@ -194,9 +197,26 @@ def providers_list(
 
 
 @app.callback()
-def _app_init(cache_dir: CacheDirOption = None) -> None:
-    """Register a CacheManager so all sub-commands can resolve file paths."""
-    CacheManager(cache_dir).register(force=True)
+def _app_init(
+    ctx: typer.Context,
+    config_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--config",
+            "-c",
+            help="Path to configuration file (overrides discovered config)",
+            exists=True,
+            readable=True,
+        ),
+    ] = None,
+    cache_dir: CacheDirOption = None,
+) -> None:
+    """Load configuration so all sub-commands can resolve file paths."""
+    config = ThreeGPPAIConfig.from_settings(config_file=config_file)
+    if cache_dir:
+        config.path.cache_dir = cache_dir
+
+    ctx.obj = config
 
 
 def _resolve_workspace_name(workspace: str | None) -> str:
@@ -245,7 +265,7 @@ def _resolve_workspace_items(
         console.print("[red]Error: filtering without explicit items is only supported for TDocs[/red]")
         raise typer.Exit(1)
 
-    manager = resolve_cache_manager()
+    manager = PathConfig()
     config = TDocQueryConfig(
         output_format=OutputFormat.TABLE,
         tdoc_ids=None,
@@ -281,7 +301,7 @@ async def _process_single_item(
     release: str | None,
     convert_pdf: bool,
     convert_md: bool = False,
-    manager: CacheManager,
+    path_config: PathConfig,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
 ) -> tuple[Any | None, str | None, bool, bool]:
@@ -295,7 +315,7 @@ async def _process_single_item(
         release: Spec release version
         convert_pdf: Whether to convert to PDF
         convert_md: Whether to extract markdown (implies convert_pdf)
-        manager: CacheManager for paths
+        path_config: PathConfig for file system paths
         vlm_options: Optional VLM features for extraction.
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
 
@@ -310,16 +330,16 @@ async def _process_single_item(
     if checkout:
         checkout_path = None
         if source_kind == SourceKind.TDOC:
-            checkout_path = await checkout_tdoc_to_workspace(item, manager.checkout_dir, workspace, db_file=manager.db_file)
+            checkout_path = await checkout_tdoc_to_workspace(item, path_config.checkout_dir, workspace, db_file=path_config.db_file)
             if checkout_path is None:
                 return None, "TDoc not found in database or meeting not crawled", False, False
         elif source_kind == SourceKind.SPEC:
             checkout_path = await checkout_spec_to_workspace(
                 item,
-                manager.checkout_dir,
+                path_config.checkout_dir,
                 workspace,
                 release or "latest",
-                db_file=manager.db_file,
+                db_file=path_config.db_file,
             )
             if checkout_path is None:
                 return None, "Spec not found in database", False, False
@@ -449,7 +469,7 @@ async def _try_build_tdoc_metadata(source_item_id: str) -> RAGMetadata | None:
     if not source_item_id.startswith(("S", "R", "C", "T")):
         return None
 
-    manager = resolve_cache_manager()
+    manager = PathConfig()
     try:
         async with TDocDatabase(manager.db_file) as db:
             rows = await db.query_tdocs(TDocQueryConfig(tdoc_ids=[source_item_id], order=SortOrder.ASC, limit=1))
@@ -494,7 +514,7 @@ async def _process_workspace_members(
     """
     processor = DocumentProcessor(LightRAGConfig.from_env())
     results: list[dict[str, Any]] = []
-    manager = resolve_cache_manager()
+    path_config = PathConfig()
 
     await processor.rag.start(workspace)
     try:
@@ -508,17 +528,17 @@ async def _process_workspace_members(
                 if member.source_kind == SourceKind.TDOC:
                     checkout_path = await checkout_tdoc_to_workspace(
                         member.source_item_id,
-                        manager.checkout_dir,
+                        path_config.checkout_dir,
                         workspace,
-                        db_file=manager.db_file,
+                        db_file=path_config.db_file,
                     )
                 elif member.source_kind == SourceKind.SPEC:
                     checkout_path = await checkout_spec_to_workspace(
                         member.source_item_id,
-                        manager.checkout_dir,
+                        path_config.checkout_dir,
                         workspace,
                         "latest",
-                        db_file=manager.db_file,
+                        db_file=path_config.db_file,
                     )
                 if checkout_path is not None:
                     file_path = _resolve_process_file(checkout_path)
@@ -826,11 +846,11 @@ def workspace_clear(
     workspace: WorkspaceNameOption = None,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
-    manager = resolve_cache_manager()
+    path_config = typer.get_current_context().obj.path
 
     config = LightRAGConfig.from_env()
     embedding_model_safe = config.embedding.model.replace(":", "-").replace("/", "-")
-    working_dir = manager.ai_embed_dir(embedding_model_safe) / workspace_name
+    working_dir = path_config.ai_embed_dir(embedding_model_safe) / workspace_name
 
     if not working_dir.exists():
         console.print(f"[yellow]No LightRAG artifacts found for '{workspace_name}'[/yellow]")
@@ -857,7 +877,7 @@ def _checkout_and_convert_items(
     Returns:
         Tuple of (members, skipped_items, converted_count, md_extracted_count)
     """
-    manager = resolve_cache_manager()
+    manager = PathConfig()
     members: list[Any] = []
     skipped: list[tuple[str, str]] = []
     converted_count = 0
@@ -886,7 +906,7 @@ def _checkout_and_convert_items(
                     release=release,
                     convert_pdf=convert_pdf,
                     convert_md=convert_md,
-                    manager=manager,
+                    path_config=manager,
                     vlm_options=vlm_options,
                     accelerator_config=accelerator_config,
                 )
@@ -1034,7 +1054,6 @@ def _embed_members(
         Number of successfully embedded documents.
     """
     processor = DocumentProcessor(LightRAGConfig.from_env())
-    resolve_cache_manager()
     embedded = 0
 
     async def _run() -> None:
@@ -1091,7 +1110,7 @@ def workspace_list_members(
         console.print(f"[red]Workspace '{workspace_name}' not found[/red]")
         raise typer.Exit(1)
 
-    manager = resolve_cache_manager()
+    manager = typer.get_current_context().obj.path
     checkout_base = manager.checkout_dir
 
     member_rows = [

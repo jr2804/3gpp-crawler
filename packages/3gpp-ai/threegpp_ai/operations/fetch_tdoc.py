@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checkout_path
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
@@ -51,8 +51,7 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
     if metadata is None:
         raise TDocNotFoundError(f"TDoc {document_id} not found via WhatTheSpec")
 
-    manager = resolve_cache_manager()
-    checkout_dir = manager.checkout_dir
+    checkout_dir = PathConfig().checkout_dir
     checkout_path = get_checkout_path(metadata, checkout_dir)
 
     if not checkout_path.exists() or force_download:

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from tdoc_crawler.config import CacheManager, resolve_cache_manager
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_release_version
@@ -202,11 +202,11 @@ class WorkspaceRegistry:
     version: int = 1
     workspaces: dict[str, WorkspaceMetadata] = field(default_factory=dict)
     active: str = DEFAULT_WORKSPACE
-    cache_manager_name: str | None = None
+    registry_path: Path | None = None
 
     def save(self) -> None:
         """Save registry to JSON file."""
-        registry_path = resolve_cache_manager(self.cache_manager_name).ai_workspace_file
+        registry_path = self.registry_path or PathConfig().ai_workspace_file
 
         data = {
             "version": self.version,
@@ -338,18 +338,18 @@ class WorkspaceRegistry:
         """Load registry from JSON file.
 
         Args:
-            registry_path: Explicit path to workspaces.json. If None, uses CacheManager.
-            cache_manager_name: Cache manager name (used if registry_path is None).
+            registry_path: Explicit path to workspaces.json. If None, uses PathConfig.
+            cache_manager_name: Ignored, kept for backward compatibility.
 
         Returns:
             Loaded WorkspaceRegistry instance.
         """
         if registry_path is None:
-            registry_path = resolve_cache_manager(cache_manager_name).ai_workspace_file
+            registry_path = PathConfig().ai_workspace_file
 
         if not registry_path.exists():
             logger.debug(f"Registry not found at {registry_path}, creating new")
-            return cls._create_default(registry_path, cache_manager_name=cache_manager_name)
+            return cls._create_default(registry_path)
 
         try:
             with registry_path.open("r", encoding="utf-8") as f:
@@ -361,26 +361,27 @@ class WorkspaceRegistry:
                 version=data.get("version", 1),
                 workspaces=workspaces,
                 active=data.get("active", DEFAULT_WORKSPACE),
-                cache_manager_name=cache_manager_name,
+                registry_path=registry_path,
             )
             logger.debug(f"Loaded workspace registry with {len(workspaces)} workspaces")
             return registry
 
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Failed to load registry from {registry_path}: {e}")
-            return cls._create_default(registry_path, cache_manager_name=cache_manager_name)
+            return cls._create_default(registry_path)
 
     @classmethod
     def _create_default(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
         """Create a new registry with default workspace.
 
         Args:
-            registry_path: Optional explicit path to save to (used if cache_manager_name is also None).
-            cache_manager_name: Cache manager name for path resolution.
+            registry_path: Optional explicit path to save to.
+            cache_manager_name: Ignored, kept for backward compatibility.
 
         Returns:
             New WorkspaceRegistry instance with default workspace.
         """
+        effective_path = registry_path or PathConfig().ai_workspace_file
         registry = cls(
             version=1,
             workspaces={
@@ -391,17 +392,9 @@ class WorkspaceRegistry:
                 )
             },
             active=DEFAULT_WORKSPACE,
-            cache_manager_name=cache_manager_name,
+            registry_path=effective_path,
         )
-
-        # Save if we have a path (either explicit or from cache manager)
-        if registry_path is not None:
-            registry.save()
-        elif cache_manager_name is not None:
-            # Use cache manager to get path
-            registry_path = resolve_cache_manager(cache_manager_name).ai_workspace_file
-            registry.save()
-
+        registry.save()
         return registry
 
 
@@ -409,18 +402,12 @@ def get_active_workspace(cache_manager_name: str | None = None) -> str:
     """Get the name of the currently active workspace.
 
     Args:
-        cache_manager_name: Optional cache manager name. If None, uses default.
+        cache_manager_name: Ignored, kept for backward compatibility.
 
     Returns:
         Name of the active workspace, or DEFAULT_WORKSPACE if none set.
     """
-    manager_name = cache_manager_name or "default"
-    try:
-        resolve_cache_manager(manager_name)
-    except ValueError:
-        CacheManager(name=manager_name).register()
-
-    registry = WorkspaceRegistry.load(cache_manager_name=cache_manager_name)
+    registry = WorkspaceRegistry.load()
     return registry.active or DEFAULT_WORKSPACE
 
 
@@ -429,16 +416,9 @@ def set_active_workspace(name: str, cache_manager_name: str | None = None) -> No
 
     Args:
         name: Workspace name to set as active.
-        cache_manager_name: Optional cache manager name.
+        cache_manager_name: Ignored, kept for backward compatibility.
     """
-    # Ensure cache manager is registered before loading registry
-    manager_name = cache_manager_name or "default"
-    try:
-        resolve_cache_manager(manager_name)
-    except ValueError:
-        CacheManager(name=manager_name).register()
-
-    registry = WorkspaceRegistry.load(cache_manager_name=cache_manager_name)
+    registry = WorkspaceRegistry.load()
     normalized_name = normalize_workspace_name(name)
     if normalized_name not in registry.workspaces:
         raise ValueError(f"Workspace '{name}' does not exist")
