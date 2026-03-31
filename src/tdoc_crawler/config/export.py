@@ -1,4 +1,4 @@
-"""Export TDocCrawlerConfig to various file formats with documentation."""
+"""Export ThreeGPPConfig to various file formats with documentation."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 import yaml
 
-from tdoc_crawler.config.settings import TDocCrawlerConfig
+from tdoc_crawler.config.settings import ThreeGPPConfig
 
 FormatType = Literal["toml", "yaml", "json"]
 
@@ -24,9 +24,9 @@ def _default_value_for_field(info: Any) -> Any:
 class ConfigExporter:
     """Export configuration to file formats with documentation comments."""
 
-    def __init__(self, config: TDocCrawlerConfig | None = None):
+    def __init__(self, config: ThreeGPPConfig | None = None):
         """Initialize with config instance (or create with defaults)."""
-        self.config = config or TDocCrawlerConfig()
+        self.config = config or ThreeGPPConfig()
 
     def export(self, format: FormatType = "toml") -> str:
         """Export config to string in specified format with comments."""

@@ -7,9 +7,9 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
-from tdoc_crawler.models.base import BaseConfigModel, SortOrder
-from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
+from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
@@ -57,8 +57,10 @@ class MeetingMetadata(BaseModel):
         return self
 
 
-class MeetingCrawlConfig(BaseConfigModel):
+class MeetingCrawlConfig(BaseModel):
     """Configuration for meeting crawling operations."""
+
+    model_config = {"str_strip_whitespace": True}
 
     working_groups: list[WorkingGroup] = Field(
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
@@ -75,7 +77,10 @@ class MeetingCrawlConfig(BaseConfigModel):
     )
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     timeout: int = Field(30, gt=0, description="HTTP timeout in seconds")
-    limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
+    http_config: HttpConfig | None = Field(None, description="HTTP client configuration")
+    limit_meetings: int | None = Field(None, description="Maximum meetings to crawl overall (negative = newest N)")
+    limit_meetings_per_subwg: int | None = Field(None, description="Per sub-working group meeting limit")
+    limit_subwgs: int | None = Field(None, description="Maximum number of sub-working groups to process")
 
     @field_validator("working_groups", mode="before")
     @classmethod
@@ -92,8 +97,10 @@ class MeetingCrawlConfig(BaseConfigModel):
         return [normalize_subgroup_alias(str(item)).name for item in value]
 
 
-class MeetingQueryConfig(BaseConfigModel):
+class MeetingQueryConfig(BaseModel):
     """Configuration for querying meeting metadata."""
+
+    model_config = {"str_strip_whitespace": True}
 
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
     subgroups: list[str] | None = Field(None, description="Filter by sub-working group")

@@ -1,5 +1,4 @@
-"""
-Environment variable name constants mapped to their corresponding config field paths.
+"""Environment variable name constants mapped to their corresponding config field paths.
 
 All TDC_*, HTTP_CACHE_*, and LIGHTRAG_* environment variables remain functional
 via pydantic's AliasChoices mechanism.
@@ -14,16 +13,13 @@ Use these constants in CLI argument definitions to avoid hardcoding strings:
 
     WorkingGroupOption = Annotated[
         list[str] | None,
-        typer.Option("--working-group", envvar=ConfigEnvVar.TDC_WORKING_GROUP),
+        typer.Option("--working-group", envvar=ConfigEnvVar.TDC_WORKING_GROUP.name),
     ]
 """
 
 from __future__ import annotations
 
-import logging
 from enum import StrEnum
-
-logger = logging.getLogger(__name__)
 
 
 class ConfigEnvVar(StrEnum):
@@ -101,38 +97,10 @@ class ConfigEnvVar(StrEnum):
     TDC_AI_BATCH_SIZE = "ai.batch_size"
 
 
-# Derived dict for backward compatibility (tools/docs that need dict form)
-ENV_VAR_MAPPINGS: dict[str, str] = {e.name: e.value for e in ConfigEnvVar}
-
-
-# Deprecated environment variables that will produce warnings.
-# Format: "OLD_VAR": "Use NEW_VAR instead"
-DEPRECATED_ENV_VARS: dict[str, str] = {}
-
-
-def log_deprecation_warning(env_var_name: str) -> None:
-    """Log a warning for a deprecated environment variable.
-
-    Args:
-        env_var_name: Name of the deprecated environment variable.
-    """
-    if env_var_name in DEPRECATED_ENV_VARS:
-        replacement = DEPRECATED_ENV_VARS[env_var_name]
-        logger.warning(
-            "Environment variable '%s' is deprecated. %s",
-            env_var_name,
-            replacement,
-        )
-    else:
-        logger.debug(
-            "Environment variable '%s' is set but has no documented mapping",
-            env_var_name,
-        )
+TOML_PATH_TO_ENV_VAR: dict[str, str] = {e.value: e.name for e in ConfigEnvVar}
 
 
 __all__ = [
-    "DEPRECATED_ENV_VARS",
-    "ENV_VAR_MAPPINGS",
+    "TOML_PATH_TO_ENV_VAR",
     "ConfigEnvVar",
-    "log_deprecation_warning",
 ]

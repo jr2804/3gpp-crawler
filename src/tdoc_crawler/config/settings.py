@@ -1,29 +1,32 @@
-"""Configuration settings for TDocCrawler using pydantic-settings.
+"""Configuration settings for 3GPP Crawler using pydantic-settings.
 
-This module provides the TDocCrawlerConfig class with nested models for:
+This module provides the ThreeGPPConfig class with nested models for:
 - PathConfig: File system paths (cache, checkout, AI store)
 - HttpConfig: HTTP caching and request behavior
 - CredentialsConfig: Portal authentication credentials
 - CrawlConfig: Crawling behavior and filters
 
-All paths default to values from CacheManager but can be overridden via
+All paths default to sensible defaults but can be overridden via
 environment variables with the TDC_ prefix.
 """
 
 from __future__ import annotations
 
-from importlib import import_module
 from pathlib import Path
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Default values matching those in __init__.py
+from tdoc_crawler.config.env_vars import ConfigEnvVar
+from tdoc_crawler.config.sources import discover_config_files, load_config_file, merge_configs
+
 _DEFAULT_CACHE_DIR = Path.home() / ".3gpp-crawler"
 _DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 _DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 _DEFAULT_CHECKOUT_DIRNAME = "checkout"
 _DEFAULT_AI_CACHE_DIRNAME = "lightrag"
+
+WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 
 
 class PathConfig(BaseSettings):
@@ -37,7 +40,7 @@ class PathConfig(BaseSettings):
 
     cache_dir: Path = Field(
         default=_DEFAULT_CACHE_DIR,
-        validation_alias=AliasChoices("TDC_CACHE_DIR", "cache_dir"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_CACHE_DIR.name, "cache_dir"),
         description="Root cache directory for storing downloaded files and metadata",
     )
     db_filename: str = Field(
@@ -73,15 +76,13 @@ class PathConfig(BaseSettings):
         """Path to the AI cache directory for embeddings and graphs."""
         return self.cache_dir / _DEFAULT_AI_CACHE_DIRNAME
 
+    @property
+    def ai_workspace_file(self) -> Path:
+        """Path to the workspace registry file."""
+        return self.ai_cache_dir / WORKSPACE_REGISTRY_FILENAME
+
     def ai_embed_dir(self, embedding_model: str) -> Path:
-        """Path to store AI-related files for a specific embedding model.
-
-        Args:
-            embedding_model: The embedding model identifier.
-
-        Returns:
-            Path to the model-specific AI directory.
-        """
+        """Path to store AI-related files for a specific embedding model."""
         return (self.ai_cache_dir / embedding_model).resolve()
 
     @field_validator("cache_dir", mode="before")
@@ -107,34 +108,34 @@ class HttpConfig(BaseSettings):
     cache_ttl: int = Field(
         default=7200,
         ge=0,
-        validation_alias=AliasChoices("HTTP_CACHE_TTL", "cache_ttl"),
+        validation_alias=AliasChoices(ConfigEnvVar.HTTP_CACHE_TTL.name, "cache_ttl"),
         description="Time-to-live for HTTP cache entries in seconds",
     )
     cache_enabled: bool = Field(
         default=True,
-        validation_alias=AliasChoices("HTTP_CACHE_ENABLED", "cache_enabled"),
+        validation_alias=AliasChoices(ConfigEnvVar.HTTP_CACHE_ENABLED.name, "cache_enabled"),
         description="Enable HTTP response caching",
     )
     cache_refresh_on_access: bool = Field(
         default=True,
-        validation_alias=AliasChoices("HTTP_CACHE_REFRESH_ON_ACCESS", "cache_refresh_on_access"),
+        validation_alias=AliasChoices(ConfigEnvVar.HTTP_CACHE_REFRESH_ON_ACCESS.name, "cache_refresh_on_access"),
         description="Refresh cache TTL on each access",
     )
     verify_ssl: bool = Field(
         default=True,
-        validation_alias=AliasChoices("TDC_VERIFY_SSL", "verify_ssl"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_VERIFY_SSL.name, "verify_ssl"),
         description="Verify SSL certificates for HTTPS requests",
     )
     max_retries: int = Field(
         default=3,
         ge=0,
-        validation_alias=AliasChoices("TDC_MAX_RETRIES", "max_retries"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_MAX_RETRIES.name, "max_retries"),
         description="Maximum number of retry attempts for failed requests",
     )
     timeout: int = Field(
         default=30,
         ge=1,
-        validation_alias=AliasChoices("TDC_TIMEOUT", "timeout"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_TIMEOUT.name, "timeout"),
         description="HTTP request timeout in seconds",
     )
 
@@ -143,7 +144,7 @@ class HttpConfig(BaseSettings):
     def _parse_int(cls, value: str | int | None) -> int:
         """Parse integer values from environment strings."""
         if value is None:
-            return 0 if cls.__name__ in ("HttpConfig",) else 0
+            return 0
         if isinstance(value, str):
             value = value.strip()
             return int(value) if value else 0
@@ -173,17 +174,17 @@ class CredentialsConfig(BaseSettings):
 
     username: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_EOL_USERNAME", "username"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_EOL_USERNAME.name, "username"),
         description="Username for ETSI Online (EOL) portal authentication",
     )
     password: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_EOL_PASSWORD", "password"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_EOL_PASSWORD.name, "password"),
         description="Password for ETSI Online (EOL) portal authentication",
     )
     prompt: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_EOL_PROMPT", "prompt"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_EOL_PROMPT.name, "prompt"),
         description="Custom prompt message for interactive credential entry",
     )
 
@@ -204,56 +205,70 @@ class CrawlConfig(BaseSettings):
 
     working_group: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_WORKING_GROUP", "working_group"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_WORKING_GROUP.name, "working_group"),
         description="Filter by working group (e.g., S4, RAN1, CT3)",
     )
     sub_group: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_SUB_GROUP", "sub_group"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_SUB_GROUP.name, "sub_group"),
         description="Filter by sub-working group",
     )
     date_start: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_START_DATE", "date_start"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_START_DATE.name, "date_start"),
         description="Start date filter (YYYY-MM-DD, YYYY-MM, or YYYY format)",
     )
     date_end: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_END_DATE", "date_end"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_END_DATE.name, "date_end"),
         description="End date filter (YYYY-MM-DD, YYYY-MM, or YYYY format)",
     )
     source_like: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_SOURCE_LIKE", "source_like"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_SOURCE_LIKE.name, "source_like"),
         description="SQL LIKE pattern to match document source",
     )
     agenda_like: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_AGENDA_LIKE", "agenda_like"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_AGENDA_LIKE.name, "agenda_like"),
         description="SQL LIKE pattern to match agenda item",
     )
     title_like: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("TDC_TITLE_LIKE", "title_like"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_TITLE_LIKE.name, "title_like"),
         description="SQL LIKE pattern to match document title",
     )
     limit: int = Field(
         default=1000,
         ge=1,
-        validation_alias=AliasChoices("TDC_LIMIT_TDOCS", "limit"),
-        description="Maximum number of documents to crawl",
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_LIMIT_TDOCS.name, "limit"),
+        description="Maximum number of TDocs to crawl per run",
+    )
+    limit_meetings: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_LIMIT_MEETINGS.name, "limit_meetings"),
+        description="Maximum meetings to crawl overall (negative = newest N)",
+    )
+    limit_meetings_per_subwg: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_LIMIT_MEETINGS_PER_SUBWG.name, "limit_meetings_per_subwg"),
+        description="Per sub-WG meeting limit (negative = newest N)",
+    )
+    limit_subwgs: int | None = Field(
+        default=None,
+        description="Maximum sub-working groups to process",
     )
     workers: int = Field(
         default=4,
         ge=1,
         le=32,
-        validation_alias=AliasChoices("TDC_WORKERS", "workers"),
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_WORKERS.name, "workers"),
         description="Number of concurrent workers for crawling",
     )
 
 
-class TDocCrawlerConfig(BaseSettings):
-    """Main configuration class for TDocCrawler.
+class ThreeGPPConfig(BaseSettings):
+    """Main configuration class for 3GPP Crawler.
 
     Aggregates all configuration sub-models:
     - path: File system paths
@@ -290,8 +305,8 @@ class TDocCrawlerConfig(BaseSettings):
         cls,
         config_file: Path | str | None = None,
         cwd: Path | str | None = None,
-    ) -> TDocCrawlerConfig:
-        """Create a TDocCrawlerConfig instance with config file and environment values.
+    ) -> ThreeGPPConfig:
+        """Create a ThreeGPPConfig instance with config file and environment values.
 
         Config precedence (highest to lowest):
         1. CLI explicit config_file parameter
@@ -306,14 +321,8 @@ class TDocCrawlerConfig(BaseSettings):
                  Defaults to current working directory.
 
         Returns:
-            A validated TDocCrawlerConfig instance.
+            A validated ThreeGPPConfig instance.
         """
-        # Import via import_module to avoid PLC0415 and circular import
-        sources = import_module("tdoc_crawler.config.sources")
-        discover_config_files = sources.discover_config_files
-        load_config_file = sources.load_config_file
-        merge_configs = sources.merge_configs
-
         cwd_path = Path(cwd) if cwd is not None else Path.cwd()
 
         if config_file:
@@ -327,10 +336,15 @@ class TDocCrawlerConfig(BaseSettings):
         return cls(**merged)
 
 
+# Backward-compatible alias — remove after all consumers are updated
+TDocCrawlerConfig = ThreeGPPConfig
+
 __all__ = [
+    "WORKSPACE_REGISTRY_FILENAME",
     "CrawlConfig",
     "CredentialsConfig",
     "HttpConfig",
     "PathConfig",
     "TDocCrawlerConfig",
+    "ThreeGPPConfig",
 ]

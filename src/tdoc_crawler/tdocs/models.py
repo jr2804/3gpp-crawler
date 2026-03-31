@@ -9,14 +9,13 @@ from enum import StrEnum, auto
 from packaging.version import Version
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
+from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models.base import (
-    BaseConfigModel,
     OutputFormat,
     SortOrder,
 )
-from tdoc_crawler.models.crawl_limits import CrawlLimits, _new_crawl_limits
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
@@ -180,8 +179,10 @@ class TDocMetadata(BaseModel):
     validation_failed: bool = Field(False, description="Flag indicating cached failed validation")
 
 
-class TDocCrawlConfig(BaseConfigModel):
+class TDocCrawlConfig(BaseModel):
     """Configuration for TDoc crawling runs."""
+
+    model_config = {"str_strip_whitespace": True}
 
     working_groups: list[WorkingGroup] = Field(
         default_factory=lambda: [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT],
@@ -210,8 +211,12 @@ class TDocCrawlConfig(BaseConfigModel):
     )
     timeout: int = Field(30, gt=0, description="Request timeout seconds")
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
+    http_config: HttpConfig | None = Field(None, description="HTTP client configuration")
 
-    limits: CrawlLimits = Field(default_factory=_new_crawl_limits, description="Crawl limit parameters")
+    limit_tdocs: int | None = Field(None, description="Maximum number of TDocs to crawl overall (negative = newest N)")
+    limit_meetings: int | None = Field(None, description="Maximum meetings to crawl (negative = newest N)")
+    limit_meetings_per_subwg: int | None = Field(None, description="Per sub-WG meeting limit")
+    limit_subwgs: int | None = Field(None, description="Maximum sub-working groups to process")
     target_ids: list[str] | None = Field(None, description="Specific TDoc identifiers to fetch")
 
     @field_validator("working_groups", mode="before")
@@ -237,8 +242,10 @@ class TDocCrawlConfig(BaseConfigModel):
         return normalize_tdoc_ids(value)
 
 
-class TDocQueryConfig(BaseConfigModel):
+class TDocQueryConfig(BaseModel):
     """Configuration for querying TDoc metadata."""
+
+    model_config = {"str_strip_whitespace": True}
 
     output_format: OutputFormat = Field(OutputFormat.TABLE, description="Output format")
     tdoc_ids: list[str] | None = Field(None, description="TDoc IDs to query")
