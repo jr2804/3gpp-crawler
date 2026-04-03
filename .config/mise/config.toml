@@ -89,7 +89,7 @@ run = [
 run = [
     "cls",
     # python skills
-    "bun x skills add https://github.com/sickn33/antigravity-awesome-skills -a universal -y -s python-pro -s python-packaging -s python-testing-patterns",
+    "bun x skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate",
     "bun x skills add https://github.com/jiatastic/open-python-skills -a universal -y -s ty-skills -s pydantic",
 
     # anti-AI hallucination skills
