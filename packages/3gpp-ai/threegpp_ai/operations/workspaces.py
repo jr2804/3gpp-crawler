@@ -8,7 +8,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-import requests
+import niquests as requests
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase

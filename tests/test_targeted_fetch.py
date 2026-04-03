@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import niquests as requests
 import pytest
-import requests
 from packaging.version import Version
 
 from tdoc_crawler.config import CacheManager

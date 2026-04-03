@@ -10,7 +10,7 @@ import asyncio
 import concurrent.futures
 from pathlib import Path
 
-import requests
+import niquests as requests
 
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.database.meetings import MeetingDatabase

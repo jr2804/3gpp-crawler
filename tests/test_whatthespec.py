@@ -6,8 +6,8 @@ import asyncio
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import niquests as requests
 import pytest
-import requests
 
 from tdoc_crawler.config import CacheManager, reset_cache_managers
 from tdoc_crawler.database import TDocDatabase

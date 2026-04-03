@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-import requests
+import niquests as requests
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
 from tdoc_crawler.logging import get_logger

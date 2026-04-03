@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import niquests as requests
 import pytest
-import requests
 
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
 from tdoc_crawler.models.base import PortalCredentials

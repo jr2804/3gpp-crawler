@@ -5,7 +5,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-import requests
+import niquests as requests
 from zipinspect import HTTPZipReader
 
 from tdoc_crawler.config import resolve_cache_manager

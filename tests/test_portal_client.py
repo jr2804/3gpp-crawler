@@ -6,8 +6,8 @@ import inspect
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import niquests as requests
 import pytest
-import requests
 
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient, PortalCredentialsError
 from tdoc_crawler.clients.portal import PortalClient as ReExportedPortalClient
