@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import requests
+import niquests as requests
 
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.constants.urls import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL

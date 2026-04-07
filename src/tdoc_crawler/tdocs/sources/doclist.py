@@ -11,8 +11,8 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
+import niquests as requests
 import pandas as pd
-import requests
 
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.http_client import create_cached_session

@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-import requests
+import niquests as requests
 from hishel import SyncBaseStorage, SyncSqliteStorage
 from hishel.requests import CacheAdapter
-from requests.adapters import HTTPAdapter
+from niquests.adapters import HTTPAdapter
 from truststore import SSLContext as TruststoreSSLContext
 from urllib3.util.retry import Retry
 

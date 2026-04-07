@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-import requests
+import niquests as requests
 
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger

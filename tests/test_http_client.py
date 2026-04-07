@@ -6,10 +6,10 @@ import contextlib
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import niquests as requests
 import pytest
-import requests
 from hishel.requests import CacheAdapter
-from requests.adapters import HTTPAdapter
+from niquests.adapters import HTTPAdapter
 
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME
 from tdoc_crawler.config.settings import HttpConfig

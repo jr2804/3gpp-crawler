@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import requests
+import niquests as requests
 from bs4 import BeautifulSoup
 
 from tdoc_crawler.http_client import create_cached_session

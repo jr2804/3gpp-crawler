@@ -7,7 +7,7 @@ from collections.abc import Callable
 from datetime import date
 from urllib.parse import urljoin
 
-import requests
+import niquests as requests
 from bs4 import BeautifulSoup, Tag
 
 from tdoc_crawler.constants.patterns import DATE_PATTERN

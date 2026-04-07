@@ -14,7 +14,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-# Note: charset_normalizer and chardet are included as explicit dependencies to ensure compatibility with requests v2.32.5. This limitation might be lifted in future releases of requests, at which point these dependencies can be removed from this project.
 dependencies = [
     "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
@@ -26,9 +25,6 @@ dependencies = [
     "python-calamine>=0.5.3",
     "python-dotenv>=1.1.1",
     "pyyaml>=6.0.3",
-    "requests>=2.32.5",
-    "charset_normalizer>=2,<4",
-    "chardet>=5.1.0,<6",
     "rich>=14.2.0",
     "typer>=0.19.2",
     "xlsxwriter>=3.2.9",
@@ -36,11 +32,11 @@ dependencies = [
     "lxml>=6.0.2",
     "pool-executors",
     "oxyde>=0.4.0",
-    "truststore>=0.10.4",
     "ison-py>=1.0.2",
     "isonantic>=1.0.1",
     "toon-format",
     "pydantic-settings>=2.13.1",
+    "niquests>=3.18.4",
 ]
 
 [project.urls]

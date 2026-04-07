@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from pathlib import Path
 
-import requests
+import niquests as requests
 from pydantic import ValidationError
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
