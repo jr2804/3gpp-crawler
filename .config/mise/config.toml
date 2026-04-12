@@ -95,6 +95,7 @@ run = [
     # anti-AI hallucination skills
     "bun x skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
     "bun x skills add https://github.com/hardikpandya/stop-slop -a universal -y",
+    "bun x skills add https://github.com/glaforge/deslopify -a universal -y",
 
     # development tool skills
 	"bun x skills add https://github.com/s2005/uv-skill -a universal -y",
@@ -103,10 +104,8 @@ run = [
     # skills for other tools
     "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
 	"bun x skills add https://github.com/FlorianBruniaux/claude-code-ultimate-guide/tree/main/examples -s rtk-optimizer -a universal -y",
+    "bun x skills add JuliusBrussee/caveman -a universal -y",
     "bun x skills add run-llama/llamaparse-agent-skills --skill liteparse -a universal -y",
-
-    # skill for teddi-mcp/-cli
-    "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
 
     # skill for project-specific tools/MCP servers
     "bun x skills add https://github.com/AlmogBaku/debug-skill -a universal -y", # for dab tool -> AlmogBaku/debug-skill
@@ -115,7 +114,10 @@ run = [
 	"bun x skills add https://github.com/arabold/docs-mcp-server -a universal -y",
 
     # 3GPP skills (TODO: fix - requires well-known endpoint)
-    "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills --skill '*' -a universal -y",
+    "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
+
+    # skill for teddi-mcp/-cli
+    "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
 
 
 ]

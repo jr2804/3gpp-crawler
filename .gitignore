@@ -255,3 +255,4 @@ src/teddi-mcp/uv.lock
 # GSD planning docs (local only)
 .planning/
 /PLAN.md
+.opencode/
