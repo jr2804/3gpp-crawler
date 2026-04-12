@@ -886,6 +886,7 @@ def _checkout_and_convert_items(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
         console=console,
@@ -1204,7 +1205,7 @@ def workspace_process(
         TimeElapsedColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("[cyan]Processing...", total=len(members))
+        task = progress.add_task(f"[cyan]Processing {len(members)} document(s)...", total=len(members))
         completed = 0
 
         def on_progress(count: int, source_item_id: str) -> None:
