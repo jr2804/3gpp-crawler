@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from typer.testing import CliRunner
@@ -13,17 +14,8 @@ from typer.testing import CliRunner
 from tdoc_crawler.http_client import download_to_file
 
 _TDOC_AI_AVAILABLE = True
-try:
-    from threegpp_ai.config import AiConfig
-    from threegpp_ai.operations import workspaces as workspace_ops
-except ModuleNotFoundError:
+if importlib.util.find_spec("threegpp_ai") is None:
     _TDOC_AI_AVAILABLE = False
-    AiConfig = None  # type: ignore[assignment]
-    workspace_ops = None
-
-# Removed classes - keep as None so fixture type annotations don't NameError
-AiStorage = None  # type: ignore[assignment]
-EmbeddingsManager = None  # type: ignore[assignment]
 
 
 @pytest.fixture(autouse=True)
@@ -152,45 +144,3 @@ def reset_ai_service_container() -> None:
     With the refactored design, no singleton exists, so this is a no-op.
     """
     return  # No cleanup needed - no singleton
-
-
-@pytest.fixture
-def ai_storage(test_cache_dir: Path) -> AiStorage:
-    """Create a temporary AI storage for tests.
-
-    This fixture creates an AiStorage instance using the new
-    EmbeddingsManager factory with a temporary LanceDB directory
-    for testing AI commands that require workspace and embedding storage.
-
-    Args:
-        test_cache_dir: Test cache directory from root conftest
-
-    Returns:
-        AiStorage instance with temporary storage
-    """
-    lancedb_dir = test_cache_dir / "ai" / "lancedb"
-    lancedb_dir.mkdir(parents=True, exist_ok=True)
-
-    # Patch environment variable to point to test cache directory
-    with patch.dict("os.environ", {"TDOC_CRAWLER_AI_CACHE_DIR": str(test_cache_dir / "ai")}):
-        # Use new factory method
-        embeddings_manager = EmbeddingsManager(AiConfig.from_env())
-        return embeddings_manager.storage
-
-
-@pytest.fixture
-def test_workspace(ai_storage: AiStorage) -> str:
-    """Create a test workspace for AI tests.
-
-    This fixture creates a default workspace in the test storage
-    and returns its name for use in tests that require a workspace.
-
-    Args:
-        ai_storage: AI storage fixture
-
-    Returns:
-        Workspace name ("default")
-    """
-    workspace_name = "default"
-    workspace_ops.create_workspace(workspace_name, auto_build=False)
-    return workspace_name

@@ -14,7 +14,7 @@ def test_cli_help_lists_top_level_groups() -> None:
     assert "summarize" in result.stdout
     assert "convert" in result.stdout
     assert "workspace" in result.stdout
-    assert "rag" in result.stdout
+    assert "config" in result.stdout
 
 
 def test_workspace_help_lists_expected_subcommands() -> None:

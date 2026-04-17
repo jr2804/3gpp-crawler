@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -69,10 +68,10 @@ def test_convert_tdoc_to_markdown_records_conversion_metric(monkeypatch: pytest.
         mock_extract,
     )
 
-    output = asyncio.run(convert_ops.convert_tdoc_to_markdown("S4-260001", force=True))
+    output = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
 
     assert output == "# markdown"
-    conversion_metrics = tracker.by_type(MetricType.CONVERSION)
+    conversion_metrics = [m for m in tracker.metrics if m.metric_type is MetricType.CONVERSION]
     assert len(conversion_metrics) == 1
     assert conversion_metrics[0].success is True
 
@@ -108,11 +107,11 @@ def test_convert_tdoc_to_markdown_writes_table_sidecar(monkeypatch: pytest.Monke
         mock_extract,
     )
 
-    result = asyncio.run(convert_ops.convert_tdoc_to_markdown("S4-260001", force=True))
+    result = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
 
     # Verify conversion succeeded and returned content
     assert "# markdown" in result
-    conversion_metrics = tracker.by_type(MetricType.CONVERSION)
+    conversion_metrics = [m for m in tracker.metrics if m.metric_type is MetricType.CONVERSION]
     assert len(conversion_metrics) == 1
     assert conversion_metrics[0].success is True
 
@@ -129,14 +128,14 @@ def test_summarize_tdoc_records_summarization_metric(monkeypatch: pytest.MonkeyP
     )
     monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
     monkeypatch.setattr(
-        summarize_ops.AiConfig,
-        "from_env",
-        staticmethod(lambda: SimpleNamespace(llm_model="test-model")),
+        summarize_ops,
+        "AiConfig",
+        lambda: SimpleNamespace(llm_model="test-model"),
     )
 
     result = summarize_ops.summarize_tdoc("S4-260001")
 
     assert result.word_count > 0
-    summary_metrics = tracker.by_type(MetricType.SUMMARIZATION)
+    summary_metrics = [m for m in tracker.metrics if m.metric_type is MetricType.SUMMARIZATION]
     assert len(summary_metrics) == 1
     assert summary_metrics[0].success is True
