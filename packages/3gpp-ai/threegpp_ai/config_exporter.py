@@ -9,7 +9,7 @@ import yaml
 from tdoc_crawler.config.export import ConfigExporter as BaseConfigExporter
 from tdoc_crawler.config.settings import ThreeGPPConfig
 
-from threegpp_ai.lightrag.config import LightRAGConfig
+from threegpp_ai.config import AiConfig
 
 FormatType = Literal["toml", "yaml", "json"]
 
@@ -17,25 +17,25 @@ FormatType = Literal["toml", "yaml", "json"]
 class ConfigExporter(BaseConfigExporter):
     """Export configuration including AI-specific settings.
 
-    Extends the base ConfigExporter to include LightRAG configuration
-    alongside TDocCrawler configuration in a unified flat layout.
+    Extends the base ConfigExporter to include AiConfig extraction/runtime
+    settings alongside TDocCrawler configuration in a unified flat layout.
     """
 
     def __init__(
         self,
         crawler_config: ThreeGPPConfig | None = None,
-        ai_config: LightRAGConfig | None = None,
+        ai_config: AiConfig | None = None,
         show_secrets: bool = False,
     ):
         """Initialize with crawler and AI config instances.
 
         Args:
             crawler_config: ThreeGPPConfig instance (uses defaults if None)
-            ai_config: LightRAGConfig instance (uses defaults if None)
+            ai_config: AiConfig instance (uses defaults if None)
             show_secrets: If True, show actual API keys instead of placeholders
         """
         super().__init__(config=crawler_config)
-        self.ai_config = ai_config or LightRAGConfig.from_env()
+        self.ai_config = ai_config or AiConfig()
         self.show_secrets = show_secrets
 
     def export(self, format: FormatType = "toml", show_secrets: bool | None = None) -> str:
@@ -73,23 +73,21 @@ class ConfigExporter(BaseConfigExporter):
 
         # LLM config
         fields["llm.model"] = {
-            "value": self._mask_if_needed("TDC_AI_LLM_API_KEY", ai_config.llm.model),
-            "default": ai_config.model_fields["llm"].default.llm.model
-            if hasattr(ai_config.model_fields["llm"].default, "llm")
-            else "openrouter/openrouter/free",
+            "value": self._mask_if_needed("TDC_AI_LLM_API_KEY", ai_config.llm_model),
+            "default": ai_config.model_fields["llm_model"].default,
             "description": "LLM model name in <provider>/<model> format",
             "section": "llm",
             "env_var": "TDC_AI_LLM_MODEL",
         }
         fields["llm.api_base"] = {
-            "value": ai_config.llm.api_base,
-            "default": "http://localhost:11434",
+            "value": ai_config.llm_api_base,
+            "default": None,
             "description": "LLM API base URL",
             "section": "llm",
             "env_var": "TDC_AI_LLM_API_BASE",
         }
         fields["llm.api_key"] = {
-            "value": self._mask_sensitive("TDC_AI_LLM_API_KEY", ai_config.llm.api_key),
+            "value": self._mask_sensitive("TDC_AI_LLM_API_KEY", ai_config.llm_api_key),
             "default": None,
             "description": "API key for LLM provider",
             "section": "llm",
@@ -97,111 +95,78 @@ class ConfigExporter(BaseConfigExporter):
             "sensitive": True,
         }
 
-        # Embedding config
-        fields["embedding.model"] = {
-            "value": ai_config.embedding.model,
-            "default": "ollama/qwen3-embedding:0.6b",
-            "description": "Embedding model name in <provider>/<model> format",
-            "section": "embedding",
-            "env_var": "TDC_AI_EMBEDDING_MODEL",
-        }
-        fields["embedding.api_base"] = {
-            "value": ai_config.embedding.api_base,
-            "default": "http://localhost:11434",
-            "description": "Embedding API base URL",
-            "section": "embedding",
-            "env_var": "TDC_AI_EMBEDDING_API_BASE",
-        }
-        fields["embedding.api_key"] = {
-            "value": self._mask_sensitive("TDC_AI_EMBEDDING_API_KEY", ai_config.embedding.api_key),
-            "default": None,
-            "description": "API key for embedding provider",
-            "section": "embedding",
-            "env_var": "TDC_AI_EMBEDDING_API_KEY",
-            "sensitive": True,
-        }
-
-        # Database config
-        fields["database.backend"] = {
-            "value": ai_config.database.backend.value,
-            "default": "file",
-            "description": "Storage backend to use (file or pg0)",
-            "section": "database",
-            "env_var": "LIGHTRAG_DB_BACKEND",
-        }
-        fields["database.pg0_instance_name"] = {
-            "value": ai_config.database.pg0_instance_name,
-            "default": "3gpp-crawler",
-            "description": "pg0 instance name",
-            "section": "database",
-            "env_var": "LIGHTRAG_DB_PG0_INSTANCE_NAME",
-        }
-        fields["database.pg0_port"] = {
-            "value": ai_config.database.pg0_port,
-            "default": 15432,
-            "description": "pg0 PostgreSQL port",
-            "section": "database",
-            "env_var": "LIGHTRAG_DB_PG0_PORT",
-        }
-        fields["database.pg0_database"] = {
-            "value": ai_config.database.pg0_database,
-            "default": "tdoc",
-            "description": "pg0 database name",
-            "section": "database",
-            "env_var": "LIGHTRAG_DB_PG0_DATABASE",
-        }
-
         # Extraction settings
         fields["extraction.tables"] = {
             "value": ai_config.extract_tables,
             "default": True,
-            "description": "Enable extraction and indexing of table elements",
+            "description": "Enable extraction of table elements",
             "section": "extraction",
-            "env_var": "LIGHTRAG_EXTRACT_TABLES",
+            "env_var": "TDC_AI_EXTRACT_TABLES",
         }
         fields["extraction.figures"] = {
             "value": ai_config.extract_figures,
             "default": True,
-            "description": "Enable extraction and indexing of figure elements",
+            "description": "Enable extraction of figure elements",
             "section": "extraction",
-            "env_var": "LIGHTRAG_EXTRACT_FIGURES",
+            "env_var": "TDC_AI_EXTRACT_FIGURES",
         }
         fields["extraction.equations"] = {
             "value": ai_config.extract_equations,
             "default": True,
-            "description": "Enable extraction and indexing of equation elements",
+            "description": "Enable extraction of equation elements",
             "section": "extraction",
-            "env_var": "LIGHTRAG_EXTRACT_EQUATIONS",
+            "env_var": "TDC_AI_EXTRACT_EQUATIONS",
         }
         fields["extraction.figure_description"] = {
             "value": ai_config.figure_description_enabled,
             "default": True,
             "description": "Enable figure description generation with vision-capable models",
             "section": "extraction",
-            "env_var": "LIGHTRAG_FIGURE_DESCRIPTION_ENABLED",
+            "env_var": "TDC_AI_FIGURE_DESCRIPTION_ENABLED",
         }
 
-        # Workspace settings
-        fields["workspace.default_name"] = {
-            "value": ai_config.workspace,
-            "default": "default",
-            "description": "Default workspace name",
-            "section": "workspace",
-            "env_var": "LIGHTRAG_WORKSPACE",
-        }
-        fields["workspace.default_query_mode"] = {
-            "value": ai_config.default_query_mode.value,
-            "default": "hybrid",
-            "description": "Default query mode (naive, local, global, hybrid, mix, bypass)",
-            "section": "workspace",
-            "env_var": "LIGHTRAG_DEFAULT_QUERY_MODE",
-        }
-        fields["workspace.shared_storage"] = {
-            "value": ai_config.shared_storage,
+        # Runtime settings
+        fields["runtime.convert_pdf"] = {
+            "value": ai_config.convert_pdf,
             "default": False,
-            "description": "Enable shared embedding storage across workspaces (deduplication)",
-            "section": "workspace",
-            "env_var": "LIGHTRAG_SHARED_STORAGE",
+            "description": "Convert office documents to PDF during processing",
+            "section": "runtime",
+            "env_var": "TDC_AI_CONVERT_PDF",
+        }
+        fields["runtime.convert_md"] = {
+            "value": ai_config.convert_md,
+            "default": False,
+            "description": "Extract markdown artifacts during processing",
+            "section": "runtime",
+            "env_var": "TDC_AI_CONVERT_MD",
+        }
+        fields["runtime.vlm"] = {
+            "value": ai_config.vlm,
+            "default": False,
+            "description": "Enable VLM picture and formula enrichment",
+            "section": "runtime",
+            "env_var": "TDC_AI_VLM",
+        }
+        fields["runtime.device"] = {
+            "value": ai_config.device,
+            "default": "auto",
+            "description": "Device to use for extraction workloads",
+            "section": "runtime",
+            "env_var": "TDC_AI_DEVICE",
+        }
+        fields["runtime.num_threads"] = {
+            "value": ai_config.num_threads,
+            "default": None,
+            "description": "Thread count for extraction workloads",
+            "section": "runtime",
+            "env_var": "TDC_AI_NUM_THREADS",
+        }
+        fields["runtime.batch_size"] = {
+            "value": ai_config.batch_size,
+            "default": None,
+            "description": "Batch size for OCR/layout/table extraction",
+            "section": "runtime",
+            "env_var": "TDC_AI_BATCH_SIZE",
         }
 
         return fields
@@ -300,7 +265,7 @@ class ConfigExporter(BaseConfigExporter):
         lines.append("# Configuration precedence (highest to lowest):")
         lines.append("# 1. CLI arguments")
         lines.append("# 2. This config file")
-        lines.append("# 3. Environment variables (TDC_*, LIGHTRAG_*)")
+        lines.append("# 3. Environment variables (TDC_*)")
         lines.append("# 4. Hard-coded defaults")
         lines.append("#")
         lines.append("# Sensitive values use ${ENV_VAR} syntax for security.")
@@ -317,10 +282,8 @@ class ConfigExporter(BaseConfigExporter):
             "credentials",
             "crawl",
             "llm",
-            "embedding",
-            "database",
             "extraction",
-            "workspace",
+            "runtime",
         ]
 
         for section in section_order:
@@ -377,7 +340,7 @@ class ConfigExporter(BaseConfigExporter):
             "# Configuration precedence (highest to lowest):",
             "# 1. CLI arguments",
             "# 2. This config file",
-            "# 3. Environment variables (TDC_*, LIGHTRAG_*)",
+            "# 3. Environment variables (TDC_*)",
             "# 4. Hard-coded defaults",
             "",
         ]
@@ -389,10 +352,8 @@ class ConfigExporter(BaseConfigExporter):
             "credentials": "ETSI Online (EOL) portal credentials",
             "crawl": "Crawling behavior and filter configuration",
             "llm": "LLM configuration",
-            "embedding": "Embedding model configuration",
-            "database": "Storage backend configuration (file or pg0)",
             "extraction": "Document extraction settings",
-            "workspace": "Workspace defaults and behavior",
+            "runtime": "Processing runtime settings",
         }
 
         yaml_str = yaml.dump(config_data, default_flow_style=False, sort_keys=False)

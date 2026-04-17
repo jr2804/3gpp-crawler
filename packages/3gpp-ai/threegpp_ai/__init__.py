@@ -1,32 +1,13 @@
 """AI document processing domain package.
 
 This package provides AI-powered document processing for 3GPP TDocs.
-Supports both legacy LiteLLM summarization and modern LightRAG knowledge graph.
+Supports extraction, conversion, workspace operations, and summarization flows.
 """
 
 from __future__ import annotations
 
 import litellm
 
-# Import LightRAG integration
-from threegpp_ai.lightrag import (
-    DatabaseConfig,
-    DocumentProcessor,
-    EmbeddingConfig,
-    LightRAGConfig,
-    LLMConfig,
-    Pg0Error,
-    Pg0Manager,
-    ProcessingResult,
-    ProcessingResultStatus,
-    QueryMode,
-    RAGMetadata,
-    StorageBackend,
-    TDocProcessor,
-    TDocRAG,
-    create_metadata_from_dict,
-    enrich_text,
-)
 from threegpp_ai.models import SourceKind, SummarizeResult, WorkspaceNotFoundError
 from threegpp_ai.operations.convert import convert_tdoc as convert_document
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
@@ -64,23 +45,8 @@ litellm.suppress_debug_info = True  # Suppress provider/model info logs from lit
 __all__ = [
     # Workspace management
     "DEFAULT_WORKSPACE",
-    # LightRAG integration
-    "DatabaseConfig",
-    "DocumentProcessor",
-    "EmbeddingConfig",
-    "LLMConfig",
-    "LightRAGConfig",
-    "Pg0Error",
-    "Pg0Manager",
-    "ProcessingResult",
-    "ProcessingResultStatus",
-    "QueryMode",
-    "RAGMetadata",
     "SourceKind",
-    "StorageBackend",
     "SummarizeResult",
-    "TDocProcessor",
-    "TDocRAG",
     "WorkspaceNotFoundError",
     "WorkspaceRegistry",
     "add_workspace_members",
@@ -89,10 +55,8 @@ __all__ = [
     # Document operations
     "convert_document",
     "convert_tdoc_to_markdown",
-    "create_metadata_from_dict",
     "create_workspace",
     "delete_workspace",
-    "enrich_text",
     "ensure_ai_subfolder",
     "ensure_default_workspace",
     "get_active_workspace",

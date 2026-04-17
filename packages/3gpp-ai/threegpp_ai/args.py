@@ -9,8 +9,6 @@ import typer
 from tdoc_crawler.config import ConfigEnvVar
 from tdoc_crawler.models.base import OutputFormat
 
-from threegpp_ai.lightrag.config import QueryMode
-
 # Common
 OutputFormatOption = Annotated[
     str,
@@ -18,7 +16,7 @@ OutputFormatOption = Annotated[
 ]
 CacheDirOption = Annotated[
     Path | None,
-    typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name),
+    typer.Option("--cache-dir", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name),
 ]
 
 # Summarize
@@ -30,7 +28,7 @@ SummarizeForceOption = Annotated[bool, typer.Option("--force", "-f", help="Force
 ConvertDocumentArgument = Annotated[str, typer.Argument(help="Document ID to convert")]
 ConvertOutputOption = Annotated[
     Path | None,
-    typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)"),
+    typer.Option("--output-path", "-p", help="Output file path (optional, prints to stdout if not specified)"),
 ]
 ConvertForceOption = Annotated[bool, typer.Option("--force", "-f", help="Force reconversion even if cached")]
 
@@ -66,13 +64,6 @@ ConvertMdOption = Annotated[
         envvar=ConfigEnvVar.TDC_AI_CONVERT_MD.name,
     ),
 ]
-WorkspaceEmbedOption = Annotated[
-    bool,
-    typer.Option(
-        "--embed",
-        help="Insert extracted documents into LightRAG knowledge graph (implies --convert-md)",
-    ),
-]
 WorkspaceReleaseOption = Annotated[
     str | None,
     typer.Option(
@@ -91,12 +82,37 @@ WorkspaceProcessVlmOption = Annotated[
         envvar=ConfigEnvVar.TDC_AI_VLM.name,
     ),
 ]
-WorkspacePreserveArtifactsOption = Annotated[
-    bool,
+ExtractionProfileOption = Annotated[
+    str | None,
     typer.Option(
-        "--preserve-artifacts/--delete-artifacts",
-        help="Preserve LightRAG artifacts (embeddings, index). --delete-artifacts removes only LightRAG data, not document artifacts (.ai folders)",
+        "--profile",
+        help="Extraction profile override: default, balanced, optimum, custom",
+        envvar="TDC_AI_EXTRACTION_PROFILE",
     ),
+]
+CustomExtractOcrOption = Annotated[
+    bool | None,
+    typer.Option("--custom-ocr/--no-custom-ocr", help="Custom profile override for OCR stage"),
+]
+CustomExtractLayoutOption = Annotated[
+    bool | None,
+    typer.Option("--custom-layout/--no-custom-layout", help="Custom profile override for layout stage"),
+]
+CustomExtractTablesOption = Annotated[
+    bool | None,
+    typer.Option("--custom-tables/--no-custom-tables", help="Custom profile override for table extraction"),
+]
+CustomExtractFiguresOption = Annotated[
+    bool | None,
+    typer.Option("--custom-figures/--no-custom-figures", help="Custom profile override for figure extraction"),
+]
+CustomExtractEquationsOption = Annotated[
+    bool | None,
+    typer.Option("--custom-equations/--no-custom-equations", help="Custom profile override for equation extraction"),
+]
+CustomExtractEnrichmentOption = Annotated[
+    bool | None,
+    typer.Option("--custom-enrichment/--no-custom-enrichment", help="Custom profile override for enrichment stages"),
 ]
 
 # Accelerator options for Docling extraction
@@ -167,16 +183,5 @@ ProvidersOutputOption = Annotated[
         "-o",
         case_sensitive=False,
         help="Output format (table, json, ison, toon, yaml)",
-    ),
-]
-
-# Query
-QueryModeOption = Annotated[
-    QueryMode,
-    typer.Option(
-        "--mode",
-        "-m",
-        case_sensitive=False,
-        help="Query mode (local, global, hybrid, naive)",
     ),
 ]

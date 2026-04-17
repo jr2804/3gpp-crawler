@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
-import shutil
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 import niquests as requests
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.settings import ThreeGPPConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.logging import get_logger
@@ -44,8 +42,8 @@ async def resolve_spec_release_from_db(spec_number: str, requested_release: str,
     resolved = requested_release
     version_codes: list[str] = []
     try:
-        manager = resolve_cache_manager("default")
-        db_path = db_file if db_file is not None else manager.db_file
+        config = ThreeGPPConfig.from_settings()
+        db_path = db_file if db_file is not None else config.path.db_file
         async with SpecDatabase(db_path) as db:
             versions = await db.get_spec_versions(spec_number)
             if versions:
@@ -138,16 +136,12 @@ def list_workspaces() -> list[WorkspaceRegistry]:
 
 
 def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> bool:
-    """Delete a workspace and optionally remove its LightRAG artifacts.
-
-    When preserve_artifacts=False, only deletes LightRAG embeddings and workspace index
-    from ~/.3gpp-crawler/lightrag/{model}/{workspace}/. Does NOT delete document artifacts
-    (PDFs, markdown) in the .ai subfolder of each document checkout.
+    """Delete a workspace and keep legacy artifact cleanup as a compatibility flag.
 
     Args:
         workspace: Workspace name to delete.
-        preserve_artifacts: If True (default), keep LightRAG artifacts. If False, delete
-                          embeddings and workspace index for this workspace only.
+        preserve_artifacts: Reserved compatibility option. Legacy retrieval
+            artifacts are no longer managed by this package.
 
     Returns:
         True if deleted, False if not found or if attempting to delete default.
@@ -164,21 +158,8 @@ def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> 
 
     registry.save()
 
-    # Delete LightRAG artifacts if requested
     if not preserve_artifacts:
-        try:
-            # Get embedding model from environment to locate artifacts
-            embedding_model = os.getenv("TDC_AI_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-            manager = resolve_cache_manager()
-            workspace_artifacts_dir = manager.ai_embed_dir(embedding_model) / normalized_workspace
-
-            if workspace_artifacts_dir.exists():
-                shutil.rmtree(workspace_artifacts_dir)
-                _logger.info(f"Deleted LightRAG artifacts for '{normalized_workspace}' from {workspace_artifacts_dir}")
-            else:
-                _logger.debug(f"No LightRAG artifacts found for '{normalized_workspace}'")
-        except (OSError, ValueError) as e:
-            _logger.warning(f"Failed to delete LightRAG artifacts for '{normalized_workspace}': {e}")
+        _logger.warning("preserve_artifacts=False is deprecated and has no effect")
 
     _logger.info(f"Deleted workspace '{normalized_workspace}' (preserve_artifacts={preserve_artifacts})")
     return True
@@ -557,8 +538,8 @@ async def checkout_spec_to_workspace(
     normalized = normalize_spec_number(spec_number)
     undotted = normalized.replace(".", "")  # e.g., "26.260" -> "26260"
     requested_release = release.strip()
-    cache_manager = resolve_cache_manager("default")
-    db_path = db_file if db_file is not None else cache_manager.db_file
+    config = ThreeGPPConfig.from_settings()
+    db_path = db_file if db_file is not None else config.path.db_file
     resolved_release, version_codes = await resolve_spec_release_from_db(spec_number, requested_release, db_file=db_file)
 
     # First check if already checked out with the SAME release version

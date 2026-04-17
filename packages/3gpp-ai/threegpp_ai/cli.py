@@ -1,13 +1,12 @@
 """Top-level CLI for the 3gpp-ai package.
 
 Provides a single command tree with convert/summarize/workspace operations
-and nested LightRAG commands under `rag`.
+for extraction-first document workflows.
 """
 
 from __future__ import annotations
 
 import asyncio
-import shutil
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -57,10 +56,15 @@ from threegpp_ai.args import (
     ConvertMdOption,
     ConvertOutputOption,
     ConvertPdfOption,
+    CustomExtractEnrichmentOption,
+    CustomExtractEquationsOption,
+    CustomExtractFiguresOption,
+    CustomExtractLayoutOption,
+    CustomExtractOcrOption,
+    CustomExtractTablesOption,
     EndDateOption,
+    ExtractionProfileOption,
     OutputFormatOption,
-    ProvidersOutputOption,
-    QueryModeOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
@@ -72,24 +76,18 @@ from threegpp_ai.args import (
     WorkspaceActivateOption,
     WorkspaceAutoBuildOption,
     WorkspaceCheckoutOption,
-    WorkspaceEmbedOption,
     WorkspaceIncludeInactiveOption,
     WorkspaceItemsArgument,
     WorkspaceKindOption,
     WorkspaceLimitOption,
     WorkspaceNameArgument,
     WorkspaceNameOption,
-    WorkspacePreserveArtifactsOption,
     WorkspaceProcessForceOption,
     WorkspaceProcessVlmOption,
     WorkspaceReleaseOption,
 )
 from threegpp_ai.config import ThreeGPPAIConfig
 from threegpp_ai.config_app import config_app
-from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
-from threegpp_ai.lightrag.metadata import RAGMetadata
-from threegpp_ai.lightrag.processor import DocumentProcessor
-from threegpp_ai.lightrag.rag import PROVIDER_ALIASES, PROVIDERS, TDocRAG
 from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
@@ -101,11 +99,9 @@ from threegpp_ai.operations.workspace_utils import check_pdf_status
 # Load environment variables from .env file
 load_dotenv()
 
-app = typer.Typer(help="3GPP AI - Document Processing and RAG")
-workspace_app = typer.Typer(help="Manage GraphRAG workspaces")
-providers_app = typer.Typer(help="List and manage AI providers")
+app = typer.Typer(help="3GPP AI - Document processing and summarization")
+workspace_app = typer.Typer(help="Manage extraction workspaces")
 app.add_typer(workspace_app, name="workspace")
-app.add_typer(providers_app, name="providers")
 app.add_typer(config_app, name="config")
 
 console = get_console()
@@ -126,73 +122,6 @@ def _print_output(
         table_title=table_title,
         table_columns=table_columns,
         console=console,
-    )
-
-
-@providers_app.command("list", help="List all available AI providers")
-def providers_list(
-    output: ProvidersOutputOption = OutputFormat.TABLE,
-) -> None:
-    """List all supported AI providers with their capabilities and aliases.
-
-    Shows each provider's name, whether it supports LLM completion,
-    whether it supports embeddings, and any aliases.
-
-    Output is sorted alphabetically by provider name.
-    """
-    # Build provider data sorted alphabetically
-    # Each entry represents a usable provider string (canonical or alias-with-base-url)
-    providers_data = []
-    for provider_name in sorted(PROVIDERS.keys()):
-        config = PROVIDERS[provider_name]
-        has_llm = config.complete_func is not None
-        has_embedding = config.embed_func is not None
-
-        # Find aliases for this provider (only those with base URLs become separate entries)
-        # Simple aliases (no base URL) are not shown as separate entries
-        for alias, alias_info in PROVIDER_ALIASES.items():
-            if alias_info.canonical == provider_name and alias_info.base_url:
-                providers_data.append(
-                    {
-                        "name": alias,
-                        "llm": has_llm,
-                        "embedding": has_embedding,
-                        "canonical": provider_name,
-                        "base_url": alias_info.base_url,
-                    }
-                )
-
-        # Add canonical provider entry
-        providers_data.append(
-            {
-                "name": provider_name,
-                "llm": has_llm,
-                "embedding": has_embedding,
-                "canonical": None,
-                "base_url": None,
-            }
-        )
-
-    output_rows = [
-        {
-            "provider": provider["name"],
-            "llm": "Y" if provider["llm"] else "N",
-            "embedding": "Y" if provider["embedding"] else "N",
-            "base_url_note": (f"via {provider['canonical']} - {provider['base_url']}" if provider["canonical"] else "-"),
-        }
-        for provider in providers_data
-    ]
-
-    _print_output(
-        output_rows,
-        output,
-        table_title="AI Providers",
-        table_columns=[
-            TableColumnSpec("provider", "Provider", style="cyan"),
-            TableColumnSpec("llm", "LLM", style="green", justify="center"),
-            TableColumnSpec("embedding", "Embedding", style="yellow", justify="center"),
-            TableColumnSpec("base_url_note", "Base URL / Note", style="white"),
-        ],
     )
 
 
@@ -304,6 +233,13 @@ async def _process_single_item(
     path_config: PathConfig,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
+    profile: str | None = None,
+    custom_extract_ocr: bool | None = None,
+    custom_extract_layout: bool | None = None,
+    custom_extract_tables: bool | None = None,
+    custom_extract_figures: bool | None = None,
+    custom_extract_equations: bool | None = None,
+    custom_extract_enrichment: bool | None = None,
 ) -> tuple[Any | None, str | None, bool, bool]:
     """Process a single workspace item (checkout + optional PDF conversion + optional markdown extraction).
 
@@ -318,6 +254,13 @@ async def _process_single_item(
         path_config: PathConfig for file system paths
         vlm_options: Optional VLM features for extraction.
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
+        profile: Extraction profile override.
+        custom_extract_ocr: Optional custom OCR toggle.
+        custom_extract_layout: Optional custom layout toggle.
+        custom_extract_tables: Optional custom table extraction toggle.
+        custom_extract_figures: Optional custom figure extraction toggle.
+        custom_extract_equations: Optional custom equation extraction toggle.
+        custom_extract_enrichment: Optional custom enrichment toggle.
 
     Returns:
         Tuple of (member, skip_reason, was_converted, was_md_extracted)
@@ -371,6 +314,13 @@ async def _process_single_item(
                     force=False,
                     vlm_options=vlm_options,
                     accelerator_config=accelerator_config,
+                    profile=profile,
+                    custom_extract_ocr=custom_extract_ocr,
+                    custom_extract_layout=custom_extract_layout,
+                    custom_extract_tables=custom_extract_tables,
+                    custom_extract_figures=custom_extract_figures,
+                    custom_extract_equations=custom_extract_equations,
+                    custom_extract_enrichment=custom_extract_enrichment,
                 )
             else:
                 # Generic extraction (specs, other) - uses file path directly
@@ -382,6 +332,13 @@ async def _process_single_item(
                         force=False,
                         vlm_options=vlm_options,
                         accelerator_config=accelerator_config,
+                        profile=profile,
+                        custom_extract_ocr=custom_extract_ocr,
+                        custom_extract_layout=custom_extract_layout,
+                        custom_extract_tables=custom_extract_tables,
+                        custom_extract_figures=custom_extract_figures,
+                        custom_extract_equations=custom_extract_equations,
+                        custom_extract_enrichment=custom_extract_enrichment,
                     )
             was_md_extracted = True
         except Exception as e:
@@ -465,30 +422,6 @@ def _convert_member_to_pdf(member: Any) -> Path | None:
         return None
 
 
-async def _try_build_tdoc_metadata(source_item_id: str) -> RAGMetadata | None:
-    if not source_item_id.startswith(("S", "R", "C", "T")):
-        return None
-
-    manager = PathConfig()
-    try:
-        async with TDocDatabase(manager.db_file) as db:
-            rows = await db.query_tdocs(TDocQueryConfig(tdoc_ids=[source_item_id], order=SortOrder.ASC, limit=1))
-            if not rows:
-                return None
-            row = rows[0]
-            return RAGMetadata(
-                tdoc_id=row.tdoc_id,
-                title=row.title or "",
-                meeting_id=row.meeting_id,
-                source=row.source or "",
-                tdoc_type=row.tdoc_type or "",
-                for_purpose=row.for_purpose or "",
-            )
-    except Exception as exc:
-        _logger.debug("Could not load metadata for %s: %s", source_item_id, exc)
-        return None
-
-
 async def _process_workspace_members(
     workspace: str,
     members: list[Any],
@@ -497,6 +430,13 @@ async def _process_workspace_members(
     convert_md: bool = False,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
+    profile: str | None = None,
+    custom_extract_ocr: bool | None = None,
+    custom_extract_layout: bool | None = None,
+    custom_extract_tables: bool | None = None,
+    custom_extract_figures: bool | None = None,
+    custom_extract_equations: bool | None = None,
+    custom_extract_enrichment: bool | None = None,
 ) -> list[dict[str, Any]]:
     """Process workspace members with optional progress callback.
 
@@ -508,91 +448,113 @@ async def _process_workspace_members(
         convert_md: Whether to extract markdown (implies PDF conversion)
         vlm_options: Optional VLM features for extraction.
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
+        profile: Extraction profile override.
+        custom_extract_ocr: Optional custom OCR toggle.
+        custom_extract_layout: Optional custom layout toggle.
+        custom_extract_tables: Optional custom table extraction toggle.
+        custom_extract_figures: Optional custom figure extraction toggle.
+        custom_extract_equations: Optional custom equation extraction toggle.
+        custom_extract_enrichment: Optional custom enrichment toggle.
 
     Returns:
         List of processing results
     """
-    processor = DocumentProcessor(LightRAGConfig.from_env())
     results: list[dict[str, Any]] = []
     path_config = PathConfig()
 
-    await processor.rag.start(workspace)
-    try:
-        for member in members:
-            # Ensure document is available: checkout + convert to PDF if needed
-            file_path = _resolve_process_file(Path(member.source_path))
+    for member in members:
+        # Ensure document is available: checkout + convert to PDF if needed
+        file_path = _resolve_process_file(Path(member.source_path))
 
-            if (file_path is None or not file_path.exists()) and checkout and member.source_kind in (SourceKind.TDOC, SourceKind.SPEC):
-                # Try to checkout the document
-                checkout_path: Path | None = None
-                if member.source_kind == SourceKind.TDOC:
-                    checkout_path = await checkout_tdoc_to_workspace(
-                        member.source_item_id,
-                        path_config.checkout_dir,
-                        workspace,
-                        db_file=path_config.db_file,
-                    )
-                elif member.source_kind == SourceKind.SPEC:
-                    checkout_path = await checkout_spec_to_workspace(
-                        member.source_item_id,
-                        path_config.checkout_dir,
-                        workspace,
-                        "latest",
-                        db_file=path_config.db_file,
-                    )
-                if checkout_path is not None:
-                    file_path = _resolve_process_file(checkout_path)
-
-            if file_path is None or not file_path.exists():
-                results.append(
-                    {
-                        "source_item_id": member.source_item_id,
-                        "status": "skipped",
-                        "reason": "path or supported file not found",
-                    },
+        if (file_path is None or not file_path.exists()) and checkout and member.source_kind in (SourceKind.TDOC, SourceKind.SPEC):
+            checkout_path: Path | None = None
+            if member.source_kind == SourceKind.TDOC:
+                checkout_path = await checkout_tdoc_to_workspace(
+                    member.source_item_id,
+                    path_config.checkout_dir,
+                    workspace,
+                    db_file=path_config.db_file,
                 )
-                if on_progress:
-                    on_progress(len(results), member.source_item_id)
-                continue
+            elif member.source_kind == SourceKind.SPEC:
+                checkout_path = await checkout_spec_to_workspace(
+                    member.source_item_id,
+                    path_config.checkout_dir,
+                    workspace,
+                    "latest",
+                    db_file=path_config.db_file,
+                )
+            if checkout_path is not None:
+                file_path = _resolve_process_file(checkout_path)
 
-            # Convert to PDF if it's an office format and convert_md is enabled
-            if convert_md:
-                doc_file = _resolve_process_file(Path(member.source_path))
-                if doc_file is not None and doc_file.suffix.lower() in OFFICE_FORMATS:
-                    pdf_path = _convert_member_to_pdf(make_workspace_member(workspace, member.source_item_id, member.source_path, member.source_kind))
-                    if pdf_path is not None:
-                        file_path = pdf_path
-                    elif doc_file.suffix.lower() not in {".pdf", ".txt", ".md"}:
-                        # Could not convert and not a directly processable format
-                        results.append(
-                            {
-                                "source_item_id": member.source_item_id,
-                                "status": "skipped",
-                                "reason": "office document could not be converted to PDF",
-                            },
-                        )
-                        if on_progress:
-                            on_progress(len(results), member.source_item_id)
-                        continue
+        if file_path is None or not file_path.exists():
+            results.append(
+                {
+                    "source_item_id": member.source_item_id,
+                    "status": "skipped",
+                    "reason": "path or supported file not found",
+                },
+            )
+            if on_progress:
+                on_progress(len(results), member.source_item_id)
+            continue
 
-            metadata = await _try_build_tdoc_metadata(member.source_item_id)
-            process_result = await processor.process_file(
-                file_path, workspace, metadata=metadata, vlm_options=vlm_options, accelerator_config=accelerator_config
+        if convert_md:
+            doc_file = _resolve_process_file(Path(member.source_path))
+            if doc_file is not None and doc_file.suffix.lower() in OFFICE_FORMATS:
+                pdf_path = _convert_member_to_pdf(make_workspace_member(workspace, member.source_item_id, member.source_path, member.source_kind))
+                if pdf_path is not None:
+                    file_path = pdf_path
+                elif doc_file.suffix.lower() not in {".pdf", ".txt", ".md"}:
+                    results.append(
+                        {
+                            "source_item_id": member.source_item_id,
+                            "status": "skipped",
+                            "reason": "office document could not be converted to PDF",
+                        },
+                    )
+                    if on_progress:
+                        on_progress(len(results), member.source_item_id)
+                    continue
+
+        try:
+            extract_document_structured(
+                file_path,
+                metadata=None,
+                force=False,
+                vlm_options=vlm_options,
+                accelerator_config=accelerator_config,
+                profile=profile,
+                custom_extract_ocr=custom_extract_ocr,
+                custom_extract_layout=custom_extract_layout,
+                custom_extract_tables=custom_extract_tables,
+                custom_extract_figures=custom_extract_figures,
+                custom_extract_equations=custom_extract_equations,
+                custom_extract_enrichment=custom_extract_enrichment,
             )
             results.append(
                 {
                     "source_item_id": member.source_item_id,
                     "file": str(file_path),
-                    "status": process_result.status.value,
-                    "chars_extracted": process_result.chars_extracted,
-                    "reason": process_result.reason,
-                    "error": process_result.error,
+                    "status": "success",
+                    "chars_extracted": 0,
+                    "reason": None,
+                    "error": None,
                 },
             )
-            if on_progress:
-                on_progress(len(results), member.source_item_id)
-    finally:
-        await processor.rag.stop()
+        except Exception as exc:
+            results.append(
+                {
+                    "source_item_id": member.source_item_id,
+                    "file": str(file_path),
+                    "status": "error",
+                    "chars_extracted": 0,
+                    "reason": "extraction_failed",
+                    "error": str(exc),
+                },
+            )
+
+        if on_progress:
+            on_progress(len(results), member.source_item_id)
 
     return results
 
@@ -690,97 +652,6 @@ def workspace_list(
     )
 
 
-@workspace_app.command("query")
-def workspace_query(
-    query: str = typer.Argument(..., help="Query string"),
-    mode: QueryModeOption = QueryMode.HYBRID,
-    workspace: WorkspaceNameOption = None,
-    output_format: OutputFormatOption = OutputFormat.TABLE.value,
-) -> None:
-    """Query the LightRAG knowledge graph."""
-    workspace_name = _resolve_workspace_name(workspace)
-
-    if not query:
-        console.print("[red]Error: query is required[/red]")
-        raise typer.Exit(1)
-
-    async def _run() -> str | None:
-        config = LightRAGConfig.from_env()
-        rag = TDocRAG(config)
-        await rag.start(workspace_name)
-        try:
-            result = await rag.query(query, mode=mode)
-            return result
-        finally:
-            await rag.stop()
-
-    result = asyncio.run(_run())
-
-    output = OutputFormat(output_format.lower())
-    if output is OutputFormat.TABLE:
-        console.print(f"\n[bold]Query:[/bold] {query}")
-        console.print(f"[bold]Mode:[/bold] {mode.value}\n")
-        if result:
-            console.print(result)
-        else:
-            console.print("[yellow]No result returned[/yellow]")
-    else:
-        _print_output(
-            {"query": query, "mode": mode.value, "result": result},
-            output,
-            table_title="Workspace Query",
-        )
-
-
-@workspace_app.command("status")
-def workspace_status(
-    verbose: bool = typer.Option("--verbose", "-v", help="Show full configuration"),
-) -> None:
-    """Show LightRAG configuration and status."""
-    config = LightRAGConfig.from_env()
-
-    # Header
-    console.print("\n[bold cyan]LightRAG Configuration[/bold cyan]")
-
-    # Database backend
-    backend = config.database.backend
-    backend_icon = "🗄️" if backend == StorageBackend.PG0 else "📁"
-    console.print(f"\n{backend_icon} [cyan]Storage backend:[/cyan] {backend.value}")
-
-    if backend == StorageBackend.PG0:
-        console.print(f"   Instance: [cyan]{config.database.pg0_instance_name}[/cyan]")
-        console.print(f"   Port: [cyan]{config.database.pg0_port}[/cyan]")
-        console.print(f"   Database: [cyan]{config.database.pg0_database}[/cyan]")
-    else:
-        console.print(f"   Working dir: [cyan]{config.working_dir}[/cyan]")
-
-    # LLM
-    console.print("\n🤖 [cyan]LLM:[/cyan]")
-    console.print(f"   Model: [cyan]{config.llm.model}[/cyan]")
-    console.print(f"   API Base: [cyan]{config.llm.api_base}[/cyan]")
-
-    # Embedding
-    console.print("\n🔢 [cyan]Embedding:[/cyan]")
-    console.print(f"   Model: [cyan]{config.embedding.model}[/cyan]")
-    console.print(f"   API Base: [cyan]{config.embedding.api_base}[/cyan]")
-
-    # Query defaults
-    console.print("\n🔍 [cyan]Query defaults:[/cyan]")
-    console.print(f"   Mode: [cyan]{config.default_query_mode.value}[/cyan]")
-    console.print(f"   Workspace: [cyan]{config.workspace}[/cyan]")
-
-    # Shared storage status
-    console.print(f"   Shared storage: [cyan]{'enabled' if config.shared_storage else 'disabled'}[/cyan]")
-
-    if verbose:
-        console.print("\n[bold]Full configuration:[/bold]")
-        console.print(f"   working_dir: {config.working_dir}")
-        console.print(f"   workspace: {config.workspace}")
-        console.print(f"   env_prefix: {config.model_config.get('env_prefix', 'N/A')}")
-
-    console.print()
-
-
 @workspace_app.command("info", help="Show detailed information about a workspace")
 def workspace_info(
     name: WorkspaceNameArgument,
@@ -841,25 +712,6 @@ def workspace_clear_invalid(
         console.print(f"[yellow]No invalid members found in '{workspace_name}'[/yellow]")
 
 
-@workspace_app.command("clear", help="Clear LightRAG artifacts for a workspace")
-def workspace_clear(
-    workspace: WorkspaceNameOption = None,
-) -> None:
-    workspace_name = _resolve_workspace_name(workspace)
-    path_config = typer.get_current_context().obj.path
-
-    config = LightRAGConfig.from_env()
-    embedding_model_safe = config.embedding.model.replace(":", "-").replace("/", "-")
-    working_dir = path_config.ai_embed_dir(embedding_model_safe) / workspace_name
-
-    if not working_dir.exists():
-        console.print(f"[yellow]No LightRAG artifacts found for '{workspace_name}'[/yellow]")
-        return
-
-    shutil.rmtree(working_dir)
-    console.print(f"[green]Cleared LightRAG artifacts for '{workspace_name}'[/green]")
-
-
 def _checkout_and_convert_items(
     resolved_items: list[str],
     *,
@@ -871,6 +723,13 @@ def _checkout_and_convert_items(
     convert_md: bool,
     vlm_options: VlmOptions | None,
     accelerator_config: AcceleratorConfig,
+    profile: str | None,
+    custom_extract_ocr: bool | None,
+    custom_extract_layout: bool | None,
+    custom_extract_tables: bool | None,
+    custom_extract_figures: bool | None,
+    custom_extract_equations: bool | None,
+    custom_extract_enrichment: bool | None,
 ) -> tuple[list[Any], list[tuple[str, str]], int, int]:
     """Checkout, optionally convert to PDF, and optionally extract markdown for items.
 
@@ -910,6 +769,13 @@ def _checkout_and_convert_items(
                     path_config=manager,
                     vlm_options=vlm_options,
                     accelerator_config=accelerator_config,
+                    profile=profile,
+                    custom_extract_ocr=custom_extract_ocr,
+                    custom_extract_layout=custom_extract_layout,
+                    custom_extract_tables=custom_extract_tables,
+                    custom_extract_figures=custom_extract_figures,
+                    custom_extract_equations=custom_extract_equations,
+                    custom_extract_enrichment=custom_extract_enrichment,
                 )
                 if skip_reason:
                     skipped.append((item, skip_reason))
@@ -949,10 +815,16 @@ def workspace_add_members(
     agenda_ex: AgendaPatternExcludeOption = None,
     limit: WorkspaceLimitOption = None,
     vlm: WorkspaceProcessVlmOption = False,
-    embed: WorkspaceEmbedOption = False,
     device: AcceleratorDeviceOption = "auto",
     threads: AcceleratorThreadsOption = 4,
     batch_size: AcceleratorBatchSizeOption = 4,
+    profile: ExtractionProfileOption = None,
+    custom_ocr: CustomExtractOcrOption = None,
+    custom_layout: CustomExtractLayoutOption = None,
+    custom_tables: CustomExtractTablesOption = None,
+    custom_figures: CustomExtractFiguresOption = None,
+    custom_equations: CustomExtractEquationsOption = None,
+    custom_enrichment: CustomExtractEnrichmentOption = None,
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output (INFO level logging)"),
 ) -> None:
     # Set log level based on verbosity
@@ -963,10 +835,6 @@ def workspace_add_members(
     workspace_name = _resolve_workspace_name(workspace)
     kind_normalized = kind.lower().rstrip("s")
     source_kind = SourceKind(kind_normalized) if kind_normalized in {entry.value for entry in SourceKind} else SourceKind.OTHER
-
-    # --embed implies --convert-md
-    if embed:
-        convert_md = True
 
     # Build VLM and accelerator options for extraction
     vlm_options: VlmOptions | None = None
@@ -1013,6 +881,13 @@ def workspace_add_members(
         convert_md=convert_md,
         vlm_options=vlm_options,
         accelerator_config=accelerator_config,
+        profile=profile,
+        custom_extract_ocr=custom_ocr,
+        custom_extract_layout=custom_layout,
+        custom_extract_tables=custom_tables,
+        custom_extract_figures=custom_figures,
+        custom_extract_equations=custom_equations,
+        custom_extract_enrichment=custom_enrichment,
     )
 
     if skipped:
@@ -1028,80 +903,12 @@ def workspace_add_members(
     added = add_workspace_members(workspace_name, members)
     console.print(f"[green]Added {added} member(s) to '{workspace_name}'[/green]")
 
-    # Phase 3: Optional LightRAG embedding and graph insertion
-    if embed and members:
-        embedded_count = _embed_members(
-            workspace_name,
-            members,
-            vlm_options=vlm_options,
-            accelerator_config=accelerator_config,
-        )
-        console.print(f"[green]Embedded {embedded_count} document(s) into LightRAG[/green]")
-
-
-def _embed_members(
-    workspace_name: str,
-    members: list[Any],
-    *,
-    vlm_options: VlmOptions | None = None,
-    accelerator_config: AcceleratorConfig | None = None,
-) -> int:
-    """Insert workspace members into LightRAG knowledge graph.
-
-    Uses the cached extraction results from .ai/ folders, so extraction
-    is a fast cache hit. The main work is chunking, embedding, and graph insertion.
-
-    Returns:
-        Number of successfully embedded documents.
-    """
-    processor = DocumentProcessor(LightRAGConfig.from_env())
-    embedded = 0
-
-    async def _run() -> None:
-        nonlocal embedded
-        await processor.rag.start(workspace_name)
-        try:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                MofNCompleteColumn(),
-                TimeElapsedColumn(),
-                console=console,
-            ) as progress:
-                task = progress.add_task("[cyan]Embedding...", total=len(members))
-
-                for member in members:
-                    file_path = _resolve_process_file(Path(member.source_path))
-                    if file_path is None or not file_path.exists():
-                        progress.update(task, advance=1, description=f"[cyan]{member.source_item_id} (no file)")
-                        continue
-
-                    metadata = await _try_build_tdoc_metadata(member.source_item_id)
-                    result = await processor.process_file(
-                        file_path,
-                        workspace_name,
-                        metadata=metadata,
-                        vlm_options=vlm_options,
-                        accelerator_config=accelerator_config,
-                    )
-                    if result.status.value == "success":
-                        embedded += 1
-                    status = "ok" if result.status.value == "success" else result.status.value
-                    progress.update(task, advance=1, description=f"[cyan]{member.source_item_id} ({status})")
-
-        finally:
-            await processor.rag.stop()
-
-    asyncio.run(_run())
-    return embedded
-
 
 @workspace_app.command("list-members", help="List members in a workspace")
 def workspace_list_members(
     workspace: WorkspaceNameOption = None,
     include_inactive: WorkspaceIncludeInactiveOption = False,
-    output: ProvidersOutputOption = OutputFormat.TABLE,
+    output: OutputFormatOption = OutputFormat.TABLE,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -1159,7 +966,7 @@ def workspace_list_members(
     )
 
 
-@workspace_app.command("process", help="Process workspace members (checkout, convert, extract, embed)")
+@workspace_app.command("process", help="Process workspace members (checkout, convert, extract)")
 def workspace_process(
     workspace: WorkspaceNameOption = None,
     force: WorkspaceProcessForceOption = False,
@@ -1170,6 +977,13 @@ def workspace_process(
     device: AcceleratorDeviceOption = "auto",
     threads: AcceleratorThreadsOption = 4,
     batch_size: AcceleratorBatchSizeOption = 4,
+    profile: ExtractionProfileOption = None,
+    custom_ocr: CustomExtractOcrOption = None,
+    custom_layout: CustomExtractLayoutOption = None,
+    custom_tables: CustomExtractTablesOption = None,
+    custom_figures: CustomExtractFiguresOption = None,
+    custom_equations: CustomExtractEquationsOption = None,
+    custom_enrichment: CustomExtractEnrichmentOption = None,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -1222,6 +1036,13 @@ def workspace_process(
                 convert_md=True,
                 vlm_options=vlm_options,
                 accelerator_config=accelerator_config,
+                profile=profile,
+                custom_extract_ocr=custom_ocr,
+                custom_extract_layout=custom_layout,
+                custom_extract_tables=custom_tables,
+                custom_extract_figures=custom_figures,
+                custom_extract_equations=custom_equations,
+                custom_extract_enrichment=custom_enrichment,
             )
         )
         progress.update(task, completed=len(results), description="[cyan]Processing complete")
@@ -1253,13 +1074,12 @@ def workspace_process(
 @workspace_app.command("delete", help="Delete a workspace")
 def workspace_delete(
     name: WorkspaceNameArgument,
-    preserve_artifacts: WorkspacePreserveArtifactsOption = True,
 ) -> None:
-    result = delete_workspace(name, preserve_artifacts=preserve_artifacts)
+    result = delete_workspace(name)
     if not result:
         console.print(f"[red]Failed to delete workspace '{name}'[/red]")
         raise typer.Exit(1)
-    console.print(f"[green]Deleted workspace: {name} (preserve_artifacts={preserve_artifacts})[/green]")
+    console.print(f"[green]Deleted workspace: {name}[/green]")
 
 
 if __name__ == "__main__":

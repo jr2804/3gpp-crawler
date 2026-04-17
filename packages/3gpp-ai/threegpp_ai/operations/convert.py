@@ -169,6 +169,13 @@ def convert_document_to_markdown(
     converter_config: ConverterConfig | None = None,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
+    profile: str | None = None,
+    custom_extract_ocr: bool | None = None,
+    custom_extract_layout: bool | None = None,
+    custom_extract_tables: bool | None = None,
+    custom_extract_figures: bool | None = None,
+    custom_extract_equations: bool | None = None,
+    custom_extract_enrichment: bool | None = None,
 ) -> str:
     """Convert TDoc to markdown using the unified extraction pipeline.
 
@@ -189,6 +196,13 @@ def convert_document_to_markdown(
         converter_config: Optional converter configuration (unused, kept for API compatibility)
         vlm_options: Optional VLM features for extraction.
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
+        profile: Extraction profile override.
+        custom_extract_ocr: Optional custom OCR toggle.
+        custom_extract_layout: Optional custom layout toggle.
+        custom_extract_tables: Optional custom table extraction toggle.
+        custom_extract_figures: Optional custom figure extraction toggle.
+        custom_extract_equations: Optional custom equation extraction toggle.
+        custom_extract_enrichment: Optional custom enrichment toggle.
 
     Returns:
         Markdown content string
@@ -204,6 +218,13 @@ def convert_document_to_markdown(
         force=force,
         vlm_options=vlm_options,
         accelerator_config=accelerator_config,
+        profile=profile,
+        custom_extract_ocr=custom_extract_ocr,
+        custom_extract_layout=custom_extract_layout,
+        custom_extract_tables=custom_extract_tables,
+        custom_extract_figures=custom_extract_figures,
+        custom_extract_equations=custom_extract_equations,
+        custom_extract_enrichment=custom_extract_enrichment,
     )
 
     # Get TDoc metadata for header
@@ -229,6 +250,13 @@ def extract_document_structured_from_tdoc(
     extract_types: set[str] | None = None,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
+    profile: str | None = None,
+    custom_extract_ocr: bool | None = None,
+    custom_extract_layout: bool | None = None,
+    custom_extract_tables: bool | None = None,
+    custom_extract_figures: bool | None = None,
+    custom_extract_equations: bool | None = None,
+    custom_extract_enrichment: bool | None = None,
 ) -> StructuredExtractionResult:
     """Extract a TDoc into the canonical structured payload.
 
@@ -242,6 +270,13 @@ def extract_document_structured_from_tdoc(
             If None, extracts all types. Supported types: "tables", "figures", "equations".
         vlm_options: Optional VLM features for extraction.
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
+        profile: Extraction profile override.
+        custom_extract_ocr: Optional custom OCR toggle.
+        custom_extract_layout: Optional custom layout toggle.
+        custom_extract_tables: Optional custom table extraction toggle.
+        custom_extract_figures: Optional custom figure extraction toggle.
+        custom_extract_equations: Optional custom equation extraction toggle.
+        custom_extract_enrichment: Optional custom enrichment toggle.
 
     Returns:
         Structured extraction result.
@@ -280,6 +315,13 @@ def extract_document_structured_from_tdoc(
             extract_types=extract_types,
             vlm_options=vlm_options,
             accelerator_config=accelerator_config,
+            profile=profile,
+            custom_extract_ocr=custom_extract_ocr,
+            custom_extract_layout=custom_extract_layout,
+            custom_extract_tables=custom_extract_tables,
+            custom_extract_figures=custom_extract_figures,
+            custom_extract_equations=custom_extract_equations,
+            custom_extract_enrichment=custom_extract_enrichment,
         )
 
 

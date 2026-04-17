@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from tdoc_crawler.config.settings import ThreeGPPConfig
 
-from threegpp_ai.lightrag.config import LightRAGConfig, QueryMode, StorageBackend
+from threegpp_ai.config import AiConfig
 
 from .config_exporter import ConfigExporter
 
@@ -53,7 +53,7 @@ ConfigValidateStrictOption = Annotated[
 ]
 ConfigDocsSectionOption = Annotated[
     str | None,
-    typer.Option("--section", "-s", help="Show specific section (path, http, credentials, crawl, llm, embedding, database, extraction, workspace)"),
+    typer.Option("--section", "-s", help="Show specific section (path, http, credentials, crawl, llm, extraction, runtime)"),
 ]
 
 config_app = typer.Typer(help="Manage configuration")
@@ -94,7 +94,7 @@ def config_show(
 
     Shows merged configuration from:
     1. Config files (3gpp-ai.toml, etc.)
-    2. Environment variables (TDC_*, LIGHTRAG_*)
+    2. Environment variables (TDC_*)
     3. Hard-coded defaults
 
     Use --show-secrets to display actual API key values (WARNING: not secure).
@@ -136,7 +136,7 @@ def _validate_model_format(model: str, field_name: str) -> list[tuple[str, str]]
 
 def _validate_config_values(
     crawler_config: ThreeGPPConfig,
-    ai_config: LightRAGConfig,
+    ai_config: AiConfig,
 ) -> list[tuple[str, str]]:
     """Validate config values and return list of (severity, message) tuples.
 
@@ -188,48 +188,16 @@ def _validate_config_values(
     llm_model = ai_config.llm.model
     issues.extend(_validate_model_format(llm_model, "llm.model"))
 
-    # Validate embedding model format
-    embedding_model = ai_config.embedding.model
-    issues.extend(_validate_model_format(embedding_model, "embedding.model"))
-
-    # Check database backend
-    if ai_config.database.backend not in (StorageBackend.FILE, StorageBackend.PG0):
-        issues.append(("error", f"database.backend must be 'file' or 'pg0', got: {ai_config.database.backend}"))
-
-    # Check pg0 port range if pg0 backend is used
-    if ai_config.database.backend == StorageBackend.PG0:
-        if ai_config.database.pg0_port < 1 or ai_config.database.pg0_port > 65535:
-            issues.append(("error", f"database.pg0_port must be 1-65535, got {ai_config.database.pg0_port}"))
-
-        if not ai_config.database.pg0_instance_name:
-            issues.append(("error", "database.pg0_instance_name cannot be empty when using pg0 backend"))
-
-        if not ai_config.database.pg0_database:
-            issues.append(("error", "database.pg0_database cannot be empty when using pg0 backend"))
-
-    # Validate query mode
-    if ai_config.default_query_mode not in QueryMode:
-        issues.append(("error", f"workspace.default_query_mode must be one of {[m.value for m in QueryMode]}, got: {ai_config.default_query_mode}"))
-
     # Warnings for API keys
     if ai_config.llm.api_key is None and "/" in llm_model:
         provider = llm_model.split("/")[0]
         if provider not in ("ollama", "localhost"):
             issues.append(("warning", f"llm.api_key not set for cloud provider '{provider}'"))
 
-    if ai_config.embedding.api_key is None and "/" in embedding_model:
-        provider = embedding_model.split("/")[0]
-        if provider not in ("ollama", "localhost", "sentence-transformers"):
-            issues.append(("warning", f"embedding.api_key not set for cloud provider '{provider}'"))
-
-    # Warning for shared storage
-    if ai_config.shared_storage:
-        issues.append(("warning", "workspace.shared_storage is enabled; requires custom LightRAG integration"))
-
     return issues
 
 
-def _validate_from_file(file: Path) -> tuple[ThreeGPPConfig, LightRAGConfig]:
+def _validate_from_file(file: Path) -> tuple[ThreeGPPConfig, AiConfig]:
     """Load configs from a specific file with validation.
 
     Note: Currently only validates syntax. Full validation happens in config_validate.
@@ -251,7 +219,8 @@ def _validate_from_file(file: Path) -> tuple[ThreeGPPConfig, LightRAGConfig]:
         raise typer.Exit(1)
 
     # Return default configs (will be validated with env vars applied)
-    return ThreeGPPConfig.from_settings(config_file=file), LightRAGConfig.from_env()
+    combined = ThreeGPPConfig.from_settings(config_file=file)
+    return combined, combined.ai
 
 
 def _display_validation_results(issues: list[tuple[str, str]], strict: bool) -> None:
@@ -296,7 +265,7 @@ def config_validate(
 
     Validates both crawler and AI settings:
     - Crawler: paths, HTTP settings, credentials, crawl limits
-    - AI: LLM/embedding model formats, database backend, query modes
+    - AI: LLM model format and runtime extraction controls
 
     Exit codes:
     - 0: All valid
@@ -308,8 +277,9 @@ def config_validate(
         crawler_config, ai_config = _validate_from_file(file)
     else:
         try:
-            crawler_config = ThreeGPPConfig.from_settings()
-            ai_config = LightRAGConfig.from_env()
+            combined = ThreeGPPConfig.from_settings()
+            crawler_config = combined
+            ai_config = combined.ai
         except ValidationError as e:
             rprint("[red]Validation error in discovered config:[/red]")
             for error in e.errors():
@@ -338,10 +308,8 @@ def config_docs(
     - credentials: Portal authentication
     - crawl: Crawling filters and limits
     - llm: LLM model and API settings
-    - embedding: Embedding model settings
-    - database: Storage backend (file/pg0)
     - extraction: Document extraction toggles
-    - workspace: Workspace defaults
+    - runtime: Processing behavior and limits
     """
     # Build documentation data
     sections: dict[str, list[dict]] = {
@@ -350,10 +318,8 @@ def config_docs(
         "credentials": [],
         "crawl": [],
         "llm": [],
-        "embedding": [],
-        "database": [],
         "extraction": [],
-        "workspace": [],
+        "runtime": [],
     }
 
     # Introspect crawler config
@@ -388,14 +354,15 @@ def config_docs(
             )
 
     # Introspect AI config
-    ai_config = LightRAGConfig()
+    ai_config = AiConfig()
     ai_data = ai_config.model_dump()
 
     # LLM
-    for field_name, field_info in type(ai_config.llm).model_fields.items():
+    for field_name in ("llm_model", "llm_api_base", "llm_api_key"):
+        field_info = type(ai_config).model_fields[field_name]
         description = field_info.description or ""
         default = field_info.default
-        value = ai_data.get("llm", {}).get(field_name)
+        value = ai_data.get(field_name)
 
         sections["llm"].append(
             {
@@ -407,13 +374,14 @@ def config_docs(
             }
         )
 
-    # Embedding
-    for field_name, field_info in type(ai_config.embedding).model_fields.items():
+    # Extraction toggles
+    for field_name in ("extract_tables", "extract_figures", "extract_equations", "figure_description_enabled"):
+        field_info = type(ai_config).model_fields[field_name]
         description = field_info.description or ""
         default = field_info.default
-        value = ai_data.get("embedding", {}).get(field_name)
+        value = ai_data.get(field_name)
 
-        sections["embedding"].append(
+        sections["extraction"].append(
             {
                 "field": field_name,
                 "type": field_info.annotation.__name__ if hasattr(field_info.annotation, "__name__") else str(field_info.annotation),
@@ -423,13 +391,26 @@ def config_docs(
             }
         )
 
-    # Database
-    for field_name, field_info in type(ai_config.database).model_fields.items():
+    # Runtime behavior
+    for field_name in (
+        "convert_pdf",
+        "convert_md",
+        "vlm",
+        "device",
+        "num_threads",
+        "batch_size",
+        "parallelism",
+        "max_chunk_size",
+        "chunk_overlap",
+        "abstract_min_words",
+        "abstract_max_words",
+    ):
+        field_info = type(ai_config).model_fields[field_name]
         description = field_info.description or ""
         default = field_info.default
-        value = ai_data.get("database", {}).get(field_name)
+        value = ai_data.get(field_name)
 
-        sections["database"].append(
+        sections["runtime"].append(
             {
                 "field": field_name,
                 "type": field_info.annotation.__name__ if hasattr(field_info.annotation, "__name__") else str(field_info.annotation),
@@ -438,37 +419,6 @@ def config_docs(
                 "description": description,
             }
         )
-
-    # Extraction and workspace (direct fields)
-    for field_name, field_info in ai_config.model_fields.items():
-        if field_name in ("extract_tables", "extract_figures", "extract_equations", "figure_description_enabled"):
-            description = field_info.description or ""
-            default = field_info.default
-            value = ai_data.get(field_name)
-
-            sections["extraction"].append(
-                {
-                    "field": field_name,
-                    "type": field_info.annotation.__name__ if hasattr(field_info.annotation, "__name__") else str(field_info.annotation),
-                    "default": default,
-                    "value": value,
-                    "description": description,
-                }
-            )
-        elif field_name in ("workspace", "default_query_mode", "shared_storage"):
-            description = field_info.description or ""
-            default = field_info.default
-            value = ai_data.get(field_name)
-
-            sections["workspace"].append(
-                {
-                    "field": field_name,
-                    "type": field_info.annotation.__name__ if hasattr(field_info.annotation, "__name__") else str(field_info.annotation),
-                    "default": default,
-                    "value": value,
-                    "description": description,
-                }
-            )
 
     if section:
         # Show specific section
@@ -484,7 +434,7 @@ def config_docs(
         # Show all sections
         for section_name, fields_list in sections.items():
             _print_section_docs(section_name, fields_list, _get_section_description(section_name))
-            if section_name != "workspace":
+            if section_name != "runtime":
                 rprint()
 
 
@@ -496,10 +446,8 @@ def _get_section_description(section: str) -> str:
         "credentials": "ETSI Online (EOL) portal authentication credentials",
         "crawl": "Crawling behavior, filters, and limits",
         "llm": "LLM model and API configuration",
-        "embedding": "Embedding model and API configuration",
-        "database": "Storage backend selection (file-based or pg0)",
         "extraction": "Document element extraction toggles (tables, figures, equations)",
-        "workspace": "Workspace defaults and query behavior",
+        "runtime": "Runtime conversion, VLM, threading, and chunking behavior",
     }
     return descriptions.get(section, "")
 
