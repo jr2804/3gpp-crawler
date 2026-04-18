@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from tdoc_crawler.http_client.session import (
     PoolConfig,
-    SSLContextCacheAdapter,
-    SSLContextHTTPAdapter,
     create_cached_session,
     download_to_file,
     resolve_ssl_verify,
@@ -19,8 +17,6 @@ from tdoc_crawler.http_client.session import (
 
 __all__ = [
     "PoolConfig",
-    "SSLContextCacheAdapter",
-    "SSLContextHTTPAdapter",
     "create_cached_session",
     "download_to_file",
     "resolve_ssl_verify",

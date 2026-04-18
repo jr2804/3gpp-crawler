@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import ssl
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import niquests as requests
+from hishel._core._headers import Headers
+from hishel._core.models import Request, Response
 from hishel import SyncBaseStorage, SyncSqliteStorage
-from hishel.requests import CacheAdapter
+from hishel.requests import CacheAdapter, extract_metadata_from_headers, snake_to_header
 from niquests.adapters import HTTPAdapter
-from truststore import SSLContext as TruststoreSSLContext
+from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
@@ -21,40 +22,71 @@ from tdoc_crawler.logging import get_logger
 logger = get_logger(__name__)
 
 
-class SSLContextHTTPAdapter(HTTPAdapter):
-    """HTTP adapter that can enforce a specific SSL context."""
+def _niquests_to_internal_request(model: requests.models.PreparedRequest) -> Request:
+    """Convert niquests prepared request into hishel internal request model."""
+    body: bytes
+    if isinstance(model.body, str):
+        body = model.body.encode("utf-8")
+    elif isinstance(model.body, bytes):
+        body = model.body
+    else:
+        body = b""
 
-    def __init__(self, *args: object, ssl_context: ssl.SSLContext | None = None, **kwargs: object) -> None:
-        self._ssl_context = ssl_context
-        super().__init__(*args, **kwargs)
+    if model.method is None:
+        raise ValueError("prepared request method must not be None")
 
-    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
-        if self._ssl_context is not None:
-            pool_kwargs["ssl_context"] = self._ssl_context
-        super().init_poolmanager(connections=connections, maxsize=maxsize, block=block, **pool_kwargs)
-
-    def proxy_manager_for(self, proxy: str, **proxy_kwargs: object) -> object:
-        if self._ssl_context is not None:
-            proxy_kwargs["ssl_context"] = self._ssl_context
-        return super().proxy_manager_for(proxy, **proxy_kwargs)
+    return Request(
+        method=model.method,
+        url=str(model.url),
+        headers=Headers(model.headers),
+        stream=iter([body]),
+        metadata=extract_metadata_from_headers(model.headers),
+    )
 
 
-class SSLContextCacheAdapter(CacheAdapter):
-    """Cache adapter variant that can enforce a specific SSL context."""
+def _internal_to_niquests_response(model: Response) -> requests.models.Response:
+    """Convert hishel internal response model into niquests response model."""
+    response = requests.models.Response()
 
-    def __init__(self, *args: object, ssl_context: ssl.SSLContext | None = None, **kwargs: object) -> None:
-        self._ssl_context = ssl_context
-        super().__init__(*args, **kwargs)
+    body = b"".join(model.stream) if model.stream is not None else b""
+    metadata_headers = {snake_to_header(key): str(value) for key, value in model.metadata.items()}
 
-    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
-        if self._ssl_context is not None:
-            pool_kwargs["ssl_context"] = self._ssl_context
-        super().init_poolmanager(connections=connections, maxsize=maxsize, block=block, **pool_kwargs)
+    response.raw = HTTPResponse(
+        body=body,
+        headers={**model.headers, **metadata_headers},
+        status=model.status_code,
+        preload_content=False,
+        decode_content=False,
+    )
+    response.status_code = model.status_code
+    response.headers.update(model.headers)
+    response.headers.update(metadata_headers)
+    response._content = body
+    response._content_consumed = True
+    response.url = ""
 
-    def proxy_manager_for(self, proxy: str, **proxy_kwargs: object) -> object:
-        if self._ssl_context is not None:
-            proxy_kwargs["ssl_context"] = self._ssl_context
-        return super().proxy_manager_for(proxy, **proxy_kwargs)
+    return response
+
+
+class _NiquetsCacheAdapter(CacheAdapter):
+    """Bridges niquests PreparedRequest to hishel CacheAdapter.
+
+    niquests.PreparedRequest does not inherit requests.PreparedRequest,
+    so hishel's isinstance checks would fail without this bridge.
+    """
+
+    def send(
+        self,
+        request: requests.models.PreparedRequest,
+        **_kwargs: object,
+    ) -> requests.models.Response:
+        """Bridge niquests request/response objects to hishel cache internals."""
+        internal_request = _niquests_to_internal_request(request)
+        internal_response = self._cache_proxy.handle_request(internal_request)
+        response = _internal_to_niquests_response(internal_response)
+        response.request = request
+        response.connection = self  # type: ignore[assignment]
+        return response
 
 
 @dataclass
@@ -105,20 +137,6 @@ def resolve_ssl_verify(
         logger.warning("SSL certificate verification is disabled. This is insecure.")
 
     return resolved
-
-
-def _resolve_ssl_context(verify: bool | str) -> ssl.SSLContext | None:
-    """Build SSL context for adapter-level TLS verification.
-
-    Args:
-        verify: Resolved SSL verification behavior.
-
-    Returns:
-        SSL context when adapter-level override is needed, otherwise None.
-    """
-    if verify is True:
-        return TruststoreSSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    return None
 
 
 def download_to_file(
@@ -216,7 +234,6 @@ def create_cached_session(
 
     # Use http_config for SSL if no explicit verify provided
     verify_mode = http_config.verify_ssl if verify is None and http_config is not None else resolve_ssl_verify(verify, http_config)
-    ssl_context = _resolve_ssl_context(verify_mode)
     session.verify = verify_mode
 
     # Resolve cache enabled flag: explicit param → http_config → default True
@@ -224,27 +241,26 @@ def create_cached_session(
         http_cache_enabled = http_config.cache_enabled if http_config is not None else True
 
     # If caching is disabled, optionally configure a pooled HTTP adapter and return.
+    # niquests handles SSL natively, so no custom SSL context injection is needed.
     if not http_cache_enabled:
-        if pool_config is not None or ssl_context is not None:
-            retry_attempts = pool_config.retry_attempts if pool_config and pool_config.enable_retry else 0
+        if pool_config is not None:
+            retry_attempts = pool_config.retry_attempts if pool_config.enable_retry else 0
             retry_strategy = Retry(
                 total=retry_attempts,
                 backoff_factor=1,
                 status_forcelist=[429, 500, 502, 503, 504],
                 allowed_methods=["HEAD", "GET", "OPTIONS"],
             )
-            adapter = SSLContextHTTPAdapter(
-                pool_connections=pool_config.max_connections if pool_config is not None else 10,
-                pool_maxsize=pool_config.max_per_host if pool_config is not None else 10,
+            adapter = HTTPAdapter(
+                pool_connections=pool_config.max_connections,
+                pool_maxsize=pool_config.max_per_host,
                 max_retries=retry_strategy,
-                ssl_context=ssl_context,
             )
             session.mount("http://", adapter)
             session.mount("https://", adapter)
-            if pool_config is not None:
-                logger.debug(
-                    f"Configured connection pool without caching: max_connections={pool_config.max_connections}, max_per_host={pool_config.max_per_host}"
-                )
+            logger.debug(
+                f"Configured connection pool without caching: max_connections={pool_config.max_connections}, max_per_host={pool_config.max_per_host}"
+            )
 
         logger.debug("Creating plain HTTP session (caching disabled)")
         return session
@@ -279,12 +295,12 @@ def create_cached_session(
     )
 
     # Create a single cache adapter with pool settings so both behaviors are active.
-    cache_adapter = SSLContextCacheAdapter(
+    # _NiquetsCacheAdapter bridges niquests<->hishel type incompatibility in send().
+    cache_adapter = _NiquetsCacheAdapter(
         pool_connections=pool_config.max_connections if pool_config is not None else 10,
         pool_maxsize=pool_config.max_per_host if pool_config is not None else 10,
         max_retries=max_retries,
         storage=storage,
-        ssl_context=ssl_context,
     )
 
     # Mount the cache adapter
@@ -299,8 +315,6 @@ def create_cached_session(
 
 __all__ = [
     "PoolConfig",
-    "SSLContextCacheAdapter",
-    "SSLContextHTTPAdapter",
     "create_cached_session",
     "download_to_file",
     "resolve_ssl_verify",
