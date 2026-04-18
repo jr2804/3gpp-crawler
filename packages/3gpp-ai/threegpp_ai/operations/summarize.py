@@ -59,9 +59,9 @@ def _enforce_quality_policy(
         return status, "summarize continuing with degraded extraction quality (partial status)"
 
     if status == "failed":
-        if allow_failed_quality:
-            return status, "summarize override enabled for failed extraction quality status"
-        raise ValueError("summarize blocked: extraction quality is failed (use explicit override to proceed)")
+        if policy_mode == "strict" and not allow_failed_quality:
+            raise ValueError("summarize blocked: extraction quality is failed (use explicit override to proceed)")
+        return status, "summarize continuing with failed extraction quality (results may be incomplete)"
 
     return status, f"summarize continuing with unrecognized extraction status '{status}'"
 

@@ -143,7 +143,7 @@ def test_summarize_tdoc_records_summarization_metric(monkeypatch: pytest.MonkeyP
 
 
 def test_summarize_tdoc_blocks_failed_quality_without_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Failed extraction quality blocks summarize by default."""
+    """Failed extraction quality blocks summarize under strict policy without override."""
     tracker = get_metrics_tracker()
     tracker.clear()
 
@@ -156,7 +156,7 @@ def test_summarize_tdoc_blocks_failed_quality_without_override(monkeypatch: pyte
     monkeypatch.setattr(
         summarize_ops,
         "AiConfig",
-        lambda: SimpleNamespace(llm_model="test-model", quality_policy_mode="balanced", allow_failed_quality=False),
+        lambda: SimpleNamespace(llm_model="test-model", quality_policy_mode="strict", allow_failed_quality=False),
     )
 
     with pytest.raises(ValueError, match="quality is failed"):

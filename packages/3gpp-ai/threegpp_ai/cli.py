@@ -598,7 +598,10 @@ def ai_summarize(
         return
 
     console.print(f"## Summary for {document_id}")
-    console.print(result.summary)
+    if not result.summary or not result.summary.strip():
+        console.print("[No summary content available — the document may have insufficient extractable text.]")
+    else:
+        console.print(result.summary)
 
 
 @app.command("convert", help="Convert a single TDoc to markdown format.")
