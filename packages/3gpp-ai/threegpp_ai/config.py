@@ -18,6 +18,7 @@ DEFAULT_LLM_MODEL = "openrouter/openrouter/free"
 # Type aliases
 ExtractionProfile = Literal["default", "balanced", "optimum", "custom"]
 GraphQueryLevel = Literal["simple", "medium", "advanced"]
+QualityPolicyMode = Literal["strict", "balanced", "permissive"]
 
 
 class AiConfig(BaseSettings):
@@ -166,6 +167,18 @@ class AiConfig(BaseSettings):
         description="Enable figure description generation with vision-capable models",
     )
 
+    # Extraction quality policy
+    quality_policy_mode: QualityPolicyMode = Field(
+        "balanced",
+        validation_alias=AliasChoices("TDC_AI_QUALITY_POLICY_MODE", "quality_policy_mode"),
+        description="Policy for downstream handling of extraction quality status (strict|balanced|permissive)",
+    )
+    allow_failed_quality: bool = Field(
+        False,
+        validation_alias=AliasChoices("TDC_AI_ALLOW_FAILED_QUALITY", "allow_failed_quality"),
+        description="Allow one-off summarize execution for failed extraction quality status",
+    )
+
     # Graph
     graph_query_level: GraphQueryLevel = Field(
         "simple",
@@ -183,6 +196,7 @@ class AiConfig(BaseSettings):
             raise ValueError(msg)
         return self
 
+
 class ThreeGPPAIConfig(ThreeGPPConfig):
     """Extended config for 3gpp-ai, adding [ai] section.
 
@@ -193,4 +207,4 @@ class ThreeGPPAIConfig(ThreeGPPConfig):
     ai: AiConfig = Field(default_factory=AiConfig)
 
 
-__all__ = ["AiConfig", "ExtractionProfile", "GraphQueryLevel", "ThreeGPPAIConfig"]
+__all__ = ["AiConfig", "ExtractionProfile", "GraphQueryLevel", "QualityPolicyMode", "ThreeGPPAIConfig"]

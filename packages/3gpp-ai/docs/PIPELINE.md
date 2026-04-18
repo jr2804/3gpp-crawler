@@ -104,11 +104,18 @@ Generates LLM-powered summary of TDoc content.
 
 **Pipeline:**
 
-1. Get markdown via `convert_tdoc_to_markdown()`
+1. Get structured extraction via `extract_tdoc_structured()`
+1. Prefer structured context (equations/tables/figures with provenance) and fall back to markdown-only when structured artifacts are unavailable
 1. Truncate to `SUMMARY_INPUT_LIMIT` (8000 chars)
 1. Generate summary via LiteLLM
 1. Extract keywords via LiteLLM
 1. Return `SummarizeResult`
+
+**Output mode selector:**
+
+- `--output-mode standard` (default): current summarize output shape
+- `--output-mode wiki`: wiki-ready rendering with section headers and citation-friendly layout
+- Mode only changes CLI rendering shape; summarize operation contract remains unchanged
 
 ## File Type Priority
 
@@ -152,7 +159,8 @@ To force re-conversion:
 3gpp-ai convert <tdoc_id> [--output FILE] [--force]
 
 # Summarize TDoc
-3gpp-ai summarize <tdoc_id> [--max-words N] [--force] [--json-output]
+3gpp-ai summarize <tdoc_id> [--words N] [--force]
+3gpp-ai summarize <tdoc_id> [--output-mode standard|wiki]
 ```
 
 ## Error Handling

@@ -42,6 +42,7 @@ from threegpp_ai.operations.extraction_result import (
     persist_equations_from_extraction,
     persist_figures_from_docling_result,
     persist_figures_from_extraction,
+    persist_output_contracts,
     persist_tables_from_extraction,
     read_cached_artifacts,
 )
@@ -513,13 +514,14 @@ def extract_document_structured(
             tables = cached.tables if "tables" in extract_types else []
             figures = cached.figures if "figures" in extract_types else []
             equations = cached.equations if "equations" in extract_types else []
-            return build_structured_extraction_result(
+            result = build_structured_extraction_result(
                 cached_content,
                 tables=tables,
                 figures=figures,
                 equations=equations,
                 metadata=merged_metadata | {"cache_hit": True},
             )
+            return persist_output_contracts(ai_dir, doc_stem, result)
 
     # No valid cache found, perform fresh extraction
     if file_path.suffix.lower() == ".pdf":
@@ -572,7 +574,7 @@ def extract_document_structured(
         logger.info("Saved markdown: %s", md_path)
     # Persist artifacts
     _persist_extraction_artifacts(ai_dir, doc_stem, extraction, extract_types=extract_types)
-    return extraction
+    return persist_output_contracts(ai_dir, doc_stem, extraction)
 
 
 def extract_document_text(

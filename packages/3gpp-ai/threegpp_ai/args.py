@@ -23,6 +23,29 @@ CacheDirOption = Annotated[
 SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
 SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count")]
 SummarizeForceOption = Annotated[bool, typer.Option("--force", "-f", help="Force reconversion even if cached")]
+SummarizeQualityPolicyOption = Annotated[
+    str | None,
+    typer.Option(
+        "--quality-policy",
+        help="Quality policy mode: strict, balanced, permissive",
+        envvar="TDC_AI_QUALITY_POLICY_MODE",
+    ),
+]
+SummarizeAllowFailedQualityOption = Annotated[
+    bool,
+    typer.Option(
+        "--allow-failed-quality/--no-allow-failed-quality",
+        help="Allow summarize when extraction quality status is failed",
+        envvar="TDC_AI_ALLOW_FAILED_QUALITY",
+    ),
+]
+SummarizeOutputModeOption = Annotated[
+    str,
+    typer.Option(
+        "--output-mode",
+        help="Summarize output shape: standard or wiki",
+    ),
+]
 
 # Convert
 ConvertDocumentArgument = Annotated[str, typer.Argument(help="Document ID to convert")]

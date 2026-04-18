@@ -19,9 +19,20 @@ def test_config_accepts_profile_literals() -> None:
         assert config.extraction_profile == profile
 
 
+def test_config_accepts_quality_policy_literals() -> None:
+    for mode in ("strict", "balanced", "permissive"):
+        config = AiConfig(quality_policy_mode=mode)
+        assert config.quality_policy_mode == mode
+
+
 def test_config_rejects_invalid_profile() -> None:
     with pytest.raises(ValidationError):
         AiConfig(extraction_profile="invalid")
+
+
+def test_config_rejects_invalid_quality_policy_mode() -> None:
+    with pytest.raises(ValidationError):
+        AiConfig(quality_policy_mode="invalid")
 
 
 def test_workspace_process_help_exposes_profile_options() -> None:
@@ -81,3 +92,5 @@ def test_extraction_metadata_includes_profile_and_effective_settings(monkeypatch
     assert settings["equations"] is True
     assert settings["enrichment"] is False
     assert result.metadata["cache_hit"] is True
+    assert result.metadata["canonical_json_path"].endswith(".canonical.json")
+    assert result.metadata["manifest_path"].endswith("_manifest.json")

@@ -40,6 +40,23 @@ class GraphEdgeType(StrEnum):
     REVISION_OF = auto()  # is_revision_of metadata relationship
 
 
+class ExtractionQualityStatus(StrEnum):
+    """Deterministic extraction quality status."""
+
+    OK = "ok"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+class ExtractionQualityReasonCode(StrEnum):
+    """Stable machine-readable reason codes for quality gate outcomes."""
+
+    MISSING_ARTIFACT = "missing_artifact"
+    MISSING_METADATA = "missing_metadata"
+    INVALID_PROVENANCE = "invalid_provenance"
+    COVERAGE_MISMATCH = "coverage_mismatch"
+
+
 class SourceKind(StrEnum):
     """Kinds of source items that can be part of a workspace corpus."""
 
@@ -174,8 +191,13 @@ class ExtractedTableElement(BaseModel):
     row_count: int = Field(0, ge=0, description="Number of table rows")
     column_count: int = Field(0, ge=0, description="Number of table columns")
     cells: list[list[str]] = Field(default_factory=list, description="Normalized table cell matrix")
+    cell_metadata: list[list[dict[str, Any] | None]] = Field(
+        default_factory=list,
+        description="Optional per-cell metadata matrix aligned with `cells`",
+    )
     markdown: str | None = Field(None, description="Markdown representation of the table")
     caption: str | None = Field(None, description="Detected table caption")
+    source_anchor_id: str | None = Field(None, description="Normalized source anchor identifier for provenance")
 
 
 class ExtractedFigureElement(BaseModel):
@@ -187,6 +209,12 @@ class ExtractedFigureElement(BaseModel):
     image_format: str | None = Field(None, description="Image format, e.g. png, jpeg")
     caption: str | None = Field(None, description="Detected figure caption")
     description: str | None = Field(None, description="Optional generated figure description")
+    source_anchor_id: str | None = Field(None, description="Normalized source anchor identifier for provenance")
+    is_partial: bool = Field(False, description="Whether figure record is partial and contains degraded fields")
+    partial_reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Machine-readable diagnostics describing why figure payload is partial",
+    )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Provider/extraction metadata")
 
 
@@ -198,6 +226,59 @@ class ExtractedEquationElement(BaseModel):
     equation_number: str | None = Field(None, description="Equation label/number if available")
     latex: str = Field(..., description="Equation content in LaTeX-compatible format")
     raw_text: str | None = Field(None, description="Original extracted equation text")
+    source_anchor_id: str | None = Field(None, description="Normalized source anchor identifier for provenance")
+    normalized_text: str | None = Field(None, description="Normalized equation text for machine-readable comparison")
+    equation_type: str | None = Field(None, description="Equation syntax family, e.g. latex")
+    display_mode: str | None = Field(None, description="Equation rendering mode: inline or display")
+
+
+class PageMetadataContract(BaseModel):
+    """Canonical page-level metadata contract for extraction artifacts."""
+
+    page_number: int = Field(..., ge=1, description="1-based page number")
+    table_count: int = Field(0, ge=0, description="Number of extracted tables on this page")
+    figure_count: int = Field(0, ge=0, description="Number of extracted figures on this page")
+    equation_count: int = Field(0, ge=0, description="Number of extracted equations on this page")
+
+
+class DocumentMetadataContract(BaseModel):
+    """Canonical document-level metadata contract for extraction outputs."""
+
+    document_id: str | None = Field(None, description="Document identifier if available")
+    title: str | None = Field(None, description="Document title if available")
+    source_path: str | None = Field(None, description="Resolved source path if available")
+    file_extension: str | None = Field(None, description="Source file extension, e.g. .pdf")
+    total_pages: int | None = Field(None, ge=1, description="Detected total page count if available")
+    extraction_profile: str | None = Field(None, description="Resolved extraction profile")
+    extraction_status: str = Field("ok", description="Extraction status: ok|partial|failed")
+    config_hash: str | None = Field(None, description="Deterministic extraction config fingerprint")
+
+
+class QualityGateCheckResult(BaseModel):
+    """Single quality gate check result."""
+
+    gate: str = Field(..., description="Gate identifier")
+    passed: bool = Field(..., description="Whether the gate passed")
+    reason_code: ExtractionQualityReasonCode | None = Field(
+        None,
+        description="Reason code when gate fails",
+    )
+    message: str | None = Field(None, description="Optional human-readable gate detail")
+
+
+class ExtractionQualityReport(BaseModel):
+    """Deterministic quality report persisted per document."""
+
+    status: ExtractionQualityStatus = Field(..., description="Final deterministic extraction status")
+    reason_codes: list[ExtractionQualityReasonCode] = Field(
+        default_factory=list,
+        description="Unique reason codes for failed checks",
+    )
+    checks: list[QualityGateCheckResult] = Field(default_factory=list, description="Gate-by-gate outcomes")
+    gate_metrics_summary: dict[str, int | float] = Field(
+        default_factory=dict,
+        description="Compact gate metrics summary",
+    )
 
 
 class StructuredExtractionResult(BaseModel):
@@ -207,6 +288,11 @@ class StructuredExtractionResult(BaseModel):
     tables: list[ExtractedTableElement] = Field(default_factory=list, description="Extracted tables")
     figures: list[ExtractedFigureElement] = Field(default_factory=list, description="Extracted figures")
     equations: list[ExtractedEquationElement] = Field(default_factory=list, description="Extracted equations")
+    document_metadata: DocumentMetadataContract | None = Field(
+        None,
+        description="Canonical document-level metadata contract",
+    )
+    pages: list[PageMetadataContract] = Field(default_factory=list, description="Canonical page-level metadata contracts")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Document-level extraction metadata")
 
     @property
@@ -308,15 +394,25 @@ __all__ = [
     "AiError",
     "ConversionError",
     "DocumentClassification",
+    "DocumentMetadataContract",
     "DocumentSummary",
     "EmbeddingDimensionError",
+    "ExtractedEquationElement",
+    "ExtractedFigureElement",
+    "ExtractedTableElement",
     "ExtractionError",
+    "ExtractionQualityReasonCode",
+    "ExtractionQualityReport",
+    "ExtractionQualityStatus",
     "GraphEdge",
     "GraphEdgeType",
     "GraphNode",
     "GraphNodeType",
     "LlmConfigError",
+    "PageMetadataContract",
+    "QualityGateCheckResult",
     "SourceKind",
+    "StructuredExtractionResult",
     "SummarizeResult",
     "TDocNotFoundError",
     "Workspace",

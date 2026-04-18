@@ -130,12 +130,94 @@ def test_summarize_tdoc_records_summarization_metric(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(
         summarize_ops,
         "AiConfig",
-        lambda: SimpleNamespace(llm_model="test-model"),
+        lambda: SimpleNamespace(llm_model="test-model", quality_policy_mode="balanced", allow_failed_quality=False),
     )
 
     result = summarize_ops.summarize_tdoc("S4-260001")
 
     assert result.word_count > 0
+    assert result.metadata["context_mode"] == "markdown_fallback"
     summary_metrics = [m for m in tracker.metrics if m.metric_type is MetricType.SUMMARIZATION]
     assert len(summary_metrics) == 1
     assert summary_metrics[0].success is True
+
+
+def test_summarize_tdoc_blocks_failed_quality_without_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Failed extraction quality blocks summarize by default."""
+    tracker = get_metrics_tracker()
+    tracker.clear()
+
+    monkeypatch.setattr(
+        summarize_ops,
+        "extract_tdoc_structured",
+        lambda *_args, **_kwargs: SimpleNamespace(content="source content", metadata={"extraction_status": "failed"}),
+    )
+    monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
+    monkeypatch.setattr(
+        summarize_ops,
+        "AiConfig",
+        lambda: SimpleNamespace(llm_model="test-model", quality_policy_mode="balanced", allow_failed_quality=False),
+    )
+
+    with pytest.raises(ValueError, match="quality is failed"):
+        summarize_ops.summarize_tdoc("S4-260001")
+
+
+def test_summarize_tdoc_allows_failed_quality_with_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit override allows summarize despite failed extraction quality."""
+    tracker = get_metrics_tracker()
+    tracker.clear()
+
+    monkeypatch.setattr(
+        summarize_ops,
+        "extract_tdoc_structured",
+        lambda *_args, **_kwargs: SimpleNamespace(content="source content", metadata={"extraction_status": "failed"}),
+    )
+    monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
+    monkeypatch.setattr(
+        summarize_ops,
+        "AiConfig",
+        lambda: SimpleNamespace(llm_model="test-model", quality_policy_mode="balanced", allow_failed_quality=False),
+    )
+
+    result = summarize_ops.summarize_tdoc("S4-260001", allow_failed_quality=True)
+    assert result.word_count > 0
+    assert result.metadata["extraction_status"] == "failed"
+    assert result.metadata["allow_failed_quality"] is True
+
+
+def test_summarize_tdoc_uses_nested_document_metadata_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Summarize remains compatible when status is carried in document_metadata only."""
+    tracker = get_metrics_tracker()
+    tracker.clear()
+
+    extraction = SimpleNamespace(
+        content="source content",
+        metadata={},
+        document_metadata=SimpleNamespace(extraction_status="ok"),
+        equations=[
+            SimpleNamespace(
+                element_id="equation_1",
+                normalized_text="a + b = c",
+                equation_type="latex",
+                display_mode="display",
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        summarize_ops,
+        "extract_tdoc_structured",
+        lambda *_args, **_kwargs: extraction,
+    )
+    monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
+    monkeypatch.setattr(
+        summarize_ops,
+        "AiConfig",
+        lambda: SimpleNamespace(llm_model="test-model", quality_policy_mode="balanced", allow_failed_quality=False),
+    )
+
+    result = summarize_ops.summarize_tdoc("S4-260001")
+    assert result.word_count > 0
+    assert result.metadata["extraction_status"] == "ok"
+    assert result.metadata["context_mode"] == "structured"

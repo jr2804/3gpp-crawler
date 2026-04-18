@@ -33,6 +33,9 @@ def test_summarize_help_shows_description() -> None:
 
     assert result.exit_code == 0
     assert "Summarize a single document with specified word count." in result.stdout
+    assert "--quality-policy" in result.stdout
+    assert "--no-allow" in result.stdout
+    assert "--output-mode" in result.stdout
 
 
 def test_convert_help_shows_description() -> None:

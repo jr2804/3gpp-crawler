@@ -305,6 +305,9 @@ def extract_document_structured_from_tdoc(
                 "source": metadata.source or "",
                 "tdoc_type": metadata.tdoc_type,
                 "url": metadata.url or "",
+                "source_path": str(primary),
+                "file_extension": primary.suffix.lower(),
+                "extraction_status": "ok",
             }
 
         # Delegate to unified extraction pipeline

@@ -68,8 +68,11 @@ from threegpp_ai.args import (
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
+    SummarizeAllowFailedQualityOption,
     SummarizeDocumentArgument,
     SummarizeForceOption,
+    SummarizeOutputModeOption,
+    SummarizeQualityPolicyOption,
     SummarizeWordsOption,
     TitlePatternExcludeOption,
     TitlePatternOption,
@@ -564,9 +567,36 @@ def ai_summarize(
     document_id: SummarizeDocumentArgument,
     words: SummarizeWordsOption = 200,
     force: SummarizeForceOption = False,
+    quality_policy: SummarizeQualityPolicyOption = None,
+    allow_failed_quality: SummarizeAllowFailedQualityOption = False,
+    output_mode: SummarizeOutputModeOption = "standard",
 ) -> None:
     """Summarize one TDoc through the 3gpp-ai pipeline."""
-    result = summarize_document(document_id=document_id, max_words=words, force=force)
+    normalized_mode = output_mode.strip().lower()
+    if normalized_mode not in {"standard", "wiki"}:
+        raise typer.BadParameter("--output-mode must be one of: standard, wiki")
+
+    result = summarize_document(
+        document_id=document_id,
+        max_words=words,
+        force=force,
+        quality_policy_mode=quality_policy,
+        allow_failed_quality=allow_failed_quality,
+    )
+    if normalized_mode == "wiki":
+        console.print(f"## Wiki Summary for {document_id}")
+        console.print("### Abstract")
+        console.print(result.summary)
+        if result.keywords:
+            console.print("### Keywords")
+            for keyword in result.keywords:
+                console.print(f"- {keyword}")
+        extraction_status = result.metadata.get("extraction_status")
+        if extraction_status:
+            console.print("### Source Quality")
+            console.print(f"Extraction status: {extraction_status}")
+        return
+
     console.print(f"## Summary for {document_id}")
     console.print(result.summary)
 
