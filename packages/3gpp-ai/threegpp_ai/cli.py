@@ -586,11 +586,16 @@ def ai_summarize(
     if normalized_mode == "wiki":
         console.print(f"## Wiki Summary for {document_id}")
         console.print("### Abstract")
-        console.print(result.summary)
+        if not result.summary or not result.summary.strip():
+            console.print("[No summary content available — the document may have insufficient extractable text.]")
+        else:
+            console.print(result.summary)
+        console.print("### Keywords")
         if result.keywords:
-            console.print("### Keywords")
             for keyword in result.keywords:
                 console.print(f"- {keyword}")
+        else:
+            console.print("- none")
         extraction_status = result.metadata.get("extraction_status")
         if extraction_status:
             console.print("### Source Quality")

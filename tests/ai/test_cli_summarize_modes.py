@@ -40,6 +40,28 @@ def test_summarize_wiki_mode(monkeypatch) -> None:
     assert "### Source Quality" in result.stdout
 
 
+def test_summarize_wiki_mode_renders_empty_fallbacks(monkeypatch) -> None:
+    runner = CliRunner()
+
+    def _empty_stub(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            summary="",
+            keywords=[],
+            metadata={"extraction_status": "failed"},
+        )
+
+    monkeypatch.setattr("threegpp_ai.cli.summarize_document", _empty_stub)
+
+    result = runner.invoke(app, ["summarize", "S4-260001", "--output-mode", "wiki"])
+
+    assert result.exit_code == 0
+    assert "### Abstract" in result.stdout
+    assert "No summary content available" in result.stdout
+    assert "### Keywords" in result.stdout
+    assert "- none" in result.stdout
+    assert "### Source Quality" in result.stdout
+
+
 def test_summarize_rejects_invalid_output_mode(monkeypatch) -> None:
     runner = CliRunner()
     monkeypatch.setattr("threegpp_ai.cli.summarize_document", _stub_result)
