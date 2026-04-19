@@ -31,6 +31,7 @@ from threegpp_ai import (
     checkout_tdoc_to_workspace,
     convert_tdoc_to_markdown,
     create_workspace,
+    delete_ai_folder,
     delete_workspace,
     ensure_ai_subfolder,
     get_active_workspace,
@@ -86,6 +87,7 @@ from threegpp_ai.args import (
     WorkspaceNameArgument,
     WorkspaceNameOption,
     WorkspaceProcessForceOption,
+    WorkspaceProcessSkipExistingOption,
     WorkspaceProcessVlmOption,
     WorkspaceReleaseOption,
 )
@@ -431,6 +433,7 @@ async def _process_workspace_members(
     on_progress: Callable[[int, str], None] | None = None,
     checkout: bool = True,
     convert_md: bool = False,
+    skip_existing: bool = False,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
     profile: str | None = None,
@@ -449,6 +452,7 @@ async def _process_workspace_members(
         on_progress: Optional callback(completed_count, source_item_id) called after each member
         checkout: Whether to checkout documents if not available
         convert_md: Whether to extract markdown (implies PDF conversion)
+        skip_existing: If True, skip extraction for components that already exist.
         vlm_options: Optional VLM features for extraction.
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
         profile: Extraction profile override.
@@ -524,6 +528,7 @@ async def _process_workspace_members(
                 file_path,
                 metadata=None,
                 force=False,
+                skip_existing=skip_existing,
                 vlm_options=vlm_options,
                 accelerator_config=accelerator_config,
                 profile=profile,
@@ -948,8 +953,8 @@ def workspace_list_members(
         console.print(f"[red]Workspace '{workspace_name}' not found[/red]")
         raise typer.Exit(1)
 
-    manager = typer.get_current_context().obj.path
-    checkout_base = manager.checkout_dir
+    manager = PathConfig()
+    checkout_base = manager.cache_dir / manager.checkout_dirname
 
     member_rows = [
         {
@@ -1000,6 +1005,7 @@ def workspace_list_members(
 def workspace_process(
     workspace: WorkspaceNameOption = None,
     force: WorkspaceProcessForceOption = False,
+    skip_existing: WorkspaceProcessSkipExistingOption = False,
     limit: WorkspaceLimitOption = None,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
     checkout: WorkspaceCheckoutOption = True,
@@ -1064,6 +1070,7 @@ def workspace_process(
                 on_progress=on_progress,
                 checkout=checkout,
                 convert_md=True,
+                skip_existing=skip_existing,
                 vlm_options=vlm_options,
                 accelerator_config=accelerator_config,
                 profile=profile,
@@ -1104,12 +1111,104 @@ def workspace_process(
 @workspace_app.command("delete", help="Delete a workspace")
 def workspace_delete(
     name: WorkspaceNameArgument,
+    delete_artifacts: Annotated[
+        bool,
+        typer.Option(
+            "--delete-artifacts",
+            help="Also delete all .ai processing artifacts in the checkout folder for this workspace's members",
+        ),
+    ] = False,
 ) -> None:
-    result = delete_workspace(name)
-    if not result:
+    deleted = delete_workspace(name, delete_artifacts=delete_artifacts)
+    if not deleted:
         console.print(f"[red]Failed to delete workspace '{name}'[/red]")
         raise typer.Exit(1)
     console.print(f"[green]Deleted workspace: {name}[/green]")
+
+
+@app.command("clear", help="Delete all .ai processing artifacts from checkout/cache folders")
+def clear_artifacts(
+    path: Annotated[
+        Path | None,
+        typer.Option(
+            "--path",
+            "-p",
+            help="Path to clear .ai folders from. Defaults to checkout directory.",
+        ),
+    ] = None,
+    workspace: Annotated[
+        str | None,
+        typer.Option(
+            "--workspace",
+            "-w",
+            help="Clear only .ai folders for members of this workspace.",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Show what would be deleted without actually deleting.",
+        ),
+    ] = False,
+) -> None:
+    """Delete all .ai processing artifacts from checkout folders.
+
+    Use this to force re-extraction of all documents.
+    """
+    if path is None:
+        path_config = PathConfig()
+        checkout_path = path_config.cache_dir / path_config.checkout_dirname
+    else:
+        checkout_path = path
+
+    if workspace is not None:
+        # Clear only .ai folders for workspace members
+        normalized = normalize_workspace_name(workspace)
+        members = list_workspace_members(normalized, include_inactive=True)
+        ai_dirs: set[Path] = set()
+        for member in members:
+            source = Path(member.source_path)
+            if source.suffix == ".ai":
+                ai_dirs.add(source)
+            else:
+                ai_dirs.add(source.parent / ".ai")
+
+        total_deleted = 0
+        for ai_dir in sorted(ai_dirs):
+            if ai_dir.exists():
+                count = delete_ai_folder(ai_dir)
+                if count > 0:
+                    console.print(f"  {'[dim]' if dry_run else ''}{ai_dir}{'[dim] (dry-run)' if dry_run else ''}: {count} items")
+                    total_deleted += count
+
+        if dry_run:
+            console.print(f"\n[yellow]Dry-run: would delete {total_deleted} items from {len(ai_dirs)} .ai folders[/yellow]")
+        else:
+            console.print(f"\n[green]Deleted {total_deleted} items from {len(ai_dirs)} .ai folders[/green]")
+    else:
+        # Clear all .ai folders under checkout_path
+        ai_dirs = list(checkout_path.rglob(".ai"))
+        if not ai_dirs:
+            console.print("[yellow]No .ai folders found[/yellow]")
+            return
+
+        total_deleted = 0
+        for ai_dir in sorted(ai_dirs):
+            if dry_run:
+                count = sum(1 for _ in ai_dir.rglob("*") if _.is_file())
+                console.print(f"  {ai_dir}: {count} items (dry-run)")
+                total_deleted += count
+            else:
+                count = delete_ai_folder(ai_dir)
+                if count > 0:
+                    console.print(f"  {ai_dir}: {count} items")
+                    total_deleted += count
+
+        if dry_run:
+            console.print(f"\n[yellow]Dry-run: would delete {total_deleted} items from {len(ai_dirs)} .ai folders[/yellow]")
+        else:
+            console.print(f"\n[green]Deleted {total_deleted} items from {len(ai_dirs)} .ai folders[/green]")
 
 
 if __name__ == "__main__":

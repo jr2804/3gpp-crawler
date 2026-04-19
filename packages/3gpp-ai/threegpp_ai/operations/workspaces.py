@@ -135,13 +135,13 @@ def list_workspaces() -> list[WorkspaceRegistry]:
     return list(registry.workspaces.values())
 
 
-def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> bool:
-    """Delete a workspace and keep legacy artifact cleanup as a compatibility flag.
+def delete_workspace(workspace: str | None, *, delete_artifacts: bool = False) -> bool:
+    """Delete a workspace and optionally delete all .ai artifacts for its members.
 
     Args:
         workspace: Workspace name to delete.
-        preserve_artifacts: Reserved compatibility option. Legacy retrieval
-            artifacts are no longer managed by this package.
+        delete_artifacts: If True, delete all .ai processing folders for workspace members
+            in the checkout directory.
 
     Returns:
         True if deleted, False if not found or if attempting to delete default.
@@ -151,6 +151,9 @@ def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> 
         _logger.warning("Cannot delete the default workspace")
         return False
 
+    # Get members before deleting workspace
+    members = list_workspace_members(normalized_workspace, include_inactive=True)
+
     registry = _get_registry()
     deleted = registry.delete_workspace(normalized_workspace)
     if not deleted:
@@ -158,11 +161,48 @@ def delete_workspace(workspace: str | None, preserve_artifacts: bool = True) -> 
 
     registry.save()
 
-    if not preserve_artifacts:
-        _logger.warning("preserve_artifacts=False is deprecated and has no effect")
+    # Delete .ai artifacts if requested
+    if delete_artifacts and members:
+        _logger.info("Deleting .ai artifacts for %d members", len(members))
+        for member in members:
+            source_path = Path(member.source_path)
+            # Check if source_path is already the .ai folder (ends with .ai as directory)
+            if source_path.name == ".ai":
+                # Source path is the .ai folder itself
+                delete_ai_folder(source_path)
+            else:
+                # Source path is the document folder - delete .ai subfolder
+                delete_ai_folder(source_path / ".ai")
 
-    _logger.info(f"Deleted workspace '{normalized_workspace}' (preserve_artifacts={preserve_artifacts})")
+    _logger.info("Deleted workspace '%s' (delete_artifacts=%s)", normalized_workspace, delete_artifacts)
     return True
+
+
+def delete_ai_folder(ai_path: Path) -> int:
+    """Delete an .ai folder and return count of deleted items.
+
+    Args:
+        ai_path: Path to the .ai folder.
+
+    Returns:
+        Count of items deleted.
+    """
+    if not ai_path.exists() or not ai_path.is_dir():
+        return 0
+
+    count = 0
+    try:
+        for item in ai_path.rglob("*"):
+            if item.is_file():
+                item.unlink()
+                count += 1
+        # Remove .ai folder itself
+        ai_path.rmdir()
+        count += 1
+        _logger.debug("Deleted .ai folder: %s", ai_path)
+    except Exception as e:
+        _logger.warning("Failed to delete .ai folder %s: %s", ai_path, e)
+    return count
 
 
 def get_active_workspace() -> str:
@@ -461,13 +501,12 @@ def _checkout_tdoc_if_needed(tdoc_id: str, metadata: TDocMetadata, checkout_base
         # Check if folder has actual document files (not just .ai subfolder)
         # Recursively check for files, excluding the .ai/ subfolder which contains processing outputs
         has_files = any(
-            f.is_file() and f.parent.name != ".ai" and not any(part == ".ai" for part in f.relative_to(existing_path).parts)
-            for f in existing_path.rglob("*")
+            f.is_file() and f.parent.name != ".ai" and not any(part == ".ai" for part in f.relative_to(existing_path).parts) for f in existing_path.rglob("*")
         )
         if has_files:
             _logger.info(f"TDoc {tdoc_id} already checked out at {existing_path}")
             return existing_path
-        
+
         # Log what was found for debugging
         all_items = list(existing_path.iterdir())
         _logger.info(
@@ -623,6 +662,7 @@ __all__ = [
     "checkout_tdoc_to_workspace",
     "create_workspace",
     "deactivate_workspace_member",
+    "delete_ai_folder",
     "delete_workspace",
     "ensure_ai_subfolder",
     "ensure_default_workspace",
