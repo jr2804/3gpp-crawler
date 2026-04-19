@@ -105,6 +105,13 @@ WorkspaceProcessVlmOption = Annotated[
         envvar=ConfigEnvVar.TDC_AI_VLM.name,
     ),
 ]
+WorkspaceProcessSkipExistingOption = Annotated[
+    bool,
+    typer.Option(
+        "--skip-existing",
+        help="Skip extraction for components that already exist in .ai folder",
+    ),
+]
 ExtractionProfileOption = Annotated[
     str | None,
     typer.Option(
