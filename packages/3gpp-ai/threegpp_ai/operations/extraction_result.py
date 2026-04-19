@@ -13,10 +13,9 @@ import shutil
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from docling.document_converter import ConversionResult
-from docling_core.types.doc.document import DescriptionAnnotation
+from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.models import (
     DocumentMetadataContract,
@@ -30,6 +29,11 @@ from threegpp_ai.models import (
     QualityGateCheckResult,
     StructuredExtractionResult,
 )
+
+if TYPE_CHECKING:
+    from docling.document_converter import ConversionResult
+
+logger = get_logger(__name__)
 
 _EQUATION_PATTERNS = [
     re.compile(r"\$\$(.*?)\$\$", re.DOTALL),
@@ -756,7 +760,7 @@ def _extract_figures_from_docling(
         # Try to get VLM-generated description from annotations
         if not description and hasattr(image, "annotations"):
             for annotation in getattr(image, "annotations", []) or []:
-                if isinstance(annotation, DescriptionAnnotation):
+                if isinstance(annotation, "DescriptionAnnotation"):
                     vlm_description = getattr(annotation, "text", None)
                     if vlm_description:
                         description = vlm_description
@@ -834,6 +838,113 @@ def from_docling_result(
         tables=tables,
         figures=figures,
         equations=equations,
+        metadata=result_metadata,
+    )
+
+
+def from_opendataloader_result(
+    markdown_content: str,
+    *,
+    tables: list[dict[str, Any]] | None = None,
+    figures: list[dict[str, Any]] | None = None,
+    formulas: list[dict[str, Any]] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> StructuredExtractionResult:
+    """Convert OpenDataLoader extraction output into the canonical payload.
+
+    OpenDataLoader outputs Markdown + JSON with bounding boxes. This function
+    parses those outputs and converts them into the canonical structured format.
+
+    Args:
+        markdown_content: Extracted markdown text from OpenDataLoader.
+        tables: List of table element dictionaries from OpenDataLoader JSON.
+        figures: List of figure element dictionaries from OpenDataLoader JSON.
+        formulas: List of formula element dictionaries from OpenDataLoader JSON.
+        metadata: Optional additional metadata.
+
+    Returns:
+        Canonical structured extraction result.
+    """
+    # Convert table dicts to ExtractedTableElement
+    table_elements: list[ExtractedTableElement] = []
+    for index, table_dict in enumerate(tables or [], start=1):
+        try:
+            table_elements.append(
+                ExtractedTableElement(
+                    element_id=table_dict.get("element_id", f"table_{index}"),
+                    page_number=table_dict.get("page_number"),
+                    row_count=table_dict.get("row_count", 0),
+                    column_count=table_dict.get("column_count", 0),
+                    cells=table_dict.get("cells", []),
+                    cell_metadata=table_dict.get("cell_metadata", []),
+                    markdown=table_dict.get("markdown"),
+                    caption=table_dict.get("caption"),
+                    source_anchor_id=table_dict.get("source_anchor_id", f"table-{index}"),
+                )
+            )
+        except Exception as e:
+            logger.warning("Failed to parse table element %d: %s", index, e)
+
+    # Convert figure dicts to ExtractedFigureElement
+    figure_elements: list[ExtractedFigureElement] = []
+    for index, figure_dict in enumerate(figures or [], start=1):
+        try:
+            figure_elements.append(
+                ExtractedFigureElement(
+                    element_id=figure_dict.get("element_id", f"figure_{index}"),
+                    page_number=figure_dict.get("page_number"),
+                    image_path=figure_dict.get("image_path"),
+                    image_format=figure_dict.get("image_format", "png"),
+                    caption=figure_dict.get("caption"),
+                    description=figure_dict.get("description"),
+                    source_anchor_id=figure_dict.get("source_anchor_id", f"figure-{index}"),
+                    is_partial=figure_dict.get("is_partial", False),
+                    partial_reason_codes=figure_dict.get("partial_reason_codes", []),
+                    metadata=figure_dict.get("metadata", {}),
+                )
+            )
+        except Exception as e:
+            logger.warning("Failed to parse figure element %d: %s", index, e)
+
+    # Convert formula dicts to ExtractedEquationElement
+    equation_elements: list[ExtractedEquationElement] = []
+    for index, formula_dict in enumerate(formulas or [], start=1):
+        try:
+            equation_elements.append(
+                ExtractedEquationElement(
+                    element_id=formula_dict.get("element_id", f"equation_{index}"),
+                    latex=formula_dict.get("latex", ""),
+                    raw_text=formula_dict.get("raw_text"),
+                    source_anchor_id=formula_dict.get("source_anchor_id", f"equation-{index}"),
+                    normalized_text=formula_dict.get("normalized_text", formula_dict.get("latex", "")),
+                    equation_type=formula_dict.get("equation_type", "latex"),
+                    display_mode=formula_dict.get("display_mode", "display"),
+                    page_number=formula_dict.get("page_number"),
+                )
+            )
+        except Exception as e:
+            logger.warning("Failed to parse formula element %d: %s", index, e)
+
+    # Build marker lines for tables and figures (equations already in markdown if LaTeX)
+    marker_lines: list[str] = []
+    marker_lines.extend(_build_table_marker(table) for table in table_elements)
+    marker_lines.extend(_build_figure_marker(figure) for figure in figure_elements)
+    # Only add equation markers if not already embedded in markdown as LaTeX
+    for equation in equation_elements:
+        if equation.latex and not (equation.latex.startswith("$$") or equation.latex.startswith("\\[")):
+            marker_lines.append(_build_equation_marker(equation))
+
+    content = markdown_content
+    if marker_lines:
+        content = f"{content.rstrip()}\n\n" + "\n".join(marker_lines) + "\n"
+
+    result_metadata = metadata or {}
+
+    return build_structured_extraction_result(
+        content=content,
+        tables=table_elements,
+        figures=figure_elements,
+        equations=equation_elements,
         metadata=result_metadata,
     )
 
@@ -941,6 +1052,7 @@ __all__ = [
     "build_structured_extraction_result",
     "evaluate_quality_gates",
     "from_docling_result",
+    "from_opendataloader_result",
     "has_cached_artifacts",
     "persist_canonical_output",
     "persist_equations_from_extraction",

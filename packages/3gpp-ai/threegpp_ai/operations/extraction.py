@@ -1,36 +1,32 @@
-"""Unified, document-agnostic extraction pipeline.
+"""Unified, document-agnostic extraction pipeline using OpenDataLoader.
 
 This module provides a generic extraction interface that works with various document formats
 (PDF, DOCX, DOC, etc.) without TDoc-specific metadata handling.
 
+OpenDataLoader features:
+- #1 in benchmarks (0.907 accuracy)
+- Extracts Markdown, JSON (with bounding boxes), HTML
+- OCR for scanned PDFs
+- Table, formula, and chart extraction
+- Hybrid AI mode for complex documents
+
 The functions:
 * extract_document_structured: Main unified extraction function
-* extract_document_text: Shared docling extraction logic
-* _convert_office_to_pdf: Office format conversion helper
+* extract_document_text: Plain text extraction
 """
 
 from __future__ import annotations
 
+import json
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import opendataloader_pdf
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
-from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
-from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import (
-    CodeFormulaVlmOptions,
-    TableStructureOptions,
-    ThreadedPdfPipelineOptions,
-    VlmConvertOptions,
-    VlmPipelineOptions,
-)
-from docling.document_converter import DocumentConverter, FormatOption
-from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
-from docling.pipeline.vlm_pipeline import VlmPipeline
 from tdoc_crawler.logging import get_logger
 
 from threegpp_ai.config import AiConfig, ExtractionProfile
@@ -38,15 +34,13 @@ from threegpp_ai.models import ConversionError, ExtractionError
 from threegpp_ai.operations.extraction_result import (
     StructuredExtractionResult,
     build_structured_extraction_result,
-    from_docling_result,
+    from_opendataloader_result,
     persist_equations_from_extraction,
-    persist_figures_from_docling_result,
     persist_figures_from_extraction,
     persist_output_contracts,
     persist_tables_from_extraction,
     read_cached_artifacts,
 )
-from threegpp_ai.operations.figure_descriptor import describe_figures
 
 logger = get_logger(__name__)
 
@@ -123,114 +117,38 @@ def resolve_extraction_policy(
 
 @dataclass
 class VlmOptions:
-    """Optional VLM features for extraction.
+    """Optional VLM features for extraction via hybrid AI mode.
 
-    When any feature is enabled, the VlmPipeline is used instead of StandardPdfPipeline.
-    VLM features require GPU but provide better picture descriptions and formula enrichment.
+    When hybrid mode is enabled, OpenDataLoader routes complex pages to a local
+    or remote LLM for better extraction quality. Requires a running hybrid server.
+
+    Attributes:
+        enable_hybrid: Enable hybrid AI mode for complex document pages.
+        hybrid_url: URL of the hybrid server (default: http://localhost:5002).
+        hybrid_mode: Hybrid mode level - "fast" or "full".
     """
 
-    enable_picture_description: bool = False
-    enable_formula_enrichment: bool = False
-
-
-# Map of user-facing device strings to AcceleratorDevice enum values
-_DEVICE_MAP: dict[str, AcceleratorDevice] = {
-    "auto": AcceleratorDevice.AUTO,
-    "cpu": AcceleratorDevice.CPU,
-    "cuda": AcceleratorDevice.CUDA,
-    "mps": AcceleratorDevice.MPS,
-    "xpu": AcceleratorDevice.XPU,
-}
+    enable_hybrid: bool = False
+    hybrid_url: str = "http://localhost:5002"
+    hybrid_mode: str = "docling-fast"
 
 
 @dataclass
 class AcceleratorConfig:
-    """Accelerator configuration for Docling document processing.
+    """Accelerator configuration for OpenDataLoader document processing.
 
-    Controls GPU/CPU device selection, thread count, and batch sizes.
-    All fields have sensible defaults — Docling auto-detects CUDA when available.
+    OpenDataLoader is CPU-optimized and doesn't require GPU acceleration.
+    This dataclass is kept for API compatibility with the previous docling-based pipeline.
 
     Attributes:
-        device: Compute device — one of: auto, cpu, cuda, mps, xpu, or cuda:N.
-        num_threads: Thread count for CPU-bound operations.
-        batch_size: Unified batch size for OCR, layout, and table structure.
-            None leaves each at Docling's default. Higher values benefit GPU.
+        device: Compute device (ignored, kept for compatibility).
+        num_threads: Thread count for parallel processing.
+        batch_size: Batch size for processing (ignored by OpenDataLoader).
     """
 
     device: str = "auto"
     num_threads: int = 4
     batch_size: int | None = None
-
-    def to_accelerator_options(self) -> AcceleratorOptions:
-        """Convert to Docling's AcceleratorOptions."""
-        device_lower = self.device.strip().lower()
-        device = _DEVICE_MAP.get(device_lower, AcceleratorDevice.AUTO)
-        return AcceleratorOptions(num_threads=self.num_threads, device=device)
-
-    def apply_batch_sizes(self, options: ThreadedPdfPipelineOptions) -> None:
-        """Apply batch size overrides to pipeline options if configured."""
-        if self.batch_size is not None and self.batch_size > 0:
-            options.ocr_batch_size = self.batch_size
-            options.layout_batch_size = self.batch_size
-            options.table_batch_size = max(1, self.batch_size // 16)
-
-
-def _create_pdf_converter(
-    vlm_options: VlmOptions | None = None,
-    accelerator_config: AcceleratorConfig | None = None,
-    effective_settings: dict[str, bool] | None = None,
-) -> DocumentConverter:
-    """Create a DocumentConverter for PDF extraction.
-
-    Args:
-        vlm_options: Optional VLM features. If None, uses StandardPdfPipeline with
-            enhanced options (table structure, accelerator). If any VLM feature is
-            enabled, uses VlmPipeline with Granite Docling.
-        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
-            If None, uses defaults (auto device, 4 threads).
-        effective_settings: Effective profile settings controlling OCR/layout/table and enrichment behavior.
-
-    Returns:
-        Configured DocumentConverter for PDF processing.
-    """
-    accel = accelerator_config or AcceleratorConfig()
-    accelerator_options = accel.to_accelerator_options()
-    settings = effective_settings or _PROFILE_PRESETS["default"]
-
-    if vlm_options is None or (not vlm_options.enable_picture_description and not vlm_options.enable_formula_enrichment):
-        # Standard pipeline with enhanced options
-        options = ThreadedPdfPipelineOptions(
-            do_table_structure=settings["tables"],
-            table_structure_options=TableStructureOptions(do_cell_matching=True),
-            accelerator_options=accelerator_options,
-            do_formula_enrichment=settings["equations"] and settings["enrichment"],
-            code_formula_options=CodeFormulaVlmOptions.from_preset("granite_docling"),
-        )
-        if hasattr(options, "do_ocr"):
-            options.do_ocr = settings["ocr"]
-        if hasattr(options, "do_layout"):
-            options.do_layout = settings["layout"]
-        accel.apply_batch_sizes(options)
-        pdf_format_option = FormatOption(
-            pipeline_cls=StandardPdfPipeline,
-            backend=DoclingParseDocumentBackend,
-            pipeline_options=options,
-        )
-    else:
-        # VLM pipeline with Granite Docling
-        vlm_opts = VlmPipelineOptions(
-            do_picture_description=vlm_options.enable_picture_description,
-            images_scale=2.0,
-            generate_picture_images=True,
-            vlm_options=VlmConvertOptions.from_preset("granite_docling"),
-            accelerator_options=accelerator_options,
-        )
-        pdf_format_option = FormatOption(
-            pipeline_cls=VlmPipeline,
-            backend=DoclingParseDocumentBackend,
-            pipeline_options=vlm_opts,
-        )
-    return DocumentConverter(format_options={InputFormat.PDF: pdf_format_option})
 
 
 # File formats that need PDF conversion
@@ -280,7 +198,7 @@ def _check_cached_extraction(
     ai_dir: Path,
     doc_stem: str,
     extract_types: set[str],
-) -> tuple[bool, str | None]:
+) -> tuple[bool, str | None, set[str]]:
     """Check if cached extraction exists (markdown + artifacts).
 
     Args:
@@ -289,9 +207,10 @@ def _check_cached_extraction(
         extract_types: Types to check: {"tables", "figures", "equations"}.
 
     Returns:
-        Tuple of (has_valid_cache, cached_content or None).
+        Tuple of (has_valid_cache, cached_content, present_artifact_types).
         has_valid_cache: True if markdown exists and has artifacts.
         cached_content: Cached markdown content if available.
+        present_artifact_types: Set of artifact types that already have files in .ai folder.
     """
     md_path = ai_dir / f"{doc_stem}.md"
     has_cached_md = md_path.exists()
@@ -302,46 +221,196 @@ def _check_cached_extraction(
         if len(content) > 100:
             cached_content = content
 
+    present_artifact_types: set[str] = set()
     if cached_content:
         # Check for cached artifacts using folder-based storage
         cached = read_cached_artifacts(ai_dir, doc_stem)
-        if cached is not None and (cached.tables or cached.figures or cached.equations):
-            return True, cached_content
+        if cached is not None:
+            if cached.tables:
+                present_artifact_types.add("tables")
+            if cached.figures:
+                present_artifact_types.add("figures")
+            if cached.equations:
+                present_artifact_types.add("equations")
+            return True, cached_content, present_artifact_types
 
-    return False, None
+    return False, None, present_artifact_types
 
 
-def _build_structured_from_result(
-    result: Any,
-    ai_dir: Path | None = None,
-    doc_stem: str | None = None,
-    extract_types: set[str] | None = None,
-) -> StructuredExtractionResult:
-    """Build structured extraction from docling result.
+def _run_opendataloader(
+    file_path: Path,
+    output_dir: Path,
+    *,
+    extract_tables: bool = True,
+    extract_figures: bool = True,
+    vlm_options: VlmOptions | None = None,
+) -> tuple[Path, Path]:
+    """Run opendataloader_pdf conversion on a single file.
 
     Args:
-        result: Object returned by docling DocumentConverter.convert().
-        ai_dir: Optional .ai directory for artifact storage.
-        doc_stem: Document stem for naming artifacts.
-        extract_types: Optional set of artifact types to extract/persist.
+        file_path: Path to the PDF file.
+        output_dir: Directory for output files.
+        extract_tables: Whether to extract tables.
+        extract_figures: Whether to extract figures.
+        vlm_options: Optional VLM/hybrid mode configuration.
 
     Returns:
-        Structured extraction payload.
+        Tuple of (markdown_path, json_path) for the converted file.
+
+    Raises:
+        ExtractionError: If conversion fails.
     """
-    figure_paths: dict[str, str] | None = None
-    figure_descriptions: dict[str, str] | None = None
+    formats = ["markdown", "json"]
+    if extract_figures:
+        formats.append("markdown-with-images")
 
-    if ai_dir is not None and extract_types is not None and "figures" in extract_types:
-        figures_dir = ai_dir / "figures"
-        persisted = persist_figures_from_docling_result(result, figures_dir, doc_stem=doc_stem)
-        figure_paths = {key: str(path) for key, path in persisted.items()}
-        figure_descriptions = describe_figures(persisted, enabled=True)
+    # Build hybrid URL if VLM options provided
+    hybrid: str | None = None
+    hybrid_mode: str | None = None
+    if vlm_options is not None and vlm_options.enable_hybrid:
+        hybrid = "docling-fast"
+        hybrid_mode = vlm_options.hybrid_mode
 
-    return from_docling_result(
-        result,
-        figure_paths=figure_paths,
-        figure_descriptions=figure_descriptions,
-    )
+    try:
+        opendataloader_pdf.convert(
+            input_path=[str(file_path)],
+            output_dir=str(output_dir),
+            format=",".join(formats),
+            image_output="external" if extract_figures else "off",
+            hybrid=hybrid,
+            hybrid_mode=hybrid_mode,
+        )
+    except Exception as e:
+        msg = f"OpenDataLoader conversion failed for {file_path.name}: {e}"
+        logger.error(msg)
+        raise ExtractionError(msg) from e
+
+    # OpenDataLoader creates output files with the same stem as input
+    stem = file_path.stem
+    md_path = output_dir / f"{stem}.md"
+    json_path = output_dir / f"{stem}.json"
+
+    return md_path, json_path
+
+
+def _extract_tables_from_opendataloader(json_path: Path) -> list[dict[str, Any]]:
+    """Extract table elements from OpenDataLoader JSON output.
+
+    Args:
+        json_path: Path to the JSON output file.
+
+    Returns:
+        List of table element dictionaries.
+    """
+    tables: list[dict[str, Any]] = []
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return tables
+
+        for index, element in enumerate(data, start=1):
+            if element.get("type") == "table":
+                table = {
+                    "element_id": f"table_{index}",
+                    "page_number": element.get("page number"),
+                    "row_count": 0,
+                    "column_count": 0,
+                    "cells": [],
+                    "cell_metadata": [],
+                    "markdown": element.get("content", ""),
+                    "caption": None,
+                    "source_anchor_id": f"table-{index}",
+                    "bounding_box": element.get("bounding box"),
+                }
+
+                # Try to extract table structure from content
+                content = element.get("content", "")
+                if content:
+                    lines = content.split("\n")
+                    table["row_count"] = len(lines)
+                    for line in lines:
+                        cells = line.split("|")
+                        cells = [c.strip() for c in cells if c.strip() and c.strip() != "---"]
+                        if cells:
+                            table["column_count"] = max(table["column_count"], len(cells))
+                            table["cells"].append(cells)
+
+                tables.append(table)
+    except Exception as e:
+        logger.warning("Failed to parse tables from OpenDataLoader JSON: %s", e)
+
+    return tables
+
+
+def _extract_figures_from_opendataloader(json_path: Path) -> list[dict[str, Any]]:
+    """Extract figure/image elements from OpenDataLoader JSON output.
+
+    Args:
+        json_path: Path to the JSON output file.
+
+    Returns:
+        List of figure element dictionaries.
+    """
+    figures: list[dict[str, Any]] = []
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return figures
+
+        for index, element in enumerate(data, start=1):
+            if element.get("type") == "picture":
+                figure = {
+                    "element_id": f"figure_{index}",
+                    "page_number": element.get("page number"),
+                    "image_path": None,
+                    "image_format": "png",
+                    "caption": element.get("caption"),
+                    "description": element.get("description"),
+                    "source_anchor_id": f"figure-{index}",
+                    "is_partial": False,
+                    "partial_reason_codes": [],
+                    "metadata": {"bounding_box": element.get("bounding box")},
+                }
+                figures.append(figure)
+    except Exception as e:
+        logger.warning("Failed to parse figures from OpenDataLoader JSON: %s", e)
+
+    return figures
+
+
+def _extract_formulas_from_opendataloader(json_path: Path) -> list[dict[str, Any]]:
+    """Extract formula elements from OpenDataLoader JSON output.
+
+    Args:
+        json_path: Path to the JSON output file.
+
+    Returns:
+        List of formula element dictionaries with LaTeX content.
+    """
+    formulas: list[dict[str, Any]] = []
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return formulas
+
+        for index, element in enumerate(data, start=1):
+            if element.get("type") == "formula":
+                formula = {
+                    "element_id": f"equation_{index}",
+                    "latex": element.get("content", ""),
+                    "raw_text": element.get("content"),
+                    "source_anchor_id": f"equation-{index}",
+                    "normalized_text": element.get("content", ""),
+                    "equation_type": "latex",
+                    "display_mode": "display",
+                    "page_number": element.get("page number"),
+                    "metadata": {"bounding_box": element.get("bounding box")},
+                }
+                formulas.append(formula)
+    except Exception as e:
+        logger.warning("Failed to parse formulas from OpenDataLoader JSON: %s", e)
+
+    return formulas
 
 
 def _convert_via_libreoffice(
@@ -350,10 +419,9 @@ def _convert_via_libreoffice(
     doc_stem: str | None = None,
     extract_types: set[str] | None = None,
     vlm_options: VlmOptions | None = None,
-    accelerator_config: AcceleratorConfig | None = None,
     effective_settings: dict[str, bool] | None = None,
 ) -> StructuredExtractionResult:
-    """Convert non-PDF document to structured extraction via LibreOffice.
+    """Convert non-PDF document to structured extraction via LibreOffice + OpenDataLoader.
 
     Args:
         file_path: Path to source document (DOCX, DOC, etc.).
@@ -361,7 +429,6 @@ def _convert_via_libreoffice(
         doc_stem: Document stem for naming artifacts.
         extract_types: Optional set of artifact types to extract/persist.
         vlm_options: Optional VLM features for PDF extraction.
-        accelerator_config: Optional accelerator settings.
         effective_settings: Effective profile settings controlling extraction stages.
 
     Returns:
@@ -374,18 +441,45 @@ def _convert_via_libreoffice(
         converter = Converter()
         with tempfile.TemporaryDirectory() as tmpdir:
             conversion_result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
-            converter_docling = _create_pdf_converter(
-                vlm_options=vlm_options,
-                accelerator_config=accelerator_config,
-                effective_settings=effective_settings,
-            )
-            docling_result = converter_docling.convert(str(conversion_result.output_path))
-            return _build_structured_from_result(
-                docling_result,
-                ai_dir=ai_dir,
-                doc_stem=doc_stem,
-                extract_types=extract_types,
-            )
+
+            settings = effective_settings or _PROFILE_PRESETS["default"]
+
+            with tempfile.TemporaryDirectory() as output_dir:
+                md_path, json_path = _run_opendataloader(
+                    conversion_result.output_path,
+                    Path(output_dir),
+                    extract_tables=settings["tables"],
+                    extract_figures=settings["figures"],
+                    vlm_options=vlm_options,
+                )
+
+                # Read markdown content
+                markdown_content = ""
+                if md_path.exists():
+                    markdown_content = md_path.read_text(encoding="utf-8")
+
+                # Parse JSON for structured data
+                tables = _extract_tables_from_opendataloader(json_path) if settings["tables"] else []
+                figures = _extract_figures_from_opendataloader(json_path) if settings["figures"] else []
+                formulas = _extract_formulas_from_opendataloader(json_path) if settings["equations"] else []
+
+                # Extract images if enabled
+                image_dir = ai_dir / "figures" if ai_dir and settings["figures"] else None
+                if image_dir and md_path.exists():
+                    # Copy images from output directory
+                    for ext in ("*.png", "*.jpg", "*.jpeg"):
+                        for img_path in Path(output_dir).glob(ext):
+                            shutil.copy(img_path, image_dir / img_path.name)
+
+                return from_opendataloader_result(
+                    markdown_content=markdown_content,
+                    tables=tables,
+                    figures=figures,
+                    formulas=formulas,
+                )
+
+    except ExtractionError:
+        raise
     except Exception as e:
         msg = f"LibreOffice conversion failed for {file_path.name}: {e}"
         logger.error(msg)
@@ -416,10 +510,133 @@ def _persist_extraction_artifacts(
         persist_equations_from_extraction(extraction.equations, ai_dir, doc_stem)
 
 
+def _extract_pdf_or_text(
+    file_path: Path,
+    output_dir: Path,
+    effective_settings: dict[str, bool],
+    effective_vlm: VlmOptions | None,
+) -> StructuredExtractionResult:
+    """Extract content from PDF or text files using OpenDataLoader.
+
+    Args:
+        file_path: Path to the PDF or text file.
+        output_dir: Temporary directory for OpenDataLoader output.
+        effective_settings: Effective extraction settings.
+        effective_vlm: Effective VLM options (may be None).
+
+    Returns:
+        StructuredExtractionResult with extracted content and artifacts.
+    """
+    md_path, json_path = _run_opendataloader(
+        file_path,
+        Path(output_dir),
+        extract_tables=effective_settings["tables"],
+        extract_figures=effective_settings["figures"],
+        vlm_options=effective_vlm,
+    )
+
+    markdown_content = ""
+    if md_path.exists():
+        markdown_content = md_path.read_text(encoding="utf-8")
+
+    tables = _extract_tables_from_opendataloader(json_path) if effective_settings["tables"] else []
+    figures = _extract_figures_from_opendataloader(json_path) if effective_settings["figures"] else []
+    formulas = _extract_formulas_from_opendataloader(json_path) if effective_settings["equations"] else []
+
+    return from_opendataloader_result(
+        markdown_content=markdown_content,
+        tables=tables,
+        figures=figures,
+        formulas=formulas,
+    )
+
+
+def _build_result_from_cache(
+    ai_dir: Path,
+    doc_stem: str,
+    cached_content: str,
+    cached: Any,
+    extract_types: set[str],
+    present_artifact_types: set[str],
+    skip_existing: bool,
+    merged_metadata: dict[str, Any],
+) -> StructuredExtractionResult | None:
+    """Build result from cached extraction if available.
+
+    Returns None if no cache hit, otherwise returns the structured result.
+    """
+    active_extract_types = extract_types - present_artifact_types if skip_existing else extract_types
+
+    tables = cached.tables if "tables" in active_extract_types else []
+    figures = cached.figures if "figures" in active_extract_types else []
+    equations = cached.equations if "equations" in active_extract_types else []
+    result = build_structured_extraction_result(
+        cached_content,
+        tables=tables,
+        figures=figures,
+        equations=equations,
+        metadata=merged_metadata | {"cache_hit": True},
+    )
+    return persist_output_contracts(ai_dir, doc_stem, result)
+
+
+def _merge_with_cached_artifacts(
+    extraction: StructuredExtractionResult,
+    ai_dir: Path,
+    doc_stem: str,
+    extraction_skip_types: set[str],
+) -> StructuredExtractionResult:
+    """Merge fresh extraction with cached artifacts when skip_existing=True."""
+    cached = read_cached_artifacts(ai_dir, doc_stem)
+    if cached is None:
+        return extraction
+
+    tables = list(extraction.tables)
+    figures = list(extraction.figures)
+    equations = list(extraction.equations)
+
+    if cached.tables and "tables" not in extraction_skip_types:
+        tables = cached.tables + tables
+    if cached.figures and "figures" not in extraction_skip_types:
+        figures = cached.figures + figures
+    if cached.equations and "equations" not in extraction_skip_types:
+        equations = cached.equations + equations
+
+    return build_structured_extraction_result(
+        extraction.content,
+        tables=tables,
+        figures=figures,
+        equations=equations,
+        metadata=extraction.metadata,
+    )
+
+
+def _compute_extraction_skip_types(
+    skip_existing: bool,
+    present_artifact_types: set[str],
+    extract_types: set[str],
+    effective_settings: dict[str, bool],
+) -> tuple[set[str], dict[str, bool]]:
+    """Compute which artifact types to skip during extraction.
+
+    Returns tuple of (skip_types, modified_settings) where modified_settings
+    is a copy with disabled settings for skipped types.
+    """
+    if not skip_existing or not present_artifact_types:
+        return set(), effective_settings
+
+    skip_types = present_artifact_types & extract_types
+    modified_settings = effective_settings.copy()
+    for artifact_type in skip_types:
+        modified_settings[artifact_type] = False
+    return skip_types, modified_settings
+
+
 def extract_document_structured(
     file_path: Path,
     metadata: dict[str, Any] | None = None,
     force: bool = False,
+    skip_existing: bool = False,
     extract_types: set[str] | None = None,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
@@ -434,9 +651,9 @@ def extract_document_structured(
     """Extract a document into a canonical structured payload.
 
     This is the main unified extraction function that handles:
-    - PDF files: Direct extraction via docling
-    - Office files (DOCX, DOC, etc.): Convert to PDF, then extract
-    - Text files (TXT, MD): Direct extraction via docling
+    - PDF files: Direct extraction via OpenDataLoader
+    - Office files (DOCX, DOC, etc.): Convert to PDF, then extract via OpenDataLoader
+    - Text files (TXT, MD): Direct extraction via OpenDataLoader
 
     Caching:
     - Checks for existing .md file in .ai subdirectory
@@ -448,19 +665,21 @@ def extract_document_structured(
         metadata: Optional document metadata passed through to the result
             envelope for downstream consumers.
         force: If True, re-extract even if cached artifacts exist.
+        skip_existing: If True, skip extraction for artifact types that already
+            exist in the .ai folder (allows resuming extraction for missing components
+            without re-extracting everything).
         extract_types: Optional set of artifact types to extract/persist.
             If None, extracts all types. Supported types: "tables", "figures", "equations".
-        vlm_options: Optional VLM features for extraction. Enables picture description
-            and/or formula enrichment using VLM pipelines. If None, uses standard
-            extraction with formula enrichment.
-        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
+        vlm_options: Optional VLM features for extraction. Enables hybrid AI mode
+            for complex PDF pages. If None, uses deterministic local extraction.
+        accelerator_config: Optional accelerator settings (ignored, kept for compatibility).
         profile: Extraction profile override.
         custom_extract_ocr: Optional custom OCR toggle.
-        custom_extract_layout: Optional custom layout toggle.
+        custom_extract_layout: Optional custom layout toggle (ignored, always true).
         custom_extract_tables: Optional custom table extraction toggle.
         custom_extract_figures: Optional custom figure extraction toggle.
         custom_extract_equations: Optional custom equation extraction toggle.
-        custom_extract_enrichment: Optional custom enrichment toggle.
+        custom_extract_enrichment: Optional custom enrichment toggle (enables hybrid AI).
 
     Returns:
         StructuredExtractionResult with content, tables, figures, and equations.
@@ -469,6 +688,8 @@ def extract_document_structured(
         ExtractionError: If the source file does not exist or extraction fails.
         ConversionError: If Office document conversion fails.
     """
+    del accelerator_config  # OpenDataLoader is CPU-optimized, no GPU needed
+
     if not file_path.exists():
         raise ExtractionError(f"Source file does not exist: {file_path}")
 
@@ -506,61 +727,54 @@ def extract_document_structured(
     doc_stem = _get_doc_stem(file_path)
 
     # Check for cached extraction
-    has_cache, cached_content = _check_cached_extraction(ai_dir, doc_stem, extract_types)
+    has_cache, cached_content, present_artifact_types = _check_cached_extraction(ai_dir, doc_stem, extract_types)
     if has_cache and cached_content is not None and not force:
         cached = read_cached_artifacts(ai_dir, doc_stem)
         if cached is not None:
-            # Filter artifacts based on extract_types
-            tables = cached.tables if "tables" in extract_types else []
-            figures = cached.figures if "figures" in extract_types else []
-            equations = cached.equations if "equations" in extract_types else []
-            result = build_structured_extraction_result(
+            result = _build_result_from_cache(
+                ai_dir,
+                doc_stem,
                 cached_content,
-                tables=tables,
-                figures=figures,
-                equations=equations,
-                metadata=merged_metadata | {"cache_hit": True},
+                cached,
+                extract_types,
+                present_artifact_types,
+                skip_existing,
+                merged_metadata,
             )
-            return persist_output_contracts(ai_dir, doc_stem, result)
+            if result is not None:
+                return result
 
-    # No valid cache found, perform fresh extraction
-    if file_path.suffix.lower() == ".pdf":
-        effective_vlm = vlm_options
-        if not effective_settings["enrichment"]:
-            effective_vlm = None
+    # Determine effective VLM options based on enrichment setting
+    effective_vlm = vlm_options
+    if effective_vlm is not None and not effective_settings["enrichment"]:
+        effective_vlm = VlmOptions(
+            enable_hybrid=False,
+            hybrid_url=effective_vlm.hybrid_url,
+            hybrid_mode=effective_vlm.hybrid_mode,
+        )
 
-        converter = _create_pdf_converter(
-            vlm_options=effective_vlm,
-            accelerator_config=accelerator_config,
-            effective_settings=effective_settings,
-        )
-        result = converter.convert(str(file_path))
-        extraction = _build_structured_from_result(
-            result,
-            ai_dir=ai_dir,
-            doc_stem=doc_stem,
-            extract_types=extract_types,
-        )
-    elif file_path.suffix.lower() in {".txt", ".md"}:
-        converter = DocumentConverter()
-        result = converter.convert(str(file_path))
-        extraction = _build_structured_from_result(
-            result,
-            ai_dir=ai_dir,
-            doc_stem=doc_stem,
-            extract_types=extract_types,
-        )
-    else:
-        # Office formats (DOCX, DOC, etc.) - convert to PDF first
-        extraction = _convert_via_libreoffice(
-            file_path,
-            ai_dir=ai_dir,
-            doc_stem=doc_stem,
-            extract_types=extract_types,
-            vlm_options=vlm_options,
-            accelerator_config=accelerator_config,
-            effective_settings=effective_settings,
-        )
+    # Compute which artifact types to skip when skip_existing=True
+    extraction_skip_types, eff_settings = _compute_extraction_skip_types(
+        skip_existing,
+        present_artifact_types,
+        extract_types,
+        effective_settings,
+    )
+
+    with tempfile.TemporaryDirectory() as output_dir:
+        suffix = file_path.suffix.lower()
+        if suffix == ".pdf" or suffix in {".txt", ".md"}:
+            extraction = _extract_pdf_or_text(file_path, output_dir, eff_settings, effective_vlm)
+        else:
+            # Office formats (DOCX, DOC, etc.) - convert to PDF first
+            extraction = _convert_via_libreoffice(
+                file_path,
+                ai_dir=ai_dir,
+                doc_stem=doc_stem,
+                extract_types=extract_types - extraction_skip_types,
+                vlm_options=effective_vlm,
+                effective_settings=eff_settings,
+            )
 
     extraction = extraction.model_copy(update={"metadata": merged_metadata | dict(extraction.metadata)})
 
@@ -572,8 +786,14 @@ def extract_document_structured(
     if not cached_content:
         md_path.write_text(extraction.content, encoding="utf-8")
         logger.info("Saved markdown: %s", md_path)
-    # Persist artifacts
-    _persist_extraction_artifacts(ai_dir, doc_stem, extraction, extract_types=extract_types)
+
+    # Merge with cached artifacts when skip_existing=True
+    if skip_existing and present_artifact_types:
+        extraction = _merge_with_cached_artifacts(extraction, ai_dir, doc_stem, extraction_skip_types)
+
+    # Persist artifacts (skipping types that were already present when skip_existing=True)
+    persist_types = extract_types - extraction_skip_types
+    _persist_extraction_artifacts(ai_dir, doc_stem, extraction, extract_types=persist_types)
     return persist_output_contracts(ai_dir, doc_stem, extraction)
 
 
@@ -583,7 +803,7 @@ def extract_document_text(
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
 ) -> str:
-    """Extract plain text content from a document using docling.
+    """Extract plain text content from a document using OpenDataLoader.
 
     For office documents, first converts to PDF using convert-lo.
     Returns just the text content without structured artifacts.
@@ -592,7 +812,7 @@ def extract_document_text(
         file_path: Path to the document file.
         force: If True, re-extract even if cached markdown exists.
         vlm_options: Optional VLM features for extraction.
-        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
+        accelerator_config: Optional accelerator settings (ignored, kept for compatibility).
 
     Returns:
         Extracted text content as a string.

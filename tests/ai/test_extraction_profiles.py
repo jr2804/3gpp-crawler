@@ -73,7 +73,7 @@ def test_extraction_metadata_includes_profile_and_effective_settings(monkeypatch
     file_path = tmp_path / "doc.md"
     file_path.write_text("content", encoding="utf-8")
 
-    monkeypatch.setattr(extraction_ops, "_check_cached_extraction", lambda *_args, **_kwargs: (True, "cached"))
+    monkeypatch.setattr(extraction_ops, "_check_cached_extraction", lambda *_args, **_kwargs: (True, "cached", {"tables", "figures", "equations"}))
     monkeypatch.setattr(extraction_ops, "read_cached_artifacts", lambda *_args, **_kwargs: build_structured_extraction_result("cached"))
 
     result = extraction_ops.extract_document_structured(

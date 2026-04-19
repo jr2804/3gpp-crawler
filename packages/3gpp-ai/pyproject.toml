@@ -16,14 +16,10 @@ classifiers = [
 dependencies = [
     "convert-lo",
     "doc2txt>=1.0.8",
-    #"doc2txt>=1.0.8 @ git+https://github.com/Quantatirsk/doc2txt-pypi.git"
     "litellm>=1.81.15",
     "pydantic-settings>=2.13.1",
     "liteparse>=1.2.0",
-    "docling[vlm]>=2.82.0",
-    "transformers>=4.57.6",
-    "docling-core[chunking]>=2.70.2",
-    "hf_xet"
+    "opendataloader-pdf[hybrid]>=2.2.0",
 ]
 
 [project.urls]
