@@ -338,3 +338,31 @@ class TestCheckoutTdocIfNeeded:
             # Should trigger checkout because folder doesn't exist
             mock_checkout.assert_called_once()
             assert result == new_path
+
+
+class TestClassifyDocumentFiles:
+    """Tests for classify_document_files error messages."""
+
+    def test_empty_folder_warning_includes_redownload_suggestion(
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test that empty folder warning includes re-download suggestion."""
+        from threegpp_ai.operations.classify import classify_document_files
+        
+        folder_path = tmp_path / "empty_folder"
+        folder_path.mkdir(parents=True)
+        # Add only .ai subfolder
+        ai_folder = folder_path / ".ai"
+        ai_folder.mkdir(parents=True)
+        (ai_folder / "processed.md").write_text("content")
+        
+        with caplog.at_level("WARNING"):
+            result = classify_document_files("S4-251234", folder_path)
+        
+        assert result == []
+        assert "No document files found" in caplog.text
+        assert ".pdf/.docx/.xlsx/.pptx" in caplog.text
+        assert "tdoc-crawler checkout S4-251234" in caplog.text
+        assert "Folder contents:" in caplog.text
