@@ -16,6 +16,7 @@ ripgrep = "latest"
 
 node = "latest"
 bun = "latest"
+java = "temurin"
 
 [env]
 GITLAB_HOST = "forge.3gpp.org"
@@ -115,6 +116,7 @@ run = [
 
     # 3GPP skills (TODO: fix - requires well-known endpoint)
     "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
+    "bun x skills add https://github.com/lugasia/3gpp-skill -a universal -y",
 
     # skill for teddi-mcp/-cli
     "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",

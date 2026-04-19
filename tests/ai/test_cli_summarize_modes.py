@@ -16,7 +16,7 @@ def _stub_result(*_args: object, **_kwargs: object) -> SimpleNamespace:
     )
 
 
-def test_summarize_default_standard_mode(monkeypatch) -> None:
+def test_summarize_default_standard_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = CliRunner()
     monkeypatch.setattr("threegpp_ai.cli.summarize_document", _stub_result)
 
@@ -27,7 +27,7 @@ def test_summarize_default_standard_mode(monkeypatch) -> None:
     assert "## Wiki Summary" not in result.stdout
 
 
-def test_summarize_wiki_mode(monkeypatch) -> None:
+def test_summarize_wiki_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = CliRunner()
     monkeypatch.setattr("threegpp_ai.cli.summarize_document", _stub_result)
 
@@ -40,7 +40,7 @@ def test_summarize_wiki_mode(monkeypatch) -> None:
     assert "### Source Quality" in result.stdout
 
 
-def test_summarize_rejects_invalid_output_mode(monkeypatch) -> None:
+def test_summarize_rejects_invalid_output_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = CliRunner()
     monkeypatch.setattr("threegpp_ai.cli.summarize_document", _stub_result)
 

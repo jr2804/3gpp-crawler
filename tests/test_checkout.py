@@ -7,10 +7,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 from packaging.version import Version
+from threegpp_ai.operations.classify import classify_document_files
+from threegpp_ai.operations.workspaces import _checkout_tdoc_if_needed, resolve_tdoc_checkout_path
 
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checked_out_tdocs, get_checkout_path
-from threegpp_ai.operations.workspaces import resolve_tdoc_checkout_path, _checkout_tdoc_if_needed
 
 
 @pytest.fixture
@@ -232,24 +233,24 @@ class TestResolveTdocCheckoutPath:
     def test_finds_tdoc_in_nested_docs_structure(self, tmp_path: Path) -> None:
         """Test resolve_tdoc_checkout_path finds TDoc in 3GPP FTP hierarchy."""
         checkout_base = tmp_path / "checkout"
-        
+
         # Create realistic 3GPP FTP structure
         tdoc_path = checkout_base / "TSG_SA" / "WG4_CODEC" / "TSGS4_131-bis-e" / "Docs" / "S4-250638"
         tdoc_path.mkdir(parents=True)
         (tdoc_path / "S4-250638.docx").write_text("content")
-        
+
         result = resolve_tdoc_checkout_path("S4-250638", checkout_base)
         assert result == tdoc_path
 
     def test_finds_tdoc_in_ran_structure(self, tmp_path: Path) -> None:
         """Test resolve_tdoc_checkout_path finds TDoc in RAN hierarchy."""
         checkout_base = tmp_path / "checkout"
-        
+
         # Create RAN structure
         tdoc_path = checkout_base / "TSG_RAN" / "WG1_RH" / "TSGR1_115" / "Docs" / "R1-2300001"
         tdoc_path.mkdir(parents=True)
         (tdoc_path / "R1-2300001.pdf").write_text("content")
-        
+
         result = resolve_tdoc_checkout_path("R1-2300001", checkout_base)
         assert result == tdoc_path
 
@@ -257,7 +258,7 @@ class TestResolveTdocCheckoutPath:
         """Test resolve_tdoc_checkout_path returns None when TDoc not found."""
         checkout_base = tmp_path / "checkout"
         checkout_base.mkdir(parents=True)
-        
+
         result = resolve_tdoc_checkout_path("S4-999999", checkout_base)
         assert result is None
 
@@ -272,19 +273,19 @@ class TestCheckoutTdocIfNeeded:
     ) -> None:
         """Test that folder with only .ai subfolder triggers re-download."""
         checkout_base = tmp_path / "checkout"
-        
+
         # Create folder structure with only .ai subfolder (simulating processed but deleted docs)
         tdoc_path = checkout_base / "TSG_SA" / "WG4" / "TSGS4_131" / "Docs" / "S4-251234"
         ai_folder = tdoc_path / ".ai"
         ai_folder.mkdir(parents=True)
         (ai_folder / "processed.md").write_text("processed content")
-        
+
         # Mock checkout_tdoc to simulate re-download
         with patch("threegpp_ai.operations.workspaces.checkout_tdoc") as mock_checkout:
             mock_checkout.return_value = tdoc_path
-            
+
             result = _checkout_tdoc_if_needed("S4-251234", sample_tdoc_metadata, checkout_base)
-            
+
             # Should trigger re-download because folder only has .ai/ subfolder
             mock_checkout.assert_called_once()
             assert result == tdoc_path
@@ -296,7 +297,7 @@ class TestCheckoutTdocIfNeeded:
     ) -> None:
         """Test that folder with actual document files does NOT trigger re-download."""
         checkout_base = tmp_path / "checkout"
-        
+
         # Create folder with actual document files
         tdoc_path = checkout_base / "TSG_SA" / "WG4" / "TSGS4_131" / "Docs" / "S4-251234"
         tdoc_path.mkdir(parents=True)
@@ -304,11 +305,11 @@ class TestCheckoutTdocIfNeeded:
         ai_folder = tdoc_path / ".ai"
         ai_folder.mkdir(parents=True)
         (ai_folder / "processed.md").write_text("processed content")
-        
+
         # Mock checkout_tdoc to verify it's NOT called
         with patch("threegpp_ai.operations.workspaces.checkout_tdoc") as mock_checkout:
             result = _checkout_tdoc_if_needed("S4-251234", sample_tdoc_metadata, checkout_base)
-            
+
             # Should NOT trigger re-download because folder has actual files
             mock_checkout.assert_not_called()
             assert result == tdoc_path
@@ -321,7 +322,7 @@ class TestCheckoutTdocIfNeeded:
         """Test that non-existent folder triggers checkout."""
         checkout_base = tmp_path / "checkout"
         checkout_base.mkdir(parents=True)
-        
+
         # Mock both resolve_tdoc_checkout_path (returns None) and checkout_tdoc
         with (
             patch("threegpp_ai.operations.workspaces.resolve_tdoc_checkout_path") as mock_resolve,
@@ -332,9 +333,9 @@ class TestCheckoutTdocIfNeeded:
             new_path.mkdir(parents=True)
             (new_path / "test.docx").write_text("content")
             mock_checkout.return_value = new_path
-            
+
             result = _checkout_tdoc_if_needed("S4-251234", sample_tdoc_metadata, checkout_base)
-            
+
             # Should trigger checkout because folder doesn't exist
             mock_checkout.assert_called_once()
             assert result == new_path
@@ -349,18 +350,16 @@ class TestClassifyDocumentFiles:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test that empty folder warning includes re-download suggestion."""
-        from threegpp_ai.operations.classify import classify_document_files
-        
         folder_path = tmp_path / "empty_folder"
         folder_path.mkdir(parents=True)
         # Add only .ai subfolder
         ai_folder = folder_path / ".ai"
         ai_folder.mkdir(parents=True)
         (ai_folder / "processed.md").write_text("content")
-        
+
         with caplog.at_level("WARNING"):
             result = classify_document_files("S4-251234", folder_path)
-        
+
         assert result == []
         assert "No document files found" in caplog.text
         assert ".pdf/.docx/.xlsx/.pptx" in caplog.text

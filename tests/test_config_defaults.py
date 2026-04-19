@@ -9,8 +9,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from threegpp_ai.config import AiConfig
 
-def test_embedding_model_env_comment_matches_value():
+
+def test_embedding_model_env_comment_matches_value() -> None:
     """Verify .env.example TDC_AI_EMBEDDING_MODEL comment and value are consistent.
 
     The comment recommends a model, but if the actual value differs,
@@ -19,7 +21,6 @@ def test_embedding_model_env_comment_matches_value():
     env_example = Path(".env.example").read_text()
 
     # Find the embedding model line and its preceding comment
-    pattern = r"# (Recommended:[^\n]*\n[^\n]*\n)?"  # Optional comment block
     embed_section = re.search(
         r"# Embedding model[^\n]*\n"
         r"(?:# [^\n]*\n)?"  # Optional recommended line
@@ -39,12 +40,11 @@ def test_embedding_model_env_comment_matches_value():
         recommended_model = re.search(r"(\S+/\S+:?\S*)", recommended)
         if recommended_model:
             assert value == recommended_model.group(1), (
-                f".env.example embedding model comment ({recommended_model.group(1)}) "
-                f"differs from value ({value}). Update comment to match value."
+                f".env.example embedding model comment ({recommended_model.group(1)}) differs from value ({value}). Update comment to match value."
             )
 
 
-def test_embedding_model_not_hardcoded_in_code():
+def test_embedding_model_not_hardcoded_in_code() -> None:
     """Verify embedding model is read from config, not hardcoded.
 
     The embedding model should be configurable via TDC_AI_EMBEDDING_MODEL
@@ -53,8 +53,6 @@ def test_embedding_model_not_hardcoded_in_code():
     # This test verifies the configuration structure exists
     # The actual default value is defined in AiConfig (or LightRAGConfig)
     # and TDC_AI_EMBEDDING_MODEL should be the documented way to override it
-
-    from threegpp_ai.config import AiConfig
 
     # AiConfig should accept embedding_model via env var or config
     # If TDC_AI_EMBEDDING_MODEL is set, it should be used
