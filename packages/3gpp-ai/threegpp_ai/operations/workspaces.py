@@ -459,11 +459,20 @@ def _checkout_tdoc_if_needed(tdoc_id: str, metadata: TDocMetadata, checkout_base
     existing_path = resolve_tdoc_checkout_path(tdoc_id, checkout_base)
     if existing_path:
         # Check if folder has actual document files (not just .ai subfolder)
-        has_files = any(f.is_file() for f in existing_path.iterdir())
+        # Recursively check for files, excluding the .ai/ subfolder which contains processing outputs
+        has_files = any(
+            f.is_file() and f.parent.name != ".ai" and not any(part == ".ai" for part in f.relative_to(existing_path).parts)
+            for f in existing_path.rglob("*")
+        )
         if has_files:
             _logger.info(f"TDoc {tdoc_id} already checked out at {existing_path}")
             return existing_path
-        _logger.info(f"TDoc {tdoc_id} folder exists but is empty at {existing_path}, re-downloading...")
+        
+        # Log what was found for debugging
+        all_items = list(existing_path.iterdir())
+        _logger.info(
+            f"TDoc {tdoc_id} folder exists but has no document files at {existing_path} (found: {len(all_items)} items: {[i.name for i in all_items]}), re-downloading..."
+        )
 
     # Checkout the TDoc - returns Path directly or raises exception
     try:
