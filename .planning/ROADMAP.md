@@ -52,8 +52,8 @@
 **Plans**: 3 plans
 
 **Plan list:**
-- [ ] 02-01-PLAN.md — Fix checkout empty folder detection and re-download triggers
-- [ ] 02-02-PLAN.md — Add graph error handling and verify deprecated imports removed
+- [x] 02-01-PLAN.md — Fix checkout empty folder detection and re-download triggers
+- [x] 02-02-PLAN.md — Add graph error handling and verify deprecated imports removed
 - [ ] 02-03-PLAN.md — Align embedding model defaults between .env.example and code
 
 ---
