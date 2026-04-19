@@ -3,7 +3,7 @@
 ## Phases
 
 - [x] **Phase 01: Normalization & Progress Bars** - Consolidate duplicate normalization logic and fix progress bar document counts (completed 2026-04-12)
-- [ ] **Phase 2: Checkout, Graph, Deprecation & Config** - Fix checkout paths, datetime errors, deprecated imports, and config drift
+- [x] **Phase 02: Checkout, Graph, Deprecation & Config** - Fix checkout paths, datetime errors, deprecated imports, and config drift (completed 2026-04-19)
 
 ---
 
@@ -33,7 +33,7 @@
 
 ---
 
-### Phase 2: Checkout, Graph, Deprecation & Config
+### Phase 02: Checkout, Graph, Deprecation & Config
 
 **Goal**: Fix checkout path issues, datetime scope errors in graph building, remove deprecated imports, and align config defaults
 
@@ -54,7 +54,7 @@
 **Plan list:**
 - [x] 02-01-PLAN.md — Fix checkout empty folder detection and re-download triggers
 - [x] 02-02-PLAN.md — Add graph error handling and verify deprecated imports removed
-- [ ] 02-03-PLAN.md — Align embedding model defaults between .env.example and code
+- [x] 02-03-PLAN.md — Align embedding model defaults between .env.example and code
 
 ---
 
@@ -63,8 +63,8 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 01. Normalization & Progress Bars | 2/2 | Complete    | 2026-04-12 |
-| 2. Checkout, Graph, Deprecation & Config | 0/0 | Not started | - |
+| 02. Checkout, Graph, Deprecation & Config | 3/3 | Complete    | 2026-04-19 |
 
 ---
 
-*Last updated: 2026-04-12*
+*Last updated: 2026-04-19*
