@@ -268,6 +268,35 @@ def checkout_tdocs(
     return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors)
 
 
+def get_meeting_checkout_folder(meeting: MeetingMetadata, checkout_dir: Path) -> Path:
+    """Calculate the checkout folder for a meeting based on its files_url.
+
+    The folder mirrors the 3GPP server directory structure.
+
+    Args:
+        meeting: MeetingMetadata containing the files_url
+        checkout_dir: Base checkout directory
+
+    Returns:
+        Path to the meeting checkout folder
+    """
+    if meeting.files_url is None:
+        raise ValueError(f"Meeting {meeting.short_name} has no files_url")
+
+    url_path_str: str = str(urlparse(meeting.files_url).path)
+    url_path_str = url_path_str.lstrip("/")
+    path_parts: list[str] = url_path_str.split("/")
+
+    try:
+        ftp_index = path_parts.index("ftp")
+        relative_parts: list[str] = path_parts[ftp_index + 1 :]
+    except ValueError:
+        relative_parts = path_parts
+
+    meeting_folder = checkout_dir.joinpath(*relative_parts) if relative_parts else checkout_dir
+    return meeting_folder
+
+
 def checkout_meeting_tdocs(
     meetings: list[MeetingMetadata],
     checkout_dir: Path,
@@ -298,7 +327,9 @@ def checkout_meeting_tdocs(
             errors.append(f"{meeting.short_name}: no files URL")
             continue
         try:
-            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_file)
+            meeting_folder = get_meeting_checkout_folder(meeting, checkout_dir)
+            doclist_path = meeting_folder / f"meeting_{meeting.meeting_id}_doclist.xlsx"
+            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_file, save_doclist_to=doclist_path)
         except DocumentListError as exc:
             errors.append(f"{meeting.short_name}: {exc}")
             continue
@@ -317,5 +348,6 @@ __all__ = [
     "clear_checkout_tdocs",
     "get_checked_out_tdocs",
     "get_checkout_path",
+    "get_meeting_checkout_folder",
     "prepare_tdoc_file",
 ]

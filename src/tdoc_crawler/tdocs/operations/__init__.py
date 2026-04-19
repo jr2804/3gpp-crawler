@@ -10,6 +10,7 @@ from tdoc_crawler.tdocs.operations.checkout import (
     clear_checkout_tdocs,
     get_checked_out_tdocs,
     get_checkout_path,
+    get_meeting_checkout_folder,
     prepare_tdoc_file,
 )
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawler, TDocCrawlResult
@@ -39,5 +40,6 @@ __all__ = [
     "fetch_via_whatthespec_batch",
     "get_checked_out_tdocs",
     "get_checkout_path",
+    "get_meeting_checkout_folder",
     "prepare_tdoc_file",
 ]
