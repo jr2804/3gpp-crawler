@@ -57,14 +57,7 @@ from threegpp_ai.args import (
     ConvertMdOption,
     ConvertOutputOption,
     ConvertPdfOption,
-    CustomExtractEnrichmentOption,
-    CustomExtractEquationsOption,
-    CustomExtractFiguresOption,
-    CustomExtractLayoutOption,
-    CustomExtractOcrOption,
-    CustomExtractTablesOption,
     EndDateOption,
-    ExtractionProfileOption,
     OutputFormatOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
@@ -98,6 +91,13 @@ from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import convert_document_to_markdown
 from threegpp_ai.operations.extraction import AcceleratorConfig, VlmOptions, extract_document_structured
+from threegpp_ai.operations.hybrid_server import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    HybridServerConfig,
+    HybridServerManager,
+    ensure_hybrid_server,
+)
 from threegpp_ai.operations.workspace_registry import WorkspaceRegistry, normalize_spec_member_id
 from threegpp_ai.operations.workspace_utils import check_pdf_status
 
@@ -106,7 +106,9 @@ load_dotenv()
 
 app = typer.Typer(help="3GPP AI - Document processing and summarization")
 workspace_app = typer.Typer(help="Manage extraction workspaces")
+hybrid_app = typer.Typer(help="Manage the OpenDataLoader hybrid server")
 app.add_typer(workspace_app, name="workspace")
+app.add_typer(hybrid_app, name="hybrid-server")
 app.add_typer(config_app, name="config")
 
 console = get_console()
@@ -238,13 +240,6 @@ async def _process_single_item(
     path_config: PathConfig,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
-    profile: str | None = None,
-    custom_extract_ocr: bool | None = None,
-    custom_extract_layout: bool | None = None,
-    custom_extract_tables: bool | None = None,
-    custom_extract_figures: bool | None = None,
-    custom_extract_equations: bool | None = None,
-    custom_extract_enrichment: bool | None = None,
 ) -> tuple[Any | None, str | None, bool, bool]:
     """Process a single workspace item (checkout + optional PDF conversion + optional markdown extraction).
 
@@ -259,13 +254,6 @@ async def _process_single_item(
         path_config: PathConfig for file system paths
         vlm_options: Optional VLM features for extraction.
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
-        profile: Extraction profile override.
-        custom_extract_ocr: Optional custom OCR toggle.
-        custom_extract_layout: Optional custom layout toggle.
-        custom_extract_tables: Optional custom table extraction toggle.
-        custom_extract_figures: Optional custom figure extraction toggle.
-        custom_extract_equations: Optional custom equation extraction toggle.
-        custom_extract_enrichment: Optional custom enrichment toggle.
 
     Returns:
         Tuple of (member, skip_reason, was_converted, was_md_extracted)
@@ -303,7 +291,7 @@ async def _process_single_item(
     # Optional PDF conversion
     was_converted = False
     if convert_pdf:
-        member_for_convert = make_workspace_member(workspace, item, source_path, source_kind)
+        member_for_convert = make_workspace_member(item, source_path, source_kind)
         pdf_path = _convert_member_to_pdf(member_for_convert)
         was_converted = pdf_path is not None
 
@@ -319,13 +307,6 @@ async def _process_single_item(
                     force=False,
                     vlm_options=vlm_options,
                     accelerator_config=accelerator_config,
-                    profile=profile,
-                    custom_extract_ocr=custom_extract_ocr,
-                    custom_extract_layout=custom_extract_layout,
-                    custom_extract_tables=custom_extract_tables,
-                    custom_extract_figures=custom_extract_figures,
-                    custom_extract_equations=custom_extract_equations,
-                    custom_extract_enrichment=custom_extract_enrichment,
                 )
             else:
                 # Generic extraction (specs, other) - uses file path directly
@@ -337,13 +318,6 @@ async def _process_single_item(
                         force=False,
                         vlm_options=vlm_options,
                         accelerator_config=accelerator_config,
-                        profile=profile,
-                        custom_extract_ocr=custom_extract_ocr,
-                        custom_extract_layout=custom_extract_layout,
-                        custom_extract_tables=custom_extract_tables,
-                        custom_extract_figures=custom_extract_figures,
-                        custom_extract_equations=custom_extract_equations,
-                        custom_extract_enrichment=custom_extract_enrichment,
                     )
             was_md_extracted = True
         except Exception as e:
@@ -353,7 +327,7 @@ async def _process_single_item(
     if source_kind == SourceKind.SPEC and release:
         resolved_release, _ = await resolve_spec_release_from_db(item, release)
     source_item_id = f"{item}-REL{normalize_release_version(resolved_release)}" if resolved_release else item
-    member = make_workspace_member(workspace, source_item_id, source_path, source_kind)
+    member = make_workspace_member(source_item_id, source_path, source_kind)
     return member, None, was_converted, was_md_extracted
 
 
@@ -436,13 +410,6 @@ async def _process_workspace_members(
     skip_existing: bool = False,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
-    profile: str | None = None,
-    custom_extract_ocr: bool | None = None,
-    custom_extract_layout: bool | None = None,
-    custom_extract_tables: bool | None = None,
-    custom_extract_figures: bool | None = None,
-    custom_extract_equations: bool | None = None,
-    custom_extract_enrichment: bool | None = None,
 ) -> list[dict[str, Any]]:
     """Process workspace members with optional progress callback.
 
@@ -453,15 +420,8 @@ async def _process_workspace_members(
         checkout: Whether to checkout documents if not available
         convert_md: Whether to extract markdown (implies PDF conversion)
         skip_existing: If True, skip extraction for components that already exist.
-        vlm_options: Optional VLM features for extraction.
+        vlm_options: Optional VLM features for extraction (enables hybrid mode for figures/tables/equations).
         accelerator_config: Optional accelerator settings for GPU/CPU and threading.
-        profile: Extraction profile override.
-        custom_extract_ocr: Optional custom OCR toggle.
-        custom_extract_layout: Optional custom layout toggle.
-        custom_extract_tables: Optional custom table extraction toggle.
-        custom_extract_figures: Optional custom figure extraction toggle.
-        custom_extract_equations: Optional custom equation extraction toggle.
-        custom_extract_enrichment: Optional custom enrichment toggle.
 
     Returns:
         List of processing results
@@ -508,7 +468,7 @@ async def _process_workspace_members(
         if convert_md:
             doc_file = _resolve_process_file(Path(member.source_path))
             if doc_file is not None and doc_file.suffix.lower() in OFFICE_FORMATS:
-                pdf_path = _convert_member_to_pdf(make_workspace_member(workspace, member.source_item_id, member.source_path, member.source_kind))
+                pdf_path = _convert_member_to_pdf(make_workspace_member(member.source_item_id, member.source_path, member.source_kind))
                 if pdf_path is not None:
                     file_path = pdf_path
                 elif doc_file.suffix.lower() not in {".pdf", ".txt", ".md"}:
@@ -531,13 +491,6 @@ async def _process_workspace_members(
                 skip_existing=skip_existing,
                 vlm_options=vlm_options,
                 accelerator_config=accelerator_config,
-                profile=profile,
-                custom_extract_ocr=custom_extract_ocr,
-                custom_extract_layout=custom_extract_layout,
-                custom_extract_tables=custom_extract_tables,
-                custom_extract_figures=custom_extract_figures,
-                custom_extract_equations=custom_extract_equations,
-                custom_extract_enrichment=custom_extract_enrichment,
             )
             results.append(
                 {
@@ -758,13 +711,6 @@ def _checkout_and_convert_items(
     convert_md: bool,
     vlm_options: VlmOptions | None,
     accelerator_config: AcceleratorConfig,
-    profile: str | None,
-    custom_extract_ocr: bool | None,
-    custom_extract_layout: bool | None,
-    custom_extract_tables: bool | None,
-    custom_extract_figures: bool | None,
-    custom_extract_equations: bool | None,
-    custom_extract_enrichment: bool | None,
 ) -> tuple[list[Any], list[tuple[str, str]], int, int]:
     """Checkout, optionally convert to PDF, and optionally extract markdown for items.
 
@@ -804,13 +750,6 @@ def _checkout_and_convert_items(
                     path_config=manager,
                     vlm_options=vlm_options,
                     accelerator_config=accelerator_config,
-                    profile=profile,
-                    custom_extract_ocr=custom_extract_ocr,
-                    custom_extract_layout=custom_extract_layout,
-                    custom_extract_tables=custom_extract_tables,
-                    custom_extract_figures=custom_extract_figures,
-                    custom_extract_equations=custom_extract_equations,
-                    custom_extract_enrichment=custom_extract_enrichment,
                 )
                 if skip_reason:
                     skipped.append((item, skip_reason))
@@ -853,13 +792,6 @@ def workspace_add_members(
     device: AcceleratorDeviceOption = "auto",
     threads: AcceleratorThreadsOption = 4,
     batch_size: AcceleratorBatchSizeOption = 4,
-    profile: ExtractionProfileOption = None,
-    custom_ocr: CustomExtractOcrOption = None,
-    custom_layout: CustomExtractLayoutOption = None,
-    custom_tables: CustomExtractTablesOption = None,
-    custom_figures: CustomExtractFiguresOption = None,
-    custom_equations: CustomExtractEquationsOption = None,
-    custom_enrichment: CustomExtractEnrichmentOption = None,
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output (INFO level logging)"),
 ) -> None:
     # Set log level based on verbosity
@@ -874,7 +806,13 @@ def workspace_add_members(
     # Build VLM and accelerator options for extraction
     vlm_options: VlmOptions | None = None
     if vlm:
-        vlm_options = VlmOptions(enable_picture_description=True, enable_formula_enrichment=True)
+        vlm_options = VlmOptions(enable_hybrid=True)
+        # Auto-start hybrid server if not running
+        _, server_status = ensure_hybrid_server()
+        if not server_status.running:
+            console.print(f"[red]Failed to start hybrid server: {server_status.error}[/red]")
+            raise typer.Exit(1)
+        console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
     accelerator_config = AcceleratorConfig(device=device, num_threads=threads, batch_size=batch_size)
 
     # Phase 1: Resolve items - either directly provided or via database query
@@ -916,13 +854,6 @@ def workspace_add_members(
         convert_md=convert_md,
         vlm_options=vlm_options,
         accelerator_config=accelerator_config,
-        profile=profile,
-        custom_extract_ocr=custom_ocr,
-        custom_extract_layout=custom_layout,
-        custom_extract_tables=custom_tables,
-        custom_extract_figures=custom_figures,
-        custom_extract_equations=custom_equations,
-        custom_extract_enrichment=custom_enrichment,
     )
 
     if skipped:
@@ -1013,13 +944,8 @@ def workspace_process(
     device: AcceleratorDeviceOption = "auto",
     threads: AcceleratorThreadsOption = 4,
     batch_size: AcceleratorBatchSizeOption = 4,
-    profile: ExtractionProfileOption = None,
-    custom_ocr: CustomExtractOcrOption = None,
-    custom_layout: CustomExtractLayoutOption = None,
-    custom_tables: CustomExtractTablesOption = None,
-    custom_figures: CustomExtractFiguresOption = None,
-    custom_equations: CustomExtractEquationsOption = None,
-    custom_enrichment: CustomExtractEnrichmentOption = None,
+    vlm_host: Annotated[str, typer.Option("--vlm-host", help="Hybrid server host")] = DEFAULT_HOST,
+    vlm_port: Annotated[int, typer.Option("--vlm-port", help="Hybrid server port")] = DEFAULT_PORT,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -1042,7 +968,14 @@ def workspace_process(
     # Build VLM options if --vlm flag is set
     vlm_options: VlmOptions | None = None
     if vlm:
-        vlm_options = VlmOptions(enable_picture_description=True, enable_formula_enrichment=True)
+        vlm_options = VlmOptions(enable_hybrid=True, hybrid_url=f"http://{vlm_host}:{vlm_port}")
+        # Auto-start hybrid server if not running
+        server_config = HybridServerConfig(host=vlm_host, port=vlm_port, device=device)
+        _, server_status = ensure_hybrid_server(server_config)
+        if not server_status.running:
+            console.print(f"[red]Failed to start hybrid server: {server_status.error}[/red]")
+            raise typer.Exit(1)
+        console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
 
     # Build accelerator config from CLI options
     accelerator_config = AcceleratorConfig(device=device, num_threads=threads, batch_size=batch_size)
@@ -1073,13 +1006,6 @@ def workspace_process(
                 skip_existing=skip_existing,
                 vlm_options=vlm_options,
                 accelerator_config=accelerator_config,
-                profile=profile,
-                custom_extract_ocr=custom_ocr,
-                custom_extract_layout=custom_layout,
-                custom_extract_tables=custom_tables,
-                custom_extract_figures=custom_figures,
-                custom_extract_equations=custom_equations,
-                custom_extract_enrichment=custom_enrichment,
             )
         )
         progress.update(task, completed=len(results), description="[cyan]Processing complete")
@@ -1209,6 +1135,70 @@ def clear_artifacts(
             console.print(f"\n[yellow]Dry-run: would delete {total_deleted} items from {len(ai_dirs)} .ai folders[/yellow]")
         else:
             console.print(f"\n[green]Deleted {total_deleted} items from {len(ai_dirs)} .ai folders[/green]")
+
+
+@hybrid_app.command("start")
+def hybrid_server_start(
+    host: Annotated[str, typer.Option("--host", help="Host to bind to")] = DEFAULT_HOST,
+    port: Annotated[int, typer.Option("--port", help="Port to bind to")] = DEFAULT_PORT,
+    device: Annotated[str, typer.Option("--device", help="Compute device: auto, cpu, cuda, mps, xpu")] = "auto",
+    wait: Annotated[bool, typer.Option("--wait/--no-wait", help="Wait for server to be ready")] = True,
+) -> None:
+    """Start the OpenDataLoader hybrid server.
+
+    The hybrid server enables extraction of figures, tables, and equations.
+    Server runs with formula enrichment and picture description enabled by default.
+
+    Example:
+        3gpp-ai hybrid-server start --device cuda
+    """
+    config = HybridServerConfig(
+        host=host,
+        port=port,
+        device=device,
+    )
+    manager = HybridServerManager(config)
+
+    if wait:
+        with console.status(f"[cyan]Starting hybrid server at {host}:{port}..."):
+            status = manager.start(wait=True)
+    else:
+        status = manager.start(wait=False)
+
+    if status.running:
+        console.print(f"[green]Hybrid server started at {status.url}[/green]")
+        console.print(f"[dim]PID: {status.pid}[/dim]")
+    else:
+        console.print(f"[red]Failed to start hybrid server: {status.error}[/red]")
+        raise typer.Exit(1)
+
+
+@hybrid_app.command("status")
+def hybrid_server_status() -> None:
+    """Check the status of the hybrid server."""
+    manager = HybridServerManager()
+    status = manager.check_health()
+
+    if status.running:
+        console.print(f"[green]Hybrid server is running at {status.url}[/green]")
+        if status.pid:
+            console.print(f"[dim]PID: {status.pid}[/dim]")
+    else:
+        console.print("[yellow]Hybrid server is not running[/yellow]")
+        if status.error:
+            console.print(f"[dim]Status: {status.error}[/dim]")
+
+
+@hybrid_app.command("stop")
+def hybrid_server_stop() -> None:
+    """Stop the running hybrid server."""
+    manager = HybridServerManager()
+    status = manager.stop()
+
+    if status.running:
+        console.print("[red]Server still running (may need manual cleanup)[/red]")
+    else:
+        console.print("[green]Hybrid server stopped[/green]")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,6 @@ import re
 
 from litellm import exceptions as litellm_exceptions
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 from threegpp_ai.config import AiConfig, QualityPolicyMode
@@ -402,6 +401,5 @@ def _parse_keywords(payload: str) -> list[str]:
 __all__ = [
     "SummarizeResult",
     "_count_words",
-    "summarize_document",
     "summarize_tdoc",
 ]

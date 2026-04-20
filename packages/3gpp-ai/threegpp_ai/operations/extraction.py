@@ -21,6 +21,7 @@ import json
 import shutil
 import tempfile
 from dataclasses import dataclass
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import Any
 
@@ -29,8 +30,8 @@ from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
 from tdoc_crawler.logging import get_logger
 
-from threegpp_ai.config import AiConfig, ExtractionProfile
 from threegpp_ai.models import ConversionError, ExtractionError
+from threegpp_ai.operations.conversion import OFFICE_FORMATS
 from threegpp_ai.operations.extraction_result import (
     StructuredExtractionResult,
     build_structured_extraction_result,
@@ -44,75 +45,30 @@ from threegpp_ai.operations.extraction_result import (
 
 logger = get_logger(__name__)
 
-_PROFILE_PRESETS: dict[ExtractionProfile, dict[str, bool]] = {
-    "default": {"ocr": True, "layout": True, "tables": True, "figures": True, "equations": True, "enrichment": False},
-    "balanced": {"ocr": True, "layout": True, "tables": True, "figures": True, "equations": True, "enrichment": True},
-    "optimum": {"ocr": True, "layout": True, "tables": True, "figures": True, "equations": True, "enrichment": True},
-    "custom": {"ocr": True, "layout": True, "tables": True, "figures": True, "equations": True, "enrichment": True},
-}
+# Default extraction settings - all extractors enabled
+_DEFAULT_EXTRACTION_SETTINGS = {"ocr": True, "layout": True, "tables": True, "figures": True, "equations": True, "enrichment": False}
 
 
-def _score_document_complexity(file_path: Path) -> int:
-    """Return deterministic complexity score used for auto profile selection."""
-    score = 0
-    suffix = file_path.suffix.lower()
-    size_mb = file_path.stat().st_size / (1024 * 1024)
+def resolve_extraction_policy(file_path: Path) -> tuple[str, dict[str, bool]]:
+    """Resolve extraction policy.
 
-    if suffix == ".pdf":
-        score += 1
-    elif suffix in OFFICE_FORMATS:
-        score += 2
+    Returns the default profile with all extractors enabled (tables, figures, equations).
+    VLM/hybrid mode is controlled separately via vlm_options parameter.
+    """
+    return "default", dict(_DEFAULT_EXTRACTION_SETTINGS)
 
-    if size_mb >= 20:
-        score += 2
-    elif size_mb >= 8:
-        score += 1
+class HybridMode(StrEnum):
+    AUTO = auto()
+    FULL = auto()
 
-    return score
+class HybridBackend(StrEnum):
+    DOCLING_FAST = "docling-fast"
+    OFF = "off"
 
-
-def _auto_select_profile(file_path: Path) -> ExtractionProfile:
-    """Select profile from static thresholds with no stochastic behavior."""
-    score = _score_document_complexity(file_path)
-    if score >= 4:
-        return "optimum"
-    if score >= 2:
-        return "balanced"
-    return "default"
-
-
-def resolve_extraction_policy(
-    file_path: Path,
-    *,
-    profile: str | None = None,
-    ai_config: AiConfig | None = None,
-    custom_extract_ocr: bool | None = None,
-    custom_extract_layout: bool | None = None,
-    custom_extract_tables: bool | None = None,
-    custom_extract_figures: bool | None = None,
-    custom_extract_equations: bool | None = None,
-    custom_extract_enrichment: bool | None = None,
-) -> tuple[ExtractionProfile, dict[str, bool]]:
-    """Resolve selected profile and effective extraction settings."""
-    config = ai_config or AiConfig()
-    selected = profile if profile is not None else config.extraction_profile
-
-    if selected is None:
-        selected = _auto_select_profile(file_path)
-
-    profile_value: ExtractionProfile = selected  # type: ignore[assignment]
-    if profile_value != "custom":
-        return profile_value, dict(_PROFILE_PRESETS[profile_value])
-
-    effective = {
-        "ocr": config.custom_extract_ocr if custom_extract_ocr is None else custom_extract_ocr,
-        "layout": config.custom_extract_layout if custom_extract_layout is None else custom_extract_layout,
-        "tables": config.custom_extract_tables if custom_extract_tables is None else custom_extract_tables,
-        "figures": config.custom_extract_figures if custom_extract_figures is None else custom_extract_figures,
-        "equations": config.custom_extract_equations if custom_extract_equations is None else custom_extract_equations,
-        "enrichment": config.custom_extract_enrichment if custom_extract_enrichment is None else custom_extract_enrichment,
-    }
-    return profile_value, effective
+class ImageOutput(StrEnum):
+    EXTERNAL = auto()
+    EMBEDDED = auto()
+    OFF = auto()
 
 
 @dataclass
@@ -128,10 +84,11 @@ class VlmOptions:
         hybrid_mode: Hybrid mode level - "fast" or "full".
     """
 
-    enable_hybrid: bool = False
-    hybrid_url: str = "http://localhost:5002"
-    hybrid_mode: str = "docling-fast"
-
+    hybrid_url: str = "http://127.0.0.1:5002"
+    hybrid_mode: HybridMode = HybridMode.FULL
+    hybrid_backend: HybridBackend = HybridBackend.DOCLING_FAST
+    hybrid_fallback: bool = True
+    image_output: ImageOutput = ImageOutput.EXTERNAL
 
 @dataclass
 class AcceleratorConfig:
@@ -151,8 +108,6 @@ class AcceleratorConfig:
     batch_size: int | None = None
 
 
-# File formats that need PDF conversion
-OFFICE_FORMATS = {".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"}
 # All supported formats (PDF + Office formats + text files)
 SUPPORTED_FORMATS = {".pdf", ".txt", ".md"} | OFFICE_FORMATS
 
@@ -264,21 +219,17 @@ def _run_opendataloader(
     if extract_figures:
         formats.append("markdown-with-images")
 
-    # Build hybrid URL if VLM options provided
-    hybrid: str | None = None
-    hybrid_mode: str | None = None
-    if vlm_options is not None and vlm_options.enable_hybrid:
-        hybrid = "docling-fast"
-        hybrid_mode = vlm_options.hybrid_mode
+    vlm_options = vlm_options or VlmOptions()
 
     try:
         opendataloader_pdf.convert(
             input_path=[str(file_path)],
             output_dir=str(output_dir),
             format=",".join(formats),
-            image_output="external" if extract_figures else "off",
-            hybrid=hybrid,
-            hybrid_mode=hybrid_mode,
+            image_output=vlm_options.image_output,
+            hybrid=vlm_options.hybrid_backend,
+            hybrid_mode=vlm_options.hybrid_mode,
+            hybrid_url=vlm_options.hybrid_url,
         )
     except Exception as e:
         msg = f"OpenDataLoader conversion failed for {file_path.name}: {e}"
@@ -442,7 +393,7 @@ def _convert_via_libreoffice(
         with tempfile.TemporaryDirectory() as tmpdir:
             conversion_result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
 
-            settings = effective_settings or _PROFILE_PRESETS["default"]
+            settings = effective_settings or _DEFAULT_EXTRACTION_SETTINGS
 
             with tempfile.TemporaryDirectory() as output_dir:
                 md_path, json_path = _run_opendataloader(
@@ -640,13 +591,6 @@ def extract_document_structured(
     extract_types: set[str] | None = None,
     vlm_options: VlmOptions | None = None,
     accelerator_config: AcceleratorConfig | None = None,
-    profile: str | None = None,
-    custom_extract_ocr: bool | None = None,
-    custom_extract_layout: bool | None = None,
-    custom_extract_tables: bool | None = None,
-    custom_extract_figures: bool | None = None,
-    custom_extract_equations: bool | None = None,
-    custom_extract_enrichment: bool | None = None,
 ) -> StructuredExtractionResult:
     """Extract a document into a canonical structured payload.
 
@@ -673,13 +617,6 @@ def extract_document_structured(
         vlm_options: Optional VLM features for extraction. Enables hybrid AI mode
             for complex PDF pages. If None, uses deterministic local extraction.
         accelerator_config: Optional accelerator settings (ignored, kept for compatibility).
-        profile: Extraction profile override.
-        custom_extract_ocr: Optional custom OCR toggle.
-        custom_extract_layout: Optional custom layout toggle (ignored, always true).
-        custom_extract_tables: Optional custom table extraction toggle.
-        custom_extract_figures: Optional custom figure extraction toggle.
-        custom_extract_equations: Optional custom equation extraction toggle.
-        custom_extract_enrichment: Optional custom enrichment toggle (enables hybrid AI).
 
     Returns:
         StructuredExtractionResult with content, tables, figures, and equations.
@@ -696,25 +633,10 @@ def extract_document_structured(
     if not _is_supported_format(file_path):
         raise ExtractionError(f"Unsupported file format: {file_path.suffix}")
 
-    selected_profile, effective_settings = resolve_extraction_policy(
-        file_path,
-        profile=profile,
-        custom_extract_ocr=custom_extract_ocr,
-        custom_extract_layout=custom_extract_layout,
-        custom_extract_tables=custom_extract_tables,
-        custom_extract_figures=custom_extract_figures,
-        custom_extract_equations=custom_extract_equations,
-        custom_extract_enrichment=custom_extract_enrichment,
-    )
+    selected_profile, effective_settings = resolve_extraction_policy(file_path)
 
     if extract_types is None:
-        extract_types = set()
-        if effective_settings["tables"]:
-            extract_types.add("tables")
-        if effective_settings["figures"]:
-            extract_types.add("figures")
-        if effective_settings["equations"]:
-            extract_types.add("equations")
+        extract_types = {"tables", "figures", "equations"}
 
     merged_metadata: dict[str, Any] = {
         "extraction_profile": selected_profile,
@@ -744,15 +666,6 @@ def extract_document_structured(
             if result is not None:
                 return result
 
-    # Determine effective VLM options based on enrichment setting
-    effective_vlm = vlm_options
-    if effective_vlm is not None and not effective_settings["enrichment"]:
-        effective_vlm = VlmOptions(
-            enable_hybrid=False,
-            hybrid_url=effective_vlm.hybrid_url,
-            hybrid_mode=effective_vlm.hybrid_mode,
-        )
-
     # Compute which artifact types to skip when skip_existing=True
     extraction_skip_types, eff_settings = _compute_extraction_skip_types(
         skip_existing,
@@ -764,7 +677,7 @@ def extract_document_structured(
     with tempfile.TemporaryDirectory() as output_dir:
         suffix = file_path.suffix.lower()
         if suffix == ".pdf" or suffix in {".txt", ".md"}:
-            extraction = _extract_pdf_or_text(file_path, output_dir, eff_settings, effective_vlm)
+            extraction = _extract_pdf_or_text(file_path, output_dir, eff_settings, vlm_options)
         else:
             # Office formats (DOCX, DOC, etc.) - convert to PDF first
             extraction = _convert_via_libreoffice(
@@ -772,7 +685,7 @@ def extract_document_structured(
                 ai_dir=ai_dir,
                 doc_stem=doc_stem,
                 extract_types=extract_types - extraction_skip_types,
-                vlm_options=effective_vlm,
+                vlm_options=vlm_options,
                 effective_settings=eff_settings,
             )
 

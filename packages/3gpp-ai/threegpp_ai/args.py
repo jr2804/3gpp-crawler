@@ -112,39 +112,6 @@ WorkspaceProcessSkipExistingOption = Annotated[
         help="Skip extraction for components that already exist in .ai folder",
     ),
 ]
-ExtractionProfileOption = Annotated[
-    str | None,
-    typer.Option(
-        "--profile",
-        help="Extraction profile override: default, balanced, optimum, custom",
-        envvar="TDC_AI_EXTRACTION_PROFILE",
-    ),
-]
-CustomExtractOcrOption = Annotated[
-    bool | None,
-    typer.Option("--custom-ocr/--no-custom-ocr", help="Custom profile override for OCR stage"),
-]
-CustomExtractLayoutOption = Annotated[
-    bool | None,
-    typer.Option("--custom-layout/--no-custom-layout", help="Custom profile override for layout stage"),
-]
-CustomExtractTablesOption = Annotated[
-    bool | None,
-    typer.Option("--custom-tables/--no-custom-tables", help="Custom profile override for table extraction"),
-]
-CustomExtractFiguresOption = Annotated[
-    bool | None,
-    typer.Option("--custom-figures/--no-custom-figures", help="Custom profile override for figure extraction"),
-]
-CustomExtractEquationsOption = Annotated[
-    bool | None,
-    typer.Option("--custom-equations/--no-custom-equations", help="Custom profile override for equation extraction"),
-]
-CustomExtractEnrichmentOption = Annotated[
-    bool | None,
-    typer.Option("--custom-enrichment/--no-custom-enrichment", help="Custom profile override for enrichment stages"),
-]
-
 # Accelerator options for Docling extraction
 AcceleratorDeviceOption = Annotated[
     str,

@@ -19,9 +19,9 @@ from tdoc_crawler.tdocs.sources.portal import PortalSource
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_tdoc_id, resolve_release_to_full_version
 
-from threegpp_ai.models import WorkspaceMember, WorkspaceNotFoundError
+from threegpp_ai.models import SourceKind, WorkspaceNotFoundError
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, is_default_workspace, normalize_workspace_name
-from threegpp_ai.operations.workspace_registry import WorkspaceRegistry
+from threegpp_ai.operations.workspace_registry import WorkspaceMember, WorkspaceRegistry
 
 _logger = get_logger(__name__)
 
@@ -384,7 +384,6 @@ def remove_workspace_member(workspace: str | None, source_item_id: str) -> bool:
 
 
 def make_workspace_member(
-    workspace: str | None,
     source_item_id: str,
     source_path: str | Path,
     source_kind: Any,
@@ -393,7 +392,6 @@ def make_workspace_member(
     """Build a normalized workspace member model from raw input.
 
     Args:
-        workspace: Workspace name.
         source_item_id: Source item ID.
         source_path: Path to the source item.
         source_kind: Kind of source (TDoc, Spec, etc.).
@@ -402,12 +400,10 @@ def make_workspace_member(
     Returns:
         WorkspaceMember instance.
     """
-    normalized_workspace = normalize_workspace_name(workspace) if workspace else ""
     return WorkspaceMember(
-        workspace_name=normalized_workspace,
-        source_item_id=source_item_id,
+        source_item_id=normalize_tdoc_id(source_item_id) or source_item_id,
         source_path=str(source_path),
-        source_kind=source_kind,
+        source_kind=SourceKind(source_kind),
         added_by=added_by or "",
     )
 

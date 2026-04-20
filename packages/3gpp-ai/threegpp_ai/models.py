@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any
@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field, field_validator
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
-from threegpp_ai.config import AiConfig
 from threegpp_ai.operations.workspace_names import normalize_workspace_name
 
 
@@ -80,46 +79,6 @@ class Workspace:
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
         self.workspace_name = normalize_workspace_name(self.workspace_name)
-
-
-@dataclass
-class WorkspaceMember:
-    """Source item assigned to one workspace corpus.
-
-    NOTE: This class is being merged into workspace_registry.WorkspaceMember.
-    Prefer importing from workspace_registry for new code.
-    """
-
-    workspace_name: str = field(metadata={"description": "Workspace identifier"})
-    source_item_id: str = field(metadata={"description": "Stable source item identifier"})
-    source_path: str = field(metadata={"description": "Path or locator of the source item"})
-    source_kind: SourceKind = field(metadata={"description": "Type of source item"})
-    added_at: datetime | str = field(default_factory=utc_now, metadata={"description": "Registration timestamp"})
-    added_by: str | None = field(default=None, metadata={"description": "Actor that registered the source"})
-    is_active: bool = field(default=True, metadata={"description": "Membership active flag"})
-
-    def __post_init__(self) -> None:
-        """Normalize fields after initialization."""
-        if not self.workspace_name.strip():
-            msg = "workspace_name must not be empty"
-            raise ValueError(msg)
-        self.workspace_name = normalize_workspace_name(self.workspace_name)
-
-        normalized = normalize_tdoc_id(self.source_item_id)
-        if not normalized:
-            msg = "source_item_id must not be empty"
-            raise ValueError(msg)
-
-        self.source_item_id = normalized
-        self.source_kind = SourceKind(self.source_kind)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict compatible with WorkspaceMetadata storage."""
-        result = asdict(self)
-        result["source_kind"] = self.source_kind.value
-        result["added_by"] = self.added_by or ""
-        result["added_at"] = self.added_at.isoformat() if isinstance(self.added_at, datetime) else self.added_at
-        return result
 
 
 class DocumentClassification(BaseModel):
@@ -319,6 +278,5 @@ __all__ = [
     "SummarizeResult",
     "TDocNotFoundError",
     "Workspace",
-    "WorkspaceMember",
     "WorkspaceNotFoundError",
 ]

@@ -48,15 +48,17 @@ OpenDataLoader with Hybrid Mode
 Standard Extraction Outputs + AI-Enhanced Artifacts
 ```
 
-**Key Differences:**
+## Extraction
 
-| Feature | Standard Pipeline | Hybrid Mode |
-|---------|-------------------|-------------|
+Extraction always enables all artifact types: tables, figures, and equations.
+
+| Feature | Standard Mode | Hybrid Mode |
+|---------|---------------|-------------|
 | Backend | `opendataloader_pdf` (local) | `opendataloader_pdf[hybrid]` |
 | Table Structure | ✅ Enabled | ✅ Enabled |
 | Formula Enrichment | ✅ Enabled | ✅ Enhanced |
 | Picture Description | ✅ Enabled | ✅ AI-generated (SmolVLM) |
-| OCR for Scanned PDFs | ✅ via `force_ocr` | ✅ via `force_ocr` |
+| OCR for Scanned PDFs | ✅ Automatic | ✅ Automatic |
 | Java Required | Yes (11+) | Yes (11+) |
 | GPU Required | No | No (but hybrid server needs LLM)
 
