@@ -9,7 +9,7 @@ from __future__ import annotations
 import litellm
 
 from threegpp_ai.models import SourceKind, SummarizeResult, WorkspaceNotFoundError
-from threegpp_ai.operations.convert import convert_tdoc as convert_document
+from threegpp_ai.operations.convert import convert_tdoc_metadata as convert_document
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
 from threegpp_ai.operations.summarize import summarize_tdoc as summarize_document
 from threegpp_ai.operations.workspace_registry import (
@@ -37,7 +37,6 @@ from threegpp_ai.operations.workspaces import (
     remove_invalid_members,
     resolve_spec_release_from_db,
     resolve_tdoc_checkout_path,
-    resolve_workspace,
 )
 
 litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
@@ -72,7 +71,6 @@ __all__ = [
     "remove_invalid_members",
     "resolve_spec_release_from_db",
     "resolve_tdoc_checkout_path",
-    "resolve_workspace",
     "set_active_workspace",
     "summarize_document",
 ]

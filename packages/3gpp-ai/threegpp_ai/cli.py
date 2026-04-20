@@ -22,7 +22,6 @@ from tdoc_crawler.logging import get_console, get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
-from tdoc_crawler.utils.normalization import normalize_release_version
 
 from threegpp_ai import (
     SourceKind,
@@ -41,7 +40,6 @@ from threegpp_ai import (
     make_workspace_member,
     normalize_workspace_name,
     remove_invalid_members,
-    resolve_spec_release_from_db,
     set_active_workspace,
     summarize_document,
 )
@@ -54,9 +52,7 @@ from threegpp_ai.args import (
     CacheDirOption,
     ConvertDocumentArgument,
     ConvertForceOption,
-    ConvertMdOption,
     ConvertOutputOption,
-    ConvertPdfOption,
     EndDateOption,
     OutputFormatOption,
     SourcePatternExcludeOption,
@@ -89,7 +85,6 @@ from threegpp_ai.config_app import config_app
 from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
-from threegpp_ai.operations.convert import convert_document_to_markdown
 from threegpp_ai.operations.extraction import VlmOptions, extract_document_structured
 from threegpp_ai.operations.hybrid_server import (
     DEFAULT_HOST,
@@ -113,6 +108,26 @@ app.add_typer(config_app, name="config")
 
 console = get_console()
 _logger = get_logger(__name__)
+
+
+def _build_vlm_options(vlm: bool, vlm_host: str = DEFAULT_HOST, vlm_port: int = DEFAULT_PORT) -> tuple[VlmOptions | None, bool]:
+    """Build VLM options and ensure hybrid server is running.
+
+    Returns:
+        Tuple of (vlm_options, was_hybrid_server_started)
+    """
+    if not vlm:
+        return None, False
+
+    # Auto-start hybrid server if not running
+    server_config = HybridServerConfig(host=vlm_host, port=vlm_port)
+    _, server_status = ensure_hybrid_server(server_config)
+    if not server_status.running:
+        console.print(f"[red]Failed to start hybrid server: {server_status.error}[/red]")
+        raise typer.Exit(1)
+    console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
+
+    return VlmOptions(enable_hybrid=True, hybrid_url=f"http://{vlm_host}:{vlm_port}"), True
 
 
 def _print_output(
@@ -228,103 +243,29 @@ def _resolve_workspace_items(
     return [row.tdoc_id for row in rows]
 
 
-async def _process_single_item(
+async def _checkout_single_item(
     *,
     item: str,
     workspace: str,
     source_kind: SourceKind,
     checkout: bool,
     release: str | None,
-    convert_pdf: bool,
-    convert_md: bool = False,
     path_config: PathConfig,
-    vlm_options: VlmOptions | None = None,
-) -> tuple[Any | None, str | None, bool, bool]:
-    """Process a single workspace item (checkout + optional PDF conversion + optional markdown extraction).
+) -> tuple[Any | None, str | None]:
+    """Checkout a single workspace item and return a member record.
 
-    Args:
-        item: Item ID to process
-        workspace: Workspace name
-        source_kind: Type of source (TDOC, SPEC, OTHER)
-        checkout: Whether to checkout documents
-        release: Spec release version
-        convert_pdf: Whether to convert to PDF
-        convert_md: Whether to extract markdown (implies convert_pdf)
-        path_config: PathConfig for file system paths
-        vlm_options: Optional VLM features for extraction.
-
-    Returns:
-        Tuple of (member, skip_reason, was_converted, was_md_extracted)
-        - member: WorkspaceMember if successful, None if skipped
-        - skip_reason: Reason if skipped, None if successful
-        - was_converted: True if PDF conversion was performed
-        - was_md_extracted: True if markdown was extracted
+    Delegates to :func:`threegpp_ai.operations.checkout.checkout_single_item`.
     """
-    source_path = item
-    if checkout:
-        checkout_path = None
-        if source_kind == SourceKind.TDOC:
-            checkout_path = await checkout_tdoc_to_workspace(item, path_config.checkout_dir, workspace, db_file=path_config.db_file)
-            if checkout_path is None:
-                return None, "TDoc not found in database or meeting not crawled", False, False
-        elif source_kind == SourceKind.SPEC:
-            checkout_path = await checkout_spec_to_workspace(
-                item,
-                path_config.checkout_dir,
-                workspace,
-                release or "latest",
-                db_file=path_config.db_file,
-            )
-            if checkout_path is None:
-                return None, "Spec not found in database", False, False
+    from threegpp_ai.operations.checkout import checkout_single_item
 
-        if checkout_path is not None:
-            source_path = str(checkout_path)
-            ensure_ai_subfolder(checkout_path)
-
-    # Handle convert_md implies convert_pdf
-    if convert_md:
-        convert_pdf = True
-
-    # Optional PDF conversion
-    was_converted = False
-    if convert_pdf:
-        member_for_convert = make_workspace_member(item, source_path, source_kind)
-        pdf_path = _convert_member_to_pdf(member_for_convert)
-        was_converted = pdf_path is not None
-
-    # Optional markdown extraction (for TDocs and specs)
-    was_md_extracted = False
-    if convert_md:
-        try:
-            if source_kind == SourceKind.TDOC:
-                # TDoc extraction - uses TDoc ID to fetch files
-                convert_document_to_markdown(
-                    document_id=item,
-                    output_path=None,
-                    force=False,
-                    vlm_options=vlm_options,
-                )
-            else:
-                # Generic extraction (specs, other) - uses file path directly
-                doc_file = _resolve_process_file(Path(source_path))
-                if doc_file:
-                    extract_document_structured(
-                        doc_file,
-                        metadata=None,
-                        force=False,
-                        vlm_options=vlm_options,
-                    )
-            was_md_extracted = True
-        except Exception as e:
-            _logger.debug("Failed to extract markdown for %s: %s", item, e)
-
-    resolved_release = None
-    if source_kind == SourceKind.SPEC and release:
-        resolved_release, _ = await resolve_spec_release_from_db(item, release)
-    source_item_id = f"{item}-REL{normalize_release_version(resolved_release)}" if resolved_release else item
-    member = make_workspace_member(source_item_id, source_path, source_kind)
-    return member, None, was_converted, was_md_extracted
+    return await checkout_single_item(
+        item=item,
+        workspace=workspace,
+        source_kind=source_kind,
+        checkout=checkout,
+        release=release,
+        path_config=path_config,
+    )
 
 
 def _resolve_process_file(path: Path) -> Path | None:
@@ -693,27 +634,22 @@ def workspace_clear_invalid(
         console.print(f"[yellow]No invalid members found in '{workspace_name}'[/yellow]")
 
 
-def _checkout_and_convert_items(
+def _checkout_items(
     resolved_items: list[str],
     *,
     workspace_name: str,
     source_kind: SourceKind,
     checkout: bool,
     release: str | None,
-    convert_pdf: bool,
-    convert_md: bool,
-    vlm_options: VlmOptions | None,
-) -> tuple[list[Any], list[tuple[str, str]], int, int]:
-    """Checkout, optionally convert to PDF, and optionally extract markdown for items.
+) -> tuple[list[Any], list[tuple[str, str]]]:
+    """Checkout items and return member records for workspace registration.
 
     Returns:
-        Tuple of (members, skipped_items, converted_count, md_extracted_count)
+        Tuple of (members, skipped_items)
     """
     manager = PathConfig()
     members: list[Any] = []
     skipped: list[tuple[str, str]] = []
-    converted_count = 0
-    md_extracted_count = 0
 
     with Progress(
         SpinnerColumn(),
@@ -724,41 +660,30 @@ def _checkout_and_convert_items(
         console=console,
     ) as progress:
         task = progress.add_task(
-            f"[cyan]Processing {len(resolved_items)} item(s)...",
+            f"[cyan]Checking out {len(resolved_items)} item(s)...",
             total=len(resolved_items),
         )
 
         async def _process_items() -> None:
-            nonlocal converted_count, md_extracted_count
             for item in resolved_items:
-                member, skip_reason, was_converted, was_md_extracted = await _process_single_item(
+                member, skip_reason = await _checkout_single_item(
                     item=item,
                     workspace=workspace_name,
                     source_kind=source_kind,
                     checkout=checkout,
                     release=release,
-                    convert_pdf=convert_pdf,
-                    convert_md=convert_md,
                     path_config=manager,
-                    vlm_options=vlm_options,
                 )
                 if skip_reason:
                     skipped.append((item, skip_reason))
                     progress.update(task, advance=1, description=f"[cyan]{item} (skipped)")
                 else:
                     members.append(member)
-                    if was_md_extracted:
-                        md_extracted_count += 1
-                        progress.update(task, advance=1, description=f"[cyan]{item} (markdown extracted)")
-                    elif was_converted:
-                        converted_count += 1
-                        progress.update(task, advance=1, description=f"[cyan]{item} (converted)")
-                    else:
-                        progress.update(task, advance=1, description=f"[cyan]{item}")
+                    progress.update(task, advance=1, description=f"[cyan]{item}")
 
         asyncio.run(_process_items())
 
-    return members, skipped, converted_count, md_extracted_count
+    return members, skipped
 
 
 @workspace_app.command("add-members", help="Add members (TDocs/specs) to a workspace")
@@ -767,8 +692,6 @@ def workspace_add_members(
     items: WorkspaceItemsArgument = None,
     kind: WorkspaceKindOption = "tdoc",
     checkout: WorkspaceCheckoutOption = True,
-    convert_pdf: ConvertPdfOption = False,
-    convert_md: ConvertMdOption = False,
     release: WorkspaceReleaseOption = None,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
@@ -779,10 +702,6 @@ def workspace_add_members(
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
     limit: WorkspaceLimitOption = None,
-    vlm: WorkspaceProcessVlmOption = False,
-    device: AcceleratorDeviceOption = "auto",
-    threads: AcceleratorThreadsOption = 4,
-    batch_size: AcceleratorBatchSizeOption = 4,
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output (INFO level logging)"),
 ) -> None:
     # Set log level based on verbosity
@@ -793,18 +712,6 @@ def workspace_add_members(
     workspace_name = _resolve_workspace_name(workspace)
     kind_normalized = kind.lower().rstrip("s")
     source_kind = SourceKind(kind_normalized) if kind_normalized in {entry.value for entry in SourceKind} else SourceKind.OTHER
-
-    # Build VLM options for extraction
-    vlm_options: VlmOptions | None = None
-    if vlm:
-        # Auto-start hybrid server if not running
-        _, server_status = ensure_hybrid_server()
-        if not server_status.running:
-            console.print(f"[red]Failed to start hybrid server: {server_status.error}[/red]")
-            raise typer.Exit(1)
-        console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
-
-        vlm_options = VlmOptions(enable_hybrid=True)
 
     # Phase 1: Resolve items - either directly provided or via database query
     if items is not None:
@@ -834,27 +741,19 @@ def workspace_add_members(
             console.print("[yellow]No items match the provided filters[/yellow]")
             return
 
-    # Phase 2: Checkout + optional PDF conversion + optional markdown extraction
-    members, skipped, converted_count, md_extracted_count = _checkout_and_convert_items(
+    # Phase 2: Checkout items
+    members, skipped = _checkout_items(
         resolved_items,
         workspace_name=workspace_name,
         source_kind=source_kind,
         checkout=checkout,
         release=release,
-        convert_pdf=convert_pdf,
-        convert_md=convert_md,
-        vlm_options=vlm_options,
     )
 
     if skipped:
         console.print("\n[yellow]Skipped invalid items:[/yellow]")
         for item_id, reason in skipped:
             console.print(f"  - {item_id}: {reason}")
-
-    if md_extracted_count > 0:
-        console.print(f"[green]Extracted markdown from {md_extracted_count} document(s)[/green]")
-    elif converted_count > 0:
-        console.print(f"[green]Converted {converted_count} document(s) to PDF[/green]")
 
     added = add_workspace_members(workspace_name, members)
     console.print(f"[green]Added {added} member(s) to '{workspace_name}'[/green]")
@@ -958,14 +857,7 @@ def workspace_process(
     # Build VLM options if --vlm flag is set
     vlm_options: VlmOptions | None = None
     if vlm:
-        vlm_options = VlmOptions(enable_hybrid=True, hybrid_url=f"http://{vlm_host}:{vlm_port}")
-        # Auto-start hybrid server if not running
-        server_config = HybridServerConfig(host=vlm_host, port=vlm_port, device=device)
-        _, server_status = ensure_hybrid_server(server_config)
-        if not server_status.running:
-            console.print(f"[red]Failed to start hybrid server: {server_status.error}[/red]")
-            raise typer.Exit(1)
-        console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
+        vlm_options, _ = _build_vlm_options(True, vlm_host=vlm_host, vlm_port=vlm_port)
 
     with Progress(
         SpinnerColumn(),

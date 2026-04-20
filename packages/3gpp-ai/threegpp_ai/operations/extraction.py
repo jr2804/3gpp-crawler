@@ -49,7 +49,7 @@ logger = get_logger(__name__)
 _DEFAULT_EXTRACTION_SETTINGS = {"ocr": True, "layout": True, "tables": True, "figures": True, "equations": True, "enrichment": False}
 
 
-def resolve_extraction_policy(file_path: Path) -> tuple[str, dict[str, bool]]:
+def resolve_extraction_policy() -> tuple[str, dict[str, bool]]:
     """Resolve extraction policy.
 
     Returns the default profile with all extractors enabled (tables, figures, equations).
@@ -92,6 +92,7 @@ class VlmOptions:
     hybrid_backend: HybridBackend = HybridBackend.DOCLING_FAST
     hybrid_fallback: bool = True
     image_output: ImageOutput = ImageOutput.EXTERNAL
+
 
 # All supported formats (PDF + Office formats + text files)
 SUPPORTED_FORMATS = {".pdf", ".txt", ".md"} | OFFICE_FORMATS
@@ -614,7 +615,7 @@ def extract_document_structured(
     if not _is_supported_format(file_path):
         raise ExtractionError(f"Unsupported file format: {file_path.suffix}")
 
-    selected_profile, effective_settings = resolve_extraction_policy(file_path)
+    selected_profile, effective_settings = resolve_extraction_policy()
 
     if extract_types is None:
         extract_types = {"tables", "figures", "equations"}

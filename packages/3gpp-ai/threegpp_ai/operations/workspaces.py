@@ -76,23 +76,6 @@ def ensure_default_workspace() -> WorkspaceRegistry:
     return registry
 
 
-def resolve_workspace(workspace: str | None) -> WorkspaceRegistry:
-    """Resolve and auto-create a workspace from optional user input.
-
-    Args:
-        workspace: Optional workspace name.
-
-    Returns:
-        WorkspaceRegistry with the workspace ensured to exist.
-    """
-    normalized_workspace = normalize_workspace_name(workspace)
-    registry = _get_registry()
-    if normalized_workspace not in registry.workspaces:
-        registry.create_workspace(normalized_workspace)
-        registry.save()
-    return registry
-
-
 def get_workspace(workspace: str | None) -> WorkspaceRegistry | None:
     """Get a workspace by name if it exists.
 
@@ -673,6 +656,5 @@ __all__ = [
     "remove_invalid_members",
     "remove_workspace_member",
     "resolve_tdoc_checkout_path",
-    "resolve_workspace",
     "set_active_workspace",
 ]

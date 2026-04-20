@@ -12,7 +12,7 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_id
 from threegpp_ai.config import AiConfig, QualityPolicyMode
 from threegpp_ai.models import LlmConfigError, SummarizeResult
 
-from .convert import extract_tdoc_structured
+from .convert import extract_document_structured_from_tdoc
 from .llm_client import LiteLLMClient
 from .metrics import MetricType, get_metrics_tracker, timed_operation
 
@@ -319,7 +319,7 @@ def summarize_tdoc(
     normalized_id = normalize_tdoc_id(document_id)
 
     with timed_operation(get_metrics_tracker(), normalized_id, MetricType.SUMMARIZATION):
-        extraction = extract_tdoc_structured(normalized_id, force=force)
+        extraction = extract_document_structured_from_tdoc(normalized_id, force=force)
         source_content, context_mode, context_stats = _build_prompt_source_content(extraction)
 
         config = AiConfig()

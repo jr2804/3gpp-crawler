@@ -334,12 +334,11 @@ class WorkspaceRegistry:
         logger.info(f"Set active workspace to '{normalized_name}'")
 
     @classmethod
-    def load(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
+    def load(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
         """Load registry from JSON file.
 
         Args:
             registry_path: Explicit path to workspaces.json. If None, uses PathConfig.
-            cache_manager_name: Ignored, kept for backward compatibility.
 
         Returns:
             Loaded WorkspaceRegistry instance.
@@ -371,12 +370,11 @@ class WorkspaceRegistry:
             return cls._create_default(registry_path)
 
     @classmethod
-    def _create_default(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
+    def _create_default(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
         """Create a new registry with default workspace.
 
         Args:
             registry_path: Optional explicit path to save to.
-            cache_manager_name: Ignored, kept for backward compatibility.
 
         Returns:
             New WorkspaceRegistry instance with default workspace.
@@ -398,11 +396,8 @@ class WorkspaceRegistry:
         return registry
 
 
-def get_active_workspace(cache_manager_name: str | None = None) -> str:
+def get_active_workspace() -> str:
     """Get the name of the currently active workspace.
-
-    Args:
-        cache_manager_name: Ignored, kept for backward compatibility.
 
     Returns:
         Name of the active workspace, or DEFAULT_WORKSPACE if none set.
@@ -411,12 +406,11 @@ def get_active_workspace(cache_manager_name: str | None = None) -> str:
     return registry.active or DEFAULT_WORKSPACE
 
 
-def set_active_workspace(name: str, cache_manager_name: str | None = None) -> None:
+def set_active_workspace(name: str) -> None:
     """Set the active workspace.
 
     Args:
         name: Workspace name to set as active.
-        cache_manager_name: Ignored, kept for backward compatibility.
     """
     registry = WorkspaceRegistry.load()
     normalized_name = normalize_workspace_name(name)

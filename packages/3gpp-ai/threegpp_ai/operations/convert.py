@@ -281,9 +281,7 @@ def extract_document_structured_from_tdoc(
 
 
 # Backward compatibility aliases
-convert_tdoc = convert_tdoc_metadata
 convert_tdoc_to_markdown = convert_document_to_markdown
-extract_tdoc_structured = extract_document_structured_from_tdoc
 
 __all__ = [
     # Re-exported from conversion.py for backward compatibility
@@ -291,9 +289,7 @@ __all__ = [
     "ConverterConfig",
     "convert_document_to_markdown",
     # TDoc-specific functions
-    "convert_tdoc",
     "convert_tdoc_metadata",
     "convert_tdoc_to_markdown",
     "extract_document_structured_from_tdoc",
-    "extract_tdoc_structured",
 ]

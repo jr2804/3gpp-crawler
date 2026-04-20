@@ -621,9 +621,6 @@ def persist_output_contracts(
     )
 
 
-
-
-
 def from_opendataloader_result(
     markdown_content: str,
     *,
