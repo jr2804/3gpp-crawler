@@ -11,7 +11,7 @@ from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 from threegpp_ai.config import AiConfig, QualityPolicyMode
-from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
+from threegpp_ai.models import LlmConfigError, SummarizeResult
 
 from .convert import extract_tdoc_structured
 from .llm_client import LiteLLMClient
@@ -254,74 +254,6 @@ Abstract:
 Source document:
 {content}
 """
-
-
-def summarize_document(
-    document_id: str,
-    markdown: str,
-) -> DocumentSummary:
-    """Generate summary for a document."""
-    config = AiConfig()
-
-    client = _get_llm_client()
-
-    truncated_markdown = _truncate_text(markdown, ABSTRACT_INPUT_LIMIT)
-    abstract_prompt = ABSTRACT_PROMPT.format(content=truncated_markdown)
-    try:
-        abstract = client.complete(abstract_prompt, model=config.llm_model)
-    except (litellm_exceptions.OpenAIError, ValueError) as exc:
-        msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
-        raise LlmConfigError(msg) from exc
-
-    truncated_for_structured = _truncate_text(markdown, SUMMARY_INPUT_LIMIT)
-    structured_prompt = STRUCTURED_SUMMARY_PROMPT.format(
-        abstract=abstract,
-        content=truncated_for_structured,
-    )
-    try:
-        structured_payload = client.complete(structured_prompt)
-    except (litellm_exceptions.OpenAIError, ValueError) as exc:
-        msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
-        raise LlmConfigError(msg) from exc
-
-    structured = _parse_structured_summary(structured_payload)
-
-    original_word_count = _count_words(markdown)
-    word_count = _count_words(abstract)
-
-    if word_count < config.abstract_min_words:
-        if original_word_count >= config.abstract_min_words:
-            logger.warning(
-                f"Abstract for {document_id} shorter than minimum: {word_count} words "
-                f"(minimum: {config.abstract_min_words}, original document: {original_word_count} words)"
-            )
-        else:
-            logger.debug(
-                f"Abstract for {document_id} has {word_count} words, "
-                f"but original document is short ({original_word_count} words, minimum: {config.abstract_min_words})"
-            )
-    elif word_count > config.abstract_max_words:
-        logger.warning(f"Abstract for {document_id} exceeds maximum: {word_count} words (maximum: {config.abstract_max_words})")
-
-    key_points = structured["key_points"] or _extract_key_points(abstract)
-    action_items = structured["action_items"] or _extract_action_items(markdown)
-    decisions = structured["decisions"] or _extract_decisions(markdown)
-    affected_specs = structured["affected_specs"] or _extract_spec_references(markdown)
-
-    summary = DocumentSummary(
-        document_id=document_id,
-        abstract=abstract,
-        key_points=key_points,
-        action_items=action_items,
-        decisions=decisions,
-        affected_specs=affected_specs,
-        llm_model=config.llm_model,
-        prompt_version="v2",
-        generated_at=utc_now(),
-    )
-
-    logger.info(f"Generated summary for {document_id}")
-    return summary
 
 
 def _extract_key_points(abstract: str) -> list[str]:

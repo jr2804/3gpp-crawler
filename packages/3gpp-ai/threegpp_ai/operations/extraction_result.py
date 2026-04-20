@@ -30,9 +30,6 @@ from threegpp_ai.models import (
     StructuredExtractionResult,
 )
 
-if TYPE_CHECKING:
-    from docling.document_converter import ConversionResult
-
 logger = get_logger(__name__)
 
 _EQUATION_PATTERNS = [
@@ -267,57 +264,6 @@ def persist_figures_from_extraction(
         _persist_single_artifact(figure_for_json, figures_dir.parent, doc_stem, "figures", figure.page_number, index)
 
         path_map[figure.element_id] = image_path
-
-    return path_map
-
-
-def persist_figures_from_docling_result(
-    result: ConversionResult,
-    figures_dir: Path,
-    doc_stem: str | None = None,
-) -> dict[str, Path]:
-    """Persist extracted figure bytes to disk and return resolved paths.
-
-    Args:
-        result: Object returned by docling DocumentConverter.convert().
-        figures_dir: Target directory for figure artifacts.
-        doc_stem: Document stem for naming (e.g., "S4-250638"). If None, uses legacy naming.
-
-    Returns:
-        Mapping from generated figure id (figure_N) to file path.
-    """
-    # Docling stores pictures in result.document.pictures
-    doc = getattr(result, "document", None)
-    if doc is None:
-        return {}
-
-    image_items: Sequence[Any] = getattr(doc, "pictures", []) or []
-    if not image_items:
-        return {}
-
-    figures_dir.mkdir(parents=True, exist_ok=True)
-    path_map: dict[str, Path] = {}
-
-    for index, image in enumerate(image_items, start=1):
-        # Docling PictureItem.get_image(doc) returns image bytes
-        try:
-            image_bytes = image.get_image(doc)
-        except Exception:
-            image_bytes = None
-
-        image_format = str(getattr(image, "format", "png") or "png").lower()
-        page = getattr(image, "page_number", None)
-
-        if not isinstance(image_bytes, bytes) or not image_bytes:
-            continue
-
-        extension = "jpg" if image_format == "jpeg" else image_format
-
-        filename = f"{doc_stem}_figure_{page or 'unknown'}_{index}.{extension}" if doc_stem else f"figure_{index}.{extension}"
-
-        image_path = figures_dir / filename
-        image_path.write_bytes(image_bytes)
-        path_map[f"figure_{index}"] = image_path
 
     return path_map
 
@@ -1056,7 +1002,6 @@ __all__ = [
     "has_cached_artifacts",
     "persist_canonical_output",
     "persist_equations_from_extraction",
-    "persist_figures_from_docling_result",
     "persist_figures_from_extraction",
     "persist_output_contracts",
     "persist_output_manifest",

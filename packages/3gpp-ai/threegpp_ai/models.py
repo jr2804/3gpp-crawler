@@ -7,37 +7,12 @@ from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 from threegpp_ai.config import AiConfig
 from threegpp_ai.operations.workspace_names import normalize_workspace_name
-
-
-class GraphNodeType(StrEnum):
-    """Types of nodes in the knowledge graph."""
-
-    DOCUMENT = auto()
-    TDOC = auto()
-    MEETING = auto()
-    SPEC = auto()
-    WORK_ITEM = "work_item"
-    CHANGE_REQUEST = "cr"
-    COMPANY = auto()
-
-
-# Use LLM to synthesize answer from graph + embeddings (GraphRAG)
-
-
-class GraphEdgeType(StrEnum):
-    """Types of edges in the knowledge graph."""
-
-    DISCUSSES = auto()
-    REFERENCES = auto()
-    AUTHORED_BY = auto()
-    PRESENTED_AT = auto()
-    REVISION_OF = auto()  # is_revision_of metadata relationship
 
 
 class ExtractionQualityStatus(StrEnum):
@@ -85,14 +60,6 @@ class LlmConfigError(AiError):
     """LLM endpoint not configured or unreachable."""
 
 
-class AiConfigError(AiError):
-    """Invalid or missing AI configuration."""
-
-
-class EmbeddingDimensionError(AiError):
-    """Embedding model dimension mismatch with stored vectors."""
-
-
 class WorkspaceNotFoundError(AiError):
     """Workspace does not exist in registry."""
 
@@ -117,7 +84,11 @@ class Workspace:
 
 @dataclass
 class WorkspaceMember:
-    """Source item assigned to one workspace corpus."""
+    """Source item assigned to one workspace corpus.
+
+    NOTE: This class is being merged into workspace_registry.WorkspaceMember.
+    Prefer importing from workspace_registry for new code.
+    """
 
     workspace_name: str = field(metadata={"description": "Workspace identifier"})
     source_item_id: str = field(metadata={"description": "Stable source item identifier"})
@@ -140,13 +111,10 @@ class WorkspaceMember:
             raise ValueError(msg)
 
         self.source_item_id = normalized
-        self.source_kind = SourceKind(self.source_kind)  # Ensure source_kind is a SourceKind enum
+        self.source_kind = SourceKind(self.source_kind)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict compatible with WorkspaceMetadata storage.
-
-        Returns added_at as ISO string for JSON serialization.
-        """
+        """Serialize to dict compatible with WorkspaceMetadata storage."""
         result = asdict(self)
         result["source_kind"] = self.source_kind.value
         result["added_by"] = self.added_by or ""
@@ -311,64 +279,6 @@ class StructuredExtractionResult(BaseModel):
         return len(self.equations)
 
 
-class DocumentSummary(BaseModel):
-    """AI-generated summary for a TDoc."""
-
-    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
-    abstract: str = Field(..., description="150-250 word abstract")
-    key_points: list[str] = Field(default_factory=list, description="Key findings")
-    action_items: list[str] = Field(default_factory=list, description="Action items")
-    decisions: list[str] = Field(default_factory=list, description="Decisions recorded")
-    affected_specs: list[str] = Field(default_factory=list, description="Affected specification IDs")
-    llm_model: str = Field(
-        default_factory=lambda: AiConfig().llm_model,
-        description="Model used for generation",
-    )
-    prompt_version: str = Field("v1", description="Prompt template version")
-    generated_at: datetime = Field(default_factory=utc_now, description="Generation timestamp")
-
-    @field_validator("document_id")
-    @classmethod
-    def _normalize_document_id(cls, value: str) -> str:
-        normalized = normalize_tdoc_id(value)
-        if not normalized:
-            msg = "document_id must not be empty"
-            raise ValueError(msg)
-        return normalized
-
-
-class GraphNode(BaseModel):
-    """A node in the temporal knowledge graph."""
-
-    node_id: str = Field(..., description="Unique node identifier")
-    node_type: GraphNodeType = Field(..., description="Node type")
-    label: str = Field(..., description="Human-readable label")
-    valid_from: datetime | None = Field(None, description="Temporal validity start")
-    valid_to: datetime | None = Field(None, description="Temporal validity end")
-    properties: dict[str, Any] = Field(default_factory=dict, description="Type-specific properties")
-    created_at: datetime = Field(default_factory=utc_now, description="Node creation timestamp")
-
-
-class GraphEdge(BaseModel):
-    """An edge in the temporal knowledge graph."""
-
-    edge_id: str = Field(..., description="Edge identifier '{source}->{edge_type}->{target}'")
-    source_id: str = Field(..., description="Source node id")
-    target_id: str = Field(..., description="Target node id")
-    edge_type: GraphEdgeType = Field(..., description="Edge type")
-    weight: float = Field(1.0, description="Relationship strength")
-    temporal_context: str | None = Field(None, description="Meeting or date context")
-    provenance: str = Field(..., description="How this edge was derived")
-    created_at: datetime = Field(default_factory=utc_now, description="Edge creation timestamp")
-
-    @model_validator(mode="after")
-    def _validate_weight(self) -> GraphEdge:
-        if self.weight <= 0:
-            msg = "weight must be positive"
-            raise ValueError(msg)
-        return self
-
-
 class SummarizeResult(BaseModel):
     """Result of TDoc summarization operation."""
 
@@ -390,13 +300,10 @@ class SummarizeResult(BaseModel):
 
 
 __all__ = [
-    "AiConfigError",
     "AiError",
     "ConversionError",
     "DocumentClassification",
     "DocumentMetadataContract",
-    "DocumentSummary",
-    "EmbeddingDimensionError",
     "ExtractedEquationElement",
     "ExtractedFigureElement",
     "ExtractedTableElement",
@@ -404,10 +311,6 @@ __all__ = [
     "ExtractionQualityReasonCode",
     "ExtractionQualityReport",
     "ExtractionQualityStatus",
-    "GraphEdge",
-    "GraphEdgeType",
-    "GraphNode",
-    "GraphNodeType",
     "LlmConfigError",
     "PageMetadataContract",
     "QualityGateCheckResult",
@@ -417,4 +320,5 @@ __all__ = [
     "TDocNotFoundError",
     "Workspace",
     "WorkspaceMember",
+    "WorkspaceNotFoundError",
 ]
