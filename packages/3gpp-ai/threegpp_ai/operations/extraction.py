@@ -93,25 +93,6 @@ class VlmOptions:
     hybrid_fallback: bool = True
     image_output: ImageOutput = ImageOutput.EXTERNAL
 
-
-@dataclass
-class AcceleratorConfig:
-    """Accelerator configuration for OpenDataLoader document processing.
-
-    OpenDataLoader is CPU-optimized and doesn't require GPU acceleration.
-    This dataclass is kept for API compatibility with the previous docling-based pipeline.
-
-    Attributes:
-        device: Compute device (ignored, kept for compatibility).
-        num_threads: Thread count for parallel processing.
-        batch_size: Batch size for processing (ignored by OpenDataLoader).
-    """
-
-    device: str = "auto"
-    num_threads: int = 4
-    batch_size: int | None = None
-
-
 # All supported formats (PDF + Office formats + text files)
 SUPPORTED_FORMATS = {".pdf", ".txt", ".md"} | OFFICE_FORMATS
 
@@ -594,7 +575,6 @@ def extract_document_structured(
     skip_existing: bool = False,
     extract_types: set[str] | None = None,
     vlm_options: VlmOptions | None = None,
-    accelerator_config: AcceleratorConfig | None = None,
 ) -> StructuredExtractionResult:
     """Extract a document into a canonical structured payload.
 
@@ -620,7 +600,6 @@ def extract_document_structured(
             If None, extracts all types. Supported types: "tables", "figures", "equations".
         vlm_options: Optional VLM features for extraction. Enables hybrid AI mode
             for complex PDF pages. If None, uses deterministic local extraction.
-        accelerator_config: Optional accelerator settings (ignored, kept for compatibility).
 
     Returns:
         StructuredExtractionResult with content, tables, figures, and equations.
@@ -629,8 +608,6 @@ def extract_document_structured(
         ExtractionError: If the source file does not exist or extraction fails.
         ConversionError: If Office document conversion fails.
     """
-    del accelerator_config  # OpenDataLoader is CPU-optimized, no GPU needed
-
     if not file_path.exists():
         raise ExtractionError(f"Source file does not exist: {file_path}")
 
@@ -718,7 +695,6 @@ def extract_document_text(
     file_path: Path,
     force: bool = False,
     vlm_options: VlmOptions | None = None,
-    accelerator_config: AcceleratorConfig | None = None,
 ) -> str:
     """Extract plain text content from a document using OpenDataLoader.
 
@@ -729,7 +705,6 @@ def extract_document_text(
         file_path: Path to the document file.
         force: If True, re-extract even if cached markdown exists.
         vlm_options: Optional VLM features for extraction.
-        accelerator_config: Optional accelerator settings (ignored, kept for compatibility).
 
     Returns:
         Extracted text content as a string.
@@ -744,13 +719,11 @@ def extract_document_text(
         force=force,
         extract_types=set(),  # No artifacts needed for text-only extraction
         vlm_options=vlm_options,
-        accelerator_config=accelerator_config,
     )
     return extraction.content
 
 
 __all__ = [
-    "AcceleratorConfig",
     "VlmOptions",
     "extract_document_structured",
     "extract_document_text",

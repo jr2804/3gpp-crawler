@@ -90,7 +90,7 @@ from threegpp_ai.models import WorkspaceNotFoundError
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import convert_document_to_markdown
-from threegpp_ai.operations.extraction import AcceleratorConfig, VlmOptions, extract_document_structured
+from threegpp_ai.operations.extraction import VlmOptions, extract_document_structured
 from threegpp_ai.operations.hybrid_server import (
     DEFAULT_HOST,
     DEFAULT_PORT,
@@ -239,7 +239,6 @@ async def _process_single_item(
     convert_md: bool = False,
     path_config: PathConfig,
     vlm_options: VlmOptions | None = None,
-    accelerator_config: AcceleratorConfig | None = None,
 ) -> tuple[Any | None, str | None, bool, bool]:
     """Process a single workspace item (checkout + optional PDF conversion + optional markdown extraction).
 
@@ -253,7 +252,6 @@ async def _process_single_item(
         convert_md: Whether to extract markdown (implies convert_pdf)
         path_config: PathConfig for file system paths
         vlm_options: Optional VLM features for extraction.
-        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
 
     Returns:
         Tuple of (member, skip_reason, was_converted, was_md_extracted)
@@ -306,7 +304,6 @@ async def _process_single_item(
                     output_path=None,
                     force=False,
                     vlm_options=vlm_options,
-                    accelerator_config=accelerator_config,
                 )
             else:
                 # Generic extraction (specs, other) - uses file path directly
@@ -317,7 +314,6 @@ async def _process_single_item(
                         metadata=None,
                         force=False,
                         vlm_options=vlm_options,
-                        accelerator_config=accelerator_config,
                     )
             was_md_extracted = True
         except Exception as e:
@@ -409,7 +405,6 @@ async def _process_workspace_members(
     convert_md: bool = False,
     skip_existing: bool = False,
     vlm_options: VlmOptions | None = None,
-    accelerator_config: AcceleratorConfig | None = None,
 ) -> list[dict[str, Any]]:
     """Process workspace members with optional progress callback.
 
@@ -421,7 +416,6 @@ async def _process_workspace_members(
         convert_md: Whether to extract markdown (implies PDF conversion)
         skip_existing: If True, skip extraction for components that already exist.
         vlm_options: Optional VLM features for extraction (enables hybrid mode for figures/tables/equations).
-        accelerator_config: Optional accelerator settings for GPU/CPU and threading.
 
     Returns:
         List of processing results
@@ -490,7 +484,6 @@ async def _process_workspace_members(
                 force=False,
                 skip_existing=skip_existing,
                 vlm_options=vlm_options,
-                accelerator_config=accelerator_config,
             )
             results.append(
                 {
@@ -710,7 +703,6 @@ def _checkout_and_convert_items(
     convert_pdf: bool,
     convert_md: bool,
     vlm_options: VlmOptions | None,
-    accelerator_config: AcceleratorConfig,
 ) -> tuple[list[Any], list[tuple[str, str]], int, int]:
     """Checkout, optionally convert to PDF, and optionally extract markdown for items.
 
@@ -749,7 +741,6 @@ def _checkout_and_convert_items(
                     convert_md=convert_md,
                     path_config=manager,
                     vlm_options=vlm_options,
-                    accelerator_config=accelerator_config,
                 )
                 if skip_reason:
                     skipped.append((item, skip_reason))
@@ -803,7 +794,7 @@ def workspace_add_members(
     kind_normalized = kind.lower().rstrip("s")
     source_kind = SourceKind(kind_normalized) if kind_normalized in {entry.value for entry in SourceKind} else SourceKind.OTHER
 
-    # Build VLM and accelerator options for extraction
+    # Build VLM options for extraction
     vlm_options: VlmOptions | None = None
     if vlm:
         # Auto-start hybrid server if not running
@@ -814,8 +805,6 @@ def workspace_add_members(
         console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
 
         vlm_options = VlmOptions(enable_hybrid=True)
-
-    accelerator_config = AcceleratorConfig(device=device, num_threads=threads, batch_size=batch_size)
 
     # Phase 1: Resolve items - either directly provided or via database query
     if items is not None:
@@ -855,7 +844,6 @@ def workspace_add_members(
         convert_pdf=convert_pdf,
         convert_md=convert_md,
         vlm_options=vlm_options,
-        accelerator_config=accelerator_config,
     )
 
     if skipped:
@@ -979,9 +967,6 @@ def workspace_process(
             raise typer.Exit(1)
         console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
 
-    # Build accelerator config from CLI options
-    accelerator_config = AcceleratorConfig(device=device, num_threads=threads, batch_size=batch_size)
-
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -1007,7 +992,6 @@ def workspace_process(
                 convert_md=True,
                 skip_existing=skip_existing,
                 vlm_options=vlm_options,
-                accelerator_config=accelerator_config,
             )
         )
         progress.update(task, completed=len(results), description="[cyan]Processing complete")
