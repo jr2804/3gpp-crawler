@@ -57,13 +57,16 @@ def resolve_extraction_policy(file_path: Path) -> tuple[str, dict[str, bool]]:
     """
     return "default", dict(_DEFAULT_EXTRACTION_SETTINGS)
 
+
 class HybridMode(StrEnum):
     AUTO = auto()
     FULL = auto()
 
+
 class HybridBackend(StrEnum):
     DOCLING_FAST = "docling-fast"
     OFF = "off"
+
 
 class ImageOutput(StrEnum):
     EXTERNAL = auto()
@@ -89,6 +92,7 @@ class VlmOptions:
     hybrid_backend: HybridBackend = HybridBackend.DOCLING_FAST
     hybrid_fallback: bool = True
     image_output: ImageOutput = ImageOutput.EXTERNAL
+
 
 @dataclass
 class AcceleratorConfig:

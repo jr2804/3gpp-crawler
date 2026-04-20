@@ -11,7 +11,6 @@ import json
 import re
 import shutil
 import tempfile
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -622,170 +621,7 @@ def persist_output_contracts(
     )
 
 
-def _extract_tables_from_docling(doc: Any) -> list[ExtractedTableElement]:
-    """Extract table elements from a docling document."""
-    tables: list[ExtractedTableElement] = []
-    table_items: Sequence[Any] = getattr(doc, "tables", []) or []
-    for index, table in enumerate(table_items, start=1):
-        table_data = getattr(table, "data", None)
-        cells_raw: list[Any] = []
-        if table_data is not None:
-            cells_raw = getattr(table_data, "grid", []) or []
 
-        cells = []
-        cell_metadata = []
-        for row in cells_raw:
-            row_cells: list[str] = []
-            row_cell_metadata: list[dict[str, Any] | None] = []
-            for cell in row:
-                text = getattr(cell, "text", "") if hasattr(cell, "text") else str(cell) if cell else ""
-                row_cells.append(text)
-                row_cell_metadata.append(_coerce_cell_metadata(cell))
-            cells.append(row_cells)
-            cell_metadata.append(row_cell_metadata)
-
-        row_count = len(cells)
-        col_count = max((len(row) for row in cells), default=0)
-
-        table_markdown: str | None = None
-        if hasattr(table, "export_to_markdown"):
-            try:
-                table_markdown = table.export_to_markdown(doc=doc)
-            except TypeError:
-                table_markdown = table.export_to_markdown() if hasattr(table, "export_to_markdown") else None
-
-        tables.append(
-            ExtractedTableElement(
-                element_id=f"table_{index}",
-                page_number=getattr(table_data, "page_number", None) if table_data else None,
-                row_count=row_count,
-                column_count=col_count,
-                cells=cells,
-                cell_metadata=cell_metadata,
-                markdown=table_markdown,
-                caption=None,
-                source_anchor_id=_resolve_source_anchor(table_data or table, f"table-{index}"),
-            )
-        )
-    return tables
-
-
-def _extract_figures_from_docling(
-    doc: Any,
-    figure_paths: dict[str, str] | None,
-    figure_descriptions: dict[str, str] | None,
-) -> list[ExtractedFigureElement]:
-    """Extract figure elements from a docling document."""
-    figures: list[ExtractedFigureElement] = []
-    image_items: Sequence[Any] = getattr(doc, "pictures", []) or []
-    for index, image in enumerate(image_items, start=1):
-        figure_id = f"figure_{index}"
-        page_number = getattr(image, "page_number", None)
-        image_format: str | None = None
-        caption: str | None = None
-        image_metadata: dict[str, Any] = {}
-
-        if hasattr(image, "caption_text"):
-            try:
-                ct = image.caption_text(doc)
-                caption = ct if isinstance(ct, str) else None
-            except TypeError:
-                caption = None
-
-        if hasattr(image, "image"):
-            img_obj = image.image
-            if hasattr(img_obj, "type"):
-                image_format = getattr(img_obj, "type", "").lower().replace("image/", "")
-            if hasattr(img_obj, "data"):
-                image_metadata["data"] = getattr(img_obj, "data", None)
-
-        # Determine description priority: figure_descriptions > caption > VLM annotation
-        description: str | None = (figure_descriptions or {}).get(figure_id)
-        if not description and caption:
-            description = caption
-        # Try to get VLM-generated description from annotations
-        if not description and hasattr(image, "annotations"):
-            for annotation in getattr(image, "annotations", []) or []:
-                if isinstance(annotation, "DescriptionAnnotation"):
-                    vlm_description = getattr(annotation, "text", None)
-                    if vlm_description:
-                        description = vlm_description
-                        break
-
-        partial_reason_codes: list[str] = []
-        if not (figure_paths or {}).get(figure_id):
-            partial_reason_codes.append("missing_image_path")
-        if caption is None:
-            partial_reason_codes.append("missing_caption")
-        if description is None:
-            partial_reason_codes.append("missing_description")
-
-        figures.append(
-            ExtractedFigureElement(
-                element_id=figure_id,
-                page_number=page_number,
-                image_path=(figure_paths or {}).get(figure_id),
-                image_format=image_format,
-                caption=caption,
-                description=description,
-                source_anchor_id=_resolve_source_anchor(image, f"figure-{index}"),
-                is_partial=bool(partial_reason_codes),
-                partial_reason_codes=partial_reason_codes,
-                metadata=image_metadata,
-            )
-        )
-    return figures
-
-
-def from_docling_result(
-    result: ConversionResult,
-    *,
-    figure_paths: dict[str, str] | None = None,
-    figure_descriptions: dict[str, str] | None = None,
-) -> StructuredExtractionResult:
-    """Convert a docling extraction result into the canonical payload.
-
-    The converter is tolerant to partial/missing fields so existing behavior
-    remains stable while richer extraction support is rolled out.
-
-    Args:
-        result: Object returned by docling DocumentConverter.convert().
-        figure_paths: Optional mapping from figure id to resolved file path.
-        figure_descriptions: Optional mapping from figure id to generated description.
-
-    Returns:
-        Canonical structured extraction result.
-    """
-    doc = getattr(result, "document", None)
-    if doc is None:
-        return build_structured_extraction_result(content="")
-
-    content = getattr(doc, "export_to_markdown", lambda: "")()
-    if not content:
-        content = ""
-
-    tables = _extract_tables_from_docling(doc)
-    figures = _extract_figures_from_docling(doc, figure_paths, figure_descriptions)
-    equations = _detect_equations(content)
-
-    marker_lines: list[str] = []
-    marker_lines.extend(_build_table_marker(table) for table in tables)
-    marker_lines.extend(_build_figure_marker(figure) for figure in figures)
-    marker_lines.extend(_build_equation_marker(equation) for equation in equations)
-    if marker_lines:
-        content = f"{content.rstrip()}\n\n" + "\n".join(marker_lines) + "\n"
-
-    result_metadata: dict[str, Any] = {}
-    if hasattr(result, "metadata"):
-        result_metadata = getattr(result, "metadata", {}) or {}
-
-    return build_structured_extraction_result(
-        content=content,
-        tables=tables,
-        figures=figures,
-        equations=equations,
-        metadata=result_metadata,
-    )
 
 
 def from_opendataloader_result(
@@ -961,31 +797,6 @@ def read_cached_artifacts(
     )
 
 
-def has_cached_artifacts(
-    ai_dir: Path,
-    doc_stem: str,
-    artifact_types: set[str],
-) -> bool:
-    """Check if cached artifacts exist for specified types.
-
-    Args:
-        ai_dir: The .ai directory for the document.
-        doc_stem: Document stem (e.g., "S4-250638").
-        artifact_types: Set of types to check: {"tables", "figures", "equations"}.
-
-    Returns:
-        True if all specified artifact types have at least one cached file.
-    """
-    for artifact_type in artifact_types:
-        folder = ai_dir / artifact_type
-        if not folder.exists():
-            return False
-        pattern = f"{doc_stem}_{artifact_type[:-1]}_*.json"
-        if not any(folder.glob(pattern)):
-            return False
-    return True
-
-
 __all__ = [
     "DocumentMetadataContract",
     "ExtractedEquationElement",
@@ -997,9 +808,7 @@ __all__ = [
     "build_canonical_output",
     "build_structured_extraction_result",
     "evaluate_quality_gates",
-    "from_docling_result",
     "from_opendataloader_result",
-    "has_cached_artifacts",
     "persist_canonical_output",
     "persist_equations_from_extraction",
     "persist_figures_from_extraction",

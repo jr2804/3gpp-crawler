@@ -135,23 +135,6 @@ class HybridServerManager:
         except Exception as e:
             return HybridServerStatus(running=False, url=self.url, error=str(e))
 
-    def _capture_output(self, *, timeout: float = 1.0) -> str:
-        """Capture output from the process pipe if available.
-
-        Note: This only captures output after the process has exited.
-        For running processes, output may not be immediately available.
-        """
-        if self._process is None:
-            return ""
-        # Only capture if process has exited
-        if self._process.poll() is None:
-            return ""
-        try:
-            stdout, _ = self._process.communicate(timeout=timeout)
-            return stdout.decode("utf-8", errors="replace") if stdout else ""
-        except Exception:
-            return ""
-
     def stop(self) -> HybridServerStatus:
         """Stop the running server."""
         if self._process is None:
@@ -170,6 +153,23 @@ class HybridServerManager:
             return status
         except Exception as e:
             return HybridServerStatus(running=False, url=self.url, error=str(e))
+
+    def _capture_output(self, *, timeout: float = 1.0) -> str:
+        """Capture output from the process pipe if available.
+
+        Note: This only captures output after the process has exited.
+        For running processes, output may not be immediately available.
+        """
+        if self._process is None:
+            return ""
+        # Only capture if process has exited
+        if self._process.poll() is None:
+            return ""
+        try:
+            stdout, _ = self._process.communicate(timeout=timeout)
+            return stdout.decode("utf-8", errors="replace") if stdout else ""
+        except Exception:
+            return ""
 
     def _wait_for_healthy(
         self,

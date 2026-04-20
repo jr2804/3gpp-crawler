@@ -806,13 +806,15 @@ def workspace_add_members(
     # Build VLM and accelerator options for extraction
     vlm_options: VlmOptions | None = None
     if vlm:
-        vlm_options = VlmOptions(enable_hybrid=True)
         # Auto-start hybrid server if not running
         _, server_status = ensure_hybrid_server()
         if not server_status.running:
             console.print(f"[red]Failed to start hybrid server: {server_status.error}[/red]")
             raise typer.Exit(1)
         console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
+
+        vlm_options = VlmOptions(enable_hybrid=True)
+
     accelerator_config = AcceleratorConfig(device=device, num_threads=threads, batch_size=batch_size)
 
     # Phase 1: Resolve items - either directly provided or via database query
