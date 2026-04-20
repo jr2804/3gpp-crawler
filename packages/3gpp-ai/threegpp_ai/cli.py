@@ -10,7 +10,7 @@ import asyncio
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
 import typer
 from dotenv import load_dotenv
@@ -50,10 +50,18 @@ from threegpp_ai.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
     CacheDirOption,
+    ClearDryRunOption,
+    ClearPathOption,
+    ClearWorkspaceOption,
+    ConfigFileOption,
     ConvertDocumentArgument,
     ConvertForceOption,
     ConvertOutputOption,
     EndDateOption,
+    HybridServerDeviceOption,
+    HybridServerHostOption,
+    HybridServerPortOption,
+    HybridServerWaitOption,
     OutputFormatOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
@@ -66,9 +74,12 @@ from threegpp_ai.args import (
     SummarizeWordsOption,
     TitlePatternExcludeOption,
     TitlePatternOption,
+    VlmHostOption,
+    VlmPortOption,
     WorkspaceActivateOption,
     WorkspaceAutoBuildOption,
     WorkspaceCheckoutOption,
+    WorkspaceDeleteArtifactsOption,
     WorkspaceIncludeInactiveOption,
     WorkspaceItemsArgument,
     WorkspaceKindOption,
@@ -83,6 +94,7 @@ from threegpp_ai.args import (
 from threegpp_ai.config import ThreeGPPAIConfig
 from threegpp_ai.config_app import config_app
 from threegpp_ai.models import WorkspaceNotFoundError
+from threegpp_ai.operations.checkout import checkout_single_item
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.extraction import VlmOptions, extract_document_structured
@@ -127,7 +139,7 @@ def _build_vlm_options(vlm: bool, vlm_host: str = DEFAULT_HOST, vlm_port: int = 
         raise typer.Exit(1)
     console.print(f"[dim]Using hybrid server at {server_status.url}[/dim]")
 
-    return VlmOptions(enable_hybrid=True, hybrid_url=f"http://{vlm_host}:{vlm_port}"), True
+    return VlmOptions(hybrid_url=f"http://{vlm_host}:{vlm_port}"), True
 
 
 def _print_output(
@@ -150,16 +162,7 @@ def _print_output(
 @app.callback()
 def _app_init(
     ctx: typer.Context,
-    config_file: Annotated[
-        Path | None,
-        typer.Option(
-            "--config",
-            "-c",
-            help="Path to configuration file (overrides discovered config)",
-            exists=True,
-            readable=True,
-        ),
-    ] = None,
+    config_file: ConfigFileOption = None,
     cache_dir: CacheDirOption = None,
 ) -> None:
     """Load configuration so all sub-commands can resolve file paths."""
@@ -256,8 +259,6 @@ async def _checkout_single_item(
 
     Delegates to :func:`threegpp_ai.operations.checkout.checkout_single_item`.
     """
-    from threegpp_ai.operations.checkout import checkout_single_item
-
     return await checkout_single_item(
         item=item,
         workspace=workspace,
@@ -833,8 +834,8 @@ def workspace_process(
     device: AcceleratorDeviceOption = "auto",
     threads: AcceleratorThreadsOption = 4,
     batch_size: AcceleratorBatchSizeOption = 4,
-    vlm_host: Annotated[str, typer.Option("--vlm-host", help="Hybrid server host")] = DEFAULT_HOST,
-    vlm_port: Annotated[int, typer.Option("--vlm-port", help="Hybrid server port")] = DEFAULT_PORT,
+    vlm_host: VlmHostOption = DEFAULT_HOST,
+    vlm_port: VlmPortOption = DEFAULT_PORT,
 ) -> None:
     workspace_name = _resolve_workspace_name(workspace)
 
@@ -915,13 +916,7 @@ def workspace_process(
 @workspace_app.command("delete", help="Delete a workspace")
 def workspace_delete(
     name: WorkspaceNameArgument,
-    delete_artifacts: Annotated[
-        bool,
-        typer.Option(
-            "--delete-artifacts",
-            help="Also delete all .ai processing artifacts in the checkout folder for this workspace's members",
-        ),
-    ] = False,
+    delete_artifacts: WorkspaceDeleteArtifactsOption = False,
 ) -> None:
     deleted = delete_workspace(name, delete_artifacts=delete_artifacts)
     if not deleted:
@@ -932,29 +927,9 @@ def workspace_delete(
 
 @app.command("clear", help="Delete all .ai processing artifacts from checkout/cache folders")
 def clear_artifacts(
-    path: Annotated[
-        Path | None,
-        typer.Option(
-            "--path",
-            "-p",
-            help="Path to clear .ai folders from. Defaults to checkout directory.",
-        ),
-    ] = None,
-    workspace: Annotated[
-        str | None,
-        typer.Option(
-            "--workspace",
-            "-w",
-            help="Clear only .ai folders for members of this workspace.",
-        ),
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            help="Show what would be deleted without actually deleting.",
-        ),
-    ] = False,
+    path: ClearPathOption = None,
+    workspace: ClearWorkspaceOption = None,
+    dry_run: ClearDryRunOption = False,
 ) -> None:
     """Delete all .ai processing artifacts from checkout folders.
 
@@ -1017,10 +992,10 @@ def clear_artifacts(
 
 @hybrid_app.command("start")
 def hybrid_server_start(
-    host: Annotated[str, typer.Option("--host", help="Host to bind to")] = DEFAULT_HOST,
-    port: Annotated[int, typer.Option("--port", help="Port to bind to")] = DEFAULT_PORT,
-    device: Annotated[str, typer.Option("--device", help="Compute device: auto, cpu, cuda, mps, xpu")] = "auto",
-    wait: Annotated[bool, typer.Option("--wait/--no-wait", help="Wait for server to be ready")] = True,
+    host: HybridServerHostOption = DEFAULT_HOST,
+    port: HybridServerPortOption = DEFAULT_PORT,
+    device: HybridServerDeviceOption = "auto",
+    wait: HybridServerWaitOption = True,
 ) -> None:
     """Start the OpenDataLoader hybrid server.
 
