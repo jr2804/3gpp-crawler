@@ -81,45 +81,45 @@ arg "<ai_agent>" help="AI assistant to use: claude, gemini, copilot, opencode, .
 shell = "pwsh -NoProfile -Command"
 run = [
     'cls',
-    'bun x add-mcp -y -a {{usage.ai_agent}} "grepai mcp-serve"',
-    #'bun x add-mcp -y -a {{usage.ai_agent}} -n docs-mcp-server "grepai mcp-serve"',
-    'bun x add-mcp -y -a {{usage.ai_agent}} -n cytoscnpy-mcp "cytoscnpy mcp-server"'
+    'npx -y add-mcp -y -a {{usage.ai_agent}} "grepai mcp-serve"',
+    #'npx -y add-mcp -y -a {{usage.ai_agent}} -n docs-mcp-server "grepai mcp-serve"',
+    'npx -y add-mcp -y -a {{usage.ai_agent}} -n cytoscnpy-mcp "cytoscnpy mcp-server"'
 ]
 
 [tasks.add-skills]
 run = [
     "cls",
     # python skills
-    "bun x skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate",
-    "bun x skills add https://github.com/jiatastic/open-python-skills -a universal -y -s ty-skills -s pydantic",
+    "npx -y skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate",
+    "npx -y skills add https://github.com/jiatastic/open-python-skills -a universal -y -s ty-skills -s pydantic",
 
     # anti-AI hallucination skills
-    "bun x skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
-    "bun x skills add https://github.com/hardikpandya/stop-slop -a universal -y",
-    "bun x skills add https://github.com/glaforge/deslopify -a universal -y",
+    "npx -y skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
+    "npx -y skills add https://github.com/hardikpandya/stop-slop -a universal -y",
+    "npx -y skills add https://github.com/glaforge/deslopify -a universal -y",
 
     # development tool skills
-	"bun x skills add https://github.com/s2005/uv-skill -a universal -y",
-	"bun x skills add https://github.com/netresearch/agent-rules-skill -a universal -y",
+	"npx -y skills add https://github.com/s2005/uv-skill -a universal -y",
+	"npx -y skills add https://github.com/netresearch/agent-rules-skill -a universal -y",
 
     # skills for other tools
-    "bun x skills add https://github.com/nicobailon/visual-explainer -a universal -y",
-	"bun x skills add https://github.com/FlorianBruniaux/claude-code-ultimate-guide/tree/main/examples -s rtk-optimizer -a universal -y",
-    "bun x skills add JuliusBrussee/caveman -a universal -y",
-    "bun x skills add run-llama/llamaparse-agent-skills --skill liteparse -a universal -y",
+    "npx -y skills add https://github.com/nicobailon/visual-explainer -a universal -y",
+	"npx -y skills add https://github.com/FlorianBruniaux/claude-code-ultimate-guide/tree/main/examples -s rtk-optimizer -a universal -y",
+    "npx -y skills add JuliusBrussee/caveman -a universal -y",
+    "npx -y skills add run-llama/llamaparse-agent-skills --skill liteparse -a universal -y",
 
     # skill for project-specific tools/MCP servers
-    "bun x skills add https://github.com/AlmogBaku/debug-skill -a universal -y", # for dab tool -> AlmogBaku/debug-skill
-	"bun x skills add yoanbernabeu/grepai-skills -a universal -y",
-	"bun x skills add AlmogBaku/debug-skill -a universal -y",
-	"bun x skills add https://github.com/arabold/docs-mcp-server -a universal -y",
+    "npx -y skills add https://github.com/AlmogBaku/debug-skill -a universal -y", # for dab tool -> AlmogBaku/debug-skill
+	"npx -y skills add yoanbernabeu/grepai-skills -a universal -y",
+	"npx -y skills add AlmogBaku/debug-skill -a universal -y",
+	"npx -y skills add https://github.com/arabold/docs-mcp-server -a universal -y",
 
     # 3GPP skills (TODO: fix - requires well-known endpoint)
-    "bun x skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
-    "bun x skills add https://github.com/lugasia/3gpp-skill -a universal -y",
+    "npx -y skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
+    "npx -y skills add https://github.com/lugasia/3gpp-skill -a universal -y",
 
     # skill for teddi-mcp/-cli
-    "bun x skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
+    "npx -y skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
 
 
 ]
