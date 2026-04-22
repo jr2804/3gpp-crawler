@@ -187,7 +187,9 @@ def _build_prompt_source_content(extraction: dict | object) -> tuple[str, str, d
 
     try:
         structured_context, stats = _serialize_structured_context(extraction)
-    except Exception:
+    except (KeyError, TypeError, ValueError) as e:
+        # Log the specific error for debugging
+        logger.debug("Structured context serialization failed: %s", e)
         return (
             markdown_content,
             "markdown_fallback",

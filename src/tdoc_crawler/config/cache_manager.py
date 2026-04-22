@@ -7,13 +7,13 @@ the CacheManager to ensure consistency and testability.
 Usage:
     # At application entry point (CLI __main__.py)
     from tdoc_crawler.config import CacheManager
-    
+
     cache_dir = Path.home() / ".3gpp-crawler"  # Or from config/env var
     manager = CacheManager(cache_dir).register()
-    
+
     # Anywhere else in the codebase
     from tdoc_crawler.config import resolve_cache_manager
-    
+
     manager = resolve_cache_manager()
     db_path = manager.db_file
     checkout_path = manager.checkout_dir
@@ -139,7 +139,5 @@ def resolve_cache_manager() -> CacheManager:
         CacheManagerNotRegisteredError: If no manager is registered
     """
     if CacheManager._instance is None:
-        raise CacheManagerNotRegisteredError(
-            "CacheManager not registered. Call CacheManager(cache_dir).register() at application startup."
-        )
+        raise CacheManagerNotRegisteredError("CacheManager not registered. Call CacheManager(cache_dir).register() at application startup.")
     return CacheManager._instance

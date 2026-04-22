@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import typer
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    Task,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.logging import get_console, get_logger
 from tdoc_crawler.models.base import OutputFormat
@@ -62,8 +70,8 @@ def get_relative_path(source_path: str, base_path: Path) -> str:
 def create_progress_bar(
     description: str,
     total: float | None = None,
-    *columns: Any,
-    console_instance: Any = None,
+    *columns: str,
+    console_instance: Console | None = None,
 ) -> Progress:
     """Create a standard Rich Progress instance for CLI operations.
 
@@ -87,7 +95,7 @@ def create_progress_bar(
     )
 
 
-def create_minimal_spinner(console_instance: Any = None) -> Progress:
+def create_minimal_spinner(console_instance: Console | None = None) -> Progress:
     """Create a minimal spinner-only progress indicator for short operations."""
     return Progress(
         SpinnerColumn(),

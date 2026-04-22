@@ -7,6 +7,7 @@ This module provides:
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -169,7 +170,10 @@ class HybridServerManager:
         try:
             stdout, _ = self._process.communicate(timeout=timeout)
             return stdout.decode("utf-8", errors="replace") if stdout else ""
-        except Exception:
+        except (subprocess.TimeoutExpired, UnicodeDecodeError) as e:
+            # Log specific errors for debugging
+            logger = logging.getLogger(__name__)
+            logger.debug("Failed to capture process output: %s", e)
             return ""
 
     def _wait_for_healthy(

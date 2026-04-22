@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 import pandas as pd
 import yaml
@@ -28,6 +28,9 @@ from toon_format import encode as toon_encode
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.models.base import OutputFormat
 
+# Type alias for structured data input
+StructuredData = dict | list | str | int | float | bool | None
+
 
 @dataclass(frozen=True)
 class TableColumnSpec:
@@ -39,7 +42,7 @@ class TableColumnSpec:
     justify: Literal["default", "left", "center", "right", "full"] = "left"
 
 
-def _normalize_to_dataframe(data: Any) -> tuple[pd.DataFrame, str]:
+def _normalize_to_dataframe(data: StructuredData) -> tuple[pd.DataFrame, str]:
     """Normalize arbitrary structured data to a DataFrame.
 
     Returns:
@@ -73,7 +76,7 @@ def _dataframe_to_payload(df: pd.DataFrame, input_kind: str) -> Any:
     return records
 
 
-def _format_cell(value: Any) -> str:
+def _format_cell(value: str | int | float | bool | None) -> str:
     """Format one table cell from DataFrame value with empty handling."""
     if value is None:
         return "-"
@@ -111,7 +114,7 @@ def _build_table(
     return table
 
 
-def format_output(data: Any, output_format: OutputFormat) -> str:
+def format_output(data: StructuredData, output_format: OutputFormat) -> str:
     """Format structured data to the specified output format.
 
     Uses pandas DataFrame as intermediate representation for consistent handling
@@ -148,7 +151,7 @@ def format_output(data: Any, output_format: OutputFormat) -> str:
 
 
 def print_structured_output(
-    data: Any,
+    data: StructuredData,
     output_format: OutputFormat,
     *,
     table_title: str = "Results",
