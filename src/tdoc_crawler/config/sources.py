@@ -40,14 +40,14 @@ class ConfigLoadError(Exception):
     """Raised when a config file cannot be loaded or parsed.
 
     Attributes:
-        file_path: Path to the file that failed to load.
+        config_file: Path to the file that failed to load.
         reason: Human-readable explanation of the failure.
     """
 
-    def __init__(self, file_path: Path, reason: str) -> None:
-        self.file_path = file_path
+    def __init__(self, config_file: Path, reason: str) -> None:
+        self.config_file = config_file
         self.reason = reason
-        super().__init__(f"Failed to load config from {file_path}: {reason}")
+        super().__init__(f"Failed to load config from {config_file}: {reason}")
 
 
 def _interpolate_env_vars(value: Any) -> Any:
@@ -145,14 +145,14 @@ def discover_config_files(cwd: Path | None = None) -> list[Path]:
     return files
 
 
-def load_config_file(path: Path) -> dict[str, Any]:
+def load_config_file(config_file: Path) -> dict[str, Any]:
     """Load a single config file and return its contents as a dict.
 
     Supports TOML (.toml), YAML (.yaml, .yml), and JSON (.json) formats.
     Environment variable interpolation is applied to string values.
 
     Args:
-        path: Path to the config file.
+        config_file: Path to the config file.
 
     Returns:
         Dictionary of config values. Empty dict if file not found.
@@ -160,49 +160,49 @@ def load_config_file(path: Path) -> dict[str, Any]:
     Raises:
         ConfigLoadError: If the file cannot be parsed or has permission issues.
     """
-    if not path.is_file():
+    if not config_file.is_file():
         return {}
 
-    suffix = path.suffix.lower()
+    suffix = config_file.suffix.lower()
 
     try:
         if suffix == ".toml":
             # For TOML, we need to interpolate BEFORE parsing since TOML
             # doesn't support ${VAR} syntax natively
-            with path.open("r", encoding="utf-8") as f:
+            with config_file.open("r", encoding="utf-8") as f:
                 content = f.read()
             content = _interpolate_env_vars(content)
             data = tomllib.loads(content)
         elif suffix in {".yaml", ".yml"}:
             yaml = import_module("yaml")
 
-            with path.open("r", encoding="utf-8") as f:
+            with config_file.open("r", encoding="utf-8") as f:
                 try:
                     data = yaml.safe_load(f)
                 except yaml.scanner.ScannerError as e:
-                    raise ConfigLoadError(path, f"Parse error: {e}") from e
+                    raise ConfigLoadError(config_file, f"Parse error: {e}") from e
             if data is None:
                 data = {}
             data = _interpolate_env_vars(data)
         elif suffix == ".json":
-            with path.open("r", encoding="utf-8") as f:
+            with config_file.open("r", encoding="utf-8") as f:
                 data = json.load(f)
             data = _interpolate_env_vars(data)
         else:
-            raise ConfigLoadError(path, f"Unsupported file format: {suffix}")
+            raise ConfigLoadError(config_file, f"Unsupported file format: {suffix}")
     except FileNotFoundError:
         return {}
     except PermissionError as e:
-        raise ConfigLoadError(path, f"Permission denied: {e}") from e
+        raise ConfigLoadError(config_file, f"Permission denied: {e}") from e
     except (ValueError, json.JSONDecodeError) as e:
-        raise ConfigLoadError(path, f"Parse error: {e}") from e
+        raise ConfigLoadError(config_file, f"Parse error: {e}") from e
     except ImportError as e:
         if "yaml" in str(e):
-            raise ConfigLoadError(path, "PyYAML is required for YAML files but is not installed") from e
+            raise ConfigLoadError(config_file, "PyYAML is required for YAML files but is not installed") from e
         raise
 
     if not isinstance(data, dict):
-        raise ConfigLoadError(path, f"Expected dict at root, got {type(data).__name__}")
+        raise ConfigLoadError(config_file, f"Expected dict at root, got {type(data).__name__}")
 
     return data
 

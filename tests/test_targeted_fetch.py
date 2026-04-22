@@ -60,10 +60,10 @@ class TestInferWorkingGroups:
         assert WorkingGroup.RAN in groups
 
     def test_infer_empty_list(self) -> None:
-        """Return all working groups for empty input."""
+        """Return empty list for empty input."""
         ids: list[str] = []
         groups = infer_working_groups_from_ids(ids)
-        assert len(groups) == 3
+        assert len(groups) == 0
 
 
 @pytest.mark.asyncio
