@@ -26,7 +26,7 @@ from tdoc_crawler.cli.args import (
     UseWhatTheSpecOption,
     VerbosityOption,
 )
-from tdoc_crawler.cli.config import load_cli_config
+from tdoc_crawler.cli.config import CacheManager, load_cli_config
 from tdoc_crawler.cli.config_app import config_app
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
@@ -79,7 +79,10 @@ def _app_callback(
     if cache_dir is not None:
         console.print("[yellow]Warning: --cache-dir is deprecated, use config file[/yellow]")
         config.path.cache_dir = cache_dir
-        ctx.obj = config
+
+    # Register CacheManager for centralized path management
+    manager = CacheManager(config.path.cache_dir).register()
+    ctx.obj = config
 
 
 # Register crawl commands

@@ -20,7 +20,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from tdoc_crawler.config.env_vars import ConfigEnvVar
 from tdoc_crawler.config.sources import discover_config_files, load_config_file, merge_configs
 
-_DEFAULT_CACHE_DIR = Path.home() / ".3gpp-crawler"
+# Default values (not constants - just module-level defaults)
+# Actual paths are resolved by CacheManager at runtime
+_DEFAULT_CACHE_DIR_STR = "~/.3gpp-crawler"
 _DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 _DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 _DEFAULT_CHECKOUT_DIRNAME = "checkout"
@@ -39,7 +41,7 @@ class PathConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TDC_", env_nested_delimiter="_", extra="ignore")
 
     cache_dir: Path = Field(
-        default=_DEFAULT_CACHE_DIR,
+        default_factory=lambda: Path(_DEFAULT_CACHE_DIR_STR).expanduser().resolve(),
         validation_alias=AliasChoices(ConfigEnvVar.TDC_CACHE_DIR.name, "cache_dir"),
         description="Root cache directory for storing downloaded files and metadata",
     )
@@ -90,7 +92,7 @@ class PathConfig(BaseSettings):
     def _resolve_cache_dir(cls, value: str | Path | None) -> Path:
         """Resolve and validate the cache directory path."""
         if value is None:
-            return _DEFAULT_CACHE_DIR
+            return Path(_DEFAULT_CACHE_DIR_STR).expanduser().resolve()
         if isinstance(value, str):
             value = Path(value)
         return value.expanduser().resolve()

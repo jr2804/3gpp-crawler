@@ -97,19 +97,19 @@ def checkout_tdoc(
         return checkout_path
 
     checkout_path.mkdir(parents=True, exist_ok=True)
-    temp_zip_path = checkout_path / f"{metadata.tdoc_id}.zip"
+    temp_zip_file = checkout_path / f"{metadata.tdoc_id}.zip"
 
     if metadata.url is None:
         raise ValueError(f"TDoc {metadata.tdoc_id} has no URL")
 
     try:
-        download_to_file(metadata.url, temp_zip_path, session=session)
-        with zipfile.ZipFile(temp_zip_path) as archive:
+        download_to_file(metadata.url, temp_zip_file, session=session)
+        with zipfile.ZipFile(temp_zip_file) as archive:
             archive.extractall(checkout_path)
         logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
     finally:
-        if temp_zip_path.exists():
-            temp_zip_path.unlink()
+        if temp_zip_file.exists():
+            temp_zip_file.unlink()
 
     return checkout_path
 
@@ -140,8 +140,8 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
 
     downloads_dir = Path(checkout_dir)
     downloads_dir.mkdir(parents=True, exist_ok=True)
-    path = urlparse(metadata.url).path
-    filename = str(posixpath.basename(path))
+    url_path = urlparse(metadata.url).path
+    filename = str(posixpath.basename(url_path))
     suffix = Path(filename).suffix.lower()
 
     if suffix == ".zip":
@@ -151,14 +151,14 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
             if files:
                 return extract_dir if return_dir else files[0]
             shutil.rmtree(extract_dir)
-        zip_path = downloads_dir / f"{metadata.tdoc_id}.zip"
-        download_to_file(metadata.url, zip_path, session=session)
+        zip_file = downloads_dir / f"{metadata.tdoc_id}.zip"
+        download_to_file(metadata.url, zip_file, session=session)
         try:
-            with zipfile.ZipFile(zip_path) as archive:
+            with zipfile.ZipFile(zip_file) as archive:
                 archive.extractall(extract_dir)
         finally:
             with suppress(FileNotFoundError):
-                zip_path.unlink()
+                zip_file.unlink()
         files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
         if not files:
             raise FileNotFoundError("no-files-in-archive")
@@ -167,14 +167,14 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
     # For non-zip files, download directly
     target_suffix = suffix or ""
     target_name = filename if filename else f"{metadata.tdoc_id}{target_suffix or '.bin'}"
-    target_path = downloads_dir / target_name
-    if not target_path.exists():
+    target_file = downloads_dir / target_name
+    if not target_file.exists():
         try:
-            download_to_file(metadata.url, target_path, session=session)
+            download_to_file(metadata.url, target_file, session=session)
         except requests.exceptions.HTTPError as exc:
             status_code = exc.response.status_code if exc.response is not None else "unknown"
             raise FileNotFoundError(f"failed-to-download ({status_code}): {metadata.url}") from exc
-    return target_path
+    return target_file
 
 
 def get_checked_out_tdocs(checkout_dir: Path) -> list[str]:
