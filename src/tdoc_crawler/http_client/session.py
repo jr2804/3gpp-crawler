@@ -141,7 +141,7 @@ def resolve_ssl_verify(
 
 def download_to_file(
     url: str,
-    destination: Path,
+    target_file: Path,
     session: requests.Session | None = None,
     close_session: bool = True,
     http_cache_file: Path | None = None,
@@ -154,7 +154,7 @@ def download_to_file(
 
     Args:
         url: Source URL
-        destination: Destination path
+        target_file: Destination file path
         session: Optional requests.Session to reuse. If None, a temporary cached session is created.
         close_session: Whether to close the session after download. Only applicable if a temporary session is created.
         http_cache_file: Optional explicit path to the HTTP cache database. Falls back to PathConfig default.
@@ -167,7 +167,7 @@ def download_to_file(
         ValueError: If URL scheme is not supported
         FileNotFoundError: If download fails
     """
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    target_file.parent.mkdir(parents=True, exist_ok=True)
     lowered = url.lower()
     allowed_schemes = ("ftp://", "http://", "https://")
     if not lowered.startswith(allowed_schemes):
@@ -191,7 +191,7 @@ def download_to_file(
         timeout = pool_config.connection_timeout if pool_config is not None else 60
         response = active_session.get(url, timeout=timeout, stream=True)
         response.raise_for_status()
-        with destination.open("wb") as target:
+        with target_file.open("wb") as target:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     target.write(chunk)

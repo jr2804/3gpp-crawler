@@ -179,9 +179,9 @@ class SpecDownloads:
         url = SPEC_URL_TEMPLATE.format(series=series, normalized=normalized, file_name=target.file_name)
         return url, target.file_name
 
-    def _download_full_zip(self, url: str, target_path: Path) -> None:
+    def _download_full_zip(self, url: str, target_file: Path) -> None:
         """Download full zip file, re-use session if already created for doc-only attempt."""
-        self.session = download_to_file(url, target_path, session=self.session, close_session=False, http_cache_file=self._http_cache_file)
+        self.session = download_to_file(url, target_file, session=self.session, close_session=False, http_cache_file=self._http_cache_file)
 
     @staticmethod
     def _filter_versions_by_release(
@@ -247,8 +247,8 @@ class SpecDownloads:
                 # Extract matching entries to target_dir
                 for entry in entries:
                     if entry.path == doc_file:
-                        target_path = target_dir / doc_file.split("/")[-1]
-                        with target_path.open("wb") as f:
+                        target_file = target_dir / doc_file.split("/")[-1]
+                        with target_file.open("wb") as f:
                             async for _ in reader.extract(entry, f):
                                 pass
                         return True
