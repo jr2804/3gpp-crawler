@@ -107,6 +107,7 @@ class HybridServerManager:
             self.config.device,
             "--log-level",
             self.config.log_level,
+            "--force-ocr",
             "--enrich-formula",
             "--enrich-picture-description",
         ]

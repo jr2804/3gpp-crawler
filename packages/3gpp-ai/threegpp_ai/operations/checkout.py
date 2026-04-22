@@ -22,7 +22,6 @@ from threegpp_ai import (
     SourceKind,
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
-    ensure_ai_subfolder,
     make_workspace_member,
     resolve_spec_release_from_db,
 )
@@ -85,7 +84,6 @@ async def checkout_single_item(
 
         if checkout_path is not None:
             source_path = str(checkout_path)
-            ensure_ai_subfolder(checkout_path)
 
     # Resolve release for spec member IDs
     resolved_release: str | None = None

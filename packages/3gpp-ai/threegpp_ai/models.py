@@ -15,7 +15,7 @@ from threegpp_ai.operations.workspace_names import normalize_workspace_name
 
 
 class ExtractionQualityStatus(StrEnum):
-    """Deterministic extraction quality status."""
+    """Deterministic extraction quality status - DEPRECATED, kept for backward compatibility only."""
 
     OK = "ok"
     PARTIAL = "partial"
@@ -23,7 +23,7 @@ class ExtractionQualityStatus(StrEnum):
 
 
 class ExtractionQualityReasonCode(StrEnum):
-    """Stable machine-readable reason codes for quality gate outcomes."""
+    """Stable machine-readable reason codes for quality gate outcomes - DEPRECATED."""
 
     MISSING_ARTIFACT = "missing_artifact"
     MISSING_METADATA = "missing_metadata"
@@ -45,10 +45,6 @@ class AiError(Exception):
 
 class TDocNotFoundError(AiError):
     """TDoc not found in database or has no files."""
-
-
-class ExtractionError(AiError):
-    """DOCX extraction failed (corrupt, password-protected, etc.)."""
 
 
 class ConversionError(AiError):
@@ -159,83 +155,8 @@ class ExtractedEquationElement(BaseModel):
     display_mode: str | None = Field(None, description="Equation rendering mode: inline or display")
 
 
-class PageMetadataContract(BaseModel):
-    """Canonical page-level metadata contract for extraction artifacts."""
-
-    page_number: int = Field(..., ge=1, description="1-based page number")
-    table_count: int = Field(0, ge=0, description="Number of extracted tables on this page")
-    figure_count: int = Field(0, ge=0, description="Number of extracted figures on this page")
-    equation_count: int = Field(0, ge=0, description="Number of extracted equations on this page")
-
-
-class DocumentMetadataContract(BaseModel):
-    """Canonical document-level metadata contract for extraction outputs."""
-
-    document_id: str | None = Field(None, description="Document identifier if available")
-    title: str | None = Field(None, description="Document title if available")
-    source_path: str | None = Field(None, description="Resolved source path if available")
-    file_extension: str | None = Field(None, description="Source file extension, e.g. .pdf")
-    total_pages: int | None = Field(None, ge=1, description="Detected total page count if available")
-    extraction_profile: str | None = Field(None, description="Resolved extraction profile")
-    extraction_status: str = Field("ok", description="Extraction status: ok|partial|failed")
-    config_hash: str | None = Field(None, description="Deterministic extraction config fingerprint")
-
-
-class QualityGateCheckResult(BaseModel):
-    """Single quality gate check result."""
-
-    gate: str = Field(..., description="Gate identifier")
-    passed: bool = Field(..., description="Whether the gate passed")
-    reason_code: ExtractionQualityReasonCode | None = Field(
-        None,
-        description="Reason code when gate fails",
-    )
-    message: str | None = Field(None, description="Optional human-readable gate detail")
-
-
-class ExtractionQualityReport(BaseModel):
-    """Deterministic quality report persisted per document."""
-
-    status: ExtractionQualityStatus = Field(..., description="Final deterministic extraction status")
-    reason_codes: list[ExtractionQualityReasonCode] = Field(
-        default_factory=list,
-        description="Unique reason codes for failed checks",
-    )
-    checks: list[QualityGateCheckResult] = Field(default_factory=list, description="Gate-by-gate outcomes")
-    gate_metrics_summary: dict[str, int | float] = Field(
-        default_factory=dict,
-        description="Compact gate metrics summary",
-    )
-
-
-class StructuredExtractionResult(BaseModel):
-    """Canonical extraction payload shared by process, convert, and summarize flows."""
-
-    content: str = Field(..., description="Primary extracted text/markdown content")
-    tables: list[ExtractedTableElement] = Field(default_factory=list, description="Extracted tables")
-    figures: list[ExtractedFigureElement] = Field(default_factory=list, description="Extracted figures")
-    equations: list[ExtractedEquationElement] = Field(default_factory=list, description="Extracted equations")
-    document_metadata: DocumentMetadataContract | None = Field(
-        None,
-        description="Canonical document-level metadata contract",
-    )
-    pages: list[PageMetadataContract] = Field(default_factory=list, description="Canonical page-level metadata contracts")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="Document-level extraction metadata")
-
-    @property
-    def table_count(self) -> int:
-        """Return the number of extracted tables."""
-        return len(self.tables)
-
-    @property
-    def figure_count(self) -> int:
-        """Return the number of extracted figures."""
-        return len(self.figures)
-
-    @property
-    def equation_count(self) -> int:
-        """Return the number of extracted equations."""
-        return len(self.equations)
+# DEPRECATED: StructuredExtractionResult was a wrapper around OpenDataLoader output
+# Now using direct dict structures instead - removing to avoid confusion
 
 
 class SummarizeResult(BaseModel):
@@ -262,19 +183,13 @@ __all__ = [
     "AiError",
     "ConversionError",
     "DocumentClassification",
-    "DocumentMetadataContract",
     "ExtractedEquationElement",
     "ExtractedFigureElement",
     "ExtractedTableElement",
-    "ExtractionError",
     "ExtractionQualityReasonCode",
-    "ExtractionQualityReport",
     "ExtractionQualityStatus",
     "LlmConfigError",
-    "PageMetadataContract",
-    "QualityGateCheckResult",
     "SourceKind",
-    "StructuredExtractionResult",
     "SummarizeResult",
     "TDocNotFoundError",
     "Workspace",

@@ -25,14 +25,21 @@ KEYWORDS_INPUT_LIMIT = 5000
 STRUCTURED_CONTEXT_LIMIT = 2500
 
 
-def _resolve_extraction_status(extraction: object) -> str:
+def _get_from_extraction(extraction: dict | object, key: str, default: object = None) -> object:
+    """Get value from extraction dict or object flexibly."""
+    if isinstance(extraction, dict):
+        return extraction.get(key, default)
+    return getattr(extraction, key, default)
+
+
+def _resolve_extraction_status(extraction: dict | object) -> str:
     """Resolve extraction status from canonical metadata fields."""
-    metadata = getattr(extraction, "metadata", {}) or {}
+    metadata = _get_from_extraction(extraction, "metadata", {}) or {}
     status = metadata.get("extraction_status")
     if isinstance(status, str) and status.strip():
         return status
 
-    document_metadata = getattr(extraction, "document_metadata", None)
+    document_metadata = _get_from_extraction(extraction, "document_metadata", None)
     if document_metadata is not None:
         nested_status = getattr(document_metadata, "extraction_status", None)
         if isinstance(nested_status, str) and nested_status.strip():
@@ -42,7 +49,7 @@ def _resolve_extraction_status(extraction: object) -> str:
 
 
 def _enforce_quality_policy(
-    extraction: object,
+    extraction: dict | object,
     *,
     policy_mode: QualityPolicyMode,
     allow_failed_quality: bool,
@@ -106,11 +113,11 @@ def _safe_page(value: object) -> str:
     return "unknown"
 
 
-def _serialize_structured_context(extraction: object, max_chars: int = STRUCTURED_CONTEXT_LIMIT) -> tuple[str, dict[str, int]]:
+def _serialize_structured_context(extraction: dict | object, max_chars: int = STRUCTURED_CONTEXT_LIMIT) -> tuple[str, dict[str, int]]:
     """Serialize high-signal structured artifacts with deterministic ordering and budget."""
-    equations = list(getattr(extraction, "equations", []) or [])
-    tables = list(getattr(extraction, "tables", []) or [])
-    figures = list(getattr(extraction, "figures", []) or [])
+    equations = list(_get_from_extraction(extraction, "equations", []) or [])
+    tables = list(_get_from_extraction(extraction, "tables", []) or [])
+    figures = list(_get_from_extraction(extraction, "figures", []) or [])
 
     lines: list[str] = []
     selected = {"equations": 0, "tables": 0, "figures": 0}
@@ -174,9 +181,9 @@ def _serialize_structured_context(extraction: object, max_chars: int = STRUCTURE
     }
 
 
-def _build_prompt_source_content(extraction: object) -> tuple[str, str, dict[str, int]]:
+def _build_prompt_source_content(extraction: dict | object) -> tuple[str, str, dict[str, int]]:
     """Build summarize source content with structured-first fallback behavior."""
-    markdown_content = str(getattr(extraction, "content", "") or "")
+    markdown_content = str(_get_from_extraction(extraction, "content", "") or "")
 
     try:
         structured_context, stats = _serialize_structured_context(extraction)

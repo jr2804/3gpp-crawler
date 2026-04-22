@@ -49,13 +49,20 @@ def test_workspace_process_help_exposes_profile_options() -> None:
     assert "--custom-enrichment" in result.stdout
 
 
-def test_workspace_add_members_help_exposes_profile_options() -> None:
+def test_workspace_add_members_help_has_no_processing_options() -> None:
+    """Processing options were moved to 'workspace process' (SRP)."""
     runner = CliRunner()
     result = runner.invoke(app, ["workspace", "add-members", "--help"])
 
     assert result.exit_code == 0
-    assert "--profile" in result.stdout
-    assert "--custom-ocr" in result.stdout
+    # Processing options must NOT appear in add-members
+    assert "--convert-pdf" not in result.stdout
+    assert "--convert-md" not in result.stdout
+    assert "--vlm" not in result.stdout
+    assert "--device" not in result.stdout
+    assert "--threads" not in result.stdout
+    assert "--batch-size" not in result.stdout
+    assert "--profile" not in result.stdout
 
 
 def test_auto_profile_selection_is_deterministic(tmp_path: Path) -> None:
