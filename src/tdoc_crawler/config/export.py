@@ -14,7 +14,7 @@ from tdoc_crawler.config.settings import ThreeGPPConfig
 FormatType = Literal["toml", "yaml", "json"]
 
 
-def _default_value_for_field(info: FieldInfo) -> Any:
+def _default_value_for_field(info: FieldInfo) -> object:
     """Extract the default value from a pydantic field info."""
     default = info.default
     if callable(default):
