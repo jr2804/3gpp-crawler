@@ -13,21 +13,21 @@ from convert_lo.formats import LibreOfficeFormat
 
 def test_converter_init_with_custom_path() -> None:
     """Use provided soffice path without discovery."""
-    soffice_path = Path("C:/custom/soffice.exe")
+    soffice_file = Path("C:/custom/soffice.exe")
 
-    converter = Converter(soffice_path=soffice_path)
+    converter = Converter(soffice_file=soffice_file)
 
-    assert converter._soffice_path == soffice_path
+    assert converter._soffice_file == soffice_file
 
 
 def test_converter_init_with_auto_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
     """Resolve soffice path via find_soffice when not provided."""
-    expected_path = Path("C:/Program Files/LibreOffice/program/soffice.exe")
-    monkeypatch.setattr("convert_lo.converter.find_soffice", lambda: expected_path)
+    expected_file = Path("C:/Program Files/LibreOffice/program/soffice.exe")
+    monkeypatch.setattr("convert_lo.converter.find_soffice", lambda: expected_file)
 
     converter = Converter()
 
-    assert converter._soffice_path == expected_path
+    assert converter._soffice_file == expected_file
 
 
 def test_convert_accepts_string_format(
@@ -42,7 +42,7 @@ def test_convert_accepts_string_format(
     mock_result.stderr = ""
 
     with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
-        converter = Converter(soffice_path=Path("C:/soffice.exe"))
+        converter = Converter(soffice_file=Path("C:/soffice.exe"))
 
         # String "pdf" should be accepted and converted to LibreOfficeFormat.PDF
         result = converter.convert(example_docx_path, "pdf", output_dir)
@@ -56,7 +56,7 @@ def test_convert_rejects_invalid_format(
     output_dir: Path,
 ) -> None:
     """Reject invalid format values."""
-    converter = Converter(soffice_path=Path("C:/soffice.exe"))
+    converter = Converter(soffice_file=Path("C:/soffice.exe"))
 
     with pytest.raises(UnsupportedConversionError):
         converter.convert(example_docx_path, "invalid_format", output_dir)
@@ -67,7 +67,7 @@ def test_convert_raises_on_unsupported_conversion(
     output_dir: Path,
 ) -> None:
     """Raise when conversion pair is unsupported."""
-    converter = Converter(soffice_path=Path("C:/soffice.exe"))
+    converter = Converter(soffice_file=Path("C:/soffice.exe"))
 
     input_file = output_dir / "input.pdf"
     input_file.write_text("dummy", encoding="utf-8")
@@ -89,7 +89,7 @@ def test_convert_batch_multiple_files(
     mock_result.stderr = ""
 
     with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
-        converter = Converter(soffice_path=Path("C:/soffice.exe"))
+        converter = Converter(soffice_file=Path("C:/soffice.exe"))
 
         results = converter.convert_batch(
             [example_doc_path, example_docx_path],
@@ -107,7 +107,7 @@ def test_convert_batch_empty_list(
     output_dir: Path,
 ) -> None:
     """Return empty results for empty input list."""
-    converter = Converter(soffice_path=Path("C:/soffice.exe"))
+    converter = Converter(soffice_file=Path("C:/soffice.exe"))
 
     results = converter.convert_batch([], LibreOfficeFormat.PDF, output_dir)
 
@@ -119,7 +119,7 @@ def test_convert_raises_on_missing_input(
     output_dir: Path,
 ) -> None:
     """Raise ConversionError when input file does not exist."""
-    converter = Converter(soffice_path=Path("C:/soffice.exe"))
+    converter = Converter(soffice_file=Path("C:/soffice.exe"))
     missing_path = output_dir / "missing.docx"
 
     with pytest.raises(ConversionError):
@@ -138,7 +138,7 @@ def test_convert_raises_on_subprocess_failure(
     mock_result.stderr = "Conversion failed"
 
     with patch("convert_lo.converter.subprocess.run", return_value=mock_result):
-        converter = Converter(soffice_path=Path("C:/soffice.exe"))
+        converter = Converter(soffice_file=Path("C:/soffice.exe"))
 
         with pytest.raises(ConversionError):
             converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
@@ -155,17 +155,17 @@ def test_convert_uses_correct_command(
     mock_result.stdout = ""
     mock_result.stderr = ""
 
-    soffice_path = Path("C:/soffice.exe")
+    soffice_file = Path("C:/soffice.exe")
 
     with patch("convert_lo.converter.subprocess.run", return_value=mock_result) as mock_run:
-        converter = Converter(soffice_path=soffice_path)
+        converter = Converter(soffice_file=soffice_file)
         converter.convert(example_docx_path, LibreOfficeFormat.PDF, output_dir)
 
         # Verify the command was constructed correctly
         call_args = mock_run.call_args
         cmd = call_args[0][0]  # First positional argument is the command list
 
-        assert str(soffice_path) in cmd
+        assert str(soffice_file) in cmd
         assert "--headless" in cmd
         assert "--convert-to" in cmd
         assert "pdf" in cmd

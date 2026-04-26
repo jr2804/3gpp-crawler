@@ -31,7 +31,7 @@ result = converter.convert(
     output_format=LibreOfficeFormat.PDF,
     output_dir=Path("output"),
 )
-print(f"Converted: {result.output_path}")
+print(f"Converted: {result.output_file}")
 ```
 
 ### Batch Conversion
@@ -75,7 +75,7 @@ LibreOfficeFormat.HTML
 
 ```python
 Converter(
-    soffice_path=None,  # Auto-detect LibreOffice
+    soffice_file=None,  # Auto-detect LibreOffice
     timeout=300,         # Timeout per file in seconds
 )
 ```
