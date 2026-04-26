@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -11,7 +12,6 @@ from rich.progress import (
     MofNCompleteColumn,
     Progress,
     SpinnerColumn,
-    Task,
     TextColumn,
     TimeElapsedColumn,
 )

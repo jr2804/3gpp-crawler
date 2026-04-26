@@ -288,13 +288,15 @@ def _resolve_and_checkout(
         return
 
     console.print(f"[green]Checking out {len(resolved_items)} item(s) to workspace '{workspace_name}'...[/green]")
-    members, skipped = asyncio.run(checkout_items(
-        resolved_items,
-        workspace_name=workspace_name,
-        source_kind=source_kind,
-        checkout=checkout,
-        release=release,
-    ))
+    members, skipped = asyncio.run(
+        checkout_items(
+            resolved_items,
+            workspace_name=workspace_name,
+            source_kind=source_kind,
+            checkout=checkout,
+            release=release,
+        )
+    )
 
     _show_checkout_results(members, skipped, output)
 
@@ -334,14 +336,16 @@ def workspace_process(
     def _on_progress(completed: int, item_id: str) -> None:
         console.print(f"[dim]{completed}/{len(members)}: {item_id}[/dim]")
 
-    results = asyncio.run(process_workspace_members(
-        normalized,
-        members,
-        on_progress=_on_progress,
-        checkout=True,
-        convert_md=force,
-        skip_existing=skip_existing,
-    ))
+    results = asyncio.run(
+        process_workspace_members(
+            normalized,
+            members,
+            on_progress=_on_progress,
+            checkout=True,
+            convert_md=force,
+            skip_existing=skip_existing,
+        )
+    )
 
     success = [r for r in results if r["status"] == "success"]
     errors = [r for r in results if r["status"] == "error"]

@@ -12,7 +12,6 @@ belongs in the `workspace process` command exclusively.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.logging import get_logger
@@ -25,6 +24,7 @@ from threegpp_ai import (
     make_workspace_member,
     resolve_spec_release_from_db,
 )
+from threegpp_ai.operations.workspace_registry import WorkspaceMember
 
 _logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ async def checkout_single_item(
     checkout: bool,
     release: str | None,
     path_config: PathConfig,
-) -> tuple[Any | None, str | None]:
+) -> tuple[WorkspaceMember | None, str | None]:
     """Checkout a single workspace item and create a member record.
 
     Downloads the document if checkout is enabled, sets up the .ai subfolder,

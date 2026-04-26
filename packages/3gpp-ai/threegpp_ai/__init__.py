@@ -12,6 +12,10 @@ from threegpp_ai.models import SourceKind, SummarizeResult, WorkspaceNotFoundErr
 from threegpp_ai.operations.convert import convert_tdoc_metadata as convert_document
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
 from threegpp_ai.operations.summarize import summarize_tdoc as summarize_document
+from threegpp_ai.operations.workspace_names import (
+    is_default_workspace,
+    normalize_workspace_name,
+)
 from threegpp_ai.operations.workspace_registry import (
     DEFAULT_WORKSPACE,
     WorkspaceRegistry,
@@ -29,11 +33,9 @@ from threegpp_ai.operations.workspaces import (
     ensure_default_workspace,
     get_workspace,
     get_workspace_member_counts,
-    is_default_workspace,
     list_workspace_members,
     list_workspaces,
     make_workspace_member,
-    normalize_workspace_name,
     remove_invalid_members,
     resolve_spec_release_from_db,
     resolve_tdoc_checkout_path,

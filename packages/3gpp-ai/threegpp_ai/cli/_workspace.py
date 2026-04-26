@@ -10,13 +10,13 @@ import asyncio
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import OutputFormat, SortOrder
-from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
 
 from threegpp_ai import SourceKind
@@ -24,6 +24,7 @@ from threegpp_ai.operations.checkout import checkout_single_item as _checkout_si
 from threegpp_ai.operations.classify import pick_main_document
 from threegpp_ai.operations.conversion import OFFICE_FORMATS, convert_to_pdf
 from threegpp_ai.operations.convert import extract_document_structured_from_tdoc
+from threegpp_ai.operations.workspace_registry import WorkspaceMember
 from threegpp_ai.operations.workspaces import (
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
@@ -36,6 +37,17 @@ from ._shared import create_progress_bar
 _logger = get_logger(__name__)
 
 
+class ProcessingResultDict(TypedDict, total=False):
+    """Dictionary representing the result of processing a workspace member."""
+
+    source_item_id: str
+    status: str
+    reason: str
+    pdf_path: Path
+    markdown_path: Path
+    error: str
+
+
 async def checkout_single_item(
     *,
     item: str,
@@ -44,7 +56,7 @@ async def checkout_single_item(
     checkout: bool,
     release: str | None,
     path_config: PathConfig,
-) -> tuple[Any | None, str | None]:
+) -> tuple[WorkspaceMember | None, str | None]:
     """Checkout a single workspace item and return a member record.
 
     Delegates to :func:`threegpp_ai.operations.checkout.checkout_single_item`.
@@ -90,7 +102,7 @@ def resolve_process_file(path: Path) -> Path | None:
     return None
 
 
-def convert_member_to_pdf(member: Any) -> Path | None:
+def convert_member_to_pdf(member: WorkspaceMember) -> Path | None:
     """Convert a workspace member's document to PDF if it's an office format.
 
     Args:
@@ -124,13 +136,13 @@ def convert_member_to_pdf(member: Any) -> Path | None:
 
 async def process_workspace_members(
     workspace: str,
-    members: list[Any],
+    members: list[WorkspaceMember],
     *,
     on_progress: Callable[[int, str], None] | None = None,
     checkout: bool = True,
     convert_md: bool = False,
     skip_existing: bool = False,
-) -> list[dict[str, Any]]:
+) -> list[ProcessingResultDict]:
     """Process workspace members with optional progress callback.
 
     Args:
@@ -144,7 +156,7 @@ async def process_workspace_members(
     Returns:
         List of processing results.
     """
-    results: list[dict[str, Any]] = []
+    results: list[ProcessingResultDict] = []
     path_config = PathConfig()
 
     for member in members:
@@ -171,11 +183,13 @@ async def process_workspace_members(
                 file_path = resolve_process_file(checkout_path)
 
         if file_path is None or not file_path.exists():
-            results.append({
-                "source_item_id": member.source_item_id,
-                "status": "skipped",
-                "reason": "path or supported file not found",
-            })
+            results.append(
+                {
+                    "source_item_id": member.source_item_id,
+                    "status": "skipped",
+                    "reason": "path or supported file not found",
+                }
+            )
             if on_progress:
                 on_progress(len(results), member.source_item_id)
             continue
@@ -187,34 +201,40 @@ async def process_workspace_members(
                 if pdf_path is not None:
                     file_path = pdf_path
                 elif doc_file.suffix.lower() not in {".pdf", ".txt", ".md"}:
-                    results.append({
-                        "source_item_id": member.source_item_id,
-                        "status": "skipped",
-                        "reason": "office document could not be converted to PDF",
-                    })
+                    results.append(
+                        {
+                            "source_item_id": member.source_item_id,
+                            "status": "skipped",
+                            "reason": "office document could not be converted to PDF",
+                        }
+                    )
                     if on_progress:
                         on_progress(len(results), member.source_item_id)
                     continue
 
         try:
             extract_document_structured_from_tdoc(member.source_item_id, force=False)
-            results.append({
-                "source_item_id": member.source_item_id,
-                "file": str(file_path),
-                "status": "success",
-                "chars_extracted": 0,
-                "reason": None,
-                "error": None,
-            })
+            results.append(
+                {
+                    "source_item_id": member.source_item_id,
+                    "file": str(file_path),
+                    "status": "success",
+                    "chars_extracted": 0,
+                    "reason": None,
+                    "error": None,
+                }
+            )
         except Exception as exc:
-            results.append({
-                "source_item_id": member.source_item_id,
-                "file": str(file_path),
-                "status": "error",
-                "chars_extracted": 0,
-                "reason": "extraction_failed",
-                "error": str(exc),
-            })
+            results.append(
+                {
+                    "source_item_id": member.source_item_id,
+                    "file": str(file_path),
+                    "status": "error",
+                    "chars_extracted": 0,
+                    "reason": "extraction_failed",
+                    "error": str(exc),
+                }
+            )
 
         if on_progress:
             on_progress(len(results), member.source_item_id)
@@ -282,7 +302,7 @@ def resolve_workspace_items(
         order=SortOrder.DESC,
     )
 
-    async def _fetch_tdocs() -> list[Any]:
+    async def _fetch_tdocs() -> list[TDocMetadata]:
         async with TDocDatabase(manager.db_file) as db:
             return await db.query_tdocs(config)
 
@@ -297,7 +317,7 @@ async def checkout_items(
     source_kind: SourceKind,
     checkout: bool,
     release: str | None,
-) -> tuple[list[Any], list[tuple[str, str]]]:
+) -> tuple[list[WorkspaceMember], list[tuple[str, str]]]:
     """Checkout items and return member records for workspace registration.
 
     Args:
@@ -311,7 +331,7 @@ async def checkout_items(
         Tuple of (members, skipped_items).
     """
     manager = PathConfig()
-    members: list[Any] = []
+    members: list[WorkspaceMember] = []
     skipped: list[tuple[str, str]] = []
 
     with create_progress_bar(
