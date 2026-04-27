@@ -253,6 +253,6 @@ src/teddi-mcp/uv.lock
 .kreuzberg
 
 # GSD planning docs (local only)
-.planning/
+#.planning/
 /PLAN.md
 .opencode/
