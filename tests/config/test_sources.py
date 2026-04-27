@@ -286,10 +286,10 @@ class TestConfigLoadError:
         assert str(config_file) in str(error)
         assert "Parse error" in str(error)
 
-    def test_error_has_file_path_attribute(self, tmp_path: Path) -> None:
-        """Error has file_path attribute with the problematic file."""
+    def test_error_has_config_file_attribute(self, tmp_path: Path) -> None:
+        """Error has config_file attribute with the problematic file."""
         config_file = tmp_path / "config.toml"
         error = ConfigLoadError(config_file, "Test reason")
 
-        assert error.file_path == config_file
+        assert error.config_file == config_file
         assert error.reason == "Test reason"

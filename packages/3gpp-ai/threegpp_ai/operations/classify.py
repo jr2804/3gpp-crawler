@@ -229,7 +229,23 @@ def classify_document_files(
 
     files = _scan_document_files(folder_path)
     if not files:
-        logger.warning("No document files found in %s for document %s", folder_path, document_id)
+        # Log folder contents for debugging
+        try:
+            folder_contents = list(folder_path.iterdir())
+            contents_summary = [f.name for f in folder_contents]
+        except OSError, PermissionError:
+            contents_summary = ["<cannot read folder>"]
+
+        logger.warning(
+            "No document files found in %s for document %s. "
+            "Expected: .pdf/.docx/.xlsx/.pptx files. "
+            "Folder contents: %s. "
+            "Run 'tdoc-crawler checkout %s' to re-download if folder is empty.",
+            folder_path,
+            document_id,
+            contents_summary,
+            document_id,
+        )
         return []
 
     if len(files) == 1:

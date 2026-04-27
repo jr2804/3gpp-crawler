@@ -156,7 +156,7 @@ from tdoc_ai import LightRAGConfig, TDocRAG, TDocProcessor
 
 ## Extraction
 
-LightRAG uses `docling` for text, table, and figure extraction before chunking and ingestion.
+LightRAG uses `opendataloader-pdf` for text, table, formula, and figure extraction before chunking and ingestion.
 
 ## Deprecated/Removed
 
@@ -168,3 +168,4 @@ LightRAG uses `docling` for text, table, and figure extraction before chunking a
 - `sentence-transformers`
 - `tokenizers`
 - `lancedb`
+- `docling` (replaced by `opendataloader-pdf`)

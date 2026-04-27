@@ -1,7 +1,7 @@
-"""Top-level CLI for the 3gpp-ai package.
+"""Top-level CLI entrypoint for the 3gpp-ai package.
 
-Provides a single command tree with convert/summarize/workspace operations
-for extraction-first document workflows.
+This module is a thin compatibility shim that re-exports the refactored
+command tree from :mod:`threegpp_ai.cli`.
 """
 
 from __future__ import annotations
@@ -576,6 +576,12 @@ def ai_summarize(
     if normalized_mode not in {"standard", "wiki"}:
         raise typer.BadParameter("--output-mode must be one of: standard, wiki")
 
+    def _print_summary_text(summary: str) -> None:
+        if summary.strip():
+            console.print(summary)
+        else:
+            console.print("[dim]No summary content available (insufficient text or extraction failed).[/dim]")
+
     result = summarize_document(
         document_id=document_id,
         max_words=words,
@@ -586,16 +592,11 @@ def ai_summarize(
     if normalized_mode == "wiki":
         console.print(f"## Wiki Summary for {document_id}")
         console.print("### Abstract")
-        if not result.summary or not result.summary.strip():
-            console.print("[No summary content available — the document may have insufficient extractable text.]")
-        else:
-            console.print(result.summary)
-        console.print("### Keywords")
+        _print_summary_text(result.summary)
         if result.keywords:
+            console.print("### Keywords")
             for keyword in result.keywords:
                 console.print(f"- {keyword}")
-        else:
-            console.print("- none")
         extraction_status = result.metadata.get("extraction_status")
         if extraction_status:
             console.print("### Source Quality")
@@ -603,10 +604,7 @@ def ai_summarize(
         return
 
     console.print(f"## Summary for {document_id}")
-    if not result.summary or not result.summary.strip():
-        console.print("[No summary content available — the document may have insufficient extractable text.]")
-    else:
-        console.print(result.summary)
+    _print_summary_text(result.summary)
 
 
 @app.command("convert", help="Convert a single TDoc to markdown format.")

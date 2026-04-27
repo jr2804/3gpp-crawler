@@ -16,9 +16,9 @@ fetch_tdoc_files() ──► resolve_via_whatthespec()
         ▼
 convert_tdoc_to_markdown()
         │
-        ├──► Already PDF? ──► docling (DocumentConverter)
+        ├──► Already PDF? ──► opendataloader_pdf
         │
-        └──► DOCX/DOC? ──► convert-lo (LibreOffice) ──► PDF ──► docling
+        └──► DOCX/DOC? ──► convert-lo (LibreOffice) ──► PDF ──► opendataloader_pdf
                             │
                             ▼
                      Cache to .ai/<id>.md
@@ -29,35 +29,38 @@ LLM Summarization
 
 ### VLM Pipeline (Optional)
 
-When `--vlm` flag is used, the pipeline uses the VLM-powered extraction:
+When `--vlm` flag is used, the pipeline enables hybrid AI mode for complex PDF pages:
 
 ```
 workspace process --vlm
         │
-        ▼
         ▼ (for each document)
         │
         ▼
-convert_tdoc_to_markdown(vlm_options=VlmOptions(...))
+convert_tdoc_to_markdown(vlm_options=VlmOptions(enable_hybrid=True, ...))
         │
         ▼
-VlmPipeline (Granite Docling)
-        ├──► Enhanced picture descriptions (VLM-generated)
-        └──► Enhanced formula enrichment (VLM-enhanced)
+OpenDataLoader with Hybrid Mode
+        ├──► Local extraction for simple pages (fast, deterministic)
+        └──► AI backend (SmolVLM 256M) for complex pages (tables, formulas, pictures)
         │
         ▼
-Standard Extraction Outputs + VLM Artifacts
+Standard Extraction Outputs + AI-Enhanced Artifacts
 ```
 
-**Key Differences:**
+## Extraction
 
-| Feature | Standard Pipeline | VLM Pipeline |
-|---------|-------------------|---------------|
-| Pipeline | `StandardPdfPipeline` | `VlmPipeline` |
-| Table Structure | ✅ `do_table_structure=True` | ✅ Enabled |
-| Formula Enrichment | ✅ `CodeFormulaVlmOptions` | ✅ Enhanced |
-| Picture Description | ❌ Not available | ✅ VLM-generated |
-| GPU Required | No | Yes |
+Extraction always enables all artifact types: tables, figures, and equations.
+
+| Feature | Standard Mode | Hybrid Mode |
+|---------|---------------|-------------|
+| Backend | `opendataloader_pdf` (local) | `opendataloader_pdf[hybrid]` |
+| Table Structure | ✅ Enabled | ✅ Enabled |
+| Formula Enrichment | ✅ Enabled | ✅ Enhanced |
+| Picture Description | ✅ Enabled | ✅ AI-generated (SmolVLM) |
+| OCR for Scanned PDFs | ✅ Automatic | ✅ Automatic |
+| Java Required | Yes (11+) | Yes (11+) |
+| GPU Required | No | No (but hybrid server needs LLM)
 
 ## Components
 
@@ -86,10 +89,10 @@ Converts TDoc to markdown using full pipeline.
 
 1. Fetch TDoc files via `fetch_tdoc_files()`
 1. Convert to PDF if needed (via convert-lo / LibreOffice)
-1. Extract text using docling (Standard or VLM pipeline)
+1. Extract text using OpenDataLoader (Standard or Hybrid mode)
 1. Cache markdown to `.ai/<id>.md`
 
-**Table Structure Detection:** Available in both Standard and VLM modes. The Standard pipeline uses `do_table_structure=True` with `TableStructureOptions(do_cell_matching=True)`. The VLM pipeline provides enhanced detection.
+**Table Structure Detection:** Available in both Standard and Hybrid modes. The Standard mode uses local extraction. The Hybrid mode provides AI-enhanced detection for complex pages.
 
 **Caching:**
 
@@ -148,9 +151,14 @@ To force re-conversion:
 | Library | Purpose |
 |---------|---------|
 | `convert-lo` | DOCX/DOC to PDF conversion via LibreOffice |
-| `docling` | PDF/DOCX to markdown text extraction |
+| `opendataloader-pdf` | PDF/DOCX to markdown text extraction (#1 in benchmarks, 0.907 accuracy) |
+| `opendataloader-pdf[hybrid]` | AI-enhanced extraction for complex pages (optional) |
 | `litellm` | LLM summarization |
 | `whatthespec` | TDoc metadata lookup |
+
+**Requirements:**
+
+- Java 11+ (required by OpenDataLoader)
 
 ## CLI Commands
 

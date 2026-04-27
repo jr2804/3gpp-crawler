@@ -1,9 +1,11 @@
 """Meeting database operations."""
 
+import asyncio
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import datetime
 
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.database.oxyde_models import CrawlLogEntry, MeetingMetadata, TDocMetadata
 from tdoc_crawler.logging import get_logger
@@ -294,4 +296,32 @@ class MeetingDatabase(DocDatabase):
         return False
 
 
-__all__ = ["MeetingDatabase"]
+async def _resolve_meeting_short_name(meeting_id: int) -> str | None:
+    """Look up a meeting's short name by ID.
+
+    Args:
+        meeting_id: Meeting identifier.
+
+    Returns:
+        Meeting short name (e.g., "SA4#134") if found, None otherwise.
+    """
+    async with MeetingDatabase(PathConfig().db_file) as db:
+        meeting = await db._get_meeting(meeting_id)
+        return meeting.short_name if meeting is not None else None
+
+
+def get_meeting_short_name(meeting_id: int) -> str | None:
+    """Sync convenience wrapper to look up a meeting's short name by ID.
+
+    Uses ``asyncio.run()`` — must not be called from an async context.
+
+    Args:
+        meeting_id: Meeting identifier.
+
+    Returns:
+        Meeting short name (e.g., "SA4#134") if found, None otherwise.
+    """
+    return asyncio.run(_resolve_meeting_short_name(meeting_id))
+
+
+__all__ = ["MeetingDatabase", "get_meeting_short_name"]

@@ -21,7 +21,7 @@ No server or daemon required.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `soffice_path` | `None` | Path to soffice (auto-detected) |
+| `soffice_file` | `None` | Path to soffice (auto-detected) |
 | `timeout` | `300` | Seconds per file conversion |
 
 ### Environment Variables

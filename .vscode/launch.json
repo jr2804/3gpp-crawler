@@ -4,13 +4,7 @@
 	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
 	"configurations": [
-		{
-			"name": "demo.py",
-			"type": "debugpy",
-			"request": "launch",
-			"program": "${workspaceFolder}/scripts/demo.py",
-			"console": "integratedTerminal",
-		},
+
 		{
 			"name": "Debug: ai query",
 			"type": "debugpy",
@@ -19,7 +13,6 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"ai",
 				"query",
 				"Can you provide a summary of the test methods for IVAS-capable devices?",
 			]
@@ -28,11 +21,10 @@
 			"name": "Debug: ai workspace process",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"program": "packages/3gpp-ai/threegpp_ai/cli.py",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"ai",
 				"workspace",
 				"process",
 			]

@@ -426,13 +426,17 @@ ______________________________________________________________________
 
 ### Installation Issues
 
-**Problem:** `ModuleNotFoundError: No module named 'docling'`
+**Problem:** `ModuleNotFoundError: No module named 'opendataloader_pdf'`
 
 **Solution:** Install the AI optional dependencies:
 
 ```bash
 uv add 3gpp-crawler[ai]
 ```
+
+**Problem:** `Java not found` or `opendataloader_pdf requires Java 11+`
+
+**Solution:** Install Java 11 or later and ensure it's on your system PATH. Download from https://adoptium.net/ or use your system's package manager.
 
 **Problem:** `lancedb not available`
 
@@ -578,5 +582,5 @@ ______________________________________________________________________
 ## Additional Resources
 
 - [LiteLLM Provider Documentation](https://docs.litellm.ai/docs/providers) - Complete list of 100+ supported LLM providers
-- [Docling Documentation](https://github.com/docling-project/docling) - Document extraction library
+- [OpenDataLoader PDF Documentation](https://github.com/opendataloader-project/opendataloader-pdf) - PDF extraction library (#1 in benchmarks)
 - [LanceDB Documentation](https://lancedb.github.io/lancedb/) - Vector database

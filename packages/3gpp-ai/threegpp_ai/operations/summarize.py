@@ -7,13 +7,12 @@ import re
 
 from litellm import exceptions as litellm_exceptions
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 from threegpp_ai.config import AiConfig, QualityPolicyMode
-from threegpp_ai.models import DocumentSummary, LlmConfigError, SummarizeResult
+from threegpp_ai.models import LlmConfigError, SummarizeResult
 
-from .convert import extract_tdoc_structured
+from .convert import extract_document_structured_from_tdoc
 from .llm_client import LiteLLMClient
 from .metrics import MetricType, get_metrics_tracker, timed_operation
 
@@ -26,14 +25,21 @@ KEYWORDS_INPUT_LIMIT = 5000
 STRUCTURED_CONTEXT_LIMIT = 2500
 
 
-def _resolve_extraction_status(extraction: object) -> str:
+def _get_from_extraction(extraction: dict | object, key: str, default: object = None) -> object:
+    """Get value from extraction dict or object flexibly."""
+    if isinstance(extraction, dict):
+        return extraction.get(key, default)
+    return getattr(extraction, key, default)
+
+
+def _resolve_extraction_status(extraction: dict | object) -> str:
     """Resolve extraction status from canonical metadata fields."""
-    metadata = getattr(extraction, "metadata", {}) or {}
+    metadata = _get_from_extraction(extraction, "metadata", {}) or {}
     status = metadata.get("extraction_status")
     if isinstance(status, str) and status.strip():
         return status
 
-    document_metadata = getattr(extraction, "document_metadata", None)
+    document_metadata = _get_from_extraction(extraction, "document_metadata", None)
     if document_metadata is not None:
         nested_status = getattr(document_metadata, "extraction_status", None)
         if isinstance(nested_status, str) and nested_status.strip():
@@ -43,7 +49,7 @@ def _resolve_extraction_status(extraction: object) -> str:
 
 
 def _enforce_quality_policy(
-    extraction: object,
+    extraction: dict | object,
     *,
     policy_mode: QualityPolicyMode,
     allow_failed_quality: bool,
@@ -107,11 +113,11 @@ def _safe_page(value: object) -> str:
     return "unknown"
 
 
-def _serialize_structured_context(extraction: object, max_chars: int = STRUCTURED_CONTEXT_LIMIT) -> tuple[str, dict[str, int]]:
+def _serialize_structured_context(extraction: dict | object, max_chars: int = STRUCTURED_CONTEXT_LIMIT) -> tuple[str, dict[str, int]]:
     """Serialize high-signal structured artifacts with deterministic ordering and budget."""
-    equations = list(getattr(extraction, "equations", []) or [])
-    tables = list(getattr(extraction, "tables", []) or [])
-    figures = list(getattr(extraction, "figures", []) or [])
+    equations = list(_get_from_extraction(extraction, "equations", []) or [])
+    tables = list(_get_from_extraction(extraction, "tables", []) or [])
+    figures = list(_get_from_extraction(extraction, "figures", []) or [])
 
     lines: list[str] = []
     selected = {"equations": 0, "tables": 0, "figures": 0}
@@ -175,13 +181,15 @@ def _serialize_structured_context(extraction: object, max_chars: int = STRUCTURE
     }
 
 
-def _build_prompt_source_content(extraction: object) -> tuple[str, str, dict[str, int]]:
+def _build_prompt_source_content(extraction: dict | object) -> tuple[str, str, dict[str, int]]:
     """Build summarize source content with structured-first fallback behavior."""
-    markdown_content = str(getattr(extraction, "content", "") or "")
+    markdown_content = str(_get_from_extraction(extraction, "content", "") or "")
 
     try:
         structured_context, stats = _serialize_structured_context(extraction)
-    except Exception:
+    except (KeyError, TypeError, ValueError) as e:
+        # Log the specific error for debugging
+        logger.debug("Structured context serialization failed: %s", e)
         return (
             markdown_content,
             "markdown_fallback",
@@ -256,74 +264,6 @@ Source document:
 """
 
 
-def summarize_document(
-    document_id: str,
-    markdown: str,
-) -> DocumentSummary:
-    """Generate summary for a document."""
-    config = AiConfig()
-
-    client = _get_llm_client()
-
-    truncated_markdown = _truncate_text(markdown, ABSTRACT_INPUT_LIMIT)
-    abstract_prompt = ABSTRACT_PROMPT.format(content=truncated_markdown)
-    try:
-        abstract = client.complete(abstract_prompt, model=config.llm_model)
-    except (litellm_exceptions.OpenAIError, ValueError) as exc:
-        msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
-        raise LlmConfigError(msg) from exc
-
-    truncated_for_structured = _truncate_text(markdown, SUMMARY_INPUT_LIMIT)
-    structured_prompt = STRUCTURED_SUMMARY_PROMPT.format(
-        abstract=abstract,
-        content=truncated_for_structured,
-    )
-    try:
-        structured_payload = client.complete(structured_prompt)
-    except (litellm_exceptions.OpenAIError, ValueError) as exc:
-        msg = f"LLM endpoint is unreachable or misconfigured: {exc}"
-        raise LlmConfigError(msg) from exc
-
-    structured = _parse_structured_summary(structured_payload)
-
-    original_word_count = _count_words(markdown)
-    word_count = _count_words(abstract)
-
-    if word_count < config.abstract_min_words:
-        if original_word_count >= config.abstract_min_words:
-            logger.warning(
-                f"Abstract for {document_id} shorter than minimum: {word_count} words "
-                f"(minimum: {config.abstract_min_words}, original document: {original_word_count} words)"
-            )
-        else:
-            logger.debug(
-                f"Abstract for {document_id} has {word_count} words, "
-                f"but original document is short ({original_word_count} words, minimum: {config.abstract_min_words})"
-            )
-    elif word_count > config.abstract_max_words:
-        logger.warning(f"Abstract for {document_id} exceeds maximum: {word_count} words (maximum: {config.abstract_max_words})")
-
-    key_points = structured["key_points"] or _extract_key_points(abstract)
-    action_items = structured["action_items"] or _extract_action_items(markdown)
-    decisions = structured["decisions"] or _extract_decisions(markdown)
-    affected_specs = structured["affected_specs"] or _extract_spec_references(markdown)
-
-    summary = DocumentSummary(
-        document_id=document_id,
-        abstract=abstract,
-        key_points=key_points,
-        action_items=action_items,
-        decisions=decisions,
-        affected_specs=affected_specs,
-        llm_model=config.llm_model,
-        prompt_version="v2",
-        generated_at=utc_now(),
-    )
-
-    logger.info(f"Generated summary for {document_id}")
-    return summary
-
-
 def _extract_key_points(abstract: str) -> list[str]:
     """Extract key points from text."""
     sentences = abstract.split(". ")
@@ -388,7 +328,7 @@ def summarize_tdoc(
     normalized_id = normalize_tdoc_id(document_id)
 
     with timed_operation(get_metrics_tracker(), normalized_id, MetricType.SUMMARIZATION):
-        extraction = extract_tdoc_structured(normalized_id, force=force)
+        extraction = extract_document_structured_from_tdoc(normalized_id, force=force)
         source_content, context_mode, context_stats = _build_prompt_source_content(extraction)
 
         config = AiConfig()
@@ -470,6 +410,5 @@ def _parse_keywords(payload: str) -> list[str]:
 __all__ = [
     "SummarizeResult",
     "_count_words",
-    "summarize_document",
     "summarize_tdoc",
 ]

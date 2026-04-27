@@ -80,12 +80,12 @@ def config_show(
     print(exporter.export(format))
 
 
-def _check_path_exists(path: Path) -> tuple[bool, str]:
-    """Check if a path exists or can be created."""
-    if path.exists():
+def _check_dir_exists(target_dir: Path) -> tuple[bool, str]:
+    """Check if a directory exists or can be created."""
+    if target_dir.exists():
         return True, ""
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
         return True, " (will be created)"
     except PermissionError:
         return False, " (permission denied)"
@@ -99,7 +99,7 @@ def _validate_config_values(config: ThreeGPPConfig) -> list[tuple[str, str]]:
 
     # Check cache_dir
     cache_dir = config.path.cache_dir
-    exists, detail = _check_path_exists(cache_dir)
+    exists, detail = _check_dir_exists(cache_dir)
     if not exists:
         issues.append(("error", f"cache_dir does not exist and cannot be created: {cache_dir}{detail}"))
     elif detail:

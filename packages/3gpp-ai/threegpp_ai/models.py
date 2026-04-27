@@ -2,46 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
-from threegpp_ai.config import AiConfig
 from threegpp_ai.operations.workspace_names import normalize_workspace_name
 
 
-class GraphNodeType(StrEnum):
-    """Types of nodes in the knowledge graph."""
-
-    DOCUMENT = auto()
-    TDOC = auto()
-    MEETING = auto()
-    SPEC = auto()
-    WORK_ITEM = "work_item"
-    CHANGE_REQUEST = "cr"
-    COMPANY = auto()
-
-
-# Use LLM to synthesize answer from graph + embeddings (GraphRAG)
-
-
-class GraphEdgeType(StrEnum):
-    """Types of edges in the knowledge graph."""
-
-    DISCUSSES = auto()
-    REFERENCES = auto()
-    AUTHORED_BY = auto()
-    PRESENTED_AT = auto()
-    REVISION_OF = auto()  # is_revision_of metadata relationship
-
-
 class ExtractionQualityStatus(StrEnum):
-    """Deterministic extraction quality status."""
+    """Deterministic extraction quality status - DEPRECATED, kept for backward compatibility only."""
 
     OK = "ok"
     PARTIAL = "partial"
@@ -49,7 +23,7 @@ class ExtractionQualityStatus(StrEnum):
 
 
 class ExtractionQualityReasonCode(StrEnum):
-    """Stable machine-readable reason codes for quality gate outcomes."""
+    """Stable machine-readable reason codes for quality gate outcomes - DEPRECATED."""
 
     MISSING_ARTIFACT = "missing_artifact"
     MISSING_METADATA = "missing_metadata"
@@ -73,24 +47,12 @@ class TDocNotFoundError(AiError):
     """TDoc not found in database or has no files."""
 
 
-class ExtractionError(AiError):
-    """DOCX extraction failed (corrupt, password-protected, etc.)."""
-
-
 class ConversionError(AiError):
     """Document conversion failed (LibreOffice or remote converter error)."""
 
 
 class LlmConfigError(AiError):
     """LLM endpoint not configured or unreachable."""
-
-
-class AiConfigError(AiError):
-    """Invalid or missing AI configuration."""
-
-
-class EmbeddingDimensionError(AiError):
-    """Embedding model dimension mismatch with stored vectors."""
 
 
 class WorkspaceNotFoundError(AiError):
@@ -113,45 +75,6 @@ class Workspace:
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
         self.workspace_name = normalize_workspace_name(self.workspace_name)
-
-
-@dataclass
-class WorkspaceMember:
-    """Source item assigned to one workspace corpus."""
-
-    workspace_name: str = field(metadata={"description": "Workspace identifier"})
-    source_item_id: str = field(metadata={"description": "Stable source item identifier"})
-    source_path: str = field(metadata={"description": "Path or locator of the source item"})
-    source_kind: SourceKind = field(metadata={"description": "Type of source item"})
-    added_at: datetime | str = field(default_factory=utc_now, metadata={"description": "Registration timestamp"})
-    added_by: str | None = field(default=None, metadata={"description": "Actor that registered the source"})
-    is_active: bool = field(default=True, metadata={"description": "Membership active flag"})
-
-    def __post_init__(self) -> None:
-        """Normalize fields after initialization."""
-        if not self.workspace_name.strip():
-            msg = "workspace_name must not be empty"
-            raise ValueError(msg)
-        self.workspace_name = normalize_workspace_name(self.workspace_name)
-
-        normalized = normalize_tdoc_id(self.source_item_id)
-        if not normalized:
-            msg = "source_item_id must not be empty"
-            raise ValueError(msg)
-
-        self.source_item_id = normalized
-        self.source_kind = SourceKind(self.source_kind)  # Ensure source_kind is a SourceKind enum
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict compatible with WorkspaceMetadata storage.
-
-        Returns added_at as ISO string for JSON serialization.
-        """
-        result = asdict(self)
-        result["source_kind"] = self.source_kind.value
-        result["added_by"] = self.added_by or ""
-        result["added_at"] = self.added_at.isoformat() if isinstance(self.added_at, datetime) else self.added_at
-        return result
 
 
 class DocumentClassification(BaseModel):
@@ -232,141 +155,8 @@ class ExtractedEquationElement(BaseModel):
     display_mode: str | None = Field(None, description="Equation rendering mode: inline or display")
 
 
-class PageMetadataContract(BaseModel):
-    """Canonical page-level metadata contract for extraction artifacts."""
-
-    page_number: int = Field(..., ge=1, description="1-based page number")
-    table_count: int = Field(0, ge=0, description="Number of extracted tables on this page")
-    figure_count: int = Field(0, ge=0, description="Number of extracted figures on this page")
-    equation_count: int = Field(0, ge=0, description="Number of extracted equations on this page")
-
-
-class DocumentMetadataContract(BaseModel):
-    """Canonical document-level metadata contract for extraction outputs."""
-
-    document_id: str | None = Field(None, description="Document identifier if available")
-    title: str | None = Field(None, description="Document title if available")
-    source_path: str | None = Field(None, description="Resolved source path if available")
-    file_extension: str | None = Field(None, description="Source file extension, e.g. .pdf")
-    total_pages: int | None = Field(None, ge=1, description="Detected total page count if available")
-    extraction_profile: str | None = Field(None, description="Resolved extraction profile")
-    extraction_status: str = Field("ok", description="Extraction status: ok|partial|failed")
-    config_hash: str | None = Field(None, description="Deterministic extraction config fingerprint")
-
-
-class QualityGateCheckResult(BaseModel):
-    """Single quality gate check result."""
-
-    gate: str = Field(..., description="Gate identifier")
-    passed: bool = Field(..., description="Whether the gate passed")
-    reason_code: ExtractionQualityReasonCode | None = Field(
-        None,
-        description="Reason code when gate fails",
-    )
-    message: str | None = Field(None, description="Optional human-readable gate detail")
-
-
-class ExtractionQualityReport(BaseModel):
-    """Deterministic quality report persisted per document."""
-
-    status: ExtractionQualityStatus = Field(..., description="Final deterministic extraction status")
-    reason_codes: list[ExtractionQualityReasonCode] = Field(
-        default_factory=list,
-        description="Unique reason codes for failed checks",
-    )
-    checks: list[QualityGateCheckResult] = Field(default_factory=list, description="Gate-by-gate outcomes")
-    gate_metrics_summary: dict[str, int | float] = Field(
-        default_factory=dict,
-        description="Compact gate metrics summary",
-    )
-
-
-class StructuredExtractionResult(BaseModel):
-    """Canonical extraction payload shared by process, convert, and summarize flows."""
-
-    content: str = Field(..., description="Primary extracted text/markdown content")
-    tables: list[ExtractedTableElement] = Field(default_factory=list, description="Extracted tables")
-    figures: list[ExtractedFigureElement] = Field(default_factory=list, description="Extracted figures")
-    equations: list[ExtractedEquationElement] = Field(default_factory=list, description="Extracted equations")
-    document_metadata: DocumentMetadataContract | None = Field(
-        None,
-        description="Canonical document-level metadata contract",
-    )
-    pages: list[PageMetadataContract] = Field(default_factory=list, description="Canonical page-level metadata contracts")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="Document-level extraction metadata")
-
-    @property
-    def table_count(self) -> int:
-        """Return the number of extracted tables."""
-        return len(self.tables)
-
-    @property
-    def figure_count(self) -> int:
-        """Return the number of extracted figures."""
-        return len(self.figures)
-
-    @property
-    def equation_count(self) -> int:
-        """Return the number of extracted equations."""
-        return len(self.equations)
-
-
-class DocumentSummary(BaseModel):
-    """AI-generated summary for a TDoc."""
-
-    document_id: str = Field(..., description="Document identifier (normalized via .upper())")
-    abstract: str = Field(..., description="150-250 word abstract")
-    key_points: list[str] = Field(default_factory=list, description="Key findings")
-    action_items: list[str] = Field(default_factory=list, description="Action items")
-    decisions: list[str] = Field(default_factory=list, description="Decisions recorded")
-    affected_specs: list[str] = Field(default_factory=list, description="Affected specification IDs")
-    llm_model: str = Field(
-        default_factory=lambda: AiConfig().llm_model,
-        description="Model used for generation",
-    )
-    prompt_version: str = Field("v1", description="Prompt template version")
-    generated_at: datetime = Field(default_factory=utc_now, description="Generation timestamp")
-
-    @field_validator("document_id")
-    @classmethod
-    def _normalize_document_id(cls, value: str) -> str:
-        normalized = normalize_tdoc_id(value)
-        if not normalized:
-            msg = "document_id must not be empty"
-            raise ValueError(msg)
-        return normalized
-
-
-class GraphNode(BaseModel):
-    """A node in the temporal knowledge graph."""
-
-    node_id: str = Field(..., description="Unique node identifier")
-    node_type: GraphNodeType = Field(..., description="Node type")
-    label: str = Field(..., description="Human-readable label")
-    valid_from: datetime | None = Field(None, description="Temporal validity start")
-    valid_to: datetime | None = Field(None, description="Temporal validity end")
-    properties: dict[str, Any] = Field(default_factory=dict, description="Type-specific properties")
-    created_at: datetime = Field(default_factory=utc_now, description="Node creation timestamp")
-
-
-class GraphEdge(BaseModel):
-    """An edge in the temporal knowledge graph."""
-
-    edge_id: str = Field(..., description="Edge identifier '{source}->{edge_type}->{target}'")
-    source_id: str = Field(..., description="Source node id")
-    target_id: str = Field(..., description="Target node id")
-    edge_type: GraphEdgeType = Field(..., description="Edge type")
-    weight: float = Field(1.0, description="Relationship strength")
-    temporal_context: str | None = Field(None, description="Meeting or date context")
-    provenance: str = Field(..., description="How this edge was derived")
-    created_at: datetime = Field(default_factory=utc_now, description="Edge creation timestamp")
-
-    @model_validator(mode="after")
-    def _validate_weight(self) -> GraphEdge:
-        if self.weight <= 0:
-            msg = "weight must be positive"
-            raise ValueError(msg)
-        return self
+# DEPRECATED: StructuredExtractionResult was a wrapper around OpenDataLoader output
+# Now using direct dict structures instead - removing to avoid confusion
 
 
 class SummarizeResult(BaseModel):
@@ -390,31 +180,18 @@ class SummarizeResult(BaseModel):
 
 
 __all__ = [
-    "AiConfigError",
     "AiError",
     "ConversionError",
     "DocumentClassification",
-    "DocumentMetadataContract",
-    "DocumentSummary",
-    "EmbeddingDimensionError",
     "ExtractedEquationElement",
     "ExtractedFigureElement",
     "ExtractedTableElement",
-    "ExtractionError",
     "ExtractionQualityReasonCode",
-    "ExtractionQualityReport",
     "ExtractionQualityStatus",
-    "GraphEdge",
-    "GraphEdgeType",
-    "GraphNode",
-    "GraphNodeType",
     "LlmConfigError",
-    "PageMetadataContract",
-    "QualityGateCheckResult",
     "SourceKind",
-    "StructuredExtractionResult",
     "SummarizeResult",
     "TDocNotFoundError",
     "Workspace",
-    "WorkspaceMember",
+    "WorkspaceNotFoundError",
 ]

@@ -10,7 +10,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.logging import get_logger
@@ -21,6 +21,27 @@ from threegpp_ai.models import SourceKind
 from threegpp_ai.operations.workspace_names import DEFAULT_WORKSPACE, normalize_workspace_name
 
 logger = get_logger(__name__)
+
+
+# TypedDict definitions for workspace data structures
+class WorkspaceMemberDict(TypedDict):
+    """Dictionary representation of a workspace member."""
+
+    source_item_id: str
+    source_path: str
+    source_kind: str
+    added_by: str
+    is_active: bool
+    added_at: str
+
+
+class WorkspaceMetadataDict(TypedDict):
+    """Dictionary representation of workspace metadata."""
+
+    created_at: str
+    description: str
+    auto_build: bool
+    members: list[WorkspaceMemberDict]
 
 
 def normalize_spec_member_id(source_item_id: str) -> str:
@@ -74,7 +95,7 @@ class WorkspaceMember:
     is_active: bool = True
     added_at: str = field(default_factory=lambda: utc_now().isoformat())
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> WorkspaceMemberDict:
         return {
             "source_item_id": _normalize_legacy_spec_member_id(self.source_item_id),
             "source_path": self.source_path,
@@ -85,7 +106,7 @@ class WorkspaceMember:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> WorkspaceMember:
+    def from_dict(cls, data: WorkspaceMemberDict) -> WorkspaceMember:
         return cls(
             source_item_id=_normalize_legacy_spec_member_id(data["source_item_id"]),
             source_path=data["source_path"],
@@ -104,9 +125,9 @@ class WorkspaceMetadata:
     created_at: str = field(default_factory=lambda: utc_now().isoformat())
     description: str = ""
     auto_build: bool = True
-    members: list[dict[str, Any]] = field(default_factory=list)
+    members: list[WorkspaceMemberDict] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> WorkspaceMetadataDict:
         return {
             "created_at": self.created_at,
             "description": self.description,
@@ -162,7 +183,7 @@ class WorkspaceMetadata:
         return sorted(members, key=lambda m: m.source_item_id)
 
     @classmethod
-    def from_dict(cls, name: str, data: dict[str, Any]) -> WorkspaceMetadata:
+    def from_dict(cls, name: str, data: WorkspaceMetadataDict) -> WorkspaceMetadata:
         return cls(
             name=name,
             created_at=data.get("created_at", utc_now().isoformat()),
@@ -334,12 +355,11 @@ class WorkspaceRegistry:
         logger.info(f"Set active workspace to '{normalized_name}'")
 
     @classmethod
-    def load(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
+    def load(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
         """Load registry from JSON file.
 
         Args:
             registry_path: Explicit path to workspaces.json. If None, uses PathConfig.
-            cache_manager_name: Ignored, kept for backward compatibility.
 
         Returns:
             Loaded WorkspaceRegistry instance.
@@ -371,12 +391,11 @@ class WorkspaceRegistry:
             return cls._create_default(registry_path)
 
     @classmethod
-    def _create_default(cls, registry_path: Path | None = None, *, cache_manager_name: str | None = None) -> WorkspaceRegistry:
+    def _create_default(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
         """Create a new registry with default workspace.
 
         Args:
             registry_path: Optional explicit path to save to.
-            cache_manager_name: Ignored, kept for backward compatibility.
 
         Returns:
             New WorkspaceRegistry instance with default workspace.
@@ -398,11 +417,8 @@ class WorkspaceRegistry:
         return registry
 
 
-def get_active_workspace(cache_manager_name: str | None = None) -> str:
+def get_active_workspace() -> str:
     """Get the name of the currently active workspace.
-
-    Args:
-        cache_manager_name: Ignored, kept for backward compatibility.
 
     Returns:
         Name of the active workspace, or DEFAULT_WORKSPACE if none set.
@@ -411,12 +427,11 @@ def get_active_workspace(cache_manager_name: str | None = None) -> str:
     return registry.active or DEFAULT_WORKSPACE
 
 
-def set_active_workspace(name: str, cache_manager_name: str | None = None) -> None:
+def set_active_workspace(name: str) -> None:
     """Set the active workspace.
 
     Args:
         name: Workspace name to set as active.
-        cache_manager_name: Ignored, kept for backward compatibility.
     """
     registry = WorkspaceRegistry.load()
     normalized_name = normalize_workspace_name(name)

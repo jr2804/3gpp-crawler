@@ -55,36 +55,36 @@ class ConverterConfig:
         )
 
 
-def is_office_format(file_path: Path) -> bool:
+def is_office_format(source_file: Path) -> bool:
     """Check if a file is an Office document that needs PDF conversion.
 
     Args:
-        file_path: Path to the file to check.
+        source_file: Path to the file to check.
 
     Returns:
         True if the file is an Office document format.
     """
-    return file_path.suffix.lower() in OFFICE_FORMATS
+    return source_file.suffix.lower() in OFFICE_FORMATS
 
 
-def get_cached_pdf_path(file_path: Path) -> Path | None:
+def get_cached_pdf_path(source_file: Path) -> Path | None:
     """Get the path to a cached PDF conversion if it exists.
 
     The cached PDF is stored in a `.ai` subdirectory next to the original file.
 
     Args:
-        file_path: Path to the original Office document.
+        source_file: Path to the original Office document.
 
     Returns:
         Path to cached PDF if it exists, None otherwise.
     """
-    ai_dir = file_path.parent / ".ai"
-    cached_pdf = ai_dir / f"{file_path.stem}.pdf"
+    ai_dir = source_file.parent / ".ai"
+    cached_pdf = ai_dir / f"{source_file.stem}.pdf"
     return cached_pdf if cached_pdf.exists() else None
 
 
 def convert_to_pdf(
-    file_path: Path,
+    source_file: Path,
     output_dir: Path | None = None,
     *,
     force: bool = False,
@@ -98,7 +98,7 @@ def convert_to_pdf(
     - Fallback from local to remote on failure (when using AUTO backend)
 
     Args:
-        file_path: Path to the Office document (DOCX, DOC, PPT, etc.)
+        source_file: Path to the Office document (DOCX, DOC, PPT, etc.)
         output_dir: Optional output directory for the PDF. If None, uses
             the `.ai` subdirectory next to the source file.
         force: If True, re-convert even if a cached PDF exists.
@@ -112,42 +112,42 @@ def convert_to_pdf(
         ConversionError: If conversion fails with all available backends.
         FileNotFoundError: If the input file does not exist.
     """
-    if not file_path.exists():
-        raise FileNotFoundError(f"Input file not found: {file_path}")
+    if not source_file.exists():
+        raise FileNotFoundError(f"Input file not found: {source_file}")
 
-    if not is_office_format(file_path):
-        raise ConversionError(f"Unsupported file format: {file_path.suffix}")
+    if not is_office_format(source_file):
+        raise ConversionError(f"Unsupported file format: {source_file.suffix}")
 
     config = config or ConverterConfig.from_env()
-    output_dir = output_dir or file_path.parent / ".ai"
-    output_path = output_dir / f"{file_path.stem}.pdf"
+    output_dir = output_dir or source_file.parent / ".ai"
+    output_file = output_dir / f"{source_file.stem}.pdf"
 
     # Check for cached conversion
-    if not force and output_path.exists():
-        logger.debug("Using cached PDF: %s", output_path)
-        return output_path
+    if not force and output_file.exists():
+        logger.debug("Using cached PDF: %s", output_file)
+        return output_file
 
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Select backend and convert
     if config.backend == ConverterBackend.REMOTE:
-        return convert_via_remote(file_path, output_dir, config)
+        return convert_via_remote(source_file, output_dir, config)
 
     if config.backend == ConverterBackend.LIBREOFFICE:
-        return convert_via_libreoffice(file_path, output_dir)
+        return convert_via_libreoffice(source_file, output_dir)
 
     # AUTO: Try LibreOffice first, fallback to remote
     try:
-        return convert_via_libreoffice(file_path, output_dir)
+        return convert_via_libreoffice(source_file, output_dir)
     except Exception as e:
-        logger.warning("LibreOffice conversion failed for %s: %s", file_path.name, e)
-        logger.info("Falling back to remote converter for %s", file_path.name)
-        return convert_via_remote(file_path, output_dir, config)
+        logger.warning("LibreOffice conversion failed for %s: %s", source_file.name, e)
+        logger.info("Falling back to remote converter for %s", source_file.name)
+        return convert_via_remote(source_file, output_dir, config)
 
 
 def convert_via_libreoffice(
-    file_path: Path,
+    source_file: Path,
     output_dir: Path,
 ) -> Path:
     """Convert an Office document to PDF using local LibreOffice.
@@ -156,7 +156,7 @@ def convert_via_libreoffice(
     Requires LibreOffice to be installed and available on the system PATH.
 
     Args:
-        file_path: Path to the Office document.
+        source_file: Path to the Office document.
         output_dir: Output directory for the PDF.
 
     Returns:
@@ -165,32 +165,32 @@ def convert_via_libreoffice(
     Raises:
         ConversionError: If LibreOffice conversion fails.
     """
-    output_path = output_dir / f"{file_path.stem}.pdf"
+    output_file = output_dir / f"{source_file.stem}.pdf"
 
     try:
         converter = Converter()
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = converter.convert(file_path, LibreOfficeFormat.PDF, Path(tmpdir))
+            result = converter.convert(source_file, LibreOfficeFormat.PDF, Path(tmpdir))
 
-            if result is None or result.output_path is None:
-                raise ConversionError(f"LibreOffice returned empty result for {file_path.name}")
+            if result is None or result.output_file is None:
+                raise ConversionError(f"LibreOffice returned empty result for {source_file.name}")
 
             # Copy the converted PDF to the output directory
-            output_path.write_bytes(result.output_path.read_bytes())
+            output_file.write_bytes(result.output_file.read_bytes())
 
-        logger.info("Converted %s to PDF via LibreOffice: %s", file_path.name, output_path)
-        return output_path
+        logger.info("Converted %s to PDF via LibreOffice: %s", source_file.name, output_file)
+        return output_file
 
     except ConversionError:
         raise
     except Exception as e:
-        msg = f"LibreOffice conversion failed for {file_path.name}: {e}"
+        msg = f"LibreOffice conversion failed for {source_file.name}: {e}"
         logger.error(msg)
         raise ConversionError(msg) from e
 
 
 def convert_via_remote(
-    file_path: Path,
+    source_file: Path,
     output_dir: Path,
     config: ConverterConfig | None = None,
 ) -> Path:
@@ -200,7 +200,7 @@ def convert_via_remote(
     when local LibreOffice is not available or fails.
 
     Args:
-        file_path: Path to the Office document.
+        source_file: Path to the Office document.
         output_dir: Output directory for the PDF.
         config: Optional converter configuration with API credentials.
             If None, reads from environment variables.
@@ -212,7 +212,7 @@ def convert_via_remote(
         ConversionError: If remote conversion fails.
     """
     config = config or ConverterConfig.from_env()
-    output_path = output_dir / f"{file_path.stem}.pdf"
+    output_file = output_dir / f"{source_file.stem}.pdf"
 
     # Prepare API request
     api_key = config.api_key or os.getenv("PDF_REMOTE_API_KEY")
@@ -223,36 +223,36 @@ def convert_via_remote(
         headers["Authorization"] = f"Bearer {api_key}"
 
     url = f"{api_base.rstrip('/')}/convert"
-    logger.debug("Converting %s via remote API: %s", file_path.name, url)
+    logger.debug("Converting %s via remote API: %s", source_file.name, url)
 
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        with file_path.open("rb") as source_handle:
-            files = {"file": (file_path.name, source_handle, "application/octet-stream")}
+        with source_file.open("rb") as source_handle:
+            files = {"file": (source_file.name, source_handle, "application/octet-stream")}
             with requests.post(url, files=files, headers=headers, stream=True, timeout=120) as response:
                 response.raise_for_status()
 
                 # Stream response to output file
-                with output_path.open("wb") as output_handle:
+                with output_file.open("wb") as output_handle:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             output_handle.write(chunk)
 
-        logger.info("Converted %s to PDF via remote API: %s", file_path.name, output_path)
-        return output_path
+        logger.info("Converted %s to PDF via remote API: %s", source_file.name, output_file)
+        return output_file
 
     except requests.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else "unknown"
-        msg = f"Remote conversion failed for {file_path.name}: HTTP {status}"
+        msg = f"Remote conversion failed for {source_file.name}: HTTP {status}"
         logger.error(msg)
         raise ConversionError(msg) from e
     except requests.exceptions.RequestException as e:
-        msg = f"Remote conversion failed for {file_path.name}: {e}"
+        msg = f"Remote conversion failed for {source_file.name}: {e}"
         logger.error(msg)
         raise ConversionError(msg) from e
     except OSError as e:
-        msg = f"Remote conversion failed for {file_path.name}: {e}"
+        msg = f"Remote conversion failed for {source_file.name}: {e}"
         logger.error(msg)
         raise ConversionError(msg) from e
 

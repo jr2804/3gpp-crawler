@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class ConversionResult:
     """Result of a LibreOffice conversion."""
 
-    input_path: Path
-    output_path: Path
+    input_file: Path
+    output_file: Path
     output_format: LibreOfficeFormat
 
 
@@ -40,16 +40,16 @@ class Converter:
 
     def __init__(
         self,
-        soffice_path: Path | None = None,
+        soffice_file: Path | None = None,
         timeout: int = 300,
     ) -> None:
         """Initialize the converter.
 
         Args:
-            soffice_path: Path to soffice executable. If None, auto-detects.
+            soffice_file: Path to soffice executable. If None, auto-detects.
             timeout: Timeout in seconds per file conversion (default: 300).
         """
-        self._soffice_path = soffice_path or find_soffice()
+        self._soffice_file = soffice_file or find_soffice()
         self._timeout = timeout
 
     def convert(
@@ -103,10 +103,10 @@ class Converter:
             msg = f"LibreOffice conversion failed for {input_file}: {exc}"
             raise ConversionError(msg) from exc
 
-        output_path = output_dir / f"{input_file.stem}.{output_format.value}"
+        output_file = output_dir / f"{input_file.stem}.{output_format.value}"
         return ConversionResult(
-            input_path=input_file,
-            output_path=output_path,
+            input_file=input_file,
+            output_file=output_file,
             output_format=output_format,
         )
 
@@ -152,7 +152,7 @@ class Converter:
             raise ConversionError(msg)
 
         cmd: list[str] = [
-            str(self._soffice_path),
+            str(self._soffice_file),
             "--headless",
             "--invisible",
             "--nologo",

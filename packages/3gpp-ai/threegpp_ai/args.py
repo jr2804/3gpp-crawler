@@ -105,39 +105,13 @@ WorkspaceProcessVlmOption = Annotated[
         envvar=ConfigEnvVar.TDC_AI_VLM.name,
     ),
 ]
-ExtractionProfileOption = Annotated[
-    str | None,
+WorkspaceProcessSkipExistingOption = Annotated[
+    bool,
     typer.Option(
-        "--profile",
-        help="Extraction profile override: default, balanced, optimum, custom",
-        envvar="TDC_AI_EXTRACTION_PROFILE",
+        "--skip-existing",
+        help="Skip extraction for components that already exist in .ai folder",
     ),
 ]
-CustomExtractOcrOption = Annotated[
-    bool | None,
-    typer.Option("--custom-ocr/--no-custom-ocr", help="Custom profile override for OCR stage"),
-]
-CustomExtractLayoutOption = Annotated[
-    bool | None,
-    typer.Option("--custom-layout/--no-custom-layout", help="Custom profile override for layout stage"),
-]
-CustomExtractTablesOption = Annotated[
-    bool | None,
-    typer.Option("--custom-tables/--no-custom-tables", help="Custom profile override for table extraction"),
-]
-CustomExtractFiguresOption = Annotated[
-    bool | None,
-    typer.Option("--custom-figures/--no-custom-figures", help="Custom profile override for figure extraction"),
-]
-CustomExtractEquationsOption = Annotated[
-    bool | None,
-    typer.Option("--custom-equations/--no-custom-equations", help="Custom profile override for equation extraction"),
-]
-CustomExtractEnrichmentOption = Annotated[
-    bool | None,
-    typer.Option("--custom-enrichment/--no-custom-enrichment", help="Custom profile override for enrichment stages"),
-]
-
 # Accelerator options for Docling extraction
 AcceleratorDeviceOption = Annotated[
     str,
@@ -206,5 +180,61 @@ ProvidersOutputOption = Annotated[
         "-o",
         case_sensitive=False,
         help="Output format (table, json, ison, toon, yaml)",
+    ),
+]
+
+# Application configuration
+ConfigFileOption = Annotated[
+    Path | None,
+    typer.Option(
+        "--config",
+        "-c",
+        help="Path to configuration file (overrides discovered config)",
+        exists=True,
+        readable=True,
+    ),
+]
+
+# Hybrid server options
+VlmHostOption = Annotated[str, typer.Option("--vlm-host", help="Hybrid server host")]
+VlmPortOption = Annotated[int, typer.Option("--vlm-port", help="Hybrid server port")]
+
+# Hybrid server start command
+HybridServerHostOption = Annotated[str, typer.Option("--host", help="Host to bind to")]
+HybridServerPortOption = Annotated[int, typer.Option("--port", help="Port to bind to")]
+HybridServerDeviceOption = Annotated[str, typer.Option("--device", help="Compute device: auto, cpu, cuda, mps, xpu")]
+HybridServerWaitOption = Annotated[bool, typer.Option("--wait/--no-wait", help="Wait for server to be ready")]
+
+# Clear artifacts command
+ClearPathOption = Annotated[
+    Path | None,
+    typer.Option(
+        "--path",
+        "-p",
+        help="Path to clear .ai folders from. Defaults to checkout directory.",
+    ),
+]
+ClearWorkspaceOption = Annotated[
+    str | None,
+    typer.Option(
+        "--workspace",
+        "-w",
+        help="Clear only .ai folders for members of this workspace.",
+    ),
+]
+ClearDryRunOption = Annotated[
+    bool,
+    typer.Option(
+        "--dry-run",
+        help="Show what would be deleted without actually deleting.",
+    ),
+]
+
+# Workspace delete command
+WorkspaceDeleteArtifactsOption = Annotated[
+    bool,
+    typer.Option(
+        "--delete-artifacts",
+        help="Also delete all .ai processing artifacts in the checkout folder for this workspace's members",
     ),
 ]

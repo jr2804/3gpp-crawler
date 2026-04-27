@@ -7,13 +7,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from pydantic.fields import FieldInfo
 
 from tdoc_crawler.config.settings import ThreeGPPConfig
 
 FormatType = Literal["toml", "yaml", "json"]
 
 
-def _default_value_for_field(info: Any) -> Any:
+def _default_value_for_field(info: FieldInfo) -> object:
     """Extract the default value from a pydantic field info."""
     default = info.default
     if callable(default):

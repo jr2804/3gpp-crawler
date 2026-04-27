@@ -5,10 +5,9 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable
-from concurrent.futures import Future, as_completed
+from concurrent.futures import Executor, Future, as_completed
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
 
 from pool_executors import create_executor
 
@@ -238,14 +237,14 @@ class TDocCrawler:
         return {normalize_tdoc_id(item) for item in targets}
 
     @staticmethod
-    def _create_executor_for_workers(workers: int) -> tuple[Any, str]:
+    def _create_executor_for_workers(workers: int) -> tuple[Executor, str]:
         """Create configured executor and return it with a label for logging."""
         if workers == 1:
             return create_executor("serial"), "serial"
         return create_executor("multiprocessing", max_workers=workers), "multiprocessing"
 
     @staticmethod
-    def _submit_meeting_futures(executor: Any, meetings: list[MeetingMetadata], config: TDocCrawlConfig) -> dict[Future[str], MeetingMetadata]:
+    def _submit_meeting_futures(executor: Executor, meetings: list[MeetingMetadata], config: TDocCrawlConfig) -> dict[Future[str], MeetingMetadata]:
         """Submit worker tasks for each meeting and map futures back to meeting metadata."""
         futures: dict[Future[str], MeetingMetadata] = {}
         for meeting in meetings:

@@ -9,9 +9,13 @@ from __future__ import annotations
 import litellm
 
 from threegpp_ai.models import SourceKind, SummarizeResult, WorkspaceNotFoundError
-from threegpp_ai.operations.convert import convert_tdoc as convert_document
+from threegpp_ai.operations.convert import convert_tdoc_metadata as convert_document
 from threegpp_ai.operations.convert import convert_tdoc_to_markdown
 from threegpp_ai.operations.summarize import summarize_tdoc as summarize_document
+from threegpp_ai.operations.workspace_names import (
+    is_default_workspace,
+    normalize_workspace_name,
+)
 from threegpp_ai.operations.workspace_registry import (
     DEFAULT_WORKSPACE,
     WorkspaceRegistry,
@@ -23,20 +27,18 @@ from threegpp_ai.operations.workspaces import (
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
     create_workspace,
+    delete_ai_folder,
     delete_workspace,
     ensure_ai_subfolder,
     ensure_default_workspace,
     get_workspace,
     get_workspace_member_counts,
-    is_default_workspace,
     list_workspace_members,
     list_workspaces,
     make_workspace_member,
-    normalize_workspace_name,
     remove_invalid_members,
     resolve_spec_release_from_db,
     resolve_tdoc_checkout_path,
-    resolve_workspace,
 )
 
 litellm.suppress_debug_info = True  # Suppress provider/model info logs from litellm
@@ -56,6 +58,7 @@ __all__ = [
     "convert_document",
     "convert_tdoc_to_markdown",
     "create_workspace",
+    "delete_ai_folder",
     "delete_workspace",
     "ensure_ai_subfolder",
     "ensure_default_workspace",
@@ -70,7 +73,6 @@ __all__ = [
     "remove_invalid_members",
     "resolve_spec_release_from_db",
     "resolve_tdoc_checkout_path",
-    "resolve_workspace",
     "set_active_workspace",
     "summarize_document",
 ]

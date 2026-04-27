@@ -34,6 +34,7 @@ def fetch_meeting_document_list(
     http_config: HttpConfig | None = None,
     http_cache_file: Path | None = None,
     files_url: str | None = None,
+    save_doclist_to: Path | None = None,
 ) -> list[TDocMetadata]:
     """Fetch all TDoc metadata for a meeting via document list Excel file.
 
@@ -43,6 +44,7 @@ def fetch_meeting_document_list(
         http_config: Optional HTTP configuration from ThreeGPPConfig
         http_cache_file: Optional explicit path to the HTTP cache database
         files_url: Optional HTTP directory containing meeting documents (for URL construction)
+        save_doclist_to: Optional path to save the Excel document list file for inspection
 
     Returns:
         List of TDocMetadata instances for all TDocs in the meeting
@@ -71,6 +73,12 @@ def fetch_meeting_document_list(
         if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" not in content_type and not response.content.startswith(b"PK"):
             # Some responses might not set content-type correctly, check file signature
             raise DocumentListError(f"Expected Excel file for meeting {meeting_id}, got content-type: {content_type}")
+
+        # Save doclist to file if path is provided
+        if save_doclist_to is not None:
+            save_doclist_to.parent.mkdir(parents=True, exist_ok=True)
+            save_doclist_to.write_bytes(response.content)
+            _logger.debug(f"Saved document list to {save_doclist_to}")
 
         # Parse Excel file
         _logger.debug(f"Parsing Excel document list for meeting {meeting_id}")
