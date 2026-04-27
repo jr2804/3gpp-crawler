@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
+from tdoc_crawler.config import CacheManager
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.meetings.models import MeetingMetadata
@@ -19,6 +20,17 @@ def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> boo
     """Ignore legacy tests/ai suite in the core tdoc_crawler package."""
     path_text = str(collection_path).replace("\\", "/").lower()
     return "/tests/ai/" in path_text or path_text.endswith("/tests/ai")
+
+
+@pytest.fixture(autouse=True)
+def _reset_cache_manager() -> None:
+    """Reset CacheManager singleton before each test.
+
+    The CLI callback registers a CacheManager singleton on every invocation.
+    Without resetting between tests, the second test that invokes the CLI
+    will fail with "CacheManager already registered".
+    """
+    CacheManager._instance = None
 
 
 @pytest.fixture

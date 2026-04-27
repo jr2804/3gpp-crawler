@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 from unittest.mock import MagicMock, patch
 
+import niquests as requests
 import pandas as pd
 import pytest
 
@@ -105,7 +106,7 @@ class TestMeetingDocumentList:
         """Test handling of network errors."""
         with patch("tdoc_crawler.tdocs.sources.doclist.create_cached_session") as mock_session:
             mock_response = MagicMock()
-            mock_response.raise_for_status.side_effect = Exception("Network error")
+            mock_response.raise_for_status.side_effect = requests.RequestException("Network error")
             mock_session.return_value.get.return_value = mock_response
 
             with pytest.raises(DocumentListError):

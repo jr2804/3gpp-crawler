@@ -66,8 +66,12 @@ class TestCredentialsWithConfig:
 
         assert result is None
 
-    def test_resolve_config_prompt_flag(self) -> None:
+    def test_resolve_config_prompt_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """credentials_config.prompt controls prompting."""
+        # Clear env vars that might provide credentials before prompting
+        monkeypatch.delenv("TDC_EOL_USERNAME", raising=False)
+        monkeypatch.delenv("TDC_EOL_PASSWORD", raising=False)
+
         config = CredentialsConfig(prompt="true")
 
         # Should attempt to prompt (but won't in test due to non-TTY)

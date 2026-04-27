@@ -17,6 +17,27 @@ from tdoc_crawler.tdocs.sources.whatthespec import WHATSPEC_BASE_URL, WhatTheSpe
 from .conftest import insert_sample_meetings_async
 
 
+def _make_mock_session(json_data: list | None = None, side_effect: object = None) -> MagicMock:
+    """Create a mock session that mimics create_cached_session return value.
+
+    Args:
+        json_data: JSON data to return from response.json().
+        side_effect: Side effect for session.get (exception class or instance).
+
+    Returns:
+        MagicMock session with .get() and .close() methods.
+    """
+    mock_session = MagicMock()
+    if side_effect is not None:
+        mock_session.get.side_effect = side_effect
+    else:
+        mock_response = MagicMock()
+        mock_response.json.return_value = json_data
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+    return mock_session
+
+
 class TestWhatTheSpecResolution:
     """Test suite for WhatTheSpec resolver."""
 
@@ -63,12 +84,8 @@ class TestWhatTheSpecResolution:
             http_cache_config: HTTP cache configuration.
             sample_api_response: Sample API response.
         """
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = sample_api_response
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=sample_api_response)
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "S4-260001",
                 http_config=http_cache_config,
@@ -101,12 +118,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = []
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=[])
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "INVALID-ID",
                 http_config=http_cache_config,
@@ -125,12 +138,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = [None]
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=[None])
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "S4-260001",
                 http_config=http_cache_config,
@@ -154,9 +163,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
-        with patch("requests.Session.get") as mock_get:
-            mock_get.side_effect = requests.Timeout("Connection timeout")
-
+        mock_session = _make_mock_session(side_effect=requests.Timeout("Connection timeout"))
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             with pytest.raises(WhatTheSpecResolutionError) as exc_info:
                 resolve_via_whatthespec(
                     "S4-260001",
@@ -178,9 +186,8 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
-        with patch("requests.Session.get") as mock_get:
-            mock_get.side_effect = requests.ConnectionError("Connection failed")
-
+        mock_session = _make_mock_session(side_effect=requests.ConnectionError("Connection failed"))
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             with pytest.raises(WhatTheSpecResolutionError) as exc_info:
                 resolve_via_whatthespec(
                     "S4-260001",
@@ -200,17 +207,17 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
-            mock_get.return_value = mock_response
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+        mock_session.get.return_value = mock_response
 
-            with pytest.raises(WhatTheSpecResolutionError):
-                resolve_via_whatthespec(
-                    "S4-260001",
-                    http_config=http_cache_config,
-                    http_cache_file=test_cache_dir / "http-cache.sqlite3",
-                )
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session), pytest.raises(WhatTheSpecResolutionError):
+            resolve_via_whatthespec(
+                "S4-260001",
+                http_config=http_cache_config,
+                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+            )
 
     def test_field_mapping_correctness(self, test_cache_dir: Path, http_cache_config: HttpConfig) -> None:
         """Test that all API fields map correctly to TDocMetadata fields.
@@ -238,12 +245,8 @@ class TestWhatTheSpecResolution:
             }
         ]
 
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = api_response
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=api_response)
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "R1-250123",
                 http_config=http_cache_config,
@@ -278,16 +281,11 @@ class TestWhatTheSpecResolution:
                 "name": "S2-250456",
                 "title": "Minimal record",
                 "link": "https://example.com/minimal.zip",
-                # Missing: source, contact, tdoctype, for, meeting, ainumber, ainame, status
             }
         ]
 
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = minimal_response
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=minimal_response)
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "S2-250456",
                 http_config=http_cache_config,
@@ -322,12 +320,8 @@ class TestWhatTheSpecResolution:
             }
         ]
 
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = api_response
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=api_response)
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "C1-250789",
                 http_config=http_cache_config,
@@ -371,12 +365,8 @@ class TestWhatTheSpecResolution:
             }
         ]
 
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = api_response
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=api_response)
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "S4-2301890",
                 http_config=http_cache_config,
@@ -406,12 +396,8 @@ class TestWhatTheSpecResolution:
             }
         ]
 
-        with patch("requests.Session.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = api_response
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=api_response)
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             result = resolve_via_whatthespec(
                 "r1-250999",
                 http_config=http_cache_config,
@@ -430,20 +416,15 @@ class TestWhatTheSpecResolution:
             test_cache_dir: Temporary cache directory from fixture.
             http_cache_config: HTTP cache configuration.
         """
-        with patch("requests.Session.get") as mock_get, patch("requests.Session.close"):
-            mock_response = MagicMock()
-            mock_response.json.return_value = []
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
+        mock_session = _make_mock_session(json_data=[])
+        with patch("tdoc_crawler.tdocs.sources.whatthespec.create_cached_session", return_value=mock_session):
             resolve_via_whatthespec(
                 "S4-260001",
                 http_config=http_cache_config,
                 http_cache_file=test_cache_dir / "http-cache.sqlite3",
             )
 
-            # Session close should be called in finally block
-            # Note: Due to mocking, this verifies the pattern is in place
+            mock_session.close.assert_called_once()
 
     def test_whatspec_base_url_format(self) -> None:
         """Test that WHATSPEC_BASE_URL has correct format placeholder.
