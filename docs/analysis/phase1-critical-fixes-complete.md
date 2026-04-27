@@ -196,7 +196,7 @@ Phase 2 addresses structural issues identified in the analysis:
 1. **Test coverage gaps** (3gpp-ai package)
 
    - Add unit tests for operations module
-   - Integration tests for hybrid server
+   - Integration tests for hybrid extraction runtime
 
 **Estimated Effort:** 4-6 hours\
 **Risk Level:** Low (incremental refactoring)
