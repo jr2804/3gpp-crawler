@@ -4,7 +4,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models.working_groups import WorkingGroup
@@ -23,7 +23,10 @@ def parse_agenda_item_version(value: str | int | None) -> Version:
     """Parse agenda item number as Version."""
     if value is None:
         return Version("0")
-    return Version(str(value).strip())
+    try:
+        return Version(str(value).strip())
+    except InvalidVersion:
+        return Version("0")
 
 
 def parse_spec_version_nbr(value: str | int | None) -> SpecificationVersionNumber:
