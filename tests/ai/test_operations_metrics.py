@@ -48,25 +48,12 @@ def test_convert_tdoc_to_markdown_records_conversion_metric(monkeypatch: pytest.
     tracker = get_metrics_tracker()
     tracker.clear()
 
-    # Mock resolve_via_whatthespec in the convert module
     monkeypatch.setattr(
         convert_ops,
-        "resolve_via_whatthespec",
-        lambda _tdoc_id: None,
+        "_ensure_converted",
+        lambda *_args, **_kwargs: ("# markdown", tmp_path / "dummy.json", "S4-260001"),
     )
-
-    # Mock extract_document_structured_from_tdoc to bypass actual extraction but still record metrics
-    def mock_extract(*args, **kwargs) -> None:
-        # Manually record the metric since we're bypassing timed_operation
-        with timed_operation(tracker, "S4-260001", MetricType.CONVERSION):
-            pass
-        return SimpleNamespace(content="# markdown", tables=[], figures=[], equations=[])
-
-    monkeypatch.setattr(
-        convert_ops,
-        "extract_document_structured_from_tdoc",
-        mock_extract,
-    )
+    monkeypatch.setattr(convert_ops, "_prepend_metadata_header", lambda content, _document_id: content)
 
     output = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
 
@@ -82,30 +69,12 @@ def test_convert_tdoc_to_markdown_writes_table_sidecar(monkeypatch: pytest.Monke
     tracker = get_metrics_tracker()
     tracker.clear()
 
-    # Mock resolve_via_whatthespec in the convert module
     monkeypatch.setattr(
         convert_ops,
-        "resolve_via_whatthespec",
-        lambda _tdoc_id: None,
+        "_ensure_converted",
+        lambda *_args, **_kwargs: ("# markdown", tmp_path / "dummy.json", "S4-260001"),
     )
-
-    # Mock extract_document_structured_from_tdoc to return result with tables
-    # Record the metric since we're bypassing the timed_operation wrapper
-    def mock_extract(*args, **kwargs) -> None:
-        with timed_operation(get_metrics_tracker(), "S4-260001", MetricType.CONVERSION):
-            pass
-        return SimpleNamespace(
-            content="# markdown",
-            tables=[SimpleNamespace(cells=[["a", "b"]], markdown="|a|b|", page_number=1)],
-            figures=[],
-            equations=[],
-        )
-
-    monkeypatch.setattr(
-        convert_ops,
-        "extract_document_structured_from_tdoc",
-        mock_extract,
-    )
+    monkeypatch.setattr(convert_ops, "_prepend_metadata_header", lambda content, _document_id: content)
 
     result = convert_ops.convert_tdoc_to_markdown("S4-260001", force=True)
 
@@ -123,7 +92,7 @@ def test_summarize_tdoc_records_summarization_metric(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(
         summarize_ops,
-        "extract_tdoc_structured",
+        "extract_document_structured_from_tdoc",
         lambda *_args, **_kwargs: SimpleNamespace(content="source content"),
     )
     monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
@@ -149,7 +118,7 @@ def test_summarize_tdoc_blocks_failed_quality_without_override(monkeypatch: pyte
 
     monkeypatch.setattr(
         summarize_ops,
-        "extract_tdoc_structured",
+        "extract_document_structured_from_tdoc",
         lambda *_args, **_kwargs: SimpleNamespace(content="source content", metadata={"extraction_status": "failed"}),
     )
     monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
@@ -170,7 +139,7 @@ def test_summarize_tdoc_allows_failed_quality_with_override(monkeypatch: pytest.
 
     monkeypatch.setattr(
         summarize_ops,
-        "extract_tdoc_structured",
+        "extract_document_structured_from_tdoc",
         lambda *_args, **_kwargs: SimpleNamespace(content="source content", metadata={"extraction_status": "failed"}),
     )
     monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)
@@ -207,7 +176,7 @@ def test_summarize_tdoc_uses_nested_document_metadata_status(monkeypatch: pytest
 
     monkeypatch.setattr(
         summarize_ops,
-        "extract_tdoc_structured",
+        "extract_document_structured_from_tdoc",
         lambda *_args, **_kwargs: extraction,
     )
     monkeypatch.setattr(summarize_ops, "_get_llm_client", _DummyClient)

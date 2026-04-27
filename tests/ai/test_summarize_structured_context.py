@@ -56,7 +56,7 @@ def test_summarize_uses_structured_context_when_available(monkeypatch: pytest.Mo
         figures=[],
     )
 
-    monkeypatch.setattr(summarize_ops, "extract_tdoc_structured", lambda *_args, **_kwargs: extraction)
+    monkeypatch.setattr(summarize_ops, "extract_document_structured_from_tdoc", lambda *_args, **_kwargs: extraction)
     monkeypatch.setattr(summarize_ops, "_get_llm_client", lambda: capture)
     monkeypatch.setattr(summarize_ops, "AiConfig", _base_config)
 
@@ -77,7 +77,7 @@ def test_summarize_falls_back_to_markdown_when_structured_absent(monkeypatch: py
         figures=[],
     )
 
-    monkeypatch.setattr(summarize_ops, "extract_tdoc_structured", lambda *_args, **_kwargs: extraction)
+    monkeypatch.setattr(summarize_ops, "extract_document_structured_from_tdoc", lambda *_args, **_kwargs: extraction)
     monkeypatch.setattr(summarize_ops, "_get_llm_client", lambda: capture)
     monkeypatch.setattr(summarize_ops, "AiConfig", _base_config)
 

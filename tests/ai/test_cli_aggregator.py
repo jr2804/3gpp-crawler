@@ -22,8 +22,8 @@ def test_workspace_help_lists_expected_subcommands() -> None:
     result = runner.invoke(app, ["workspace", "--help"])
 
     assert result.exit_code == 0
-    assert "add-members" in result.stdout
-    assert "list-members" in result.stdout
+    assert "add" in result.stdout
+    assert "list" in result.stdout
     assert "process" in result.stdout
 
 
