@@ -1,80 +1,115 @@
-# Roadmap — 3GPP Crawler Codebase Improvement
+# Roadmap: v1.1 llm-wiki
+
+## Milestone
+
+**Version:** v1.1
+**Name:** llm-wiki
+**Status:** Active
+**Started:** 2026-04-27
+**Goal:** Generate external-app-compatible workspace exports from extraction artifacts, re-integrate 3gpp-ai into main app, and remove in-house wiki-compiler dependencies.
 
 ## Phases
 
-- [x] **Phase 01: Normalization & Progress Bars** - Consolidate duplicate normalization logic and fix progress bar document counts (completed 2026-04-12)
-- [x] **Phase 02: Checkout, Graph, Deprecation & Config** - Fix checkout paths, datetime errors, deprecated imports, and config drift (completed 2026-04-19)
+- [x] **Phase 07: Framework Selection and Contract Freeze** (superseded — see phase 08)
+- [x] **Phase 08: External Workspace Export and Reintegration**
+- [x] **Phase 09: Workspace Infrastructure Merge and Export Elimination**
 
 ---
 
 ## Phase Details
 
-### Phase 01: Normalization & Progress Bars
+### Phase 07: Framework Selection and Contract Freeze
 
-**Goal**: Eliminate duplicate normalization code and fix progress bar UX issues so users see document counts during long operations
+**Goal:** Finalize framework decision and lock milestone-level technical contracts before implementation.
 
-**Depends on**: Nothing
+**Depends on:** v1.0 extraction baseline and v1.1 research outputs
 
-**Requirements**: NORM-01, NORM-02, PROGRESS-01, PROGRESS-02
+**Requirements:** FRMW-01, FRMW-02
 
-**Success Criteria** (what must be TRUE):
-1. All normalization functions exist in single location (`src/tdoc_crawler/utils/normalization.py`)
-2. `meetings/utils.py` re-exports from normalization.py, no duplicate functions
-3. 6+ files importing normalization use single source (verified via grep)
-4. Unit tests exist for all normalization functions covering edge cases
-5. Progress bar shows "N/N" format (e.g., "5/69") during `workspace process`
-6. Progress bar shows "N/N" format during `add_members` command
+**Success Criteria**:
 
-**Plans**: 2 plans
+1. Framework recommendation is ratified with explicit acceptance criteria and fallback policy.
+2. Wiki compile/query contract document is frozen for v1.1 scope.
+3. CLI/config compatibility boundaries are documented for migration.
+
+**Plans:** 2 plans
 
 **Plan list:**
-- [x] 01-normalization-PLAN.md — Consolidate normalization logic and add unit tests
-- [x] 02-progress-PLAN.md — Fix progress bar display to show document counts
+
+- [x] 07-01-PLAN.md - Framework selection rubric and decision record
+- [x] 07-02-PLAN.md - v1.1 interface/contract freeze (schema, CLI, config)
+
+**Note:** Phase 07 framework additions (llama-index-core, rank-bm25, rapidfuzz, wiki contracts) are reverted in phase 08-01. The strategy shifted to external-app workspace export instead of in-house wiki compilation.
 
 ---
 
-### Phase 02: Checkout, Graph, Deprecation & Config
+### Phase 08: External Workspace Export and Reintegration
 
-**Goal**: Fix checkout path issues, datetime scope errors in graph building, remove deprecated imports, and align config defaults
+**Goal:** Strip 3gpp-ai to extraction-only, add workspace export commands for external wiki apps, and re-integrate into main CLI.
 
-**Depends on**: Phase 1
+**Depends on:** Phase 07 (revert framework additions)
 
-**Requirements**: CHECKOUT-01, GRAPH-01, DEPRECATED-01, CONFIG-01
+**Requirements:** REVERT-01, EXPORT-01, REINT-01
 
-**Success Criteria** (what must be TRUE):
-1. Empty folder detection triggers re-download correctly
-2. "No document files found" warning no longer appears for valid TDocs with empty folders
-3. Graph building completes without datetime scope errors
-4. Errors in graph building are caught and reported with meaningful messages
-5. No import errors from deprecated modules (AiStorage, EmbeddingsManager, tdoc_ai.operations.pipeline, lancedb)
-6. `.env.example` embedding model matches code defaults in `threegpp_ai/config.py`
+**Success Criteria**:
 
-**Plans**: 3 plans
+1. No llama-index-core, rank-bm25, or rapidfuzz dependencies remain.
+2. Workspace export produces valid file structures for atomicmemory/llm-wiki-compiler and lucasastorian/llmwiki.
+3. Workspace init/process/export commands available from main `tdoc-crawler` CLI.
+4. Standalone `3gpp-ai` CLI prints deprecation message.
+5. All tests pass.
+
+**Plans:** 3 plans
 
 **Plan list:**
-- [x] 02-01-PLAN.md — Fix checkout empty folder detection and re-download triggers
-- [x] 02-02-PLAN.md — Add graph error handling and verify deprecated imports removed
-- [x] 02-03-PLAN.md — Align embedding model defaults between .env.example and code
+
+- [ ] 08-01-PLAN.md - Revert phase 07 framework additions, strip 3gpp-ai to extraction-only
+- [ ] 08-02-PLAN.md - Add workspace export module and CLI commands for external wiki app formats
+- [ ] 08-03-PLAN.md - Re-integrate workspace commands into main CLI, deprecate standalone entrypoint
+
+---
+
+### Phase 09: Workspace Infrastructure Merge and Export Elimination
+
+**Goal:** Merge workspace management into the main app as a core concern, eliminate the redundant export step by writing extraction artifacts directly to `.llm-wiki/<workspace>/`, and restructure the 3gpp-ai package to contain only AI extraction pipeline code.
+
+**Depends on:** Phase 08
+
+**Requirements:** MERGE-01, DIRECT-01, CLEANUP-01
+
+**Success Criteria**:
+
+1. Workspace CRUD, registry, and member management live in `src/tdoc_crawler/` (not `packages/3gpp-ai`).
+2. Extraction artifacts are written directly to `~/.3gpp-crawler/.llm-wiki/<workspace>/sources/` during `workspace process`.
+3. `workspace_export.py` and the `export` CLI command are removed.
+4. `CacheManager` exposes `.llm_wiki_dir(workspace_name)` property.
+5. `packages/3gpp-ai` contains only: extraction pipeline, LLM client, `AiConfig`.
+6. All tests pass.
+
+**Plans:** 3 plans
+
+**Plan list:**
+
+- [ ] 09-01-PLAN.md - Merge workspace infrastructure into main app
+- [ ] 09-02-PLAN.md - Eliminate export step, write artifacts directly to .llm-wiki/
+- [ ] 09-03-PLAN.md - Restructure 3gpp-ai to extraction-only package
 
 ---
 
 ## Progress
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 01. Normalization & Progress Bars | 2/2 | Complete    | 2026-04-12 |
-| 02. Checkout, Graph, Deprecation & Config | 3/3 | Complete    | 2026-04-19 |
-
----
-
-*Last updated: 2026-04-19*
+| Phase | Plans Complete | Status |
+|-------|----------------|--------|
+| 07. Framework Selection and Contract Freeze | 2/2 | Complete (superseded) |
+| 08. External Workspace Export and Reintegration | 3/3 | Complete |
+| 09. Workspace Infrastructure Merge and Export Elimination | 3/3 | Complete |
 
 ---
 
 ## Archive
 
-- [x] Milestone v1.0 Advanced PDF Extraction Pipeline (2026-04-17 to 2026-04-18) - 6 phases complete, 12 plans complete, archived at `.planning/milestones/v1.0-ROADMAP.md`
+- [x] Milestone v1.0 Advanced PDF Extraction Pipeline (2026-04-17 to 2026-04-18), archived at .planning/milestones/v1.0-ROADMAP.md
 
-## Next Milestone Placeholder
+---
 
-No active milestone roadmap defined yet. Use `/gsd-new-milestone` to initialize the next cycle.
+*Last updated: 2026-04-27 after phase 08 execution*

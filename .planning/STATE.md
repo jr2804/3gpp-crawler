@@ -2,35 +2,35 @@
 
 ## Current Position
 
-Phase: milestone close
-Plan: v1.0 archived
-Status: v1.0 complete
-Last activity: 2026-04-18 - v1.0 milestone archived and roadmap reset for next cycle
+Phase: 09 complete
+Plan: 09-01, 09-02, 09-03 complete
+Status: Phase 09 complete, all plans executed
+Last activity: 2026-04-27 - Completed phase 09 workspace infrastructure merge and export elimination
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-17)
+See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Extract technically accurate, traceable document structure and meaning from complex PDFs into deterministic Markdown and JSON artifacts.
-**Current focus:** Milestone v1.0 Advanced PDF Extraction Pipeline
+**Current focus:** Phase 09 complete — workspace management is now a core concern of the main app, extraction artifacts written directly to `.llm-wiki/`
 
 ## Accumulated Context
 
-- Current extractor stack: Docling + optional VLM + artifact persistence under `.ai`
+- Current extractor stack: Docling + optional VLM + artifact persistence under `.llm-wiki/`
 - Milestone scope excludes embedding/RAG changes
-- Summarize command must consume/benefit from structured extraction artifacts
-- Future direction includes LLM-wiki approach; extraction metadata should support that model
+- Strategy: no in-house wiki compiler. Instead, generate file structures for external apps.
+- 3gpp-ai re-integrated into main app as extraction-only module.
+- Standalone `3gpp-ai` CLI deprecated.
+- Workspace management (CRUD, registry, members) is now a core concern in `src/tdoc_crawler/`.
+- Extraction artifacts written directly to `~/.3gpp-crawler/.llm-wiki/<workspace>/sources/`.
 
 ### Roadmap Evolution
 
-- Phase 6 added: As a preparation for the next milestone (the RAG/information retrieval system), remove all existing/following modules that perform embedding.
-- Phase 6 planned: 06-01-PLAN.md and 06-02-PLAN.md added for embedding module decommission and clean baseline handoff.
-- Phase 6 executed: surface removal, runtime/dependency cleanup, and baseline handoff docs completed.
-- Phase 1 executed: extraction profile policy surface, deterministic policy routing, and profile metadata persistence delivered.
-- Phase 2 executed: canonical document/page contracts, dual markdown+canonical outputs, and manifest inventory persistence delivered.
-- Phase 3 executed: deterministic quality gates, persisted quality reports, and status-aware downstream policy enforcement delivered.
-- Phase 4 executed: additive table/figure/equation fidelity contracts implemented with deterministic provenance normalization and regression coverage.
-- Phase 5 executed: summarize now uses structured-first prompt context with deterministic fallback and CLI output-mode compatibility for wiki-ready rendering.
+- Phase 6 executed: embedding module decommission and clean baseline handoff.
+- Phase 7 executed: framework decision ratified via ADR, dependency/docs baseline aligned, and wiki-first query contract interfaces frozen with regression tests.
+- Phase 7 superseded: framework additions reverted in phase 08-01. Strategy changed to external-app workspace export.
+- Phase 8 executed: reverted framework additions, added workspace export commands, re-integrated into main CLI.
+- Phase 9 executed: merged workspace infrastructure into main app, eliminated export step, restructured 3gpp-ai to extraction-only.
 
 ## Deferred Items
 
