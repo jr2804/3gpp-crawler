@@ -18,7 +18,11 @@ dependencies = [
     "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
     "brotli>=1.2.0",
+    "convert-lo",
+    "doc2txt>=1.0.8",
     "hishel>=1.1.8",
+    "liteparse>=1.2.0",
+    "opendataloader-pdf[hybrid]>=2.2.0",
     "packaging>=25.0",
     "pandas>=3.0.0",
     "pydantic>=2.12.2",
@@ -109,5 +113,7 @@ bump = true
 members = ["packages/*"]
 
 [tool.uv.sources]
+convert-lo = { workspace = true }
 pool-executors = { workspace = true }
 toon-format = { git = "https://github.com/toon-format/toon-python.git" }
+doc2txt = { git = "https://github.com/Quantatirsk/doc2txt-pypi.git" }

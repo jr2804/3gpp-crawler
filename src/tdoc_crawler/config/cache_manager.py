@@ -30,6 +30,7 @@ DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
 DEFAULT_AI_CACHE_DIRNAME = "lightrag"
+DEFAULT_LLM_WIKI_DIRNAME = ".llm-wiki"
 
 
 class CacheManagerNotRegisteredError(RuntimeError):
@@ -102,6 +103,27 @@ class CacheManager:
     def ai_cache_dir(self) -> Path:
         """Path to AI cache directory for embeddings and graphs."""
         return self._cache_dir / DEFAULT_AI_CACHE_DIRNAME
+
+    @property
+    def llm_wiki_dir(self) -> Path:
+        """Path to LLM wiki workspace directory."""
+        return self._cache_dir / DEFAULT_LLM_WIKI_DIRNAME
+
+    def workspace_llm_wiki_dir(self, workspace_name: str) -> Path:
+        """Path to a specific workspace's LLM wiki directory."""
+        return self.llm_wiki_dir / workspace_name
+
+    def workspace_sources_dir(self, workspace_name: str) -> Path:
+        """Path to a workspace's sources subdirectory."""
+        return self.workspace_llm_wiki_dir(workspace_name) / "sources"
+
+    def workspace_assets_dir(self, workspace_name: str) -> Path:
+        """Path to a workspace's assets subdirectory."""
+        return self.workspace_llm_wiki_dir(workspace_name) / "assets"
+
+    def workspace_schema_path(self, workspace_name: str) -> Path:
+        """Path to a workspace's schema.json."""
+        return self.workspace_llm_wiki_dir(workspace_name) / ".llmwiki" / "schema.json"
 
     @property
     def ai_workspace_file(self) -> Path:

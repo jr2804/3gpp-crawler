@@ -49,6 +49,11 @@ tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
 # Register config sub-app
 tdoc_app.add_typer(config_app, name="config", help="Manage configuration")
 
+# Register workspace sub-app (now part of main app)
+from tdoc_crawler.cli._workspace_commands import app as workspace_app
+
+tdoc_app.add_typer(workspace_app, name="workspace", help="Manage extraction workspaces")
+
 
 @tdoc_app.callback()
 def _app_callback(
