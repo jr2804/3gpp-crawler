@@ -142,15 +142,4 @@ converter.convert(
 
 ## Relationship to AI Conversion Artifacts
 
-`convert-lo` handles format conversion only. Structured AI extraction artifacts are produced by the AI pipeline commands:
-
-```bash
-3gpp-ai convert <tdoc_id> --output <file>.md
-3gpp-ai workspace process --workspace <workspace_name>
-```
-
-When structured extraction is enabled, these AI commands may emit sidecars next to markdown output:
-
-- `*_tables.json`
-- `*_figures.json`
-- `*_equations.json`
+`convert-lo` handles format conversion only. Structured AI extraction artifacts were previously produced by the `3gpp-ai` package (now removed from this repository).

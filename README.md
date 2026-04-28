@@ -15,7 +15,6 @@ A command-line tool for crawling the 3GPP FTP server, caching 3GPP document meta
 - **Case-Insensitive Queries**: Search for TDocs regardless of case
 - **Multiple Output Formats**: Export results as table, JSON, or YAML
 - **Incremental Updates**: Only fetch new data on subsequent crawls
-- **AI Document Processing** - Semantic search, knowledge graphs, and AI-powered summarization (optional, install with `3gpp-crawler[ai]`)
 - **Rich CLI**: Beautiful terminal output with progress indicators
 
 ## Installation
@@ -30,16 +29,9 @@ uvx tdoc-crawler --help
 ### Using uv
 
 ```bash
-# Install from PyPI (publication pending)
-uv add 3gpp-crawler
-
-# Install with AI features (optional)
-uv add 3gpp-crawler[ai]
-
-# AI features are provided by the optional `3gpp-ai` extension package
-# and installed automatically via the extra above.
-
-# Or install from source
+# Install from source
+cd 3gpp-crawler
+uv sync
 ```
 
 ### Using pip (not recommended)
@@ -119,7 +111,7 @@ Gather metadata from 3GPP and WhatTheSpec:
 tdoc-crawler crawl-meetings
 
 # Crawl TDoc metadata (RAN, SA, CT)
-tdoc-crawler crawl
+tdoc-crawler crawl-tdocs
 
 # Populate spec catalog
 spec-crawler crawl-specs

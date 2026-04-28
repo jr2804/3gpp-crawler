@@ -8,12 +8,13 @@ Core library for crawling and querying 3GPP TDoc data.
 
 ```python
 # TDoc operations (explicit submodule imports)
+from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 # Meeting operations
-from tdoc_crawler.meeting_crawler import MeetingCrawler
+from tdoc_crawler.meetings.operations import MeetingCrawler
 
 # Spec operations
 from tdoc_crawler.database import SpecDatabase

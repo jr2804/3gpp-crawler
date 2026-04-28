@@ -51,9 +51,11 @@ from tdoc_crawler.specs import SpecDatabase
 
 **Use fixtures** from `conftest.py` to avoid duplicating setup code:
 
+- `test_cache_dir`: Temporary cache directory for tests
 - `test_db_path`: Path to test database
-- `credentials`: Mock PortalCredentials
-- `mock_session`: Mock HTTP session
+- `sample_tdocs`: Sample TDocMetadata instances
+- `sample_meetings`: Sample meeting metadata
+- `populated_db`: Pre-populated TDocDatabase instance
 
 ## Best Practices
 

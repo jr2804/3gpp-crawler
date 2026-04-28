@@ -6,10 +6,8 @@ Welcome to the documentation for **3gpp-crawler**, a command-line tool for query
 
 ## 📖 Table of Contents
 
-SS|- [**Crawl Documentation**](crawl.md) – How to fetch metadata from 3GPP servers and portal.
-QM|- [**AI Document Processing**](ai.md) – AI-powered 3GPP document analysis and embeddings.
-PQ|- [**Query Documentation**](query.md) – How to search and display stored metadata.
-
+- [**Crawl Documentation**](crawl.md) – How to fetch metadata from 3GPP servers and portal.
+- [**AI Document Processing**](ai.md) – AI-powered 3GPP document analysis and embeddings (deprecated).
 - [**Query Documentation**](query.md) – How to search and display stored metadata.
 - [**Utility Documentation**](utils.md) – File access, spec handling, and database inspection.
 - [**WhatIsWhatTheSpec**](whatthespec.md) – Understanding the primary WhatTheSpec data source and 3GPP fallback.
@@ -21,12 +19,15 @@ PQ|- [**Query Documentation**](query.md) – How to search and display stored me
 
 - [**Crawl-Meetings**](crawl.md#crawl-meetings) (`cm`)
 - [**Crawl-TDocs**](crawl.md#crawl-tdocs) (`ct`)
+- [**Crawl-Specs**](crawl.md#crawl-specs) (`cs`)
 - [**Query-TDocs**](query.md#query-tdocs-alias-qt) (`qt`)
+- [**Query-Meetings**](query.md#query-meetings-alias-qm) (`qm`)
+- [**Query-Specs**](query.md#query-specs) (`qs`)
 - [**Open TDoc**](utils.md#open)
-  #KK|- [**Checkout Specs**](utils.md#checkout-spec)
-  #TQ|- **AI Commands** (via `3gpp-ai` CLI)
-  #KM|- [**AI Workspace**](ai.md#workspace-management) - Create and manage workspaces
-  #RD|- [**AI Query**](ai.md#querying) - Semantic search over TDocs
-  #YQ|- [**AI Summarize/Convert**](ai.md#single-tdoc-operations) - Single TDoc operations
+- [**Checkout Specs**](utils.md#checkout-spec)
+- **AI Commands** (via `3gpp-ai` CLI)
+- [**AI Workspace**](ai.md#workspace-management) - Create and manage workspaces
+- [**AI Query**](ai.md#querying) - Semantic search over TDocs
+- [**AI Summarize/Convert**](ai.md#single-tdoc-operations) - Single TDoc operations
 
-BJ|For a brief overview of all commands, see the [README.md](../README.md).
+For a brief overview of all commands, see the [README.md](../README.md).

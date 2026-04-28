@@ -60,14 +60,16 @@ uv run ty check
 
 ## Documentation Standards
 
-- Always update [QUICK_REFERENCE.md](QUICK_REFERENCE.md) when adding/changing CLI commands. (Note: During documentation refactoring, this rule may change to updating specific sub-docs).
+- Update the relevant docs in `docs/` when adding/changing CLI commands (see [docs/index.md](index.md) for the documentation index).
 - Write Google-style docstrings for all functions.
-- Keep `history/` logs updated for significant changes.
+- Keep `docs/history/` logs updated for significant changes.
 
 ## Architecture Overview
 
 - **`models/`**: Pydantic models (the "source of truth" for data structures).
-- **`crawlers/`**: External data acquisition (FTP, Portal, WhatTheSpec).
-- **`database.py`**: SQLite/Pydantic-SQLite persistence layer.
+- **`tdocs/`**: TDoc crawling and sources (FTP, Portal, WhatTheSpec).
+- **`meetings/`**: Meeting data handling.
+- **`specs/`**: Specification operations.
+- **`database/`**: SQLite/Pydantic-SQLite persistence layer.
 - **`cli/`**: Typer-based command definitions.
-- **`http_client.py`**: Cached HTTP session management.
+- **`http_client/`**: Cached HTTP session management.

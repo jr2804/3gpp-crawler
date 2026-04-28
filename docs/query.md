@@ -4,24 +4,7 @@ Query commands allow you to search and display metadata stored in your local dat
 
 ## AI RAG Query
 
-Use a single command for AI-assisted retrieval across text, tables, figures, and equations (requires `3gpp-ai` package):
-
-```bash
-3gpp-ai workspace query --workspace <workspace_name> "your query here"
-```
-
-Examples:
-
-```bash
-3gpp-ai workspace query --workspace test-rag-elements "What are the bit rates in Table 3?"
-3gpp-ai workspace query --workspace test-rag-elements "Describe the architecture figure"
-3gpp-ai workspace query --workspace test-rag-elements "What is the throughput equation?"
-```
-
-Notes:
-
-- Keep `workspace query` as the single query entrypoint (no separate table/figure/equation query commands).
-- Retrieval uses enriched chunk content and element-aware metadata when available.
+> **⚠️ Deprecated:** The `3gpp-ai` package has been removed from this repository. AI RAG query is no longer available.
 
 ## Commands
 

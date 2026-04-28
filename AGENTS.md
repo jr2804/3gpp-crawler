@@ -35,7 +35,6 @@ Notes:
 |-----------|--------------|
 | Core | Python 3.14, typer, rich, pydantic, pydantic-sqlite, requests, hishel |
 | Specs Crawling | beautifulsoup4, lxml, xlsxwriter, zipinspect |
-| AI Module | 3gpp-ai (LanceDB, sentence-transformers, Docling, litellm) |
 | Conversion | convert-lo (LibreOffice headless) |
 | Database | SQLite via pydantic-sqlite |
 
@@ -49,7 +48,6 @@ Notes:
 | `src/tdoc_crawler/specs/` | Specification operations |
 | `src/tdoc_crawler/meetings/` | Meeting data handling |
 | `src/tdoc_crawler/parsers/` | Parsing logic (Excel, HTML, etc.) |
-| `packages/3gpp-ai/` | AI embeddings, graphs, search |
 | `packages/convert-lo/` | LibreOffice document conversion |
 | `packages/pool-executors/` | Serial/parallel executor utilities |
 | `tests/` | Test suite (see tests/AGENTS.md) |
@@ -60,9 +58,9 @@ Notes:
 |-----|-----------|--------------|
 | CLI command | `src/tdoc_crawler/cli/tdoc_app.py` | Typer app, Rich console |
 | Pydantic model | `src/tdoc_crawler/models/` | Data validation, serialization |
-| HTTP caching | `src/tdoc_crawler/http_client.py` | `create_cached_session()` |
-| Path management | `src/tdoc_crawler/config/__init__.py` | `CacheManager`, `resolve_cache_manager()` |
-| Configuration | `src/tdoc_crawler/config/settings.py` | `TDocCrawlerConfig`, pydantic-settings |
+| HTTP caching | `src/tdoc_crawler/http_client/` | `create_cached_session()` |
+| Path management | `src/tdoc_crawler/config/` | `CacheManager`, `resolve_cache_manager()` |
+| Configuration | `src/tdoc_crawler/config/settings.py` | `ThreeGPPConfig`, pydantic-settings |
 | Test structure | `tests/test_crawler.py` | Fixtures, mocking, isolation |
 
 ## Heuristics (quick decisions)
@@ -114,25 +112,25 @@ Notes:
 | TSG | Technical Specification Group (SA, RAN, CT) |
 | Portal | 3GPP EOL authenticated portal |
 
-## Configuration System (NEW in v1.0)
+## Configuration System
 
 **Two complementary systems:**
 
-1. **`TDocCrawlerConfig`** (pydantic-settings) — Type-safe configuration from files/env vars
+1. **`ThreeGPPConfig`** (pydantic-settings, alias `TDocCrawlerConfig`) — Type-safe configuration from files/env vars
 2. **`CacheManager`** (runtime paths) — File system path resolution
 
-### TDocCrawlerConfig (Settings)
+### ThreeGPPConfig (Settings)
 
 Use for **all configurable behavior** (timeouts, credentials, limits, etc.):
 
 ```python
-from tdoc_crawler.config import TDocCrawlerConfig
+from tdoc_crawler.config import ThreeGPPConfig
 
 # Load with automatic discovery (3gpp-crawler.toml, env vars)
-config = TDocCrawlerConfig.from_settings()
+config = ThreeGPPConfig.from_settings()
 
 # Or with explicit config file
-config = TDocCrawlerConfig.from_settings(config_file=Path("./my-config.toml"))
+config = ThreeGPPConfig.from_settings(config_file=Path("./my-config.toml"))
 
 # Access nested config
 config.path.cache_dir      # Path to cache directory

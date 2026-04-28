@@ -1,5 +1,7 @@
 # AI Document Processing
 
+> **⚠️ Deprecated:** The `3gpp-ai` package has been removed from this repository. This documentation is kept for historical reference only. AI features (semantic search, knowledge graphs, summarization) are no longer available in the current codebase.
+
 The AI module provides intelligent document processing capabilities for 3GPP document data, including semantic search, knowledge graph construction, and AI-powered summarization.
 
 **Key Features:**

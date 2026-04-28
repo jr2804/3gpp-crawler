@@ -4,6 +4,10 @@ This document provides a chronological log of all significant changes and improv
 
 ## Recent Changes
 
+- **2026-04-22**: [Source code analysis report](history/2026-04-22_ANALYSIS_source-code-analysis.md)
+- **2026-04-22**: [Phase 1 critical fixes complete](history/2026-04-22_ANALYSIS_phase1-critical-fixes-complete.md)
+- **2026-04-22**: [Config consolidation plan](history/2026-04-22_PLAN_config-consolidation.md)
+- **2026-04-22**: [Test migration plan (CacheManager → PathConfig)](history/2026-04-22_PLAN_test-migration.md)
 - **2026-03-27**: [CLI: Remove rag subcommand and consolidate under workspace](history/2026-03-27_SUMMARY_cli_rag_subcommand_removal.md)
 - **2026-03-25**: [3gpp-ai list-providers CLI command](history/2026-03-25_SUMMARY_list_providers_cli_command.md)
 - **2026-03-25**: [Enhanced RAG pipeline with tables, figures, and equations](history/2026-03-25_SUMMARY_enhanced_rag_pipeline_tables_figures_equations.md)

@@ -6,7 +6,7 @@ This guide covers the configuration system for 3gpp-crawler, including config fi
 
 The 3gpp-crawler uses a composable configuration system with two complementary parts:
 
-1. **TDocCrawlerConfig** (pydantic-settings) — Type-safe configuration from files/env vars
+1. **ThreeGPPConfig** (pydantic-settings) — Type-safe configuration from files/env vars (also available as `TDocCrawlerConfig` alias)
 1. **CacheManager** (runtime paths) — File system path resolution
 
 Configuration can be provided via:
