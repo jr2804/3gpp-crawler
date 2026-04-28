@@ -74,9 +74,8 @@ class TDocStatus(StrEnum):
                 if member.value == value.lower():
                     return member
 
-        # Provide helpful error message with all valid values
-        valid_values = [f"'{m.value}'" for m in cls]
-        raise ValueError(f"Invalid TDoc status '{value}'. Expected one of: {', '.join(valid_values)}")
+        # Return None for unknown statuses instead of raising
+        return None
 
 
 class TDocMetadata(BaseModel):
@@ -157,8 +156,11 @@ class TDocMetadata(BaseModel):
         if isinstance(value, TDocStatus):
             return value.value
 
-        # Let TDocStatus._missing_ handle validation and case-insensitive lookup
-        return TDocStatus(value).value
+        # Use _missing_ directly for case-insensitive lookup; return None for unknown statuses
+        status = TDocStatus._missing_(value)
+        if status is None:
+            return None
+        return status.value
 
     @field_validator("tdoc_id")
     @classmethod
