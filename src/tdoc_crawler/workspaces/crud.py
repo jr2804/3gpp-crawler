@@ -56,25 +56,17 @@ def create_workspace(workspace: str | None, auto_build: bool = False, descriptio
     except ValueError:
         pass  # Workspace already exists
 
-    # Create .llm-wiki directory structure
+    # Create workspace directory structure
     try:
         manager = resolve_cache_manager()
-        ws_dir = manager.workspace_llm_wiki_dir(normalized_workspace)
+        ws_dir = manager.checkout_dir / normalized_workspace
         ws_dir.mkdir(parents=True, exist_ok=True)
 
-        sources_dir = manager.workspace_sources_dir(normalized_workspace)
+        sources_dir = ws_dir / "sources"
         sources_dir.mkdir(parents=True, exist_ok=True)
-
-        assets_dir = manager.workspace_assets_dir(normalized_workspace)
-        assets_dir.mkdir(parents=True, exist_ok=True)
-
-        schema_path = manager.workspace_schema_path(normalized_workspace)
-        schema_path.parent.mkdir(parents=True, exist_ok=True)
-        if not schema_path.exists():
-            schema_path.write_text('{\n  "pageKinds": ["concept", "entity", "comparison", "overview"],\n  "defaultKind": "concept"\n}\n', encoding="utf-8")
     except Exception:
         # CacheManager may not be registered in all contexts (e.g., tests without CLI entry)
-        _logger.debug("Skipping .llm-wiki directory creation: CacheManager not available")
+        _logger.debug("Skipping workspace directory creation: CacheManager not available")
 
     return registry
 
@@ -104,10 +96,14 @@ def delete_workspace(workspace: str | None, *, delete_artifacts: bool = False) -
         _logger.warning("Cannot delete the default workspace")
         return False
 
+    registry = _get_registry()
+    if normalized_workspace not in registry.workspaces:
+        _logger.warning("Workspace '%s' not found — nothing to delete", normalized_workspace)
+        return False
+
     # Get members before deleting workspace
     members = list_workspace_members(normalized_workspace, include_inactive=True)
 
-    registry = _get_registry()
     deleted = registry.delete_workspace(normalized_workspace)
     if not deleted:
         return False

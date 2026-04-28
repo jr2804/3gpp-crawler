@@ -32,7 +32,6 @@ class ConfigEnvVar(StrEnum):
 
     # Path/Cache (TDC_*)
     TDC_CACHE_DIR = "path.cache_dir"
-    TDC_AI_STORE_PATH = "path.ai_cache_dir"
     # Credentials (TDC_*)
     TDC_EOL_USERNAME = "credentials.username"
     TDC_EOL_PASSWORD = "credentials.password"  # noqa: S105

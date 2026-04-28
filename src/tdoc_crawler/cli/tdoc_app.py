@@ -27,12 +27,12 @@ from tdoc_crawler.cli.args import (
     VerbosityOption,
 )
 from tdoc_crawler.cli.config import load_cli_config
-from tdoc_crawler.cli.config_app import config_app
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.utils import launch_file
-from tdoc_crawler.config import CacheManager
+from tdoc_crawler.config import CacheManager, resolve_cache_manager
+from tdoc_crawler.config.workspace_registry import WorkspaceRegistry
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
@@ -44,15 +44,6 @@ from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
 
 tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
-
-
-# Register config sub-app
-tdoc_app.add_typer(config_app, name="config", help="Manage configuration")
-
-# Register workspace sub-app (now part of main app)
-from tdoc_crawler.cli._workspace_commands import app as workspace_app
-
-tdoc_app.add_typer(workspace_app, name="workspace", help="Manage extraction workspaces")
 
 
 @tdoc_app.callback()
@@ -293,6 +284,31 @@ def stats(
     table.add_row("Unique document types", str(stats_dict.get("unique_document_types", 0)))
 
     console.print(table)
+
+    # Wiki build health
+    try:
+        manager = resolve_cache_manager()
+        registry = WorkspaceRegistry.load(manager.workspace_registry_file)
+        if registry.workspaces:
+            console.print()
+            wiki_table = Table(title="Wiki Build Health")
+            wiki_table.add_column("Workspace", style="cyan")
+            wiki_table.add_column("Pages", justify="right")
+            wiki_table.add_column("Failed", justify="right")
+            wiki_table.add_column("Hash", style="dim")
+            wiki_table.add_column("Last Build", style="dim")
+            for name, metadata in sorted(registry.workspaces.items()):
+                if metadata.wiki_page_count > 0 or metadata.wiki_build_timestamp is not None:
+                    pages = str(metadata.wiki_page_count)
+                    failed = f"[red]{metadata.wiki_failed_pages}[/red]" if metadata.wiki_failed_pages > 0 else "0"
+                    h = metadata.wiki_compile_hash[:8] + "..." if metadata.wiki_compile_hash else "-"
+                    ts = metadata.wiki_build_timestamp[:10] if metadata.wiki_build_timestamp else "-"
+                    wiki_table.add_row(name, pages, failed, h, ts)
+                else:
+                    wiki_table.add_row(name, "[dim]no build[/dim]", "", "", "")
+            console.print(wiki_table)
+    except Exception:
+        pass  # Registry may not be available
 
 
 # Register command aliases

@@ -2,7 +2,13 @@
 
 > **⚠️ Deprecated:** The `3gpp-ai` package has been removed from this repository. This documentation is kept for historical reference only. AI features (semantic search, knowledge graphs, summarization) are no longer available in the current codebase.
 
-The AI module provides intelligent document processing capabilities for 3GPP document data, including semantic search, knowledge graph construction, and AI-powered summarization.
+## Current Architecture
+
+The project now uses a **wiki-first architecture**. Extraction artifacts are written directly to
+`~/.3gpp-crawler/wiki/<workspace>/` during workspace processing. These artifacts can be consumed
+by external wiki compiler tools such as `atomicmemory/llm-wiki-compiler` or `lucasastorian/llmwiki`.
+
+The AI module previously provided intelligent document processing capabilities for 3GPP document data, including semantic search, knowledge graph construction, and AI-powered summarization.
 
 **Key Features:**
 
@@ -586,3 +592,7 @@ ______________________________________________________________________
 - [LiteLLM Provider Documentation](https://docs.litellm.ai/docs/providers) - Complete list of 100+ supported LLM providers
 - [OpenDataLoader PDF Documentation](https://github.com/opendataloader-project/opendataloader-pdf) - PDF extraction library (#1 in benchmarks)
 - [LanceDB Documentation](https://lancedb.github.io/lancedb/) - Vector database
+
+
+
+

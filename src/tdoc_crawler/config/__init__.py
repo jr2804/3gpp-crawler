@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from tdoc_crawler.config.cache_manager import (
-    DEFAULT_AI_CACHE_DIRNAME,
     DEFAULT_CHECKOUT_DIRNAME,
     DEFAULT_DATABASE_FILENAME,
     DEFAULT_HTTP_CACHE_FILENAME,
@@ -28,7 +27,6 @@ from tdoc_crawler.config.sources import (
 )
 
 __all__ = [
-    "DEFAULT_AI_CACHE_DIRNAME",
     "DEFAULT_CHECKOUT_DIRNAME",
     "DEFAULT_DATABASE_FILENAME",
     "DEFAULT_HTTP_CACHE_FILENAME",

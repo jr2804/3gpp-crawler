@@ -24,13 +24,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import ClassVar
 
-from tdoc_crawler.config.settings import WORKSPACE_REGISTRY_FILENAME
 
+# Single source of truth for default filenames/dirnames
 DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
-DEFAULT_AI_CACHE_DIRNAME = "lightrag"
-DEFAULT_LLM_WIKI_DIRNAME = ".llm-wiki"
+WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 
 
 class CacheManagerNotRegisteredError(RuntimeError):
@@ -100,54 +99,13 @@ class CacheManager:
         return self._cache_dir / DEFAULT_CHECKOUT_DIRNAME
 
     @property
-    def ai_cache_dir(self) -> Path:
-        """Path to AI cache directory for embeddings and graphs."""
-        return self._cache_dir / DEFAULT_AI_CACHE_DIRNAME
-
-    @property
-    def llm_wiki_dir(self) -> Path:
-        """Path to LLM wiki workspace directory."""
-        return self._cache_dir / DEFAULT_LLM_WIKI_DIRNAME
-
-    def workspace_llm_wiki_dir(self, workspace_name: str) -> Path:
-        """Path to a specific workspace's LLM wiki directory."""
-        return self.llm_wiki_dir / workspace_name
-
-    def workspace_sources_dir(self, workspace_name: str) -> Path:
-        """Path to a workspace's sources subdirectory."""
-        return self.workspace_llm_wiki_dir(workspace_name) / "sources"
-
-    def workspace_assets_dir(self, workspace_name: str) -> Path:
-        """Path to a workspace's assets subdirectory."""
-        return self.workspace_llm_wiki_dir(workspace_name) / "assets"
-
-    def workspace_schema_path(self, workspace_name: str) -> Path:
-        """Path to a workspace's schema.json."""
-        return self.workspace_llm_wiki_dir(workspace_name) / ".llmwiki" / "schema.json"
-
-    @property
-    def ai_workspace_file(self) -> Path:
-        """Path to workspace registry file."""
-        return self.ai_cache_dir / WORKSPACE_REGISTRY_FILENAME
-
-    def ai_embed_dir(self, embedding_model: str) -> Path:
-        """Path to embeddings directory for a specific model.
-
-        Args:
-            embedding_model: Name of the embedding model
-
-        Returns:
-            Path to model-specific embeddings directory
-        """
-        return (self.ai_cache_dir / embedding_model).resolve()
+    def workspace_registry_file(self) -> Path:
+        """Path to workspace registry JSON file."""
+        return self._cache_dir / WORKSPACE_REGISTRY_FILENAME
 
     @classmethod
     def is_registered(cls) -> bool:
-        """Check if a CacheManager instance is registered.
-
-        Returns:
-            True if registered, False otherwise
-        """
+        """Check if a CacheManager instance is registered."""
         return cls._instance is not None
 
 
@@ -161,5 +119,7 @@ def resolve_cache_manager() -> CacheManager:
         CacheManagerNotRegisteredError: If no manager is registered
     """
     if CacheManager._instance is None:
-        raise CacheManagerNotRegisteredError("CacheManager not registered. Call CacheManager(cache_dir).register() at application startup.")
+        raise CacheManagerNotRegisteredError(
+            "CacheManager not registered. Call CacheManager(cache_dir).register() at application startup."
+        )
     return CacheManager._instance

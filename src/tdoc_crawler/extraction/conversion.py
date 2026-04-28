@@ -145,6 +145,44 @@ def convert_to_pdf(
         logger.info("Falling back to remote converter for %s", source_file.name)
         return convert_via_remote(source_file, output_dir, config)
 
+def ensure_pdf(
+    source_file: Path,
+    output_dir: Path,
+    *,
+    force: bool = False,
+    config: ConverterConfig | None = None,
+) -> Path:
+    """Ensure a PDF version of the source file exists in output_dir.
+
+    For office documents, converts via LibreOffice. For native PDFs, copies.
+    Uses cached conversion when available.
+
+    Args:
+        source_file: Path to source document.
+        output_dir: Directory to place the PDF.
+        force: Force reconversion.
+        config: Optional converter configuration.
+
+    Returns:
+        Path to the PDF file.
+    """
+    import shutil
+
+    pdf_path = output_dir / f"{source_file.stem}.pdf"
+
+    if pdf_path.exists() and not force:
+        return pdf_path
+
+    if is_office_format(source_file):
+        return convert_to_pdf(source_file, output_dir, force=force, config=config)
+
+    # Native PDF - copy to output
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_file, pdf_path)
+    return pdf_path
+
+
+
 
 def convert_via_libreoffice(
     source_file: Path,

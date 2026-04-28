@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypedDict
 
+from tdoc_crawler.config.cache_manager import WORKSPACE_REGISTRY_FILENAME
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.workspaces import SourceKind
@@ -51,13 +52,17 @@ class WorkspaceMemberDict(TypedDict):
     added_at: str
 
 
-class WorkspaceMetadataDict(TypedDict):
+class WorkspaceMetadataDict(TypedDict, total=False):
     """Dictionary representation of workspace metadata."""
 
     created_at: str
     description: str
     auto_build: bool
     members: list[WorkspaceMemberDict]
+    wiki_build_timestamp: str
+    wiki_page_count: int
+    wiki_failed_pages: int
+    wiki_compile_hash: str
 
 
 def normalize_spec_member_id(source_item_id: str) -> str:
@@ -142,14 +147,27 @@ class WorkspaceMetadata:
     description: str = ""
     auto_build: bool = True
     members: list[WorkspaceMemberDict] = field(default_factory=list)
+    wiki_build_timestamp: str | None = None
+    wiki_page_count: int = 0
+    wiki_failed_pages: int = 0
+    wiki_compile_hash: str | None = None
 
     def to_dict(self) -> WorkspaceMetadataDict:
-        return {
+        result: WorkspaceMetadataDict = {
             "created_at": self.created_at,
             "description": self.description,
             "auto_build": self.auto_build,
             "members": self.members,
         }
+        if self.wiki_build_timestamp is not None:
+            result["wiki_build_timestamp"] = self.wiki_build_timestamp
+        if self.wiki_page_count > 0:
+            result["wiki_page_count"] = self.wiki_page_count
+        if self.wiki_failed_pages > 0:
+            result["wiki_failed_pages"] = self.wiki_failed_pages
+        if self.wiki_compile_hash is not None:
+            result["wiki_compile_hash"] = self.wiki_compile_hash
+        return result
 
     def add_member(self, member: WorkspaceMember) -> None:
         """Add a member to the workspace."""
@@ -188,6 +206,19 @@ class WorkspaceMetadata:
             counts["total"] += 1
         return counts
 
+    def update_wiki_build_health(
+        self,
+        page_count: int,
+        failed_pages: int,
+        compile_hash: str,
+    ) -> None:
+        """Update wiki build health metadata after a compile run."""
+        from datetime import datetime, timezone
+        self.wiki_build_timestamp = datetime.now(timezone.utc).isoformat()
+        self.wiki_page_count = page_count
+        self.wiki_failed_pages = failed_pages
+        self.wiki_compile_hash = compile_hash
+
     def list_members(self, include_inactive: bool = False) -> list[WorkspaceMember]:
         """List members of the workspace."""
         members = []
@@ -206,6 +237,10 @@ class WorkspaceMetadata:
             description=data.get("description", ""),
             auto_build=data.get("auto_build", True),
             members=data.get("members", []),
+            wiki_build_timestamp=data.get("wiki_build_timestamp"),
+            wiki_page_count=data.get("wiki_page_count", 0),
+            wiki_failed_pages=data.get("wiki_failed_pages", 0),
+            wiki_compile_hash=data.get("wiki_compile_hash"),
         )
 
 
@@ -243,7 +278,7 @@ class WorkspaceRegistry:
 
     def save(self) -> None:
         """Save registry to JSON file."""
-        registry_path = self.registry_path or PathConfig().ai_workspace_file
+        registry_path = self.registry_path or PathConfig().cache_dir / WORKSPACE_REGISTRY_FILENAME
 
         data = {
             "version": self.version,
@@ -381,7 +416,7 @@ class WorkspaceRegistry:
             Loaded WorkspaceRegistry instance.
         """
         if registry_path is None:
-            registry_path = PathConfig().ai_workspace_file
+            registry_path = PathConfig().cache_dir / WORKSPACE_REGISTRY_FILENAME
 
         if not registry_path.exists():
             logger.debug(f"Registry not found at {registry_path}, creating new")

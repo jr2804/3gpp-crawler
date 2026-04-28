@@ -14,17 +14,27 @@ import typer
 from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.extraction.convert import convert_for_wiki
+from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.workspaces import (
+    add_workspace_members,
     create_workspace,
     delete_workspace,
+    get_active_workspace,
     list_workspace_members,
     list_workspaces,
+    make_workspace_member,
     normalize_workspace_name,
     remove_workspace_member,
     set_active_workspace,
 )
+
+logger = get_logger(__name__)
+
+__all__ = ["app"]
 
 app = typer.Typer(help="Manage extraction workspaces")
 
@@ -75,9 +85,6 @@ def workspace_list() -> None:
 def workspace_activate(workspace_name: str = typer.Argument(..., help="Workspace name")) -> None:
     """Activate workspace for default command targets."""
     normalized = normalize_workspace_name(workspace_name)
-    # PLC0415: set_active_workspace is a thin wrapper that touches registry; keep import local
-    # to avoid circular imports in some CLI contexts. Mark as intentional.
-    # noqa: PLC0415
     set_active_workspace(normalized)
     console.print(f"[green]Workspace '{normalized}' is now active.[/green]")
 
@@ -104,11 +111,10 @@ def workspace_delete(
 
     delete_workspace(normalized, delete_artifacts=delete_artifacts)
 
-    # Delete .llm-wiki folder if requested
     if delete_llm_wiki:
         try:
             manager = resolve_cache_manager()
-            llm_wiki_dir = manager.workspace_llm_wiki_dir(normalized)
+            llm_wiki_dir = manager.checkout_dir / normalized / "wiki"
             if llm_wiki_dir.exists():
                 shutil.rmtree(llm_wiki_dir)
                 console.print(f"[green]Deleted .llm-wiki folder for '{normalized}'.[/green]")
@@ -144,12 +150,83 @@ def workspace_process(
     force: bool = typer.Option(False, "--force", help="Re-process existing artifacts"),
     limit: int = typer.Option(None, "--limit", help="Limit number of members to process"),
     skip_existing: bool = typer.Option(False, "--skip-existing", help="Skip members that already have artifacts"),
+    profile: str = typer.Option(
+        DEFAULT_EXTRACTION_PROFILE.value,
+        "--profile",
+        help="Extraction profile: pdf-only, default, or advanced",
+    ),
 ) -> None:
     """Extract structured data from all workspace members."""
+    if workspace_name is None:
+        workspace_name = get_active_workspace()
+
     normalized = normalize_workspace_name(workspace_name)
-    console.print(f"[yellow]Processing workspace '{normalized}'...[/yellow]")
-    console.print("[dim]Note: Processing uses the extraction pipeline from tdoc_crawler.extraction[/dim]")
-    # Processing logic is delegated to extraction operations
+
+    try:
+        extraction_profile = ExtractionProfile(profile)
+    except ValueError:
+        console.print(f"[red]Invalid profile '{profile}'. Use: pdf-only, default, advanced[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[yellow]Processing workspace '{normalized}' with profile '{extraction_profile.value}'...[/yellow]")
+
+    try:
+        members = list_workspace_members(normalized, include_inactive=False)
+    except Exception as e:
+        console.print(f"[red]Error listing members: {e}[/red]")
+        raise typer.Exit(1)
+
+    if not members:
+        console.print(f"[dim]No active members in workspace '{normalized}'.[/dim]")
+        return
+
+    if limit is not None:
+        members = members[:limit]
+
+    manager = resolve_cache_manager()
+    wiki_source_dir_base = manager.checkout_dir / normalized / "sources"
+
+    processed = 0
+    failed = 0
+
+    for member in members:
+        source_id = member.source_item_id
+
+        if skip_existing and not force:
+            member_wiki_dir = wiki_source_dir_base / source_id
+            if extraction_profile == ExtractionProfile.PDF_ONLY:
+                pdf_exists = list(member_wiki_dir.glob("*.pdf"))
+                if pdf_exists:
+                    console.print(f"[dim]  Skipping {source_id} - artifacts exist[/dim]")
+                    continue
+            else:
+                md_exists = list(member_wiki_dir.glob("*.md"))
+                if md_exists:
+                    console.print(f"[dim]  Skipping {source_id} - artifacts exist[/dim]")
+                    continue
+
+        wiki_source_dir = wiki_source_dir_base / source_id
+        wiki_source_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            result_path = convert_for_wiki(
+                document_id=source_id,
+                wiki_source_dir=wiki_source_dir,
+                source_kind=member.source_kind,
+                profile=extraction_profile,
+                force=force,
+            )
+            if result_path:
+                console.print(f"[green]  Processed {source_id} -> {result_path.name}[/green]")
+                processed += 1
+            else:
+                console.print(f"[yellow]  No output for {source_id}[/yellow]")
+        except Exception as e:
+            console.print(f"[red]  Failed {source_id}: {e}[/red]")
+            logger.error(f"Failed to process {source_id}: {e}")
+            failed += 1
+
+    console.print(f"\n[yellow]Processing complete: {processed} succeeded, {failed} failed[/yellow]")
 
 
 @app.command("add", help="Add documents to an existing workspace.")
@@ -160,8 +237,20 @@ def workspace_add(
 ) -> None:
     """Add documents to a workspace."""
     normalized = normalize_workspace_name(workspace_name)
-    console.print(f"[yellow]Adding {len(items)} item(s) to workspace '{normalized}'...[/yellow]")
-    console.print("[dim]Note: Full checkout and add logic requires the 3gpp-ai package.[/dim]")
+    source_kind = SourceKind(kind)
+
+    members = [
+        make_workspace_member(
+            source_item_id=item,
+            source_path=item,
+            source_kind=source_kind,
+            added_by="cli",
+        )
+        for item in items
+    ]
+
+    added = add_workspace_members(normalized, members)
+    console.print(f"[green]Added {added} item(s) to workspace '{normalized}'.[/green]")
 
 
 @app.command("clear-invalid", help="Remove members with invalid or missing source paths.")

@@ -67,27 +67,10 @@ class TestCacheManager:
         manager = CacheManager(tmp_path)
         assert manager.checkout_dir == tmp_path / "checkout"
 
-    def test_ai_cache_dir_path(self, tmp_path: Path) -> None:
-        """Test ai_cache_dir property returns correct path."""
+    def test_workspace_registry_file_path(self, tmp_path: Path) -> None:
+        """Test workspace_registry_file property returns correct path."""
         manager = CacheManager(tmp_path)
-        assert manager.ai_cache_dir == tmp_path / "lightrag"
-
-    def test_ai_workspace_file_path(self, tmp_path: Path) -> None:
-        """Test ai_workspace_file property returns correct path."""
-        manager = CacheManager(tmp_path)
-        assert manager.ai_workspace_file == tmp_path / "lightrag" / "workspaces.json"
-
-    def test_ai_embed_dir_path(self, tmp_path: Path) -> None:
-        """Test ai_embed_dir property returns correct path."""
-        manager = CacheManager(tmp_path)
-        embed_dir = manager.ai_embed_dir("qwen3-embedding-0.6b")
-        assert embed_dir == tmp_path / "lightrag" / "qwen3-embedding-0.6b"
-
-    def test_ai_embed_dir_resolved(self, tmp_path: Path) -> None:
-        """Test ai_embed_dir returns resolved path."""
-        manager = CacheManager(tmp_path)
-        embed_dir = manager.ai_embed_dir("test-model")
-        assert embed_dir.is_absolute()
+        assert manager.workspace_registry_file == tmp_path / "workspaces.json"
 
     def test_is_registered(self, tmp_path: Path) -> None:
         """Test is_registered class method."""
@@ -107,14 +90,10 @@ class TestCacheManagerIntegration:
         """Test that cache manager paths can be used to create directories."""
         manager = CacheManager(tmp_path)
 
-        # Create all directories
+        # Create directories
         manager.db_file.parent.mkdir(parents=True, exist_ok=True)
         manager.checkout_dir.mkdir(parents=True, exist_ok=True)
-        manager.ai_cache_dir.mkdir(parents=True, exist_ok=True)
-        manager.ai_embed_dir("test-model").mkdir(parents=True, exist_ok=True)
 
         # Verify directories exist
         assert manager.db_file.parent.exists()
         assert manager.checkout_dir.exists()
-        assert manager.ai_cache_dir.exists()
-        assert manager.ai_embed_dir("test-model").exists()

@@ -68,6 +68,7 @@ build-backend = "hatchling.build"
 [project.scripts]
 tdoc-crawler = "tdoc_crawler.cli.tdoc_app:tdoc_app"
 spec-crawler = "tdoc_crawler.cli.spec_app:spec_app"
+3gpp-crawler = "tdoc_crawler.cli.mgmt_app:mgmt_app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

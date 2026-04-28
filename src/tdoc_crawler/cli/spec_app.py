@@ -7,7 +7,6 @@ from typing import Annotated
 
 import typer
 
-from tdoc_crawler.cli import config_app
 from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import CacheDirOption, VerbosityOption
 from tdoc_crawler.cli.config import load_cli_config
@@ -19,9 +18,6 @@ from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 
 spec_app = typer.Typer(help="3GPP Crawler for Technical Specifications/Reports")
-
-# Register config sub-app
-spec_app.add_typer(config_app, name="config", help="Manage configuration")
 
 
 @spec_app.callback()

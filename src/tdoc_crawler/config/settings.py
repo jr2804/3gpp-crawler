@@ -1,7 +1,7 @@
 """Configuration settings for 3GPP Crawler using pydantic-settings.
 
 This module provides the ThreeGPPConfig class with nested models for:
-- PathConfig: File system paths (cache, checkout, AI store)
+- PathConfig: File system paths (cache, checkout)
 - HttpConfig: HTTP caching and request behavior
 - CredentialsConfig: Portal authentication credentials
 - CrawlConfig: Crawling behavior and filters
@@ -26,15 +26,12 @@ _DEFAULT_CACHE_DIR_STR = "~/.3gpp-crawler"
 _DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 _DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 _DEFAULT_CHECKOUT_DIRNAME = "checkout"
-_DEFAULT_AI_CACHE_DIRNAME = "lightrag"
-
-WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 
 
 class PathConfig(BaseSettings):
     """File system path configuration.
 
-    Provides paths for cache directory, database, checkout, and AI storage.
+    Provides paths for cache directory, database, and checkout.
     All paths support ~ expansion and are resolved to absolute paths.
     """
 
@@ -53,10 +50,6 @@ class PathConfig(BaseSettings):
         default=_DEFAULT_CHECKOUT_DIRNAME,
         description="Subdirectory name for checked-out documents",
     )
-    ai_cache_dirname: str = Field(
-        default=_DEFAULT_AI_CACHE_DIRNAME,
-        description="Subdirectory name for AI-related cache (embeddings, graphs)",
-    )
 
     @property
     def db_file(self) -> Path:
@@ -73,19 +66,6 @@ class PathConfig(BaseSettings):
         """Path to the checkout directory for documents."""
         return self.cache_dir / _DEFAULT_CHECKOUT_DIRNAME
 
-    @property
-    def ai_cache_dir(self) -> Path:
-        """Path to the AI cache directory for embeddings and graphs."""
-        return self.cache_dir / _DEFAULT_AI_CACHE_DIRNAME
-
-    @property
-    def ai_workspace_file(self) -> Path:
-        """Path to the workspace registry file."""
-        return self.ai_cache_dir / WORKSPACE_REGISTRY_FILENAME
-
-    def ai_embed_dir(self, embedding_model: str) -> Path:
-        """Path to store AI-related files for a specific embedding model."""
-        return (self.ai_cache_dir / embedding_model).resolve()
 
     @field_validator("cache_dir", mode="before")
     @classmethod
@@ -300,7 +280,6 @@ class ThreeGPPConfig(BaseSettings):
         """
         self.path.cache_dir.mkdir(parents=True, exist_ok=True)
         self.path.checkout_dir.mkdir(parents=True, exist_ok=True)
-        self.path.ai_cache_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def from_settings(
@@ -342,7 +321,6 @@ class ThreeGPPConfig(BaseSettings):
 TDocCrawlerConfig = ThreeGPPConfig
 
 __all__ = [
-    "WORKSPACE_REGISTRY_FILENAME",
     "CrawlConfig",
     "CredentialsConfig",
     "HttpConfig",

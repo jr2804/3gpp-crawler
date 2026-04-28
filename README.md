@@ -15,6 +15,7 @@ A command-line tool for crawling the 3GPP FTP server, caching 3GPP document meta
 - **Case-Insensitive Queries**: Search for TDocs regardless of case
 - **Multiple Output Formats**: Export results as table, JSON, or YAML
 - **Incremental Updates**: Only fetch new data on subsequent crawls
+- **Wiki-First Architecture**: Extraction artifacts organized in ~/.3gpp-crawler/wiki/ for external tool consumption
 - **Rich CLI**: Beautiful terminal output with progress indicators
 
 ## Installation

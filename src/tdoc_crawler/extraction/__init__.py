@@ -4,7 +4,7 @@ This package provides document conversion, PDF processing, and
 extraction operations using OpenDataLoader and LibreOffice.
 """
 
-from tdoc_crawler.extraction.checkout import checkout_single_item
+from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.extraction.conversion import (
     OFFICE_FORMATS,
     ConverterBackend,
@@ -31,6 +31,8 @@ from tdoc_crawler.extraction.metrics import (
 from tdoc_crawler.extraction.workspace_utils import check_pdf_status
 
 __all__ = [
+    "DEFAULT_EXTRACTION_PROFILE",
+    "ExtractionProfile",
     "OFFICE_FORMATS",
     "ConverterBackend",
     "ConverterConfig",
@@ -41,7 +43,6 @@ __all__ = [
     "TDocFiles",
     "TimedOperationResult",
     "check_pdf_status",
-    "checkout_single_item",
     "convert_document_to_markdown",
     "convert_tdoc_metadata",
     "convert_tdoc_to_markdown",
