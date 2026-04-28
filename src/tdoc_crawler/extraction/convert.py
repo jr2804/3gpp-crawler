@@ -15,15 +15,12 @@ import opendataloader_pdf
 from rich.console import Console
 
 from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.extraction.conversion import ensure_pdf
 from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
-from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
-from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_spec_number
+from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -154,7 +151,7 @@ def _ensure_converted(
 
     Returns:
         Tuple of (raw_markdown, json_path, normalized_id).
-        json_path may not exist on disk — caller must check.
+        json_path may not exist on disk ÔÇö caller must check.
 
     Raises:
         ConversionError: If no document files found or conversion fails.
@@ -185,22 +182,18 @@ def convert_for_wiki(
     document_id: str,
     wiki_source_dir: Path,
     *,
-    source_kind: SourceKind = SourceKind.TDOC,
     profile: ExtractionProfile | None = None,
     force: bool = False,
 ) -> Path | None:
     """Convert a document for wiki ingestion using the specified profile.
-
-    Routes to the TDoc or spec pipeline based on source_kind.
 
     For default and advanced profiles, always generates the wiki PDF first
     (via ensure_pdf), then opendataloader processes that same PDF. This ensures
     consistency: the source_pdf in JSON points to the actual PDF that was analyzed.
 
     Args:
-        document_id: Document identifier (TDoc ID, spec number).
+        document_id: Document identifier (TDoc ID).
         wiki_source_dir: Target directory under wiki/<workspace>/sources/<doc-id>/.
-        source_kind: Whether document_id is a TDoc, spec, or other.
         profile: Extraction profile to use. Defaults to DEFAULT_EXTRACTION_PROFILE.
         force: Force reconversion.
 
@@ -212,9 +205,6 @@ def convert_for_wiki(
         profile = DEFAULT_EXTRACTION_PROFILE
 
     wiki_source_dir.mkdir(parents=True, exist_ok=True)
-
-    if source_kind == SourceKind.SPEC:
-        return _convert_spec_for_wiki(document_id, wiki_source_dir, profile=profile, force=force)
 
     # TDoc pipeline
     normalized_id = normalize_tdoc_id(document_id)
@@ -247,61 +237,6 @@ def convert_for_wiki(
         _add_source_pdf_to_json(json_path, pdf_path)
 
     return md_file
-
-
-def _convert_spec_for_wiki(
-    spec_number: str,
-    wiki_source_dir: Path,
-    *,
-    profile: ExtractionProfile,
-    force: bool = False,
-) -> Path | None:
-    """Convert a spec document for wiki ingestion.
-
-    Downloads the spec via the spec checkout pipeline, finds the doc/docx,
-    and converts to PDF.
-
-    Args:
-        spec_number: Spec number (e.g., "26.132").
-        wiki_source_dir: Target directory under wiki/<workspace>/sources/<doc-id>/.
-        profile: Extraction profile to use.
-        force: Force reconversion.
-
-    Returns:
-        Path to the PDF file, or None if conversion fails.
-    """
-    from tdoc_crawler.config.settings import PathConfig
-
-    normalized = normalize_spec_number(spec_number)
-    manager = resolve_cache_manager()
-    checkout_dir = manager.checkout_dir
-    db_file = manager.db_file
-
-    import asyncio
-
-    async def _do_checkout() -> list[Path]:
-        async with SpecDatabase(db_file) as database:
-            return checkout_specs(
-                spec_numbers=[normalized],
-                checkout_dir=checkout_dir,
-                database=database,
-                release="latest",
-                doc_only=True,
-            )
-
-    paths = asyncio.run(_do_checkout())
-    if not paths:
-        raise ConversionError(f"No spec files found for {normalized}")
-
-    target_dir = paths[0]
-    # Find doc/docx in the checkout dir
-    doc_files = list(target_dir.glob("*.doc*"))
-    if not doc_files:
-        raise ConversionError(f"No document files found for spec {normalized} in {target_dir}")
-
-    primary = doc_files[0]
-    pdf_path = ensure_pdf(primary, wiki_source_dir, force=force)
-    return pdf_path
 
 
 def _add_source_pdf_to_json(json_path: Path, pdf_path: Path) -> None:

@@ -1,6 +1,6 @@
 """Environment variable name constants mapped to their corresponding config field paths.
 
-All TDC_*, HTTP_CACHE_*, and LIGHTRAG_* environment variables remain functional
+All TDC_* and HTTP_CACHE_* environment variables remain functional
 via pydantic's AliasChoices mechanism.
 
 This module provides a StrEnum `ConfigEnvVar` where:
@@ -54,30 +54,8 @@ class ConfigEnvVar(StrEnum):
     TDC_TITLE_LIKE = "crawl.title_like"
     TDC_LIMIT_TDOCS = "crawl.limit"
     TDC_WORKERS = "crawl.workers"
-    # AI/LightRAG (TDC_AI_* and LIGHTRAG_*)
-    TDC_AI_LLM_MODEL = "ai.llm_model"
-    TDC_AI_LLM_API_BASE = "ai.llm_api_base"
-    TDC_AI_LLM_API_KEY = "ai.llm_api_key"
-    TDC_AI_EMBEDDING_MODEL = "ai.embedding_model"
-    TDC_AI_EMBEDDING_API_BASE = "ai.embedding_api_base"
-    TDC_AI_EMBEDDING_API_KEY = "ai.embedding_api_key"
-    TDC_AI_MAX_CHUNK_SIZE = "ai.max_chunk_size"
-    TDC_AI_CHUNK_OVERLAP = "ai.chunk_overlap"
-    TDC_AI_CONVERT_PDF = "ai.convert_pdf"
-    TDC_AI_CONVERT_MD = "ai.convert_md"
-    TDC_AI_VLM = "ai.vlm"
-    TDC_AI_ABSTRACT_MIN_WORDS = "ai.abstract_min_words"
-    TDC_AI_ABSTRACT_MAX_WORDS = "ai.abstract_max_words"
-    TDC_AI_PARALLELISM = "ai.parallelism"
-    TDC_GRAPH_QUERY_LEVEL = "ai.graph_query_level"
-    TDC_LIGHTRAG_SHARED_STORAGE = "ai.lightrag.shared_storage"
-    LIGHTRAG_SHARED_STORAGE = "ai.lightrag.shared_storage"
-    LIGHTRAG_DB_BACKEND = "ai.lightrag.db_backend"
-    # AI-specific (not in settings.py but used in CLI args)
-    TDC_AI_OUTPUT_FORMAT = "ai.output_format"
     TDC_LIMIT_MEETINGS = "crawl.limit_meetings"
     TDC_LIMIT_MEETINGS_PER_SUBWG = "crawl.limit_meetings_per_subwg"
-    TDC_OVERALL_TIMEOUT = "crawl.overall_timeout"
     TDC_OUTPUT = "output_format"
     TDC_SOURCE_PATTERN = "crawl.source_pattern"
     TDC_SOURCE_PATTERN_EXCLUDE = "crawl.source_pattern_exclude"
@@ -89,11 +67,6 @@ class ConfigEnvVar(StrEnum):
     TDC_CHECKOUT_DIR = "path.checkout_dir"
     TDC_VERBOSITY = "verbosity"
     TDC_USE_WHATTHESPEC = "http.use_whatthespec"
-    TDC_AI_EMBEDDING_BACKEND = "ai.embedding_backend"
-    TDC_AI_WORKSPACE_ACTIVATE = "ai.workspace_activate"
-    TDC_AI_DEVICE = "ai.device"
-    TDC_AI_NUM_THREADS = "ai.num_threads"
-    TDC_AI_BATCH_SIZE = "ai.batch_size"
 
 
 TOML_PATH_TO_ENV_VAR: dict[str, str] = {e.value: e.name for e in ConfigEnvVar}

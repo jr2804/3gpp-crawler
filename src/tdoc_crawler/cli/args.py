@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 
@@ -53,10 +53,6 @@ IncrementalOption = Annotated[
 ]
 LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar=ConfigEnvVar.TDC_LIMIT_TDOCS.name)]
 ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
-_ = Annotated[
-    int | None,
-    typer.Option("--overall-timeout", help="Maximum total crawl duration in seconds (None = unlimited)", envvar=ConfigEnvVar.TDC_OVERALL_TIMEOUT.name),
-]
 OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar=ConfigEnvVar.TDC_OUTPUT.name)]
 EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username", envvar=ConfigEnvVar.TDC_EOL_USERNAME.name)]
 EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password", envvar=ConfigEnvVar.TDC_EOL_PASSWORD.name)]
@@ -102,7 +98,6 @@ AgendaPatternExcludeOption = Annotated[
 ClearSpecsOption = Annotated[bool, typer.Option("--clear-specs", help="Clear all specs before crawling")]
 TitleOption = Annotated[str | None, typer.Option("--title", help="Filter by title contains")]
 StatusOption = Annotated[str | None, typer.Option("--status", help="Filter by status")]
-_ = Annotated[list[str] | None, typer.Option("--spec", help="Spec number(s) (dotted or undotted)")]
 
 SpecFileOption = Annotated[Path | None, typer.Option("--spec-file", help="File with spec numbers")]
 ReleaseOption = Annotated[
@@ -156,83 +151,3 @@ NoProgressOption = Annotated[
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
 ]
 
-
-# Options - AI
-SummarizeDocumentArgument = Annotated[str, typer.Argument(help="Document ID to summarize")]
-SummarizeWordsOption = Annotated[int, typer.Option("--words", "-w", help="Target/Maximum word count")]
-SummarizeForceOption = Annotated[
-    bool,
-    typer.Option("--force", "-f", help="Force reconversion even if cached"),
-]
-JsonOutputOption = Annotated[bool, typer.Option("--json", help="Output as JSON")]
-
-ConvertDocumentArgument = Annotated[str, typer.Argument(help="Document ID to convert")]
-ConvertOutputOption = Annotated[
-    Path | None,
-    typer.Option("--output", "-o", help="Output file path (optional, prints to stdout if not specified)"),
-]
-ConvertForceOption = Annotated[
-    bool,
-    typer.Option("--force", "-f", help="Force reconversion even if cached"),
-]
-
-QueryArgument = Annotated[str | None, typer.Argument(help="Semantic search query")]
-WorkspaceNameOption = Annotated[str | None, typer.Option("--workspace", "-w", help="Workspace name")]
-EmbeddingTopKOption = Annotated[int, typer.Option("--top-k", "-k", help="Number of embedding results to return")]
-QueryMaxWordsOption = Annotated[int, typer.Option("--words", help="Maximum word count for LLM answer")]
-
-_ = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to process")]
-EmbeddingBackendOption = Annotated[
-    Literal["torch", "onnx", "openvino"],
-    typer.Option(
-        "--accelerate",
-        "-a",
-        help="Embedding backend (torch, onnx, openvino)",
-        envvar=ConfigEnvVar.TDC_AI_EMBEDDING_BACKEND.name,
-    ),
-]
-_ = Annotated[str | None, typer.Option("--checkout-path", help="Path to checkout document")]
-CheckoutBaseOption = Annotated[str | None, typer.Option("--checkout-base", help="Base path for checkout")]
-ProcessAllOption = Annotated[bool, typer.Option("--all", help="Process all documents in workspace")]
-ProcessNewOnlyOption = Annotated[bool, typer.Option("--new-only", help="Process only new documents")]
-ProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing")]
-ProcessLimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Limit number of documents to process (for testing)")]
-
-StatusTDocIdOption = Annotated[str | None, typer.Option("--tdoc-id", "-t", help="TDoc ID to check status for")]
-
-WorkspaceNameArgument = Annotated[str, typer.Argument(help="Workspace name")]
-WorkspaceActivateArgument = Annotated[str, typer.Argument(help="Workspace name to activate")]
-WorkspaceAutoBuildOption = Annotated[
-    bool,
-    typer.Option("--auto-build", help="Automatically process documents added to this workspace"),
-]
-WorkspaceActivateOption = Annotated[
-    bool,
-    typer.Option(
-        True,
-        "--activate/--no-activate",
-        help="Activate workspace after creation",
-        envvar=ConfigEnvVar.TDC_AI_WORKSPACE_ACTIVATE.name,
-    ),
-]
-
-WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(..., help="Source item IDs to add (optional if filters provided)")]
-WorkspaceKindOption = Annotated[str, typer.Option("--kind", help="Source kind (tdoc, spec, other)")]
-WorkspaceCheckoutOption = Annotated[
-    bool,
-    typer.Option("--checkout/--no-checkout", help="Checkout/download documents if not present"),
-]
-WorkspaceReleaseOption = Annotated[
-    str | None,
-    typer.Option("--release", help="Spec release version (e.g., 16.3.0, 17.0.0). Only applies to specs."),
-]
-WorkspaceLimitOption = Annotated[int | None, typer.Option("--limit", help="Maximum items to add")]
-WorkspaceIncludeInactiveOption = Annotated[bool, typer.Option("--include-inactive", help="Include inactive members")]
-
-WorkspaceProcessNewOnlyOption = Annotated[bool, typer.Option("--new-only", help="Process only TDocs not already completed")]
-WorkspaceProcessForceOption = Annotated[bool, typer.Option("--force", help="Force reprocessing of all TDocs")]
-
-WorkspacePreserveArtifactsOption = Annotated[
-    bool,
-    typer.Option("--preserve-artifacts/--no-preserve-artifacts", help="Preserve artifacts"),
-]

@@ -4,7 +4,6 @@ This package provides document conversion, PDF processing, and
 extraction operations using OpenDataLoader and LibreOffice.
 """
 
-from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.extraction.conversion import (
     OFFICE_FORMATS,
     ConverterBackend,
@@ -28,15 +27,16 @@ from tdoc_crawler.extraction.metrics import (
     get_metrics_tracker,
     timed_operation,
 )
+from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.extraction.workspace_utils import check_pdf_status
 
 __all__ = [
     "DEFAULT_EXTRACTION_PROFILE",
-    "ExtractionProfile",
     "OFFICE_FORMATS",
     "ConverterBackend",
     "ConverterConfig",
     "DocumentMetric",
+    "ExtractionProfile",
     "MetricType",
     "MetricsTracker",
     "OpendataloaderConfig",
