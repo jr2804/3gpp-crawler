@@ -1,138 +1,320 @@
+<!-- refreshed: 2026-04-30 -->
 # Architecture
 
-**Analysis Date:** 2026-04-27
+**Analysis Date:** 2026-04-30
+
+## System Overview
+
+```text
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           CLI Layer (Typer)                              │
+│  ┌─────────────────┬──────────────────────┬────────────────────────────┐ │
+│  │   tdoc-app      │     spec-app         │      mgmt-app              │ │
+│  │  TDocs/Meetings │  Specifications      │  Config/Workspace          │ │
+│  └────────┬────────┴──────────┬───────────┴────────────┬───────────────┘ │
+└─────────────┼──────────────────────────────────────────┼──────────────────┘
+              │                                          │
+         ┌────▼────────────────────────────────────────────────────┐
+         │  CLI Commands & Configuration Management               │
+         │  `src/tdoc_crawler/cli/`                                │
+         │  - crawl, crawl-meetings, query, query-meetings         │
+         │  - checkout, open                                       │
+         │  - config init, validate, show                          │
+         │  - workspace create, checkout, export                   │
+         └────┬──────────────────────────────────────────────────┘
+              │
+    ┌─────────┴──────────────────────────────────────────────┐
+    │  Core Domain Packages (Business Logic)                 │
+    │  ┌──────────────┬───────────────┬────────────────────┐ │
+    │  │ tdocs/       │ specs/        │ meetings/          │ │
+    │  │ operations   │ operations    │ operations         │ │
+    │  │ sources      │ sources       │                    │ │
+    │  │ models       │ models        │ models             │ │
+    │  └──────┬───────┴───────┬───────┴─────────┬──────────┘ │
+    └─────────┼───────────────┼──────────────────┼───────────┘
+              │               │                  │
+    ┌─────────▼───────────────▼──────────────────▼───────────┐
+    │  Unified Database Layer (SQLite via Oxyde ORM)        │
+    │  - TDocDatabase, MeetingDatabase, SpecDatabase         │
+    │  - TDocMetadata, MeetingMetadata, Specification models │
+    │  `src/tdoc_crawler/database/`                          │
+    └─────────┬──────────────────────────────────────────────┘
+              │
+    ┌─────────▼──────────────────────────────────────────────┐
+    │  Extraction Pipeline & File Operations                │
+    │  - convert_to_pdf, convert_to_markdown                 │
+    │  - extract_document_structured_from_tdoc               │
+    │  - fetch_tdoc_files, TDocFiles                         │
+    │  `src/tdoc_crawler/extraction/`                        │
+    └─────────┬──────────────────────────────────────────────┘
+              │
+    ┌─────────▼──────────────────────────────────────────────┐
+    │  Parallel Execution & Workers                          │
+    │  - pool_executors (serial, thread, process modes)      │
+    │  - Subinterpreter workers (TDoc crawling)              │
+    │  `src/tdoc_crawler/workers/`                           │
+    │  `packages/pool_executors/`                            │
+    └─────────┬──────────────────────────────────────────────┘
+              │
+    ┌─────────▼──────────────────────────────────────────────┐
+    │  Cross-Cutting Concerns                                │
+    │  - HTTP caching (hishel, niquests)                     │
+    │  - Configuration management (pydantic)                 │
+    │  - Logging (rich)                                      │
+    │  - Parsing (BeautifulSoup, lxml)                       │
+    │  `src/tdoc_crawler/config/`                            │
+    │  `src/tdoc_crawler/utils/`                             │
+    │  `src/tdoc_crawler/parsers/`                           │
+    └─────────────────────────────────────────────────────────┘
+```
+
+## Component Responsibilities
+
+| Component | Responsibility | Location |
+|-----------|----------------|----------|
+| **TDocCrawler** | Orchestrate parallel workers for TDoc metadata extraction | `src/tdoc_crawler/tdocs/operations/crawl.py` |
+| **TDocDatabase** | Upsert TDoc records, query with filters | `src/tdoc_crawler/database/tdocs.py` |
+| **MeetingCrawler** | Fetch and store 3GPP meeting metadata | `src/tdoc_crawler/meetings/operations/crawl.py` |
+| **SpecDatabase** | Manage specifications catalog, track downloads | `src/tdoc_crawler/database/specs.py` |
+| **ExtractionPipeline** | Convert documents (PDF, Office, text formats) to markdown | `src/tdoc_crawler/extraction/convert.py` |
+| **CacheManager** | Centralized path management (cache, checkout, database) | `src/tdoc_crawler/config/cache_manager.py` |
+| **HTTP Client** | Session management with persistent caching (hishel) | External: `tdoc_crawler.http_client` |
+| **Portal Parser** | Parse 3GPP portal HTML for TDoc metadata | `src/tdoc_crawler/parsers/portal.py` |
+| **PortalClient** | EOL authentication, portal API calls | `src/tdoc_crawler/clients/portal.py` |
 
 ## Pattern Overview
 
-**Overall:** Layered CLI-first monorepo with domain modules and shared infrastructure services.
+**Overall:** Domain-driven architecture with layers:
 
 **Key Characteristics:**
-
-- Command entrypoints are thin Typer adapters that delegate to domain operations in `src/tdoc_crawler/cli/tdoc_app.py`, `src/tdoc_crawler/cli/spec_app.py`, and `packages/3gpp-ai/threegpp_ai/cli.py`.
-- Domain logic is split by business area (`tdocs`, `meetings`, `specs`) with consistent `models`/`operations`/`sources` separation under `src/tdoc_crawler/`.
-- Persistence and transport are centralized in reusable layers (`src/tdoc_crawler/database/`, `src/tdoc_crawler/http_client/`, `src/tdoc_crawler/config/`).
+- **Three independent CLI entry points** — Each app is deployable separately (TDocs, Specs, Management)
+- **Domain-oriented packages** — `tdocs/`, `specs/`, `meetings/` encapsulate domain logic
+- **Unified database interface** — All domain data flows through Oxyde ORM to SQLite
+- **Parallel worker pattern** — Subinterpreter and thread pool executors for crawling
+- **Cross-cutting configuration** — CacheManager enforces centralized path management across all domains
 
 ## Layers
 
 **CLI Layer:**
+- Purpose: Typer command definitions, argument parsing, output formatting
+- Location: `src/tdoc_crawler/cli/`
+- Contains: Command handlers, formatters, arg validators
+- Depends on: Config, domain operations, database
+- Used by: User via command line
 
-- Purpose: Parse options, configure runtime context, and render output.
-- Location: `src/tdoc_crawler/cli/`, `packages/3gpp-ai/threegpp_ai/cli/`
-- Contains: Typer apps, option aliases, output formatting adapters.
-- Depends on: Domain models/operations, config loader, logging.
-- Used by: Script entrypoints in `pyproject.toml` (`tdoc-crawler`, `spec-crawler`, `3gpp-ai`).
+**Domain Layer:**
+- Purpose: Business logic for TDocs, Specs, Meetings
+- Location: `src/tdoc_crawler/tdocs/`, `src/tdoc_crawler/specs/`, `src/tdoc_crawler/meetings/`
+- Contains: Data models, operations, sources (fetchers), utilities
+- Depends on: Database, HTTP client, parsers
+- Used by: CLI layer, operations orchestrators
 
-**Domain Operations Layer:**
+**Database Layer:**
+- Purpose: Persistent storage abstraction (SQLite via Oxyde ORM)
+- Location: `src/tdoc_crawler/database/`
+- Contains: Oxyde models, database class implementations, schema definitions
+- Depends on: Models, utilities
+- Used by: All domain layers, CLI commands
 
-- Purpose: Execute crawl/query/checkout workflows.
-- Location: `src/tdoc_crawler/tdocs/operations/`, `src/tdoc_crawler/meetings/operations/`, `src/tdoc_crawler/specs/operations/`
-- Contains: Orchestrators such as `TDocCrawler`, `MeetingCrawler`, and spec checkout orchestration.
-- Depends on: Database facades, source adapters, parsers, utility normalization.
-- Used by: CLI layer and package integrations (notably `packages/3gpp-ai/threegpp_ai/operations/`).
+**Extraction Layer:**
+- Purpose: Document format conversion and content extraction
+- Location: `src/tdoc_crawler/extraction/`
+- Contains: PDF conversion, Office format handling, markdown extraction
+- Depends on: External tools (LibreOffice, OpenDataLoader)
+- Used by: Workspace extraction pipeline
 
-**Source/Client Layer:**
-
-- Purpose: Fetch and normalize data from external systems.
-- Location: `src/tdoc_crawler/tdocs/sources/`, `src/tdoc_crawler/specs/sources/`, `src/tdoc_crawler/clients/`, `src/tdoc_crawler/parsers/`
-- Contains: Portal/WhatTheSpec/doclist source implementations and HTML parsing.
-- Depends on: HTTP client and credential resolution.
-- Used by: Domain operations.
+**Execution Layer:**
+- Purpose: Parallel worker orchestration
+- Location: `src/tdoc_crawler/workers/`, `packages/pool_executors/`
+- Contains: Subinterpreter workers, executor factories
+- Depends on: Domain models, pool_executors library
+- Used by: Crawlers for parallel metadata fetching
 
 **Infrastructure Layer:**
-
-- Purpose: Provide shared runtime services (config, HTTP cache/session, logging, worker execution).
-- Location: `src/tdoc_crawler/config/`, `src/tdoc_crawler/http_client/`, `src/tdoc_crawler/logging/`, `src/tdoc_crawler/workers/`, `packages/pool_executors/pool_executors/`
-- Contains: `ThreeGPPConfig`, `CacheManager`, cached session factory, subinterpreter worker functions.
-- Depends on: pydantic-settings, niquests/hishel, pool executor package.
-- Used by: CLI and domain operations.
-
-**Persistence Layer:**
-
-- Purpose: Store and query crawler state and metadata.
-- Location: `src/tdoc_crawler/database/`
-- Contains: `DocDatabase` lifecycle, table management, and typed facades (`TDocDatabase`, `MeetingDatabase`, `SpecDatabase`).
-- Depends on: Oxyde async ORM and model definitions in `src/tdoc_crawler/database/oxyde_models.py`.
-- Used by: Domain operations and some CLI query paths.
+- Purpose: Shared utilities, configuration, logging
+- Location: `src/tdoc_crawler/config/`, `src/tdoc_crawler/utils/`, `src/tdoc_crawler/parsers/`, `src/tdoc_crawler/clients/`
+- Contains: HTTP caching, path management, date parsing, portal auth
+- Depends on: External libraries (pydantic, hishel, BeautifulSoup)
+- Used by: All layers
 
 ## Data Flow
 
-**TDoc Crawl Flow:**
+### Primary TDoc Crawl Path
 
-1. User executes `tdoc-crawler crawl` (`src/tdoc_crawler/cli/tdoc_app.py` routes to `crawl_tdocs` in `src/tdoc_crawler/cli/crawl.py`).
-2. CLI builds `TDocCrawlConfig`, opens `TDocDatabase`, and instantiates `TDocCrawler`.
-3. `TDocCrawler.crawl()` loads meetings from DB and dispatches per-meeting worker tasks through `pool_executors.create_executor()` in `src/tdoc_crawler/tdocs/operations/crawl.py`.
-4. Worker entrypoint `fetch_meeting_document_list_subinterpreter()` in `src/tdoc_crawler/workers/tdoc_worker.py` fetches doclists and returns JSON payloads.
-5. Orchestrator normalizes/deduplicates metadata and persists via `TDocDatabase.bulk_upsert_tdocs()`.
+1. **User invokes**: `tdoc-crawler crawl --working-group SA` → [`src/tdoc_crawler/cli/tdoc_app.py:crawl_tdocs()`](src/tdoc_crawler/cli/tdoc_app.py#L70)
+2. **CLI loads config** → `CacheManager` registers cache paths
+3. **Meeting discovery**: Query `MeetingDatabase` for meetings matching WG filters
+4. **Parallel TDoc fetch**: [`TDocCrawler.crawl()`](src/tdoc_crawler/tdocs/operations/crawl.py#L49) spawns subinterpreter workers
+5. **Excel parsing**: Each worker fetches document list Excel file via `ExcelDocListSource`
+6. **Metadata extraction**: Parse Excel rows → normalize TDoc IDs → create `TDocMetadata` models
+7. **Database upsert**: `TDocDatabase.bulk_upsert_tdocs()` → SQLite (with duplicate checking on `.upper()`)
+8. **Output**: `CrawlResult` → formatted table/JSON to stdout
 
-**TDoc Query + On-Demand Fetch Flow:**
+### Specification Checkout Flow
 
-1. User executes `tdoc-crawler query` handled by `query_tdocs` in `src/tdoc_crawler/cli/query.py`.
-2. CLI queries `TDocDatabase.query_tdocs()` with `TDocQueryConfig`.
-3. Missing IDs are resolved by `fetch_missing_tdocs()` in `src/tdoc_crawler/tdocs/operations/fetch.py` using source strategy/fallback.
-4. Output is rendered through `src/tdoc_crawler/cli/printing.py` and `src/tdoc_crawler/cli/formatting.py`.
+1. **User invokes**: `spec-crawler checkout TS 26.444` → [`src/tdoc_crawler/cli/spec_app.py`](src/tdoc_crawler/cli/spec_app.py)
+2. **Spec resolution**: Query `SpecDatabase` or fetch from WhatTheSpec API
+3. **Source discovery**: [`build_default_spec_sources()`](src/tdoc_crawler/specs/operations/checkout.py) constructs threegpp/whatthespec sources
+4. **File download**: HTTP session with caching to checkout directory
+5. **Extraction (optional)**: Convert to markdown via `convert_tdoc_to_markdown()`
+
+### Extraction Workspace Path
+
+1. **Workspace created** with source TDocs and target format (markdown, text)
+2. **Fetch TDoc files**: `fetch_tdoc_files()` → downloads binaries to temp
+3. **Determine format**: Auto-detect or explicit (PDF, DOCX, etc.)
+4. **Convert**: `convert_document_to_markdown()` or office format handler
+5. **Extract metadata**: Structured extraction via LiteParser + OpenDataLoader
+6. **Store**: Result written to workspace output directory
+
+### Meeting Crawl Path
+
+1. **User invokes**: `tdoc-crawler crawl-meetings` → [`crawl_meetings()`](src/tdoc_crawler/cli/crawl.py)
+2. **3GPP portal login** (optional): EOL credentials via `PortalClient`
+3. **Meeting list fetch**: Query portal or cached source
+4. **Metadata parsing**: [`MeetingCrawler.crawl()`](src/tdoc_crawler/meetings/operations/crawl.py) → parse meeting pages
+5. **Database upsert**: `MeetingDatabase.bulk_upsert_meetings()`
 
 **State Management:**
-
-- Runtime state is file-backed and config-driven (`PathConfig` in `src/tdoc_crawler/config/settings.py`).
-- Shared mutable runtime objects are minimized; DB and HTTP sessions are short-lived context-managed instances.
-- Parallel crawl state exchange uses serialized JSON payloads between worker boundaries.
+- Configuration is immutable `@dataclass` instances loaded at app startup
+- Database state is SQLite (persistent)
+- HTTP cache is SQLite (persistent, TTL-based eviction)
+- Crawl results are in-memory during execution, logged to database when complete
 
 ## Key Abstractions
 
-**Configuration Abstraction (`ThreeGPPConfig` + `CacheManager`):**
+**TDocCrawler:**
+- Purpose: Configuration-driven orchestrator for parallel TDoc fetching
+- Examples: `src/tdoc_crawler/tdocs/operations/crawl.py`
+- Pattern: Async/await with subinterpreter workers via `pool_executors`
+- Interface: `async def crawl(config: TDocCrawlConfig) → TDocCrawlResult`
 
-- Purpose: Centralize config loading and path resolution.
-- Examples: `src/tdoc_crawler/config/settings.py`, `src/tdoc_crawler/config/cache_manager.py`
-- Pattern: Pydantic settings model + registered runtime path manager.
+**TDocSource (Protocol):**
+- Purpose: Pluggable TDoc metadata source (Excel, Portal, WhatTheSpec)
+- Examples: `src/tdoc_crawler/tdocs/sources/doclist.py`, `portal.py`, `whatthespec.py`
+- Pattern: Abstract base class with concrete implementations
+- Interface: `fetch_tdoc_metadata()` → `list[TDocMetadata]`
 
-**Source Abstraction (`TDocSource` protocol):**
+**Oxyde ORM Models:**
+- Purpose: Database schema definition and type-safe record management
+- Examples: `TDocMetadata`, `MeetingMetadata`, `Specification` in `src/tdoc_crawler/database/oxyde_models.py`
+- Pattern: Pydantic dataclasses mapped to SQLite tables
+- Interface: Async methods on database classes (`upsert`, `query`, `bulk_upsert`)
 
-- Purpose: Hide source-specific fetch details behind a common interface.
-- Examples: `src/tdoc_crawler/tdocs/sources/base.py`, `src/tdoc_crawler/tdocs/sources/portal.py`, `src/tdoc_crawler/tdocs/sources/whatthespec.py`
-- Pattern: Protocol-driven adapters selected by fetch orchestrators.
+**ExtractionProfile:**
+- Purpose: Configuration for document extraction (backend, format options)
+- Examples: `src/tdoc_crawler/extraction/profiles.py`
+- Pattern: Dataclass with converter backend and format specs
+- Interface: Passed to `convert_document_to_markdown()`, `extract_document_structured_from_tdoc()`
 
-**Database Facade Abstraction:**
-
-- Purpose: Expose domain-friendly methods over Oxyde models and SQL lifecycle.
-- Examples: `src/tdoc_crawler/database/base.py`, `src/tdoc_crawler/database/tdocs.py`, `src/tdoc_crawler/database/specs.py`
-- Pattern: Async facade classes inheriting shared lifecycle behavior.
+**CacheManager:**
+- Purpose: Singleton path resolver for cache, checkout, database
+- Examples: `src/tdoc_crawler/config/cache_manager.py`
+- Pattern: Registry pattern — register once, access globally
+- Interface: `CacheManager(cache_dir).register()` then `resolve_cache_manager()` everywhere
 
 ## Entry Points
 
-**TDoc/Meeting CLI:**
+**TDoc App (`tdoc-crawler`):**
+- Location: `src/tdoc_crawler/cli/tdoc_app.py:tdoc_app`
+- Triggers: Command line: `tdoc-crawler crawl|crawl-meetings|query|query-meetings|open|checkout`
+- Responsibilities: TDoc/Meeting crawling, querying, opening documents
 
-- Location: `src/tdoc_crawler/cli/tdoc_app.py`
-- Triggers: `tdoc-crawler` script in root `pyproject.toml` and `python -m tdoc_crawler` via `src/tdoc_crawler/__main__.py`
-- Responsibilities: Register command groups, initialize config/cache manager, dispatch to crawl/query/open/checkout paths.
+**Spec App (`spec-crawler`):**
+- Location: `src/tdoc_crawler/cli/spec_app.py:spec_app`
+- Triggers: Command line: `spec-crawler crawl|query|checkout|open`
+- Responsibilities: Specification discovery, download, checkout
 
-**Spec CLI:**
+**Management App (`3gpp-crawler`):**
+- Location: `src/tdoc_crawler/cli/mgmt_app.py:mgmt_app`
+- Triggers: Command line: `3gpp-crawler config|workspace`
+- Responsibilities: Configuration validation/export, workspace management
 
-- Location: `src/tdoc_crawler/cli/spec_app.py`
-- Triggers: `spec-crawler` script in root `pyproject.toml`
-- Responsibilities: Spec crawl/query/checkout/open workflows.
+## Architectural Constraints
 
-**AI Extension CLI:**
+- **Threading:** Single-threaded event loop (asyncio) with optional subinterpreter workers for CPU-bound TDoc parsing
+- **Global state:** `CacheManager` is a singleton registered at CLI startup; HTTP session objects are created per-scope; database connections are async context managers
+- **Circular imports:** Domain packages avoid re-exporting operations (explicit submodule imports required) to prevent circular dependencies at module load time
+- **Database:** SQLite (Oxyde ORM) — no concurrent writers; transactions serialize writes; readers are concurrent
+- **HTTP caching:** Via hishel middleware; TTL-based eviction; stored in SQLite at `{cache_dir}/http-cache.sqlite3`
+- **Configuration:** Immutable dataclass instances; environment variables override file values; no runtime config changes
 
-- Location: `packages/3gpp-ai/threegpp_ai/cli.py`
-- Triggers: `3gpp-ai` script in `packages/3gpp-ai/pyproject.toml`
-- Responsibilities: Workspace/document AI workflows reusing core crawler storage/query components.
+## Anti-Patterns
+
+### Eager re-exports in domain packages
+
+**What happens:** Domain `__init__.py` imports all operations, causing circular import chains at load time.
+
+**Why it's wrong:** Python module initialization order becomes fragile; adding a new operation or model can break the entire package load chain.
+
+**Do this instead:** Use explicit submodule imports in CLI and test code:
+```python
+# ✓ Correct
+from tdoc_crawler.tdocs.operations import TDocCrawler
+
+# ✗ Wrong
+from tdoc_crawler.tdocs import TDocCrawler  # May fail if __init__.py has circular deps
+```
+
+See `src/tdoc_crawler/tdocs/__init__.py` for the pattern.
+
+### Hardcoded cache/database paths
+
+**What happens:** Code uses `~/.3gpp-crawler` or `./cache` directly instead of `CacheManager`.
+
+**Why it's wrong:** Multiple deployment environments (dev, test, CI) collide on same paths; config overrides don't propagate.
+
+**Do this instead:** Always use `CacheManager`:
+```python
+# ✓ Correct
+from tdoc_crawler.config import resolve_cache_manager
+cache_manager = resolve_cache_manager()
+db_file = cache_manager.db_file
+
+# ✗ Wrong
+db_file = Path.home() / ".3gpp-crawler" / "database.sqlite3"
+```
+
+See `src/tdoc_crawler/config/cache_manager.py` for the implementation.
+
+### Unvalidated HTTP requests
+
+**What happens:** Raw `requests` or `niquests` calls without `create_cached_session()`.
+
+**Why it's wrong:** HTTP cache is not utilized; credentials leaks in logs; timeouts/retries not configured consistently.
+
+**Do this instead:** Always use `create_cached_session()`:
+```python
+# ✓ Correct
+from tdoc_crawler.http_client import create_cached_session
+with create_cached_session() as session:
+    response = session.get(url)
+
+# ✗ Wrong
+import requests
+response = requests.get(url)  # No caching, no config
+```
+
+See `src/tdoc_crawler/cli/crawl.py` for examples.
 
 ## Error Handling
 
-**Strategy:** Boundary-level exception handling with typed domain errors and CLI-friendly exit behavior.
+**Strategy:** Async exceptions propagate to CLI layer; CLI layer formats errors for user display via `console.print()` or `typer.echo()`.
 
 **Patterns:**
-
-- Database lifecycle wraps failures in `DatabaseError` in `src/tdoc_crawler/database/base.py`.
-- Source/client fetch paths catch transport and parse exceptions and either return `None` or aggregate error messages (`src/tdoc_crawler/tdocs/operations/fetch.py`, `src/tdoc_crawler/clients/portal.py`).
-- CLI commands convert validation/runtime failures to `typer.Exit` with user-facing Rich output (`src/tdoc_crawler/cli/config_app.py`, `src/tdoc_crawler/cli/query.py`).
+- Domain operations return `Result` dataclasses (e.g., `TDocCrawlResult(errors=[...])`) for non-fatal errors
+- Fatal errors raise exceptions (e.g., `DatabaseError`, `ConfigLoadError`)
+- CLI catches exceptions and calls `sys.exit(1)` with formatted message
+- HTTP errors are retried per `config.http.max_retries` with exponential backoff
 
 ## Cross-Cutting Concerns
 
-**Logging:** `tdoc_crawler.logging` logger setup is consumed across core and AI package modules.
-**Validation:** Pydantic models/settings validate CLI inputs, config, and metadata schemas.
-**Authentication:** Credentials are resolved via `src/tdoc_crawler/credentials.py`; authenticated portal flows run through `PortalClient`.
+**Logging:** Via `get_logger(__name__)` (custom logger); verbosity set at app startup via `set_verbosity()`; output to stderr via `logging` module.
+
+**Validation:** Pydantic models validate inputs at dataclass initialization; CLI args validated via typer options; config validated at load time via `_validate_config_values()`.
+
+**Authentication:** EOL portal credentials stored locally in `~/.3gpp-crawler/.credentials.toml` (encrypted via pydantic-settings); API keys via environment variables.
 
 ---
 
-*Architecture analysis: 2026-04-27*
+*Architecture analysis: 2026-04-30*
