@@ -22,7 +22,7 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 
 :: add specs in different versions/releases
 :: ... latest (default; currently 19.1.0)
-3gpp-crawler workspace add atias 26131 26132 26260 26261 21905 --kind spec
+3gpp-crawler workspace add 26131 26132 26260 26261 21905 --kind spec
 
 :: ... specific releases
 3gpp-crawler workspace add 26260 --kind spec --release 18.1
