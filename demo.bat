@@ -20,6 +20,9 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 :: add single tdoc to workspace ('-w atias' is optional if workspace is active)
 3gpp-crawler workspace add S4-260109 --kind tdoc -w atias
 
+:: add all tdocs from agenda items matching '*atias*' (from all meetings)
+3gpp-crawler workspace add --agenda "*atias*"
+
 :: add specs in different versions/releases
 :: ... latest (default; currently 19.1.0)
 3gpp-crawler workspace add 26131 26132 26260 26261 21905 --kind spec
