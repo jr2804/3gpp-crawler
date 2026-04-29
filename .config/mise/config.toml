@@ -89,13 +89,9 @@ run = [
 [tasks.add-skills]
 run = [
     "cls",
-    # python skills
-    "npx -y skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate",
+    # python & programming skills
+    "npx -y skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate -s code-deduplication, -s coding-discipline -s output-quality",
     "npx -y skills add https://github.com/jiatastic/open-python-skills -a universal -y -s ty-skills -s pydantic",
-
-    # anti-AI hallucination skills
-    "npx -y skills add https://github.com/alinaqi/claude-bootstrap -s code-deduplication -a universal -y",
-    "npx -y skills add https://github.com/hardikpandya/stop-slop -a universal -y",
     "npx -y skills add https://github.com/glaforge/deslopify -a universal -y",
 
     # development tool skills
