@@ -1,10 +1,8 @@
-# tdoc_crawler
+# tdoc_crawler — Core Library
 
-Core library for crawling and querying 3GPP TDoc data.
+Domain-oriented architecture for crawling and querying 3GPP TDoc, Spec, and Meeting data.
 
 ## Import Patterns
-
-**Correct imports:**
 
 ```python
 # TDoc operations (explicit submodule imports)
@@ -25,7 +23,7 @@ from tdoc_crawler.specs.operations.checkout import checkout_spec
 
 ## HTTP Caching (MANDATORY)
 
-For 3gpp.org, whatthespec.net, portal traffic, all HTTP requests **MUST** use `create_cached_session()`:
+All HTTP requests **MUST** use `create_cached_session()`:
 
 ```python
 from tdoc_crawler.http_client import create_cached_session
@@ -34,65 +32,35 @@ with create_cached_session() as session:
     response = session.get(url)
 ```
 
-Benefits: 50-90% faster incremental crawls, prevents rate-limiting.
-
 ## Anti-Duplication (DRY)
 
-**CRITICAL:** Search before implementing:
-
-1. Use grep/glob to check for existing implementations
-1. Check relevant domain package (`tdocs/`, `meetings/`, `specs/`)
-1. REFACTOR rather than duplicate
+Search before implementing. Check relevant domain package (`tdocs/`, `meetings/`, `specs/`). Refactor rather than duplicate.
 
 **Logic Placement:**
 
 | Logic Type | Location |
 |------------|----------|
-| Domain logic | `src/tdoc_crawler/<domain>/` |
-| Parsing logic | `src/tdoc_crawler/parsers/` |
-| API clients | `src/tdoc_crawler/clients/` |
-| Shared utilities | `src/tdoc_crawler/utils/` |
-
-**Prohibited:** CLI duplication, test duplication, helper bloat.
+| Domain logic | `<domain>/` |
+| Parsing logic | `parsers/` |
+| API clients | `clients/` |
+| Shared utilities | `utils/` |
 
 ## TDoc Data Sources
 
 | Source | Module | Auth | Batch | Single | Use Case |
 |--------|--------|:----:|:-----:|:------:|----------|
-| Excel DocList | `tdocs/sources/doclist.py` | No | ✓ | ✗ | Batch crawl (`crawl-tdocs`) |
-| WhatTheSpec API | `tdocs/sources/whatthespec.py` | No | ✗ | ✓ | Single lookups (`query`, `open`) |
+| Excel DocList | `tdocs/sources/doclist.py` | No | ✓ | ✗ | Batch crawl |
+| WhatTheSpec API | `tdocs/sources/whatthespec.py` | No | ✗ | ✓ | Single lookups |
 | 3GPP Portal | `tdocs/sources/portal.py` | Yes | ✗ | ✓ | Authenticated fallback |
 
-## Database Schema
+## Database
 
-SQLite with Pydantic models via `pydantic-sqlite`:
-
-| Table | Purpose |
-|-------|---------|
-| `tdocs`, `meetings`, `specs` | Core data |
-| `working_groups`, `subworking_groups` | Reference data |
-| `crawl_log`, `spec_downloads` | Audit/cache |
-
-**Patterns:** Return Pydantic models, case-insensitive TDoc IDs via `.upper()`.
+SQLite via `pydantic-sqlite`. Return Pydantic models. TDoc IDs use `.upper()` for case-insensitive comparison.
 
 ## Circular Import Prevention
 
-**Rule:** Refactor to eliminate, never use `TYPE_CHECKING` as permanent solution.
-
-**Strategy:**
-
-1. Identify circular dependency
-1. Extract shared types to `models/` layer
-1. Both modules import from neutral `models/`
-
-## Libraries
-
-| Library | Purpose |
-|---------|---------|
-| `typer`, `rich` | CLI, console |
-| `pydantic`, `pydantic-sqlite` | Models, database |
-| `hishel`, `httpx` | HTTP caching |
+Refactor to eliminate circular dependencies. Extract shared types to `models/` layer — both modules import from neutral `models/`.
 
 ## Testing
 
-See `tests/AGENTS.md`. Test DB: `./tests/test-cache/tdoc_crawler.db`
+See `tests/AGENTS.md`.

@@ -62,7 +62,6 @@ EOL_PASSWORD=your_password
 
 # HTTP Cache Configuration (optional - uses defaults if not set)
 HTTP_CACHE_TTL=7200                      # Cache TTL in seconds (default: 7200 = 2 hours)
-HTTP_CACHE_REFRESH_ON_ACCESS=true        # Refresh TTL on access (default: true)
 ```
 
 Alternatively, you can:

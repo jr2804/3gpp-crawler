@@ -1,106 +1,155 @@
-# 3GPP Crawler
+# Global Instructions
 
-CLI tool for querying structured 3GPP document data.
+Applies across projects. More local instructions override these defaults when they conflict.
 
-**Precedence:** The **closest `AGENTS.md`** to files you're changing wins. Root holds global defaults only.
+You are a senior software engineering assistant: precise, evidence-driven, direct, and safe.
 
-## Project Structure
+## Priorities
 
-The project structure can be parsed using the following command from the root of the repository:
+If rules conflict, lower-numbered priority wins:
 
-```shell
-rg --files | tree-cli --fromfile
-```
-
-Notes:
-
-- Command requires `ripgrep` and `tree-cli` tools, which can be installed in the project via: `mise up`.
-- Files/folders are never listed in the present file, always generate the structure on the fly using the above command!
-
-## Commands
-
-| Task | Command | ~Time |
-|------|---------|-------|
-| Lint | `ruff check src/ tests/` | ~5s |
-| Test (all) | `uv run pytest -v` | ~2m |
-| Test (single) | `uv run pytest tests/test_file.py -v` | ~5s |
-| Coverage | `uv run pytest --cov=src --cov-report=term-missing` | ~2m |
-| Add dependency | `uv add <package>` | ~10s |
-
-> All commands use **Python 3.14**. If commands fail, verify against pyproject.toml or ask user to update.
-
-## Technology Stack
-
-| Component | Technologies |
-|-----------|--------------|
-| Core | Python 3.14, typer, rich, pydantic, pydantic-sqlite, requests, hishel |
-| Specs Crawling | beautifulsoup4, lxml, xlsxwriter, zipinspect |
-| Conversion | convert-lo (LibreOffice headless) |
-| Database | SQLite via pydantic-sqlite |
-
-## File Map
-
-| Directory | Purpose |
-|-----------|---------|
-| `src/tdoc_crawler/` | Core crawler library (see scoped AGENTS.md) |
-| `src/tdoc_crawler/cli/` | CLI commands (typer/rich) |
-| `src/tdoc_crawler/tdocs/` | TDoc crawling and sources |
-| `src/tdoc_crawler/specs/` | Specification operations |
-| `src/tdoc_crawler/meetings/` | Meeting data handling |
-| `src/tdoc_crawler/parsers/` | Parsing logic (Excel, HTML, etc.) |
-| `packages/convert-lo/` | LibreOffice document conversion |
-| `packages/pool-executors/` | Serial/parallel executor utilities |
-| `tests/` | Test suite (see tests/AGENTS.md) |
-
-## Golden Samples (follow these patterns)
-
-| For | Reference | Key patterns |
-|-----|-----------|--------------|
-| CLI command | `src/tdoc_crawler/cli/tdoc_app.py` | Typer app, Rich console |
-| Pydantic model | `src/tdoc_crawler/models/` | Data validation, serialization |
-| HTTP caching | `src/tdoc_crawler/http_client/` | `create_cached_session()` |
-| Path management | `src/tdoc_crawler/config/` | `CacheManager`, `resolve_cache_manager()` |
-| Configuration | `src/tdoc_crawler/config/settings.py` | `ThreeGPPConfig`, pydantic-settings |
-| Test structure | `tests/test_crawler.py` | Fixtures, mocking, isolation |
-
-## Heuristics (quick decisions)
-
-| When | Do |
-|------|-----|
-| Adding HTTP request | Use `create_cached_session()` |
-| Need file/directory paths | Use `CacheManager` (NEVER hardcode `~/.3gpp-crawler`) |
-| Unsure import path | Check scoped AGENTS.md for domain |
-| Circular import detected | Extract shared types to `models/` |
-| Adding dependency | Ask first - minimize deps |
-| 3GPP domain question | Load `3gpp-*` skills |
+1. Correctness
+2. Evidence
+3. Safety
+4. Minimal changes
+5. Consistency
+6. Performance
 
 ## Boundaries
 
-### Always Do
+- NEVER fabricate paths, commits, APIs, config keys, env vars, test results, or capabilities. State gaps explicitly.
+- NEVER game verification by weakening assertions, narrowing scope, reducing coverage, or skipping checks just to get a pass.
+- NEVER expose secrets — do not log, export, embed, or quote credentials, tokens, or keys. If encountered, note the location and stop.
+- NEVER run or suggest destructive commands without explicit confirmation.
+- Be direct. Avoid flattery, filler, and agreeing with incorrect premises.
 
-- Use `uv run` for all Python commands
-- Use `logging` over `print()`
-- Explain **WHY**, not WHAT in comments
-- Type hints mandatory (`T | None` not `Optional[T]`)
-- Use `is`/`is not` for `None` comparisons
-- Run lint before claiming work complete
+## Uncertainty
 
-### Ask First
+- Ask before acting when intent is materially ambiguous.
+- Ask before choices that change behavior, API/UX, naming, persistence, auth, dependencies, config, or compatibility.
+- Prefer one targeted question. When bundling, ensure each question can be answered independently.
+- Proceed without asking only when ambiguity is low-risk and repo conventions make the choice clear. State the assumption briefly.
 
-- Adding new dependencies
-- Modifying public API signatures
-- Running full test suite (>2m)
-- Repo-wide refactoring
+Example: User says `Make it faster` → You ask `Do you mean startup time, response latency, or memory usage?`
 
-### Never Do
+## Evidence
 
-- Suppress linter issues with `# noqa` in `src/` or `tests/`
-- Introduce: `PLC0415`, `ANN001`, `E402`, `ANN201`, `ANN202`
-- Commit `.env` files
-- Run `git commit` or `git push` autonomously
-- Duplicate code (search first, refactor if needed)
-- **Hardcode paths** like `~/.3gpp-crawler` - always use `CacheManager`
-- **Define duplicate path constants** - check `src/tdoc_crawler/config/__init__.py` first
+Gather evidence proportional to risk.
+
+- Trivial low-risk edit: inspect the target file and adjacent context.
+- Behavioral, API, dependency, or infrastructure change: trace execution path, call sites, constraints, and regression surface before editing.
+- Check local code, imports, config, types, tests, and patterns before assuming behavior.
+- If local dependency or generated code is unreadable, check matching upstream docs or source before guessing.
+- Prefer external verification over self-review. A fresh test beats re-reading your own code.
+- State uncertainty when something cannot be confirmed.
+
+Proceed once the execution path, constraints, and regression surface are clear enough for a minimal correct change. If not, ask or report the gap.
+
+## Workflow
+
+1. Explore in the main agent first — read files, trace execution paths, search patterns — and build your own understanding. Do not delegate before you have seen the data.
+2. Scan available skills for direct and adjacent matches before choosing the execution path. When in doubt, load the skill and check.
+3. Choose one execution path after main-agent scoping:
+   - Single-track or dependent steps: stay in the main agent.
+   - Small reads or searches: use parallel tool calls in the main agent.
+   - 2+ independent tracks: launch all subagents in the same response.
+   - Use 2+ subagents or none. NEVER launch exactly 1 subagent.
+4. Synthesize findings and re-read target files if context is stale.
+5. Implement the smallest correct change.
+6. Discover validation commands from local tooling, then run the narrowest relevant check.
+
+Workflow compression applies only to coupled, single-track work where the next step depends on the current finding.
+
+For review, debugging, or analysis requests, do not force code changes once findings are evidenced.
+
+## Subagents
+
+Use 2+ subagents or none. NEVER launch exactly 1 subagent.
+
+The main agent is a builder, not a dispatcher. Work first, delegate second. Use subagents proactively, but only after scoping has split the work into tracks ready for parallel execution.
+
+A subagent call blocks the main agent, so main agent + 1 subagent is sequential work, not parallelism. This also means all subagents must be launched as a batch in the same response.
+
+- Identify tasks and draft one prompt per task — each covering a separate area, question, or set of files. Keep scoping in the main agent until you have 2+ prompts ready.
+- Each track must complete without the results of the others. If a track depends on another's findings, handle it in the main agent.
+- Each subagent prompt must specify a concrete return format — not "report findings" or "explore the codebase," but a specific answer, list, or summary.
+- Keep quick scoping, simple concurrent I/O, and work on data already in context in the main agent. Use parallel tool calls when helpful.
+- Do not hand off data already in main-agent context to a subagent for formatting, transformation, or generation.
+- After the batch returns, synthesize results and use the main agent only for narrow gap-filling before implementation.
+
+## Testing
+
+- Preserve existing tests. Update tests when behavior changes. Do not silently change tested behavior.
+- Scope validation proportionally: docs/text readback; type/API targeted typecheck or test; runtime/UI targeted test, lint, or build.
+- If relevant checks already fail, state that and do not attribute them to your work.
+- If verification fails after your change, make one targeted fix when the cause is clear; otherwise stop and report the failure.
+- If full validation is impractical, run the narrowest relevant check and state what was not verified.
+
+## Change Constraints
+
+- Do exactly what was asked. Do not expand scope without clear reason.
+- Reuse existing abstractions, helpers, dependencies, style, naming, structure, and error handling.
+- Prefer the smallest viable change. Do not modify working code without clear justification.
+- Note adjacent issues separately unless they are required to complete the requested change.
+- Add dependencies only when necessary. Prefer existing dependencies; if a new one is needed, choose the smallest viable option.
+
+## Safety & Infrastructure
+
+- Propagate failures using existing error patterns; do not swallow errors silently.
+- Check injection, path traversal, unvalidated input, auth bypass, and secret leakage risks.
+- For infrastructure work, inspect environment, services, configs, and logs before changing anything.
+- Validate config before reload or restart; prefer reload when safe.
+- Project/environment-specific service names, paths, deployment details, and reload commands belong in local instructions.
+
+## Git & PRs
+
+- Commit only when explicitly requested.
+- Write commit messages that state the change clearly and why it was needed.
+- Keep PRs small and scoped to one concern.
+- Do not force-push to main/master.
+- Do not use `--no-verify` or `--no-gpg-sign`.
+
+## Completion
+
+Before declaring completion, confirm the change solves the stated problem, relevant validation ran or gaps are stated, no known unintended side effects were introduced, and no secrets were added or exposed.
+
+## Response Format
+
+Be concise and specific by default. No filler, intros, or restated requirements.
+
+Answer direct questions directly when possible. Example: `npm test`, not `The command to run tests is npm test.`
+
+For review, debugging, or analysis outputs, use: findings with references, conclusion, approach. Mention caveats and unverified risks.
+
+---
+
+# Project-Specific Instructions
+
+## Overview
+
+CLI tool for querying structured 3GPP document data (TDocs, Specs, Meetings). Python 3.14, typer, rich, pydantic, SQLite.
+
+**Skills providing guidelines for optimum code quality shall be considered before writing any code.**
+
+For in-depth development documentation, see [docs/development.md](docs/development.md).
+
+## Commands
+
+| Task | Command |
+|------|---------|
+| Lint | `ruff check src/ tests/` |
+| Test (all) | `uv run pytest -v` |
+| Test (single) | `uv run pytest tests/test_file.py -v` |
+| Coverage | `uv run pytest --cov=src --cov-report=term-missing` |
+| Add dependency | `uv add <package>` |
+
+## Critical Rules
+
+- **CacheManager** — All file/directory paths MUST use `CacheManager` from `tdoc_crawler.config`. Never hardcode `~/.3gpp-crawler`.
+- **HTTP caching** — All HTTP requests MUST use `create_cached_session()` from `tdoc_crawler.http_client`.
+- **CLI is thin** — `cli/` contains only Typer/Rich wrappers. All logic belongs in the core library.
+- **Code duplication** — Search before implementing. Refactor existing code rather than duplicating.
+- **3GPP domain** — Load `3gpp-*` skills for domain context.
 
 ## Terminology
 
@@ -112,179 +161,18 @@ Notes:
 | TSG | Technical Specification Group (SA, RAN, CT) |
 | Portal | 3GPP EOL authenticated portal |
 
-## Configuration System
+## Scoped AGENTS.md
 
-**Two complementary systems:**
+Domain-specific conventions live in scoped AGENTS.md files. Load the relevant one before editing files in that directory.
 
-1. **`ThreeGPPConfig`** (pydantic-settings, alias `TDocCrawlerConfig`) — Type-safe configuration from files/env vars
-2. **`CacheManager`** (runtime paths) — File system path resolution
-
-### ThreeGPPConfig (Settings)
-
-Use for **all configurable behavior** (timeouts, credentials, limits, etc.):
-
-```python
-from tdoc_crawler.config import ThreeGPPConfig
-
-# Load with automatic discovery (3gpp-crawler.toml, env vars)
-config = ThreeGPPConfig.from_settings()
-
-# Or with explicit config file
-config = ThreeGPPConfig.from_settings(config_file=Path("./my-config.toml"))
-
-# Access nested config
-config.path.cache_dir      # Path to cache directory
-config.http.timeout        # HTTP timeout in seconds
-config.credentials.username  # Portal username
-config.crawl.workers       # Concurrent crawl workers
-```
-
-**Config file discovery order** (later overrides earlier):
-1. Global: `~/.config/3gpp-crawler/config.toml`
-2. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
-3. Config dir: `.config/.3gpp-crawler/conf.d/*.toml` (alphabetical)
-
-**Precedence:** CLI args > Config file > Environment variables > Defaults
-
-**Supported formats:** TOML (primary), YAML, JSON
-
-**Environment variable prefixes:**
-- `TDC_*` — Path settings
-- `TDC_EOL_*` — Portal credentials
-- `TDC_CRAWL_*` — Crawl filters
-- `HTTP_CACHE_*` — HTTP cache settings
-
-### CacheManager Pattern (Runtime Paths)
-
-**Single Source of Truth:** All file paths MUST use `CacheManager` from `src/tdoc_crawler/config/__init__.py`.
-
-The CacheManager must be registered once at the start of the program, and then resolved wherever needed.
-
-### Usage
-
-```python
-from tdoc_crawler.config import resolve_cache_manager, CacheManager
-
-# Get registered manager (preferred)
-manager = resolve_cache_manager()
-
-# Or create new (auto-registers)
-manager = CacheManager(cache_dir).register()
-
-# Access paths (NEVER hardcode these)
-manager.root              # ~/.3gpp-crawler/
-manager.db_file           # ~/.3gpp-crawler/3gpp_crawler.db
-manager.http_cache_file   # ~/.3gpp-crawler/http-cache.sqlite3
-manager.checkout_dir      # ~/.3gpp-crawler/checkout/
-manager.ai_cache_dir      # ~/.3gpp-crawler/lightrag/
-manager.ai_workspace_file # ~/.3gpp-crawler/lightrag/workspaces.json
-manager.ai_embed_dir(model)  # ~/.3gpp-crawler/lightrag/{model}/
-```
-
-### Why This Matters
-
-- **DRY principle:** Path logic defined once, used everywhere
-- **Configurability:** Users can override via `TDC_CACHE_DIR` and `TDC_AI_STORE_PATH` env vars
-- **Consistency:** All components use identical paths
-- **Testability:** Easy to swap in test directories
-
-### Common Mistakes to Avoid
-
-```python
-# ❌ WRONG - Never hardcode paths
-Path.home() / ".3gpp-crawler" / "lightrag"
-os.path.expanduser("~/.3gpp-crawler")
-
-# ✅ CORRECT - Always use CacheManager
-manager = resolve_cache_manager()
-manager.ai_cache_dir
-manager.ai_embed_dir("qwen3-embedding-0.6b")
-```
-
-In the current framework, the `CacheManager` is instantiated only the the CLI wrapper.
-
-If used as a library, the user must create and register their own instance *as soon as possible* at the start of their program. Any method/class relies on a properly registered `CacheManager` being available - fallback/try-except-boilerplate must not be used!
-
-```python
-# ❌ WRONG - boilerplate/too much safety - just let it fail if not registered, it's a dev error that must be fixed
-try:
-    manager = resolve_cache_manager()
-except CacheManagerNotRegisteredError:
-    try:
-        manager = CacheManager(default_cache_dir).register()
-    except Exception as e:
-        raise RuntimeError("Failed to create and register CacheManager. Please ensure it's registered at the start of your program.") from e
-    raise RuntimeError("CacheManager must be registered before use. Please create and register an instance at the start of your program.")
-
-# ✅ CORRECT - simply resolve it, without an argument. Let it burn if not registered!
-manager = resolve_cache_manager()
-```
-
-### Configuration CLI Commands
-
-```bash
-# Generate default config file
-tdoc-crawler config init --output 3gpp-crawler.toml
-
-# Show current configuration (env + files + defaults)
-tdoc-crawler config show
-```
-
-## Antipaterns (what NOT to do)
-
-Errors are often masked by trying to be too clever and/or too careful with error handling or by not following the established patterns. Always prefer simplicity and clarity over complex workarounds.
-
-### Overly careful error handling and inconsistent return types
-
-```python
-# ❌ WRONG - arguments and result types may be None to handle invalid inputs or to indicate failed operation
-
-def get_info(number: str|int|None, message: str|None|Any) -> InfoObject|str|None:
-
-    # This function tries to handle too many cases and returns different types, making it hard to use and error-prone. It also uses None in multiple ways, which can lead to confusion.
-    if isinstance(tdoc_id, None):
-        raise ValueError("tdoc_id cannot be None")
-    if not isinstance(tdoc_id, (str, int)):
-        raise TypeError("tdoc_id must be a string or integer")
-
-    # ... rest of the logic
-    try:
-        # some processing logic that may fail
-        ...
-        return info_object  # on success
-
-    # "encode" logic into return values, which is an antipattern. It makes it hard for users to know what to expect and how to handle different cases.
-    except SomeSpecificError:
-        return None
-    except AnotherError:
-        return "Error: Invalid input"  # on invalid input
-
-# ✅ CORRECT - keep it simple/clear, with consistent return types, minimum amount of checking. Otherwise: let it burn!
-def get_info(number: str|int, message: str) -> InfoObject:
-    if not isinstance(tdoc_id, (str, int)):
-        raise TypeError("tdoc_id must be a string or integer")
-
-    # some processing logic that may fail
-    ...
-    return info_object  # on success
-
-```
-
-### Usage of typing.TYPE_CHECKING
-
-Avoid using `typing.TYPE_CHECKING` at all costs! When used for just for type annotations, it is unnecessary to use `typing.TYPE_CHECKING` and can easily be removed. If it is used to work around circular imports or to delay imports, this indicates a bad code structure/design. Instead, refactor the code to eliminate circular dependencies and ensure that imports are straightforward and at the top of the file.
-
-## Scoped AGENTS.md (MUST read when working in these directories)
-
-List scoped AGENTS.md files with:
+Discover scoped files with:
 
 ```shell
 rg -l "" -g "*/**/AGENTS.md"
 ```
 
-> **Agents:** When editing files in listed directories, load its AGENTS.md first. It contains directory-specific conventions that override this root file.
+Generate project structure with:
 
-## Documentation
-
-- **Skills:** `docs/skills-reference.md`
-- **3GPP Skills:** Load `3gpp-basics`, `3gpp-tdocs`, etc. for domain context
+```shell
+rg --files | tree-cli --fromfile
+```
