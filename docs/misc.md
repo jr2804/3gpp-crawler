@@ -17,11 +17,9 @@ You can control caching via CLI or `.env`:
 ```bash
 # Environment variables
 HTTP_CACHE_TTL=7200
-HTTP_CACHE_REFRESH_ON_ACCESS=true
 
 # CLI Flags
 --cache-ttl 3600
---no-cache-refresh
 ```
 
 ## ETSI Online (EOL) Credentials
