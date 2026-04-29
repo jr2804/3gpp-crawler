@@ -2,25 +2,35 @@
 cls
 call .venv\scripts\activate.bat
 
-:: SET TDC_AI_CONVERT_MD=1
-:: SET TDC_AI_VLM=1
-SET TDC_AI_EXTRACTION_PROFILE=optimum
+:: Crawl *all* meetings from SA4
+tdoc-crawler crawl-meetings -s S4
 
-:: tdoc-crawler crawl-meetings -s S4
-:: tdoc-crawler crawl --start-date 2016
+:: crawl all tdocs metadata from 2016 on onwards
+tdoc-crawler crawl --start-date 2016
+
+:: query tdocs from atias agenda items from 2018 on onwards
 tdoc-crawler query --agenda "*atias*" --start-date 2018
 
+:: remove and re-create workspace 'atias'
 3gpp-crawler workspace deactivate
 3gpp-crawler workspace delete atias --force
 3gpp-crawler workspace create atias
 3gpp-crawler workspace activate atias
-:: add tdocs
-3gpp-crawler workspace add atias S4-260109 --kind tdoc
+
+:: add single tdoc to workspace ('-w atias' is optional if workspace is active)
+3gpp-crawler workspace add S4-260109 --kind tdoc -w atias
 
 :: add specs in different versions/releases
+:: ... latest (default; currently 19.1.0)
 3gpp-crawler workspace add atias 26131 26132 26260 26261 21905 --kind spec
-3gpp-crawler workspace add atias 26260 --kind spec
-3gpp-crawler workspace add atias 26260 26261 --kind spec
-3gpp-crawler workspace add atias 26260 --kind spec
-3gpp-crawler workspace members atias
-:: 3gpp-crawler workspace process atias
+
+:: ... specific releases
+3gpp-crawler workspace add 26260 --kind spec --release 18.1
+3gpp-crawler workspace add 26260 26261 --kind spec --release 18.0
+3gpp-crawler workspace add 26260 --kind spec --release 17
+
+:: overview
+3gpp-crawler workspace members
+
+:: convert tdocs/specs to PDF/Markdown/artefacts for AI processing
+3gpp-crawler workspace process
