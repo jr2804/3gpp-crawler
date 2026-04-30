@@ -19,14 +19,20 @@ from tdoc_crawler.workspaces.members import (
     remove_invalid_members,
     remove_workspace_member,
 )
-from tdoc_crawler.workspaces.utils import delete_ai_folder, resolve_tdoc_checkout_path
+from tdoc_crawler.workspaces.utils import (
+    checkout_spec_to_workspace,
+    checkout_tdoc_to_workspace,
+    resolve_spec_release_from_db,
+    resolve_tdoc_checkout_path,
+)
 
 __all__ = [
     "DEFAULT_WORKSPACE",
     "add_workspace_members",
+    "checkout_spec_to_workspace",
+    "checkout_tdoc_to_workspace",
     "create_workspace",
     "deactivate_workspace_member",
-    "delete_ai_folder",
     "delete_workspace",
     "ensure_default_workspace",
     "get_active_workspace",
@@ -39,6 +45,7 @@ __all__ = [
     "normalize_workspace_name",
     "remove_invalid_members",
     "remove_workspace_member",
+    "resolve_spec_release_from_db",
     "resolve_tdoc_checkout_path",
     "set_active_workspace",
 ]

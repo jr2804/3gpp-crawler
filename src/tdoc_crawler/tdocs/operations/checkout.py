@@ -13,15 +13,17 @@ import zipfile
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import niquests as requests
+from bs4 import BeautifulSoup
 
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocMetadata, TDocStatus
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
+from tdoc_crawler.utils.security import safe_extract_zip
 
 logger = get_logger(__name__)
 
@@ -60,8 +62,40 @@ def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
     if relative_parts:
         relative_parts = relative_parts[:-1]
 
-    checkout_path = checkout_dir.joinpath(*relative_parts) / metadata.tdoc_id if relative_parts else checkout_dir / metadata.tdoc_id
-    return checkout_path
+    return checkout_dir.joinpath(*relative_parts) / metadata.tdoc_id if relative_parts else checkout_dir / metadata.tdoc_id
+
+
+def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | None = None) -> str | None:
+    """Fetch directory listing and find case-correct URL for the TDoc zip.
+
+    When the server hosts a file with different casing than expected,
+    this parses the directory listing HTML to find the actual filename.
+    """
+    if not metadata.url:
+        return None
+
+    directory_url = metadata.url.rsplit("/", 1)[0] + "/"
+    expected_filename = posixpath.basename(metadata.url)
+
+    try:
+        with requests.Session() as plain_session:
+            response = plain_session.get(directory_url, timeout=60)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content or b"", "html.parser")
+            expected_lower = expected_filename.lower()
+
+            for link in soup.find_all("a", href=True):
+                href = link.get("href")
+                if not isinstance(href, str):
+                    continue
+                full_url = urljoin(directory_url, href)
+                actual_filename = posixpath.basename(full_url)
+                if actual_filename.lower() == expected_lower:
+                    return full_url
+    except requests.RequestException, OSError:
+        logger.debug(f"Failed to fetch directory listing from {directory_url}")
+
+    return None
 
 
 def checkout_tdoc(
@@ -88,7 +122,8 @@ def checkout_tdoc(
     # Check if TDoc is withdrawn - if so, skip download and log debug message
     if metadata.status == TDocStatus.WITHDRAWN:
         logger.debug(f"Skipping checkout for withdrawn TDoc {metadata.tdoc_id}")
-        raise FileNotFoundError("withdrawn")
+        msg = "withdrawn"
+        raise FileNotFoundError(msg)
 
     checkout_path = get_checkout_path(metadata, checkout_dir)
 
@@ -100,12 +135,23 @@ def checkout_tdoc(
     temp_zip_file = checkout_path / f"{metadata.tdoc_id}.zip"
 
     if metadata.url is None:
-        raise ValueError(f"TDoc {metadata.tdoc_id} has no URL")
+        msg = f"TDoc {metadata.tdoc_id} has no URL"
+        raise ValueError(msg)
 
     try:
         download_to_file(metadata.url, temp_zip_file, session=session)
-        with zipfile.ZipFile(temp_zip_file) as archive:
-            archive.extractall(checkout_path)
+        try:
+            with zipfile.ZipFile(temp_zip_file) as _zf:
+                pass
+        except zipfile.BadZipFile:
+            corrected_url = _resolve_corrected_url(metadata)
+            if corrected_url and corrected_url != metadata.url:
+                logger.info(f"Retrying checkout for {metadata.tdoc_id} with corrected URL: {corrected_url}")
+                with requests.Session() as plain_session:
+                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
+            else:
+                raise
+        safe_extract_zip(temp_zip_file, checkout_path)
         logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
     finally:
         if temp_zip_file.exists():
@@ -131,12 +177,14 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
     """
     # Handle the case where metadata.url is None
     if metadata.url is None:
-        raise ValueError(f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None")
+        msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None"
+        raise ValueError(msg)
 
     # Check if TDoc is withdrawn - if so, skip download and log debug message
     if metadata.status == TDocStatus.WITHDRAWN:
         logger.debug(f"Skipping download for withdrawn TDoc {metadata.tdoc_id}")
-        raise FileNotFoundError("withdrawn")
+        msg = "withdrawn"
+        raise FileNotFoundError(msg)
 
     downloads_dir = Path(checkout_dir)
     downloads_dir.mkdir(parents=True, exist_ok=True)
@@ -154,26 +202,27 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
         zip_file = downloads_dir / f"{metadata.tdoc_id}.zip"
         download_to_file(metadata.url, zip_file, session=session)
         try:
-            with zipfile.ZipFile(zip_file) as archive:
-                archive.extractall(extract_dir)
+            safe_extract_zip(zip_file, extract_dir)
         finally:
             with suppress(FileNotFoundError):
                 zip_file.unlink()
         files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
         if not files:
-            raise FileNotFoundError("no-files-in-archive")
+            msg = "no-files-in-archive"
+            raise FileNotFoundError(msg)
         return extract_dir if return_dir else files[0]
 
     # For non-zip files, download directly
     target_suffix = suffix or ""
-    target_name = filename if filename else f"{metadata.tdoc_id}{target_suffix or '.bin'}"
+    target_name = filename or f"{metadata.tdoc_id}{target_suffix or '.bin'}"
     target_file = downloads_dir / target_name
     if not target_file.exists():
         try:
             download_to_file(metadata.url, target_file, session=session)
         except requests.exceptions.HTTPError as exc:
             status_code = exc.response.status_code if exc.response is not None else "unknown"
-            raise FileNotFoundError(f"failed-to-download ({status_code}): {metadata.url}") from exc
+            msg = f"failed-to-download ({status_code}): {metadata.url}"
+            raise FileNotFoundError(msg) from exc
     return target_file
 
 
@@ -253,7 +302,8 @@ def checkout_tdocs(
     for metadata in results:
         try:
             if not metadata.url:
-                raise ValueError("missing URL")
+                msg = "missing URL"
+                raise ValueError(msg)
             checkout_tdoc(metadata, checkout_dir, force=force, session=session)
             success_count += 1
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
@@ -281,7 +331,8 @@ def get_meeting_checkout_folder(meeting: MeetingMetadata, checkout_dir: Path) ->
         Path to the meeting checkout folder
     """
     if meeting.files_url is None:
-        raise ValueError(f"Meeting {meeting.short_name} has no files_url")
+        msg = f"Meeting {meeting.short_name} has no files_url"
+        raise ValueError(msg)
 
     url_path_str: str = str(urlparse(meeting.files_url).path)
     url_path_str = url_path_str.lstrip("/")
@@ -293,8 +344,7 @@ def get_meeting_checkout_folder(meeting: MeetingMetadata, checkout_dir: Path) ->
     except ValueError:
         relative_parts = path_parts
 
-    meeting_folder = checkout_dir.joinpath(*relative_parts) if relative_parts else checkout_dir
-    return meeting_folder
+    return checkout_dir.joinpath(*relative_parts) if relative_parts else checkout_dir
 
 
 def checkout_meeting_tdocs(

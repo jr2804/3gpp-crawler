@@ -12,6 +12,11 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_id
 _logger = get_logger(__name__)
 
 
+def _normalize_member_id(member_id: str) -> str:
+    """Normalize a member ID for comparison."""
+    return member_id.lower().replace("rel", "")
+
+
 def add_workspace_members(
     workspace: str | None,
     members: list[WorkspaceMember],
@@ -37,11 +42,22 @@ def add_workspace_members(
         return 0
 
     added_count = 0
+    skipped_count = 0
     for member in members:
+        existing_ids = [_normalize_member_id(str(m.get("source_item_id", ""))) for m in metadata.members]
+        new_id = _normalize_member_id(member.source_item_id)
+
+        if new_id in existing_ids:
+            skipped_count += 1
+
         metadata.add_member(member)
         added_count += 1
 
     registry.save()
+
+    if skipped_count > 0:
+        pass
+
     return added_count
 
 
@@ -66,7 +82,8 @@ def list_workspace_members(
 
     metadata = registry.get_workspace(normalized_workspace)
     if metadata is None:
-        raise WorkspaceNotFoundError(f"Workspace '{normalized_workspace}' not found")
+        msg = f"Workspace '{normalized_workspace}' not found"
+        raise WorkspaceNotFoundError(msg)
 
     return metadata.list_members(include_inactive=include_inactive)
 
