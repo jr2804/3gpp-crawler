@@ -32,7 +32,8 @@ class WorkingGroup(StrEnum):
             if wg.name.startswith(lit):
                 return wg
 
-        raise ValueError(f"Unknown working group literal: {literal}")
+        msg = f"Unknown working group literal: {literal}"
+        raise ValueError(msg)
 
 
 class WorkingGroupRecord(BaseModel):

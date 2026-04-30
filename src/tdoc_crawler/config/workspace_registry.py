@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import UTC
 from pathlib import Path
 from typing import TypedDict
 
@@ -207,19 +206,6 @@ class WorkspaceMetadata:
             counts["total"] += 1
         return counts
 
-    def update_wiki_build_health(
-        self,
-        page_count: int,
-        failed_pages: int,
-        compile_hash: str,
-    ) -> None:
-        """Update wiki build health metadata after a compile run."""
-        from datetime import datetime
-        self.wiki_build_timestamp = datetime.now(UTC).isoformat()
-        self.wiki_page_count = page_count
-        self.wiki_failed_pages = failed_pages
-        self.wiki_compile_hash = compile_hash
-
     def list_members(self, include_inactive: bool = False) -> list[WorkspaceMember]:
         """List members of the workspace."""
         members = []
@@ -290,7 +276,7 @@ class WorkspaceRegistry:
         with registry_path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
-        logger.debug(f"Saved workspace registry to {registry_path}")
+        logger.debug("Saved workspace registry to %s", registry_path)
 
     def create_workspace(
         self,
@@ -313,10 +299,12 @@ class WorkspaceRegistry:
         """
         normalized_name = normalize_workspace_name(name)
         if not normalized_name:
-            raise ValueError("Workspace name cannot be empty")
+            msg = "Workspace name cannot be empty"
+            raise ValueError(msg)
 
         if normalized_name in self.workspaces:
-            raise ValueError(f"Workspace '{normalized_name}' already exists")
+            msg = f"Workspace '{normalized_name}' already exists"
+            raise ValueError(msg)
 
         metadata = WorkspaceMetadata(
             name=normalized_name,
@@ -324,7 +312,7 @@ class WorkspaceRegistry:
             auto_build=auto_build,
         )
         self.workspaces[normalized_name] = metadata
-        logger.info(f"Created workspace '{normalized_name}'")
+        logger.info("Created workspace '%s'", normalized_name)
         return metadata
 
     def delete_workspace(self, name: str) -> bool:
@@ -342,7 +330,7 @@ class WorkspaceRegistry:
             return False
 
         if normalized_name not in self.workspaces:
-            logger.warning(f"Workspace '{normalized_name}' not found")
+            logger.warning("Workspace '%s' not found", normalized_name)
             return False
 
         del self.workspaces[normalized_name]
@@ -351,7 +339,7 @@ class WorkspaceRegistry:
         if self.active == normalized_name:
             self.active = DEFAULT_WORKSPACE
 
-        logger.info(f"Deleted workspace '{normalized_name}'")
+        logger.info("Deleted workspace '%s'", normalized_name)
         return True
 
     def get_workspace(self, name: str) -> WorkspaceMetadata | None:
@@ -385,7 +373,7 @@ class WorkspaceRegistry:
                     spec_count=counts.get("spec", 0),
                     other_count=counts.get("other", 0),
                     is_active=metadata.name == active_name,
-                )
+                ),
             )
 
         return result
@@ -401,10 +389,11 @@ class WorkspaceRegistry:
         """
         normalized_name = normalize_workspace_name(name)
         if normalized_name not in self.workspaces:
-            raise ValueError(f"Workspace '{normalized_name}' does not exist")
+            msg = f"Workspace '{normalized_name}' does not exist"
+            raise ValueError(msg)
 
         self.active = normalized_name
-        logger.info(f"Set active workspace to '{normalized_name}'")
+        logger.info("Set active workspace to '%s'", normalized_name)
 
     @classmethod
     def load(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
@@ -420,7 +409,7 @@ class WorkspaceRegistry:
             registry_path = PathConfig().cache_dir / WORKSPACE_REGISTRY_FILENAME
 
         if not registry_path.exists():
-            logger.debug(f"Registry not found at {registry_path}, creating new")
+            logger.debug("Registry not found at %s, creating new", registry_path)
             return cls._create_default(registry_path)
 
         try:
@@ -439,7 +428,7 @@ class WorkspaceRegistry:
             return registry
 
         except (json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to load registry from {registry_path}: {e}")
+            logger.exception("Failed to load registry from %s: %s", registry_path, e)
             return cls._create_default(registry_path)
 
     @classmethod

@@ -6,8 +6,6 @@ from the whatthespec.net community API.
 
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
 from pathlib import Path
 
 import niquests as requests
@@ -18,6 +16,7 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
+from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
@@ -65,7 +64,7 @@ def resolve_via_whatthespec(
         payload = response.json()
     except requests.RequestException as exc:
         error_msg = f"WhatTheSpec request failed for {tdoc_id}: {exc}"
-        logger.error(error_msg)
+        logger.exception(error_msg)
         raise WhatTheSpecResolutionError(error_msg) from exc
     finally:
         if temp_session:
@@ -85,17 +84,9 @@ def resolve_via_whatthespec(
         async with MeetingDatabase(resolved_db_file) as db:
             return await db.resolve_meeting_id(meeting_name) or 0
 
-    # asyncio.run() cannot be called from within a running event loop (e.g. when
-    # this sync function is invoked from an async caller).  Run in a thread that
-    # owns its own event loop to stay safe in both contexts.
-    try:
-        asyncio.get_running_loop()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            meeting_id = pool.submit(asyncio.run, resolve_meeting_id_async()).result()
-    except RuntimeError:
-        meeting_id = asyncio.run(resolve_meeting_id_async())
+    meeting_id = run_async(resolve_meeting_id_async())
 
-    metadata = TDocMetadata(
+    return TDocMetadata(
         tdoc_id=resolved_id,
         meeting_id=meeting_id,
         title=str(record.get("title") or ""),
@@ -113,7 +104,6 @@ def resolve_via_whatthespec(
         validated=False,
         validation_failed=False,
     )
-    return metadata
 
 
 class WhatTheSpecSource(TDocSource):
@@ -156,7 +146,7 @@ class WhatTheSpecSource(TDocSource):
             TDocMetadata if found, None otherwise
         """
         try:
-            metadata = resolve_via_whatthespec(
+            return resolve_via_whatthespec(
                 tdoc_id=tdoc_id,
                 http_config=self.config.http_config,
                 timeout=timeout,
@@ -164,9 +154,8 @@ class WhatTheSpecSource(TDocSource):
                 http_cache_file=self.config.http_cache_file,
                 db_file=self.config.db_file,
             )
-            return metadata
         except Exception as exc:
-            logger.debug(f"WhatTheSpec lookup failed for {tdoc_id}: {exc}")
+            logger.debug("WhatTheSpec lookup failed for %s: %s", tdoc_id, exc)
             return None
 
     def fetch_by_meeting(
@@ -187,7 +176,8 @@ class WhatTheSpecSource(TDocSource):
         Returns:
             Empty list (not supported by this source)
         """
-        raise NotImplementedError(f"WhatTheSpec does not support bulk meeting queries for meeting {meeting_id}")
+        msg = f"WhatTheSpec does not support bulk meeting queries for meeting {meeting_id}"
+        raise NotImplementedError(msg)
 
     @property
     def source_name(self) -> str:

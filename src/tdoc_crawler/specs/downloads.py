@@ -1,7 +1,5 @@
 """Spec download orchestration."""
 
-import asyncio
-import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +12,10 @@ from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.sources.base import SpecSource
+from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
 from tdoc_crawler.utils.parse import parse_spec_version, parse_spec_version_nbr
+from tdoc_crawler.utils.security import safe_extract_zip
 
 _logger = get_logger(__name__)
 
@@ -41,7 +41,7 @@ class SpecDownloads:
         sources: list[SpecSource] | None = None,
     ) -> list[Path]:
         """Download and extract spec documents to the checkout directory."""
-        return asyncio.run(self.checkout_specs_async(specs, doc_only, checkout_dir, release, sources=sources))
+        return run_async(self.checkout_specs_async(specs, doc_only, checkout_dir, release, sources=sources))
 
     async def checkout_specs_async(
         self,
@@ -77,7 +77,8 @@ class SpecDownloads:
         """Download and open a spec document with the system default application."""
         paths = self.checkout_specs([spec], doc_only, checkout_dir, release, sources=sources)
         if not paths:
-            raise FileNotFoundError(f"Spec {spec} could not be checked out")
+            msg = f"Spec {spec} could not be checked out"
+            raise FileNotFoundError(msg)
 
         # Find the doc/valid file to open in the target dir
         target_dir = paths[0]
@@ -124,7 +125,7 @@ class SpecDownloads:
 
             return target_dir
         except Exception as exc:
-            _logger.error("Failed to checkout %s: %s", spec, exc)
+            _logger.exception("Failed to checkout %s: %s", spec, exc)
             return None
 
     async def _resolve_spec_url_with_fallback(
@@ -158,7 +159,8 @@ class SpecDownloads:
         series = f"{normalized.split('.', maxsplit=1)[0]}_series"
         versions = await self._database.get_spec_versions(normalized)
         if not versions:
-            raise ValueError(f"No versions found for spec {normalized}")
+            msg = f"No versions found for spec {normalized}"
+            raise ValueError(msg)
 
         versions.sort(key=lambda version: parse_spec_version(version.version), reverse=True)
 
@@ -259,22 +261,35 @@ class SpecDownloads:
 
     @staticmethod
     def _extract_zip(zip_file: Path, extract_dir: Path, keep_zip: bool = True) -> None:
-        """Extract zip file."""
+        """Extract zip file with path traversal protection."""
         try:
-            with zipfile.ZipFile(zip_file) as z:
-                z.extractall(extract_dir)
+            safe_extract_zip(zip_file, extract_dir)
 
             if not keep_zip:
                 zip_file.unlink()
         except Exception as exc:
-            _logger.error("Failed to extract %s: %s", zip_file, exc)
+            _logger.exception("Failed to extract %s: %s", zip_file, exc)
 
 
 def _select_doc_entry(entries: list[str], normalized: str) -> str | None:
+    """Select the best doc/docx entry from a list of zip entries.
+
+    Uses only the filename (not full path) for matching, so directory
+    prefixes in zip paths like "26.131/26131-j00.docx" are handled correctly.
+
+    Args:
+        entries: List of entry paths from a zip file.
+        normalized: Normalized spec number (e.g., "26.131").
+
+    Returns:
+        The matching entry path (full path), or None if no match found.
+    """
     compact = normalized.replace(".", "")
     for entry in entries:
-        lower = entry.lower()
-        if not (lower.endswith(".doc") or lower.endswith(".docx")):
+        # Use only filename for matching, not the full path
+        filename = entry.split("/")[-1]
+        lower = filename.lower()
+        if not (lower.endswith((".doc", ".docx"))):
             continue
         token = lower.replace(".", "")
         if compact.lower() in token:

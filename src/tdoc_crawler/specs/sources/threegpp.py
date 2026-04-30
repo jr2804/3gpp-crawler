@@ -14,8 +14,6 @@ _logger = get_logger(__name__)
 class SpecNotFoundError(Exception):
     """Raised when a specification is not found on 3GPP portal."""
 
-    pass
-
 
 def fetch_threegpp_metadata(spec_number: str, http_config: HttpConfig | None = None, http_cache_file: Path | None = None) -> dict[str, object]:
     """Fetch spec metadata via 3GPP.org redirect flow.
@@ -47,7 +45,8 @@ def fetch_threegpp_metadata(spec_number: str, http_config: HttpConfig | None = N
     # Verify the spec exists by checking for specificationId in the redirect URL
     if spec_id is None:
         _logger.warning("Spec %s not found (no specificationId in redirect URL: %s)", normalized, response.url)
-        raise SpecNotFoundError(f"Spec {normalized} not found on 3GPP portal")
+        msg = f"Spec {normalized} not found on 3GPP portal"
+        raise SpecNotFoundError(msg)
 
     payload: dict[str, object]
     try:

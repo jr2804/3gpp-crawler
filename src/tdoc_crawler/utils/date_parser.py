@@ -29,7 +29,7 @@ def parse_partial_date(value: str, is_end: bool = False) -> date:
         year = int(parts[0])
         return date(year, 12, 31) if is_end else date(year, 1, 1)
 
-    elif len(parts) == 2:
+    if len(parts) == 2:
         # Year-Month: YYYY-MM
         year, month = int(parts[0]), int(parts[1])
         if is_end:
@@ -37,9 +37,9 @@ def parse_partial_date(value: str, is_end: bool = False) -> date:
             return date(year, month, last_day)
         return date(year, month, 1)
 
-    elif len(parts) == 3:
+    if len(parts) == 3:
         # Full date: YYYY-MM-DD
         return date(int(parts[0]), int(parts[1]), int(parts[2]))
 
-    else:
-        raise ValueError(f"Invalid date format: {value}. Use YYYY, YYYY-MM, or YYYY-MM-DD")
+    msg = f"Invalid date format: {value}. Use YYYY, YYYY-MM, or YYYY-MM-DD"
+    raise ValueError(msg)

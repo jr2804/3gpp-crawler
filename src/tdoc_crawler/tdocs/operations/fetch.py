@@ -78,15 +78,16 @@ def create_source(
     """
     if method == FetchMethod.WHATTHESPEC:
         return WhatTheSpecSource(config=config, session=session)
-    elif method == FetchMethod.PORTAL_FULL_METADATA:
+    if method == FetchMethod.PORTAL_FULL_METADATA:
         return PortalSource(config=config)
-    elif method == FetchMethod.DOCUMENT_LIST:
+    if method == FetchMethod.DOCUMENT_LIST:
         return DocumentListSource(config=config)
-    elif method == FetchMethod.PORTAL_URL_ONLY:
+    if method == FetchMethod.PORTAL_URL_ONLY:
         # For URL-only method, we'll handle it separately as it doesn't fit the source pattern
-        raise ValueError("PORTAL_URL_ONLY method should be handled separately")
-    else:
-        raise ValueError(f"Unknown fetch method: {method}")
+        msg = "PORTAL_URL_ONLY method should be handled separately"
+        raise ValueError(msg)
+    msg = f"Unknown fetch method: {method}"
+    raise ValueError(msg)
 
 
 async def fetch_missing_tdocs_batch(
@@ -139,7 +140,7 @@ async def fetch_missing_tdocs_batch(
             elif updated:
                 updated_count += 1
 
-            logger.info(f"Successfully fetched and stored {tdoc_id}")
+            logger.info("Successfully fetched and stored %s", tdoc_id)
 
         except ValidationError as exc:
             validation_errors = []
@@ -153,7 +154,7 @@ async def fetch_missing_tdocs_batch(
             errors.append(error_msg)
         except Exception as exc:
             error_msg = f"Failed to fetch {tdoc_id}: {exc}"
-            logger.error(error_msg)
+            logger.exception(error_msg)
             errors.append(error_msg)
 
     # Clean up source
@@ -209,7 +210,7 @@ async def fetch_via_whatthespec_batch(
                     inserted_count += 1
                 elif updated:
                     updated_count += 1
-                logger.info(f"Successfully fetched {tdoc_id} via whatthespec")
+                logger.info("Successfully fetched %s via whatthespec", tdoc_id)
             else:
                 error_msg = f"WhatTheSpec returned no data for {tdoc_id}"
                 logger.warning(error_msg)

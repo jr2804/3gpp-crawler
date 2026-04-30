@@ -75,7 +75,8 @@ class SubWorkingGroup(StrEnum):
         try:
             return cls[code]
         except KeyError:
-            raise ValueError(f"Unknown subgroup code: {code}") from None
+            msg = f"Unknown subgroup code: {code}"
+            raise ValueError(msg) from None
 
 
 class SubWorkingGroupRecord(BaseModel):

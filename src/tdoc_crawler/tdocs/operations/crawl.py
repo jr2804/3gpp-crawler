@@ -37,7 +37,8 @@ class TDocCrawler:
 
     def __init__(self, database: TDocDatabase) -> None:
         if not isinstance(database, TDocDatabase):
-            raise TypeError(f"Expected TDocDatabase, got {type(database)}")
+            msg = f"Expected TDocDatabase, got {type(database)}"
+            raise TypeError(msg)
         self.database = database
 
     async def crawl(self, config: TDocCrawlConfig, progress_callback: Callable[[float, float], None] | None = None) -> TDocCrawlResult:
@@ -100,8 +101,7 @@ class TDocCrawler:
 
         filtered = self._filter_meetings_by_ids(meetings, config.meeting_ids)
         filtered = self._filter_meetings_by_start_date(filtered, config.start_date)
-        filtered = self._filter_meetings_by_end_date(filtered, config.end_date)
-        return filtered
+        return self._filter_meetings_by_end_date(filtered, config.end_date)
 
     def _crawl_meetings(
         self,
@@ -164,8 +164,7 @@ class TDocCrawler:
         limited = list(meetings)
         limited = cls._apply_total_meeting_limit(limited, limit_meetings)
         limited = cls._apply_meetings_per_subwg_limit(limited, limit_meetings_per_subwg)
-        limited = cls._apply_subworking_group_limit(limited, limit_subwgs)
-        return limited
+        return cls._apply_subworking_group_limit(limited, limit_subwgs)
 
     @classmethod
     def _parse_document_list_payload(cls, json_payload: str, meeting: MeetingMetadata, errors: list[str]) -> list[str] | None:

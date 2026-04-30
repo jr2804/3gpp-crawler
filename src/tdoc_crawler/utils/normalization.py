@@ -13,33 +13,6 @@ _RANGE_SPLIT_PATTERN = re.compile(r"\s*([-:])\s*")
 _RELEASE_PREFIX_PATTERN = re.compile(r"^(?:v|rel|rel[-])", re.IGNORECASE)
 
 
-def normalize_release_label(release: str | None) -> str | None:
-    """Normalize release strings to a stable label format for metadata display.
-
-    Args:
-        release: Raw release string (e.g., "18", "Rel-18", "latest")
-
-    Returns:
-        Normalized label (e.g., "Rel-18", "latest", "all") or None if input is None/empty
-    """
-    normalized_label: str | None = None
-    if release is not None:
-        cleaned = release.strip()
-        if cleaned:
-            normalized_label = cleaned
-            try:
-                release_type, normalized_value, _ = normalize_release(cleaned)
-                if release_type == "latest":
-                    normalized_label = "latest"
-                elif release_type == "all":
-                    normalized_label = "all"
-                elif normalized_value is not None:
-                    normalized_label = f"Rel-{normalized_value.lstrip('-')}"
-            except ValueError:
-                pass
-    return normalized_label
-
-
 class NormalizationError(ValueError):
     """Raised when spec identifier normalization or expansion fails."""
 
@@ -47,10 +20,9 @@ class NormalizationError(ValueError):
 def _strip_prefixes(value: str) -> str:
     """Strip optional 3GPP and TS/TR prefixes from a spec string."""
     cleaned = value.strip().upper()
-    if cleaned.startswith("3GPP"):
-        cleaned = cleaned[4:]
+    cleaned = cleaned.removeprefix("3GPP")
     cleaned = cleaned.strip()
-    if cleaned.startswith("TS") or cleaned.startswith("TR"):
+    if cleaned.startswith(("TS", "TR")):
         cleaned = cleaned[2:]
     return cleaned.strip()
 
@@ -59,13 +31,15 @@ def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
     """Parse a spec number and return (series, increment, format_kind, increment_digits)."""
     body = _strip_prefixes(value)
     if not body:
-        raise NormalizationError("Spec number is required")
+        msg = "Spec number is required"
+        raise NormalizationError(msg)
 
     if "." in body:
         body_no_space = re.sub(r"\s+", "", body)
         match = _DOTTED_BODY_PATTERN.match(body_no_space)
         if not match:
-            raise NormalizationError(f"Unsupported spec number format: {value}")
+            msg = f"Unsupported spec number format: {value}"
+            raise NormalizationError(msg)
         series = match.group("series")
         increment_raw = match.group("increment")
         increment = increment_raw.zfill(3)
@@ -74,7 +48,8 @@ def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
     digits_only = re.sub(r"\s+", "", body)
     match = _UNDOTTED_BODY_PATTERN.match(digits_only)
     if not match:
-        raise NormalizationError(f"Unsupported spec number format: {value}")
+        msg = f"Unsupported spec number format: {value}"
+        raise NormalizationError(msg)
     series = match.group("series")
     increment_raw = match.group("increment")
     increment = increment_raw.zfill(3)
@@ -83,9 +58,11 @@ def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
 
 def _validate_range(start_num: int, end_num: int, spec_input: str) -> None:
     if start_num > end_num:
-        raise NormalizationError(f"Invalid range: start {start_num} > end {end_num}")
+        msg = f"Invalid range: start {start_num} > end {end_num}"
+        raise NormalizationError(msg)
     if end_num - start_num > 1329:
-        raise NormalizationError(f"Range too large: {end_num - start_num + 1} specs")
+        msg = f"Range too large: {end_num - start_num + 1} specs"
+        raise NormalizationError(msg)
 
 
 def normalize_spec_number(value: str) -> str:
@@ -102,6 +79,42 @@ def normalize_spec_number(value: str) -> str:
     """
     series, increment, _, _ = _parse_spec_number(value)
     return f"{series}.{increment}"
+
+
+def _expand_offset_range(cleaned: str) -> Generator[str]:
+    """Expand offset range syntax like '26.260+6'."""
+    offset_match = _OFFSET_PATTERN.match(cleaned)
+    if not offset_match:
+        msg = "Invalid offset format"
+        raise NormalizationError(msg)
+    left = offset_match.group("left")
+    offset = int(offset_match.group("offset"))
+    if offset < 0:
+        msg = "Offset must be non-negative"
+        raise NormalizationError(msg)
+    series, start_str, _, _ = _parse_spec_number(left)
+    start_num = int(start_str)
+    end_num = start_num + offset
+    _validate_range(start_num, end_num, cleaned)
+    for num in range(start_num, end_num + 1):
+        yield f"{series}.{num:03d}"
+
+
+def _expand_dash_range(left: str, right: str, original: str) -> Generator[str]:
+    """Expand dash/colon range syntax like '26.260-26.266'."""
+    series1, num1, format1, digits1 = _parse_spec_number(left)
+    series2, num2, format2, digits2 = _parse_spec_number(right)
+    if series1 != series2:
+        msg = f"Series numbers don't match: {series1} vs {series2}"
+        raise NormalizationError(msg)
+    if format1 != format2 and (digits1 == 1 or digits2 == 1):
+        msg = "Both range endpoints must use the same format"
+        raise NormalizationError(msg)
+    start_num = int(num1)
+    end_num = int(num2)
+    _validate_range(start_num, end_num, original)
+    for num in range(start_num, end_num + 1):
+        yield f"{series1}.{num:03d}"
 
 
 def expand_spec_ranges(spec_input: str) -> Generator[str]:
@@ -124,40 +137,20 @@ def expand_spec_ranges(spec_input: str) -> Generator[str]:
     """
     cleaned = spec_input.strip()
     if not cleaned:
-        raise NormalizationError("Spec number is required")
+        msg = "Spec number is required"
+        raise NormalizationError(msg)
 
     if "+" in cleaned:
-        offset_match = _OFFSET_PATTERN.match(cleaned)
-        if not offset_match:
-            raise NormalizationError("Invalid offset format")
-        left = offset_match.group("left")
-        offset = int(offset_match.group("offset"))
-        if offset < 0:
-            raise NormalizationError("Offset must be non-negative")
-        series, start_str, _, _ = _parse_spec_number(left)
-        start_num = int(start_str)
-        end_num = start_num + offset
-        _validate_range(start_num, end_num, spec_input)
-        for num in range(start_num, end_num + 1):
-            yield f"{series}.{num:03d}"
+        yield from _expand_offset_range(cleaned)
         return
 
     split = _RANGE_SPLIT_PATTERN.split(cleaned, maxsplit=1)
     if len(split) == 3:
         left, _sep, right = split
         if not right.strip():
-            raise NormalizationError("Missing end value in range")
-        series1, num1, format1, digits1 = _parse_spec_number(left)
-        series2, num2, format2, digits2 = _parse_spec_number(right)
-        if series1 != series2:
-            raise NormalizationError(f"Series numbers don't match: {series1} vs {series2}")
-        if format1 != format2 and (digits1 == 1 or digits2 == 1):
-            raise NormalizationError("Both range endpoints must use the same format")
-        start_num = int(num1)
-        end_num = int(num2)
-        _validate_range(start_num, end_num, spec_input)
-        for num in range(start_num, end_num + 1):
-            yield f"{series1}.{num:03d}"
+            msg = "Missing end value in range"
+            raise NormalizationError(msg)
+        yield from _expand_dash_range(left, right, spec_input)
         return
 
     yield normalize_spec_number(cleaned)
@@ -220,18 +213,21 @@ def normalize_release(release: str) -> tuple[str, str | None, int | None]:
 
     # Validate that we have a valid version number after stripping
     if not normalized:
-        raise ValueError(f"Invalid release format: '{release}'. Expected 'latest', 'all', or a version number like '18', '18.1', '18.1.0'.")
+        msg = f"Invalid release format: '{release}'. Expected 'latest', 'all', or a version number like '18', '18.1', '18.1.0'."
+        raise ValueError(msg)
 
     # Split into components and validate
     parts = normalized.split(".")
     if len(parts) > 3:
-        raise ValueError(f"Invalid release format: '{release}'. Version has too many components (max 3: major.minor.patch).")
+        msg = f"Invalid release format: '{release}'. Version has too many components (max 3: major.minor.patch)."
+        raise ValueError(msg)
 
     # Validate each part is a number
     try:
         [int(p) for p in parts]
     except ValueError as exc:
-        raise ValueError(f"Invalid release format: '{release}'. Version components must be numbers.") from exc
+        msg = f"Invalid release format: '{release}'. Version components must be numbers."
+        raise ValueError(msg) from exc
 
     specificity = len(parts)
 
@@ -243,62 +239,6 @@ def normalize_release(release: str) -> tuple[str, str | None, int | None]:
     return ("prefix", normalized, specificity)
 
 
-def resolve_release_to_full_version(release: str, available_versions: list[str]) -> str:
-    """Resolve a release selector to a full 3-digit version string.
-
-    Args:
-        release: Release selector (e.g., "latest", "17", "17.0", "17.0.0").
-        available_versions: List of available version strings (e.g., ["17.0.0", "17.1.0"]).
-
-    Returns:
-        Full 3-digit version string (e.g., "17.0.0").
-
-    Raises:
-        ValueError: If no matching version found or release format invalid.
-    """
-    release_type, release_value, specificity = normalize_release(release)
-
-    # Parse and sort versions (highest first)
-    def parse_version(version: str) -> tuple[int, ...]:
-        try:
-            return tuple(map(int, version.split(".")))
-        except ValueError:
-            return (0, 0, 0)
-
-    sorted_versions = sorted(available_versions, key=parse_version, reverse=True)
-
-    if release_type == "latest":
-        # Return highest version
-        if not sorted_versions:
-            raise ValueError("No versions available")
-        return sorted_versions[0]
-
-    if release_type == "all":
-        # Return highest version as default
-        if not sorted_versions:
-            raise ValueError("No versions available")
-        return sorted_versions[0]
-
-    if release_type == "exact":
-        # Exact match required
-        if release_value in sorted_versions:
-            return release_value
-        raise ValueError(f"Version {release_value} not found")
-
-    if release_type == "prefix":
-        # Match by prefix (major or major.minor)
-        if release_value is None or specificity is None:
-            raise ValueError(f"Invalid release format: '{release}'.")
-        prefix_parts = release_value.split(".")
-        for version in sorted_versions:
-            version_parts = version.split(".")
-            if len(version_parts) >= specificity and all(version_parts[i] == prefix_parts[i] for i in range(specificity)):
-                return version
-        raise ValueError(f"No version matches prefix {release_value}")
-
-    raise ValueError(f"Invalid release type: {release_type}")
-
-
 def normalize_tdoc_id(tdoc_id: str) -> str:
     """Normalize a TDoc ID to uppercase.
 
@@ -307,8 +247,15 @@ def normalize_tdoc_id(tdoc_id: str) -> str:
 
     Returns:
         Uppercase normalized TDoc ID.
+
+    Raises:
+        ValueError: If the ID is empty after stripping whitespace.
     """
-    return str(tdoc_id).strip().upper()
+    normalized = str(tdoc_id).strip().upper()
+    if not normalized:
+        msg = "TDoc ID cannot be empty"
+        raise ValueError(msg)
+    return normalized
 
 
 def normalize_tdoc_ids(tdoc_ids: list[str] | None) -> list[str] | None:
@@ -415,7 +362,7 @@ def normalize_working_group_alias(alias: str) -> WorkingGroup:
 
     # Easy check via list(WorkingGroup): match against name or value
     for working_group in WorkingGroup:
-        if cleaned.startswith(working_group.value) or cleaned.startswith(working_group.name):
+        if cleaned.startswith((working_group.value, working_group.name)):
             return working_group
 
     # If not found: match first letter
@@ -429,7 +376,8 @@ def normalize_working_group_alias(alias: str) -> WorkingGroup:
         if working_group.value in cleaned or working_group.name in cleaned:
             return working_group
 
-    raise ValueError(f"Unknown working group: {alias}")
+    msg = f"Unknown working group: {alias}"
+    raise ValueError(msg)
 
 
 def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
@@ -457,8 +405,10 @@ def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
     # check if cleaned contains a _single_ number or the letter "P"
     match = re.search(r"(P|\d+)", cleaned)
     if not match:
-        raise ValueError(f"Cannot parse/normalize subgroup format: {alias}")
-    elif len(match.groups()) != 1:
-        raise ValueError(f"Multiple/ambiguous matches found when parsing subgroup: {alias}")
+        msg = f"Cannot parse/normalize subgroup format: {alias}"
+        raise ValueError(msg)
+    if len(match.groups()) != 1:
+        msg = f"Multiple/ambiguous matches found when parsing subgroup: {alias}"
+        raise ValueError(msg)
 
     return SubWorkingGroup.from_wg_and_nbr(wg, match.group(1))  # e.g., S4, R1, C3

@@ -33,12 +33,12 @@ class ConfigExporter:
         """Export config to string in specified format with comments."""
         if format == "toml":
             return self._export_toml()
-        elif format == "yaml":
+        if format == "yaml":
             return self._export_yaml()
-        elif format == "json":
+        if format == "json":
             return self._export_json()
-        else:
-            raise ValueError(f"Unsupported format: {format}")
+        msg = f"Unsupported format: {format}"
+        raise ValueError(msg)
 
     def save(self, path: Path, format: FormatType = "toml", force: bool = False) -> None:
         """Save config to file.
@@ -52,7 +52,8 @@ class ConfigExporter:
             FileExistsError: If file exists and force is False.
         """
         if path.exists() and not force:
-            raise FileExistsError(f"File exists: {path}. Use --force to overwrite.")
+            msg = f"File exists: {path}. Use --force to overwrite."
+            raise FileExistsError(msg)
 
         content = self.export(format)
         path.write_text(content, encoding="utf-8")
@@ -188,14 +189,14 @@ class ConfigExporter:
         elif isinstance(value, (int, float)):
             result = str(value)
         elif isinstance(value, Path):
-            result = f'"{str(value)}"'
+            result = f'"{value!s}"'
         elif isinstance(value, str):
             escaped = value.replace("\\", "\\\\").replace('"', '\\"')
             result = f'"{escaped}"'
         elif isinstance(value, list):
             result = "[" + ", ".join(self._toml_value_to_string(item) for item in value) + "]"
         else:
-            result = f'"{str(value)}"'
+            result = f'"{value!s}"'
         return result
 
 

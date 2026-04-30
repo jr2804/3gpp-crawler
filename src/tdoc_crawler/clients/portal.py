@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Self
 
 import niquests as requests
 
@@ -99,11 +99,11 @@ class PortalClient:
             self._session.close()
             self._session = None
 
-    def __enter__(self) -> PortalClient:
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: object) -> None:
         """Exit context manager and close session."""
         self.close()
 
@@ -118,7 +118,8 @@ class PortalClient:
             return
 
         if self.credentials is None:
-            raise PortalCredentialsError("Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD.")
+            msg = "Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD."
+            raise PortalCredentialsError(msg)
 
         logger.info("Authenticating with 3GPP portal...")
 
@@ -138,7 +139,7 @@ class PortalClient:
             "password": self.credentials.password,
         }
 
-        logger.debug(f"Calling login API at {login_api_url}")
+        logger.debug("Calling login API at %s", login_api_url)
 
         login_response = session.post(
             login_api_url,
@@ -159,7 +160,8 @@ class PortalClient:
         self._authenticated = True
 
         if response_text.lower() == "failed":
-            raise PortalAuthenticationError("Authentication failed - check credentials")
+            msg = "Authentication failed - check credentials"
+            raise PortalAuthenticationError(msg)
 
         # Step 3: Store the authenticated session
         self._session = session
@@ -179,7 +181,7 @@ class PortalClient:
             PortalParsingError: If TDoc ID is invalid or URL extraction fails
             requests.RequestException: For network errors
         """
-        logger.debug(f"Extracting TDoc URL from DownloadTDoc endpoint for {tdoc_id}")
+        logger.debug("Extracting TDoc URL from DownloadTDoc endpoint for %s", tdoc_id)
 
         download_url = f"{TDOC_DOWNLOAD_URL}?contributionUid={tdoc_id}"
         session = self._get_session()
@@ -189,7 +191,8 @@ class PortalClient:
             response.raise_for_status()
 
             if "cannot be found" in response.text.lower() or "not found" in response.text.lower():
-                raise PortalParsingError(f"TDoc {tdoc_id} not found on portal")
+                msg = f"TDoc {tdoc_id} not found on portal"
+                raise PortalParsingError(msg)
 
             # Extract URL from JavaScript redirect pattern
             pattern = r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]"
@@ -206,14 +209,16 @@ class PortalClient:
                         break
 
             if not match:
-                raise PortalParsingError(f"Failed to extract URL for TDoc {tdoc_id}: JavaScript redirect not found")
+                msg = f"Failed to extract URL for TDoc {tdoc_id}: JavaScript redirect not found"
+                raise PortalParsingError(msg)
 
             extracted_url = match.group(1).strip()
 
             if not extracted_url.startswith(("http://", "https://", "ftp://")):
-                raise PortalParsingError(f"Invalid URL format for TDoc {tdoc_id}: {extracted_url}")
+                msg = f"Invalid URL format for TDoc {tdoc_id}: {extracted_url}"
+                raise PortalParsingError(msg)
 
-            logger.debug(f"Successfully extracted TDoc URL for {tdoc_id}: {extracted_url}")
+            logger.debug("Successfully extracted TDoc URL for %s: %s", tdoc_id, extracted_url)
             return extracted_url
 
         except requests.RequestException:
@@ -222,7 +227,7 @@ class PortalClient:
             raise
         except Exception as exc:
             error_msg = f"Failed to extract URL for TDoc {tdoc_id}: {exc}"
-            logger.error(error_msg)
+            logger.exception(error_msg)
             raise PortalParsingError(error_msg) from exc
 
     def fetch_tdoc_metadata(self, tdoc_id: str, url: str | None = None) -> TDocMetadata:
@@ -244,9 +249,9 @@ class PortalClient:
         if url is None:
             try:
                 url = self.extract_tdoc_url(tdoc_id)
-                logger.debug(f"Using extracted URL for {tdoc_id}")
+                logger.debug("Using extracted URL for %s", tdoc_id)
             except Exception as e:
-                logger.debug(f"URL extraction failed for {tdoc_id}: {e}")
+                logger.warning("URL extraction failed for %s: %s", tdoc_id, e)
                 # Continue - authenticated method can still work without pre-extracted URL
 
         # Ensure authenticated
@@ -254,7 +259,7 @@ class PortalClient:
 
         # Fetch TDoc page
         view_url = f"{TDOC_VIEW_URL}?mode=view&contributionUid={tdoc_id}"
-        logger.debug(f"Fetching TDoc metadata from {view_url}")
+        logger.debug("Fetching TDoc metadata from %s", view_url)
 
         session = self._get_session()
         response = session.get(view_url, timeout=self.timeout)
@@ -263,7 +268,8 @@ class PortalClient:
         # Check if redirected to login (session expired)
         if "login.aspx" in response.url.lower():
             self._authenticated = False
-            raise PortalAuthenticationError("Session expired - re-authentication required")
+            msg = "Session expired - re-authentication required"
+            raise PortalAuthenticationError(msg)
 
         # Parse the page using the parser module
         return self.parse_tdoc_page(response.text, tdoc_id, url)

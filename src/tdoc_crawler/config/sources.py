@@ -77,6 +77,19 @@ def _interpolate_env_vars(value: Any) -> Any:
     return value
 
 
+def _collect_conf_d(directory: Path, files: list[Path]) -> None:
+    """Append alphabetically sorted config files from a conf.d directory."""
+    if not directory.is_dir():
+        return
+    files.extend(conf_file for conf_file in sorted(directory.iterdir()) if conf_file.suffix.lower() in {".toml", ".yaml", ".yml", ".json"})
+
+
+def _add_if_exists(path: Path, files: list[Path]) -> None:
+    """Append path to files list if it exists as a regular file."""
+    if path.is_file():
+        files.append(path)
+
+
 def discover_config_files(cwd: Path | None = None) -> list[Path]:
     """Discover configuration files in precedence order (lowest first).
 
@@ -93,56 +106,51 @@ def discover_config_files(cwd: Path | None = None) -> list[Path]:
     if cwd is None:
         cwd = Path.cwd()
     home = Path.home()
+    global_dir = home / ".config" / "3gpp-crawler"
 
     files: list[Path] = []
 
     # Global configs (lowest precedence)
-    global_config_dir = home / ".config" / "3gpp-crawler"
-    global_config = global_config_dir / "config.toml"
-    if global_config.is_file():
-        files.append(global_config)
-
-    # Global conf.d/*.toml (alphabetical)
-    global_conf_d = global_config_dir / "conf.d"
-    if global_conf_d.is_dir():
-        for conf_file in sorted(global_conf_d.iterdir()):
-            if conf_file.suffix.lower() in {".toml", ".yaml", ".yml", ".json"}:
-                files.append(conf_file)
+    _add_if_exists(global_dir / "config.toml", files)
+    _collect_conf_d(global_dir / "conf.d", files)
 
     # Project-level configs (CWD relative, higher precedence)
-    # .config/.3gpp-crawler/conf.d/*.toml
-    project_conf_d_dot = cwd / ".config" / ".3gpp-crawler" / "conf.d"
-    if project_conf_d_dot.is_dir():
-        for conf_file in sorted(project_conf_d_dot.iterdir()):
-            if conf_file.suffix.lower() in {".toml", ".yaml", ".yml", ".json"}:
-                files.append(conf_file)
-
-    # .config/.3gpp-crawler/config.toml
-    project_dot_config = cwd / ".config" / ".3gpp-crawler" / "config.toml"
-    if project_dot_config.is_file():
-        files.append(project_dot_config)
-
-    # .config/3gpp-crawler.toml
-    project_config_short = cwd / ".config" / "3gpp-crawler.toml"
-    if project_config_short.is_file():
-        files.append(project_config_short)
-
-    # .3gpp-crawler/config.toml
-    project_config_dir = cwd / ".3gpp-crawler" / "config.toml"
-    if project_config_dir.is_file():
-        files.append(project_config_dir)
-
-    # .3gpp-crawler.toml
-    project_config = cwd / ".3gpp-crawler.toml"
-    if project_config.is_file():
-        files.append(project_config)
-
-    # 3gpp-crawler.toml (highest project precedence)
-    project_root_config = cwd / "3gpp-crawler.toml"
-    if project_root_config.is_file():
-        files.append(project_root_config)
+    _collect_conf_d(cwd / ".config" / ".3gpp-crawler" / "conf.d", files)
+    _add_if_exists(cwd / ".config" / ".3gpp-crawler" / "config.toml", files)
+    _add_if_exists(cwd / ".config" / "3gpp-crawler.toml", files)
+    _add_if_exists(cwd / ".3gpp-crawler" / "config.toml", files)
+    _add_if_exists(cwd / ".3gpp-crawler.toml", files)
+    _add_if_exists(cwd / "3gpp-crawler.toml", files)
 
     return files
+
+
+def _load_toml(config_file: Path) -> dict[str, Any]:
+    """Load and interpolate a TOML config file."""
+    with config_file.open("r", encoding="utf-8") as f:
+        content = f.read()
+    content = _interpolate_env_vars(content)
+    return tomllib.loads(content)
+
+
+def _load_yaml(config_file: Path) -> dict[str, Any]:
+    """Load and interpolate a YAML config file."""
+    yaml = import_module("yaml")
+    with config_file.open("r", encoding="utf-8") as f:
+        try:
+            data = yaml.safe_load(f)
+        except yaml.scanner.ScannerError as e:
+            raise ConfigLoadError(config_file, f"Parse error: {e}") from e
+    if data is None:
+        data = {}
+    return _interpolate_env_vars(data)
+
+
+def _load_json(config_file: Path) -> dict[str, Any]:
+    """Load and interpolate a JSON config file."""
+    with config_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return _interpolate_env_vars(data)
 
 
 def load_config_file(config_file: Path) -> dict[str, Any]:
@@ -164,32 +172,19 @@ def load_config_file(config_file: Path) -> dict[str, Any]:
         return {}
 
     suffix = config_file.suffix.lower()
+    _loaders = {
+        ".toml": _load_toml,
+        ".yaml": _load_yaml,
+        ".yml": _load_yaml,
+        ".json": _load_json,
+    }
+
+    loader = _loaders.get(suffix)
+    if loader is None:
+        raise ConfigLoadError(config_file, f"Unsupported file format: {suffix}")
 
     try:
-        if suffix == ".toml":
-            # For TOML, we need to interpolate BEFORE parsing since TOML
-            # doesn't support ${VAR} syntax natively
-            with config_file.open("r", encoding="utf-8") as f:
-                content = f.read()
-            content = _interpolate_env_vars(content)
-            data = tomllib.loads(content)
-        elif suffix in {".yaml", ".yml"}:
-            yaml = import_module("yaml")
-
-            with config_file.open("r", encoding="utf-8") as f:
-                try:
-                    data = yaml.safe_load(f)
-                except yaml.scanner.ScannerError as e:
-                    raise ConfigLoadError(config_file, f"Parse error: {e}") from e
-            if data is None:
-                data = {}
-            data = _interpolate_env_vars(data)
-        elif suffix == ".json":
-            with config_file.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-            data = _interpolate_env_vars(data)
-        else:
-            raise ConfigLoadError(config_file, f"Unsupported file format: {suffix}")
+        data = loader(config_file)
     except FileNotFoundError:
         return {}
     except PermissionError as e:

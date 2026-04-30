@@ -40,7 +40,8 @@ class MeetingCrawler:
     def __init__(self, database: MeetingDatabase) -> None:
 
         if not isinstance(database, MeetingDatabase):
-            raise TypeError(f"Expected MeetingDatabase, got {type(database)}")
+            msg = f"Expected MeetingDatabase, got {type(database)}"
+            raise TypeError(msg)
         self.database = database
 
     async def crawl(
@@ -78,7 +79,7 @@ class MeetingCrawler:
                         config=config,
                         existing_ids=existing_ids,
                         errors=errors,
-                    )
+                    ),
                 )
         finally:
             session.close()
@@ -121,9 +122,7 @@ class MeetingCrawler:
                 record.code,
                 get_subtb=self._get_subtb,
             )
-            for meeting in parsed_meetings:
-                if self._include_meeting(meeting, config, existing_ids):
-                    meetings.append(meeting)
+            meetings.extend(meeting for meeting in parsed_meetings if self._include_meeting(meeting, config, existing_ids))
         return meetings
 
     def _apply_limits(
@@ -137,8 +136,7 @@ class MeetingCrawler:
             return []
         filtered = list(meetings)
         filtered = self._limit_meetings_per_subwg(filtered, limit_meetings_per_subwg)
-        filtered = self._limit_meetings(filtered, limit_meetings)
-        return filtered
+        return self._limit_meetings(filtered, limit_meetings)
 
     @staticmethod
     def _get_subtb(subgroup_code: str) -> int | None:

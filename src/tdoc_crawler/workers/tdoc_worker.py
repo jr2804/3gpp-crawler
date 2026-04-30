@@ -44,9 +44,7 @@ def fetch_meeting_document_list_subinterpreter(
         )
 
         # Serialize to JSON for inter-process communication
-        serialized = []
-        for tdoc_metadata in tdoc_metadata_list:
-            serialized.append(tdoc_metadata.model_dump_json())
+        serialized = [tdoc_metadata.model_dump_json() for tdoc_metadata in tdoc_metadata_list]
 
         return json.dumps(serialized)
 

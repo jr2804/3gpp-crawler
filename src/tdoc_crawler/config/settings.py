@@ -66,7 +66,6 @@ class PathConfig(BaseSettings):
         """Path to the checkout directory for documents."""
         return self.cache_dir / _DEFAULT_CHECKOUT_DIRNAME
 
-
     @field_validator("cache_dir", mode="before")
     @classmethod
     def _resolve_cache_dir(cls, value: str | Path | None) -> Path:
@@ -98,11 +97,6 @@ class HttpConfig(BaseSettings):
         validation_alias=AliasChoices(ConfigEnvVar.HTTP_CACHE_ENABLED.name, "cache_enabled"),
         description="Enable HTTP response caching",
     )
-    cache_refresh_on_access: bool = Field(
-        default=True,
-        validation_alias=AliasChoices(ConfigEnvVar.HTTP_CACHE_REFRESH_ON_ACCESS.name, "cache_refresh_on_access"),
-        description="Refresh cache TTL on each access",
-    )
     verify_ssl: bool = Field(
         default=True,
         validation_alias=AliasChoices(ConfigEnvVar.TDC_VERIFY_SSL.name, "verify_ssl"),
@@ -132,7 +126,7 @@ class HttpConfig(BaseSettings):
             return int(value) if value else 0
         return int(value)
 
-    @field_validator("cache_enabled", "cache_refresh_on_access", "verify_ssl", mode="before")
+    @field_validator("cache_enabled", "verify_ssl", mode="before")
     @classmethod
     def _parse_bool(cls, value: bool | str | None) -> bool:
         """Parse boolean values from environment strings."""
@@ -204,21 +198,6 @@ class CrawlConfig(BaseSettings):
         default=None,
         validation_alias=AliasChoices(ConfigEnvVar.TDC_END_DATE.name, "date_end"),
         description="End date filter (YYYY-MM-DD, YYYY-MM, or YYYY format)",
-    )
-    source_like: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(ConfigEnvVar.TDC_SOURCE_LIKE.name, "source_like"),
-        description="SQL LIKE pattern to match document source",
-    )
-    agenda_like: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(ConfigEnvVar.TDC_AGENDA_LIKE.name, "agenda_like"),
-        description="SQL LIKE pattern to match agenda item",
-    )
-    title_like: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(ConfigEnvVar.TDC_TITLE_LIKE.name, "title_like"),
-        description="SQL LIKE pattern to match document title",
     )
     limit: int = Field(
         default=1000,

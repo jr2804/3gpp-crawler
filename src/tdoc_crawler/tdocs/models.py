@@ -95,25 +95,6 @@ class TDocMetadata(BaseModel):
     agenda_item_text: str = Field("Unknown", description="Associated agenda item (text identifier)")
     status: str | None = Field(None, description="Document status as reported by the portal")
 
-    @property
-    def is_valid(self) -> bool:
-        """Check if TDoc metadata is valid and downloadable.
-
-        Validates:
-        - tdoc_id is not empty
-        - url is present and well-formed (not containing placeholder patterns like "/.../")
-
-        Note: This does not actually download the file, only validates URL structure.
-        URLs without explicit scheme (relative paths) are considered valid for checkout purposes.
-        URL scheme validation (http/https/ftp) happens during download.
-        """
-        if not self.tdoc_id or not self.tdoc_id.strip():
-            return False
-        if not self.url or not self.url.strip():
-            return False
-        # Check for placeholder/corrupt URL patterns
-        return not ("/.../" in self.url or "..." in self.url)
-
     @classmethod
     @field_serializer("agenda_item_nbr")
     def _serialize_agenda_item_nbr(cls, value: AgendaItemNumber) -> str:
@@ -122,7 +103,7 @@ class TDocMetadata(BaseModel):
 
     @field_validator("agenda_item_nbr", mode="before")
     @classmethod
-    def _validate_agenda_item_nbr(cls, value: Version | AgendaItemNumber | int | float | None) -> AgendaItemNumber:
+    def _validate_agenda_item_nbr(cls, value: Version | AgendaItemNumber | float | None) -> AgendaItemNumber:
         """Normalize agenda item numbers into Version objects."""
         return parse_agenda_item_nbr(value)
 

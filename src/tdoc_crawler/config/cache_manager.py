@@ -28,13 +28,12 @@ from typing import ClassVar
 DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
+DEFAULT_LLM_WIKI_DIRNAME = "wiki"
 WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 
 
 class CacheManagerNotRegisteredError(RuntimeError):
     """Raised when trying to resolve CacheManager before registration."""
-
-    pass
 
 
 class CacheManager:
@@ -73,7 +72,8 @@ class CacheManager:
             RuntimeError: If a manager is already registered
         """
         if CacheManager._instance is not None:
-            raise RuntimeError("CacheManager already registered. Call only once at startup.")
+            msg = "CacheManager already registered. Call only once at startup."
+            raise RuntimeError(msg)
         CacheManager._instance = self
         return self
 
@@ -102,10 +102,18 @@ class CacheManager:
         """Path to workspace registry JSON file."""
         return self._cache_dir / WORKSPACE_REGISTRY_FILENAME
 
-    @classmethod
-    def is_registered(cls) -> bool:
-        """Check if a CacheManager instance is registered."""
-        return cls._instance is not None
+    @property
+    def llm_wiki_dir(self) -> Path:
+        """Path to LLM wiki workspace directory."""
+        return self._cache_dir / DEFAULT_LLM_WIKI_DIRNAME
+
+    def workspace_llm_wiki_dir(self, workspace_name: str) -> Path:
+        """Path to a specific workspace's LLM wiki directory."""
+        return self.llm_wiki_dir / workspace_name
+
+    def workspace_sources_dir(self, workspace_name: str) -> Path:
+        """Path to a workspace's sources subdirectory."""
+        return self.workspace_llm_wiki_dir(workspace_name) / "sources"
 
 
 def resolve_cache_manager() -> CacheManager:
@@ -118,7 +126,6 @@ def resolve_cache_manager() -> CacheManager:
         CacheManagerNotRegisteredError: If no manager is registered
     """
     if CacheManager._instance is None:
-        raise CacheManagerNotRegisteredError(
-            "CacheManager not registered. Call CacheManager(cache_dir).register() at application startup."
-        )
+        msg = "CacheManager not registered. Call CacheManager(cache_dir).register() at application startup."
+        raise CacheManagerNotRegisteredError(msg)
     return CacheManager._instance

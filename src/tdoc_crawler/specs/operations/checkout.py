@@ -37,14 +37,14 @@ def build_default_spec_sources(cache_manager_name: str | None = None) -> list[Sp
     """Build the default list of spec sources.
 
     Args:
-        cache_manager_name: Optional cache manager name for HTTP caching
+        cache_manager_name: Optional cache manager name for HTTP caching (reserved for future use)
 
     Returns:
         List of SpecSource instances for fetching spec metadata
     """
     return [
-        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={"cache_manager_name": cache_manager_name})),
-        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={"cache_manager_name": cache_manager_name})),
+        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={})),
+        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={})),
     ]
 
 

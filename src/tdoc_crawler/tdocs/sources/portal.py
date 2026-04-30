@@ -7,6 +7,7 @@ from the official 3GPP portal using authenticated access.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Self
 
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
 from tdoc_crawler.logging import get_logger
@@ -71,17 +72,16 @@ class PortalSource(TDocSource):
             try:
                 url = client.extract_tdoc_url(tdoc_id)
             except Exception as exc:
-                logger.debug(f"URL extraction failed for {tdoc_id}: {exc}")
+                logger.debug("URL extraction failed for %s: %s", tdoc_id, exc)
 
             # Fetch full metadata (authenticated)
-            metadata = client.fetch_tdoc_metadata(tdoc_id, url)
-            return metadata
+            return client.fetch_tdoc_metadata(tdoc_id, url)
 
         except (PortalAuthenticationError, PortalParsingError) as exc:
-            logger.warning(f"Portal lookup failed for {tdoc_id}: {exc}")
+            logger.warning("Portal lookup failed for %s: %s", tdoc_id, exc)
             return None
         except Exception as exc:
-            logger.error(f"Unexpected error fetching {tdoc_id} from portal: {exc}")
+            logger.exception("Unexpected error fetching %s from portal: %s", tdoc_id, exc)
             return None
 
     def fetch_by_meeting(
@@ -102,7 +102,8 @@ class PortalSource(TDocSource):
         Returns:
             Empty list (not supported by this source)
         """
-        raise NotImplementedError(f"Portal source does not support bulk meeting queries for meeting {meeting_id}")
+        msg = f"Portal source does not support bulk meeting queries for meeting {meeting_id}"
+        raise NotImplementedError(msg)
 
     @property
     def source_name(self) -> str:
@@ -114,7 +115,7 @@ class PortalSource(TDocSource):
         """Return whether this source requires authentication."""
         return True
 
-    def __enter__(self) -> PortalSource:
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 

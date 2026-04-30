@@ -74,16 +74,18 @@ def _validate_page_content(soup: BeautifulSoup, tdoc_id: str) -> None:
     """Raise when portal HTML looks like a missing-document page."""
     page_text = soup.get_text().lower()
     if any(indicator in page_text for indicator in ERROR_INDICATORS):
-        logger.warning(f"TDoc {tdoc_id} not found in portal")
-        raise PortalParsingError(f"TDoc {tdoc_id} not found in portal")
+        logger.warning("TDoc %s not found in portal", tdoc_id)
+        msg = f"TDoc {tdoc_id} not found in portal"
+        raise PortalParsingError(msg)
 
 
 def _get_metadata_table(soup: BeautifulSoup, tdoc_id: str) -> Any:
     """Get TDoc metadata table from portal HTML."""
     table = soup.find("table", {"class": "ultimate3gpp", "id": "tableTdocGeneralTabView"})
     if not table:
-        logger.warning(f"Metadata table not found for TDoc {tdoc_id}")
-        raise PortalParsingError(f"Metadata table not found for TDoc {tdoc_id}")
+        logger.warning("Metadata table not found for TDoc %s", tdoc_id)
+        msg = f"Metadata table not found for TDoc {tdoc_id}"
+        raise PortalParsingError(msg)
     return table
 
 

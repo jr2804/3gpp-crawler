@@ -35,23 +35,6 @@ def is_default_workspace(workspace: str | None) -> bool:
     return normalize_workspace_name(workspace) == DEFAULT_WORKSPACE
 
 
-class ExtractionQualityStatus(StrEnum):
-    """Deterministic extraction quality status values."""
-
-    OK = "ok"
-    PARTIAL = "partial"
-    FAILED = "failed"
-
-
-class ExtractionQualityReasonCode(StrEnum):
-    """Stable machine-readable reason codes for quality gate outcomes."""
-
-    MISSING_ARTIFACT = "missing_artifact"
-    MISSING_METADATA = "missing_metadata"
-    INVALID_PROVENANCE = "invalid_provenance"
-    COVERAGE_MISMATCH = "coverage_mismatch"
-
-
 class SourceKind(StrEnum):
     """Kinds of source items that can be part of a workspace corpus."""
 
@@ -60,23 +43,15 @@ class SourceKind(StrEnum):
     OTHER = auto()  # catch-all for any other source types
 
 
-class AiError(Exception):
-    """Base exception for AI processing errors."""
-
-
-class TDocNotFoundError(AiError):
+class TDocNotFoundError(Exception):
     """TDoc not found in database or has no files."""
 
 
-class ConversionError(AiError):
+class ConversionError(Exception):
     """Document conversion failed (LibreOffice or remote converter error)."""
 
 
-class LlmConfigError(AiError):
-    """LLM endpoint not configured or unreachable."""
-
-
-class WorkspaceNotFoundError(AiError):
+class WorkspaceNotFoundError(Exception):
     """Workspace does not exist in registry."""
 
 
@@ -198,15 +173,11 @@ class SummarizeResult(BaseModel):
 
 __all__ = [
     "DEFAULT_WORKSPACE",
-    "AiError",
     "ConversionError",
     "DocumentClassification",
     "ExtractedEquationElement",
     "ExtractedFigureElement",
     "ExtractedTableElement",
-    "ExtractionQualityReasonCode",
-    "ExtractionQualityStatus",
-    "LlmConfigError",
     "SourceKind",
     "SummarizeResult",
     "TDocNotFoundError",

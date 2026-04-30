@@ -154,15 +154,18 @@ def extract_meeting_reference(cell: Tag) -> tuple[str, str | None, int]:
     short_name = cell.get_text(strip=True)
     link = cell.find("a")
     if link is None:
-        raise ValueError("missing-meeting-link")
+        msg = "missing-meeting-link"
+        raise ValueError(msg)
     raw_href = link.get("href")
     if raw_href is None:
-        raise ValueError("missing-meeting-link")
+        msg = "missing-meeting-link"
+        raise ValueError(msg)
     href = str(raw_href)
     portal_url = href if href.startswith("http") else urljoin(PORTAL_BASE_URL, href)
     match = re.search(r"MtgId=(\d+)", href)
     if match is None:
-        raise ValueError("missing-meeting-id")
+        msg = "missing-meeting-id"
+        raise ValueError(msg)
     meeting_id = int(match.group(1))
     return short_name, portal_url, meeting_id
 

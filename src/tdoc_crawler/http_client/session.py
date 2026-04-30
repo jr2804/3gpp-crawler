@@ -33,7 +33,8 @@ def _niquests_to_internal_request(model: requests.models.PreparedRequest) -> Req
         body = b""
 
     if model.method is None:
-        raise ValueError("prepared request method must not be None")
+        msg = "prepared request method must not be None"
+        raise ValueError(msg)
 
     return Request(
         method=model.method,
@@ -171,7 +172,8 @@ def download_to_file(
     lowered = url.lower()
     allowed_schemes = ("ftp://", "http://", "https://")
     if not lowered.startswith(allowed_schemes):
-        raise ValueError("unsupported-url-scheme")
+        msg = "unsupported-url-scheme"
+        raise ValueError(msg)
 
     # Use provided session or create a new one (might be used for multiple downloads, so we don't want to create a new session for each)
     temp_session: requests.Session | None = None
@@ -265,22 +267,20 @@ def create_cached_session(
 
     # Resolve cache settings from http_config or defaults
     ttl = http_config.cache_ttl if http_config is not None else 7200
-    refresh_ttl_on_access = http_config.cache_refresh_on_access if http_config is not None else True
     max_retries_count = http_config.max_retries if http_config is not None else 3
 
     # Determine cache file path — use explicit param or fall back to PathConfig default
     cache_file = str(http_cache_file) if http_cache_file is not None else str(PathConfig().http_cache_file)
 
-    logger.debug(f"Creating cached HTTP session with cache_db={cache_file})")
-    logger.debug(f"HTTP cache config: ttl={ttl}, refresh_ttl_on_access={refresh_ttl_on_access}, max_retries={max_retries_count}")
+    logger.debug("Creating cached HTTP session with cache_db=%s)", cache_file)
+    logger.debug("HTTP cache config: ttl=%s, max_retries=%s", ttl, max_retries_count)
 
     # Create SQLite storage backend
     storage = SyncSqliteStorage(
         database_path=cache_file,
         default_ttl=ttl,
-        refresh_ttl_on_access=refresh_ttl_on_access,
     )
-    storage = cast(SyncBaseStorage, storage)
+    storage = cast("SyncBaseStorage", storage)
 
     # Configure retry strategy for the cache adapter.
     # If pool_config is set, reuse its retry settings so caching + pooling share one adapter.

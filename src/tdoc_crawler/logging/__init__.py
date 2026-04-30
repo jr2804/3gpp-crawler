@@ -91,7 +91,8 @@ def set_verbosity(level: int | str) -> None:
         elif level.isnumeric():
             level = int(level)
         else:
-            raise ValueError(f"Invalid logging level name: {level}")
+            msg = f"Invalid logging level name: {level}"
+            raise ValueError(msg)
 
     logging.root.setLevel(level)
 
