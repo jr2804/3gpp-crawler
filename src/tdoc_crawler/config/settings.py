@@ -66,7 +66,6 @@ class PathConfig(BaseSettings):
         """Path to the checkout directory for documents."""
         return self.cache_dir / _DEFAULT_CHECKOUT_DIRNAME
 
-
     @field_validator("cache_dir", mode="before")
     @classmethod
     def _resolve_cache_dir(cls, value: str | Path | None) -> Path:

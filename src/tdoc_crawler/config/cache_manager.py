@@ -118,7 +118,5 @@ def resolve_cache_manager() -> CacheManager:
         CacheManagerNotRegisteredError: If no manager is registered
     """
     if CacheManager._instance is None:
-        raise CacheManagerNotRegisteredError(
-            "CacheManager not registered. Call CacheManager(cache_dir).register() at application startup."
-        )
+        raise CacheManagerNotRegisteredError("CacheManager not registered. Call CacheManager(cache_dir).register() at application startup.")
     return CacheManager._instance

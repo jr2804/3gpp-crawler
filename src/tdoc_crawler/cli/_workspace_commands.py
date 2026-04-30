@@ -5,20 +5,38 @@ These commands create, inspect, modify, and process workspaces.
 
 from __future__ import annotations
 
+import asyncio
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import typer
 
-from tdoc_crawler.cli._shared import console
+from tdoc_crawler.cli._shared import console, ensure_hybrid_server_for_profile
+from tdoc_crawler.cli.args import (
+    AgendaPatternExcludeOption,
+    AgendaPatternOption,
+    EndDateOption,
+    LimitOption,
+    ReleaseOption,
+    SourcePatternExcludeOption,
+    SourcePatternOption,
+    StartDateOption,
+    TitlePatternExcludeOption,
+    TitlePatternOption,
+    WorkspaceItemsArgument,
+)
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
-from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config import PathConfig, resolve_cache_manager
+from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.extraction.convert import convert_for_wiki
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.workspaces import SourceKind
+from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.workspaces import (
     add_workspace_members,
     create_workspace,
@@ -130,6 +148,8 @@ def workspace_members(
     include_inactive: bool = typer.Option(False, "--include-inactive", help="Include inactive members"),
 ) -> None:
     """List members of a workspace."""
+    if workspace_name is None:
+        workspace_name = get_active_workspace()
     normalized = normalize_workspace_name(workspace_name)
     try:
         members = list_workspace_members(normalized, include_inactive=include_inactive)
@@ -142,6 +162,24 @@ def workspace_members(
             console.print(f"  {member.source_item_id} ({member.source_kind.value}) - {status}")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
+
+
+def _should_skip_member(
+    source_id: str,
+    wiki_base: Path,
+    profile: ExtractionProfile,
+    force: bool,
+    skip_existing: bool,
+) -> bool:
+    """Check if a workspace member should be skipped due to existing artifacts."""
+    if not skip_existing or force:
+        return False
+    member_dir = wiki_base / source_id
+    glob_pattern = "*.pdf" if profile == ExtractionProfile.PDF_ONLY else "*.md"
+    if list(member_dir.glob(glob_pattern)):
+        console.print(f"[dim]  Skipping {source_id} - artifacts exist[/dim]")
+        return True
+    return False
 
 
 @app.command("process", help="Process workspace members.")
@@ -183,6 +221,10 @@ def workspace_process(
     if limit is not None:
         members = members[:limit]
 
+    # Pre-start hybrid server if extraction profile requires it
+    if not ensure_hybrid_server_for_profile(extraction_profile):
+        raise typer.Exit(1)
+
     manager = resolve_cache_manager()
     wiki_source_dir_base = manager.checkout_dir / normalized / "sources"
 
@@ -192,18 +234,8 @@ def workspace_process(
     for member in members:
         source_id = member.source_item_id
 
-        if skip_existing and not force:
-            member_wiki_dir = wiki_source_dir_base / source_id
-            if extraction_profile == ExtractionProfile.PDF_ONLY:
-                pdf_exists = list(member_wiki_dir.glob("*.pdf"))
-                if pdf_exists:
-                    console.print(f"[dim]  Skipping {source_id} - artifacts exist[/dim]")
-                    continue
-            else:
-                md_exists = list(member_wiki_dir.glob("*.md"))
-                if md_exists:
-                    console.print(f"[dim]  Skipping {source_id} - artifacts exist[/dim]")
-                    continue
+        if _should_skip_member(source_id, wiki_source_dir_base, extraction_profile, force, skip_existing):
+            continue
 
         wiki_source_dir = wiki_source_dir_base / source_id
         wiki_source_dir.mkdir(parents=True, exist_ok=True)
@@ -230,26 +262,118 @@ def workspace_process(
 
 @app.command("add", help="Add documents to an existing workspace.")
 def workspace_add(
-    workspace_name: str = typer.Argument(..., help="Workspace name"),
-    items: list[str] = typer.Argument(..., help="Items to add (TDoc IDs, spec numbers, etc.)"),
+    items: WorkspaceItemsArgument = None,
+    workspace: str | None = typer.Option(None, "-w", "--workspace", help="Workspace name (default: active workspace)"),
     kind: str = typer.Option("tdoc", "--kind", help="Source kind: tdoc, spec, or other"),
+    # Filter options for batch-adding from DB query
+    agenda: AgendaPatternOption = None,
+    agenda_ex: AgendaPatternExcludeOption = None,
+    release: ReleaseOption = "latest",
+    limit: LimitOption = None,
+    start_date: StartDateOption = None,
+    end_date: EndDateOption = None,
+    source: SourcePatternOption = None,
+    source_ex: SourcePatternExcludeOption = None,
+    title: TitlePatternOption = None,
+    title_ex: TitlePatternExcludeOption = None,
 ) -> None:
-    """Add documents to a workspace."""
-    normalized = normalize_workspace_name(workspace_name)
+    """Add documents to a workspace.
+
+    Either provide items directly, or use filter options (--agenda, --source, etc.)
+    to query the TDoc database and add matching results in bulk.
+    """
+    # Resolve workspace name: -w flag > active workspace
+    resolved_name = workspace or get_active_workspace()
+    if resolved_name is None:
+        console.print("[red]No workspace specified and no active workspace set. Use 'workspace create' and 'workspace activate' first.[/red]")
+        raise typer.Exit(1)
+
+    normalized = normalize_workspace_name(resolved_name)
     source_kind = SourceKind(kind)
 
-    members = [
-        make_workspace_member(
-            source_item_id=item,
-            source_path=item,
-            source_kind=source_kind,
-            added_by="cli",
+    # Check if any filter flags are set
+    has_filters = any([agenda, agenda_ex, start_date, end_date, source, source_ex, title, title_ex])
+
+    members: list = []
+
+    if has_filters:
+        # Batch mode: query TDoc database and add matching results
+        try:
+            start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None
+        except ValueError as exc:
+            console.print("[red]Invalid start date format; use ISO-8601[/red]")
+            raise typer.Exit(code=2) from exc
+        try:
+            end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None
+        except ValueError as exc:
+            console.print("[red]Invalid end date format; use ISO-8601[/red]")
+            raise typer.Exit(code=2) from exc
+
+        query_config = TDocQueryConfig(
+            output_format=OutputFormat.TABLE,
+            start_date=start,
+            end_date=end,
+            source_pattern=source,
+            source_pattern_exclude=source_ex,
+            title_pattern=title,
+            title_pattern_exclude=title_ex,
+            agenda_pattern=agenda,
+            agenda_pattern_exclude=agenda_ex,
+            limit=limit,
+            order=SortOrder.DESC,
         )
-        for item in items
-    ]
+
+        path_config = PathConfig()
+        db_file = path_config.db_file
+
+        async def _query_tdocs() -> list:
+            async with TDocDatabase(db_file) as database:
+                return await database.query_tdocs(query_config)
+
+        try:
+            results = asyncio.run(_query_tdocs())
+        except Exception as exc:
+            console.print(f"[red]Failed to query TDoc database: {exc}[/red]")
+            raise typer.Exit(1) from exc
+
+        if not results:
+            console.print("[yellow]No TDocs matched the given filters.[/yellow]")
+            return
+
+        console.print(f"[dim]Found {len(results)} TDoc(s) matching filters.[/dim]")
+        for tdoc in results:
+            members.append(
+                make_workspace_member(
+                    source_item_id=tdoc.tdoc_id,
+                    source_path=tdoc.tdoc_id,
+                    source_kind=source_kind,
+                    added_by="cli:query",
+                )
+            )
+
+    elif items:
+        # Direct mode: add items by ID
+        for item in items:
+            members.append(
+                make_workspace_member(
+                    source_item_id=item,
+                    source_path=item,
+                    source_kind=source_kind,
+                    added_by="cli",
+                    release=release if release != "latest" else None,
+                )
+            )
+    else:
+        console.print("[red]Provide items to add or use filter options (--agenda, --source, etc.).[/red]")
+        raise typer.Exit(1)
+
+    if not members:
+        console.print("[yellow]No items to add.[/yellow]")
+        return
 
     added = add_workspace_members(normalized, members)
-    console.print(f"[green]Added {added} item(s) to workspace '{normalized}'.[/green]")
+    mode = "from query" if has_filters else "directly"
+    console.print(f"[green]Added {added} item(s) to workspace '{normalized}' ({mode}).[/green]")
 
 
 @app.command("clear-invalid", help="Remove members with invalid or missing source paths.")
@@ -258,6 +382,8 @@ def workspace_clear_invalid(
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed without removing"),
 ) -> None:
     """Remove members whose source path no longer exists."""
+    if workspace_name is None:
+        workspace_name = get_active_workspace()
     normalized = normalize_workspace_name(workspace_name)
     try:
         members = list_workspace_members(normalized, include_inactive=True)

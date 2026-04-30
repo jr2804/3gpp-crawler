@@ -145,6 +145,7 @@ def convert_to_pdf(
         logger.info("Falling back to remote converter for %s", source_file.name)
         return convert_via_remote(source_file, output_dir, config)
 
+
 def ensure_pdf(
     source_file: Path,
     output_dir: Path,
@@ -180,8 +181,6 @@ def ensure_pdf(
     output_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_file, pdf_path)
     return pdf_path
-
-
 
 
 def convert_via_libreoffice(

@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from tdoc_crawler.config.cache_manager import WORKSPACE_REGISTRY_FILENAME
 from tdoc_crawler.config.settings import PathConfig
@@ -51,6 +51,7 @@ class WorkspaceMemberDict(TypedDict):
     added_by: str
     is_active: bool
     added_at: str
+    release: NotRequired[str]
 
 
 class WorkspaceMetadataDict(TypedDict, total=False):
@@ -116,9 +117,10 @@ class WorkspaceMember:
     added_by: str = ""
     is_active: bool = True
     added_at: str = field(default_factory=lambda: utc_now().isoformat())
+    release: str | None = None
 
     def to_dict(self) -> WorkspaceMemberDict:
-        return {
+        result: WorkspaceMemberDict = {
             "source_item_id": _normalize_legacy_spec_member_id(self.source_item_id),
             "source_path": self.source_path,
             "source_kind": self.source_kind.value,
@@ -126,6 +128,9 @@ class WorkspaceMember:
             "is_active": self.is_active,
             "added_at": self.added_at,
         }
+        if self.release:
+            result["release"] = self.release
+        return result
 
     @classmethod
     def from_dict(cls, data: WorkspaceMemberDict) -> WorkspaceMember:
@@ -136,6 +141,7 @@ class WorkspaceMember:
             added_by=data.get("added_by", ""),
             is_active=data.get("is_active", True),
             added_at=data.get("added_at", utc_now().isoformat()),
+            release=data.get("release"),
         )
 
 
@@ -215,6 +221,7 @@ class WorkspaceMetadata:
     ) -> None:
         """Update wiki build health metadata after a compile run."""
         from datetime import datetime
+
         self.wiki_build_timestamp = datetime.now(UTC).isoformat()
         self.wiki_page_count = page_count
         self.wiki_failed_pages = failed_pages

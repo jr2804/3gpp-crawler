@@ -177,6 +177,7 @@ def make_workspace_member(
     source_path: str | Path,
     source_kind: SourceKind | str,
     added_by: str | None = None,
+    release: str | None = None,
 ) -> WorkspaceMember:
     """Build a normalized workspace member model from raw input.
 
@@ -185,6 +186,7 @@ def make_workspace_member(
         source_path: Path to the source item.
         source_kind: Kind of source (TDoc, Spec, etc.).
         added_by: Optional identifier of who added this member.
+        release: Optional spec release version (e.g. "18.1").
 
     Returns:
         WorkspaceMember instance.
@@ -194,6 +196,7 @@ def make_workspace_member(
         source_path=str(source_path),
         source_kind=SourceKind(source_kind),
         added_by=added_by or "",
+        release=release,
     )
 
 

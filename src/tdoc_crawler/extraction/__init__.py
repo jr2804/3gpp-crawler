@@ -19,6 +19,14 @@ from tdoc_crawler.extraction.convert import (
     extract_document_structured_from_tdoc,
 )
 from tdoc_crawler.extraction.fetch_tdoc import TDocFiles, fetch_tdoc_files
+from tdoc_crawler.extraction.hybrid_server import (
+    DEFAULT_URL,
+    HybridServerConfig,
+    HybridServerManager,
+    HybridServerStatus,
+    ensure_hybrid_server,
+    get_manager,
+)
 from tdoc_crawler.extraction.metrics import (
     DocumentMetric,
     MetricsTracker,
@@ -32,11 +40,15 @@ from tdoc_crawler.extraction.workspace_utils import check_pdf_status
 
 __all__ = [
     "DEFAULT_EXTRACTION_PROFILE",
+    "DEFAULT_URL",
     "OFFICE_FORMATS",
     "ConverterBackend",
     "ConverterConfig",
     "DocumentMetric",
     "ExtractionProfile",
+    "HybridServerConfig",
+    "HybridServerManager",
+    "HybridServerStatus",
     "MetricType",
     "MetricsTracker",
     "OpendataloaderConfig",
@@ -47,8 +59,10 @@ __all__ = [
     "convert_tdoc_metadata",
     "convert_tdoc_to_markdown",
     "convert_to_pdf",
+    "ensure_hybrid_server",
     "extract_document_structured_from_tdoc",
     "fetch_tdoc_files",
+    "get_manager",
     "get_metrics_tracker",
     "is_office_format",
     "timed_operation",

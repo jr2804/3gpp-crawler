@@ -265,20 +265,18 @@ def create_cached_session(
 
     # Resolve cache settings from http_config or defaults
     ttl = http_config.cache_ttl if http_config is not None else 7200
-    refresh_ttl_on_access = http_config.cache_refresh_on_access if http_config is not None else True
     max_retries_count = http_config.max_retries if http_config is not None else 3
 
     # Determine cache file path — use explicit param or fall back to PathConfig default
     cache_file = str(http_cache_file) if http_cache_file is not None else str(PathConfig().http_cache_file)
 
     logger.debug(f"Creating cached HTTP session with cache_db={cache_file})")
-    logger.debug(f"HTTP cache config: ttl={ttl}, refresh_ttl_on_access={refresh_ttl_on_access}, max_retries={max_retries_count}")
+    logger.debug(f"HTTP cache config: ttl={ttl}, max_retries={max_retries_count}")
 
     # Create SQLite storage backend
     storage = SyncSqliteStorage(
         database_path=cache_file,
         default_ttl=ttl,
-        refresh_ttl_on_access=refresh_ttl_on_access,
     )
     storage = cast(SyncBaseStorage, storage)
 

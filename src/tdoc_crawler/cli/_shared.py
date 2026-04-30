@@ -7,11 +7,36 @@ from pathlib import Path
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskID, TextColumn
 
 from tdoc_crawler.database.base import DocDatabase
+from tdoc_crawler.extraction.hybrid_server import ensure_hybrid_server
+from tdoc_crawler.extraction.profiles import ExtractionProfile
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.specs.operations.checkout import clear_checkout_specs
 from tdoc_crawler.tdocs.operations.checkout import clear_checkout_tdocs
 
 console = get_console()
+
+
+def ensure_hybrid_server_for_profile(
+    profile: ExtractionProfile,
+) -> bool:
+    """Pre-start the hybrid server if the extraction profile requires it.
+
+    Returns:
+        True if the server is running (or not needed), False if startup failed.
+    """
+    if profile == ExtractionProfile.PDF_ONLY:
+        return True
+
+    _, status = ensure_hybrid_server(
+        progress_callback=lambda msg: console.print(f"[dim]  {msg}[/dim]"),
+    )
+    if status.running:
+        console.print(f"[green]Hybrid server running at {status.url}[/green]")
+        return True
+
+    console.print(f"[red]Failed to start hybrid server: {status.error}[/red]")
+    console.print("[dim]Hybrid mode is required for non-PDF profiles. Use --profile pdf-only to skip.[/dim]")
+    return False
 
 
 def handle_clear_options(
@@ -85,5 +110,6 @@ def create_progress_bar(description: str, total: float = 100) -> tuple[Progress,
 __all__ = [
     "console",
     "create_progress_bar",
+    "ensure_hybrid_server_for_profile",
     "handle_clear_options",
 ]

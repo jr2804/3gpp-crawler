@@ -14,9 +14,9 @@ from typing import Any
 import opendataloader_pdf
 from rich.console import Console
 
-from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.extraction.conversion import ensure_pdf
 from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
+from tdoc_crawler.extraction.hybrid_server import ensure_hybrid_server
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
@@ -40,6 +40,7 @@ __all__ = [
 
 class ConversionError(Exception):
     """Raised when document conversion fails."""
+
     pass
 
 
@@ -224,9 +225,7 @@ def convert_for_wiki(
         hybrid="docling-fast",
         hybrid_mode="full" if profile == ExtractionProfile.ADVANCED else None,
     )
-    markdown_content, json_path, _ = _ensure_converted(
-        document_id, force=force, config=config, source_pdf=pdf_path
-    )
+    markdown_content, json_path, _ = _ensure_converted(document_id, force=force, config=config, source_pdf=pdf_path)
 
     # Write markdown to wiki source dir
     md_file = wiki_source_dir / f"{primary.stem}.md"
@@ -317,6 +316,22 @@ def _get_ai_directory(source_file: Path) -> Path:
     return source_file.parent / ".ai"
 
 
+def _ensure_hybrid_server_if_needed(config: OpendataloaderConfig) -> None:
+    """Auto-start the hybrid server if the config requires hybrid mode.
+
+    Raises:
+        ConversionError: If the hybrid server cannot be started.
+    """
+    if config.hybrid is None:
+        return
+
+    _manager, status = ensure_hybrid_server()
+    if not status.running:
+        msg = f"Hybrid server is not available: {status.error}"
+        logger.error(msg)
+        raise ConversionError(msg)
+
+
 def _run_opendataloader(
     input_file: Path,
     output_dir: Path,
@@ -337,6 +352,7 @@ def _run_opendataloader(
         ConversionError: If conversion fails.
     """
     config = config or OpendataloaderConfig()
+    _ensure_hybrid_server_if_needed(config)
     formats = "markdown,json,markdown-with-images"
 
     try:
@@ -382,6 +398,3 @@ def extract_document_structured_from_tdoc(
 
 # Public alias for convert operation.
 convert_tdoc_to_markdown = convert_document_to_markdown
-
-
-

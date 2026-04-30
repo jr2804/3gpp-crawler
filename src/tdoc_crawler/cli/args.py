@@ -14,6 +14,7 @@ TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifi
 TDocIdArgument = Annotated[str, typer.Argument(help="TDoc identifier to download and open")]
 CheckoutTDocIdsArgument = Annotated[list[str], typer.Argument(help="TDoc identifier(s) to checkout")]
 SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) to query (dotted or undotted)")]
+WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(help="Items to add (TDoc IDs, spec numbers, etc.)")]
 
 # Options - TDocs/Meetings
 WorkingGroupOption = Annotated[
@@ -150,4 +151,3 @@ NoProgressOption = Annotated[
     bool,
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
 ]
-
