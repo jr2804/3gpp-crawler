@@ -2,134 +2,249 @@
 
 **Analysis Date:** 2026-04-30
 
-## Languages
+> CLI tool for crawling and querying structured 3GPP document data (TDocs, Specs, Meetings).
+> Brownfield Python project using uv workspace monorepo.
 
-**Primary:**
-- Python 3.14 (`requires-python = ">=3.14,<4.0"`) - Full codebase and CLI applications
-- SQL (SQLite) - Native queries via Oxyde ORM for migrations and schema introspection
+---
 
-**Secondary:**
-- TOML - Configuration files and build system
-- Markdown - Documentation and extraction output
+## Languages & Runtimes
 
-## Runtime
+| Layer | Technology | Version | Notes |
+|-------|-----------|---------|-------|
+| **Primary** | Python | `>=3.14,<4.0` | CPython, f-strings, type hints, `asyncio` |
+| **SQL** | SQLite (via Oxyde ORM) | bundled | Schema auto-created at startup via `extract_current_schema()` |
+| **Config** | TOML | stdlib | `import tomllib` (3.11+), fallback `tomli` |
+| **Output** | Markdown, JSON, YAML, ISON, TOON | | Rich format serialization |
 
-**Environment:**
-- CPython 3.13+ (through 3.14)
+---
 
-**Package Manager:**
-- `uv` (modern Python package manager and workspace manager)
-- Lockfile: `uv.lock` (workspace-based monorepo lock)
+## Build System & Package Management
 
-## Frameworks
+| Component | Technology | Version | Purpose |
+|-----------|-----------|---------|---------|
+| **Package manager** | `uv` | latest | Workspace monorepo management, lockfile, tool installs |
+| **Build backend** | `hatchling` | via hatch | PEP 660 editable installs |
+| **Versioning** | `uv-dynamic-versioning` | via git | PEP 440 versions from git tags, auto-bump |
+| **Lockfile** | `uv.lock` | workspace-wide | Single lock for all workspace packages |
+| **Entry points** | `[project.scripts]` | | 3 CLI entry points (see CLI section) |
+| **Editable install** | `uv sync` | | Development workflow |
 
-**Core CLI & Application:**
-- `typer` (v0.19.2+) - CLI command framework with Rich integration
-- `rich` (v14.2.0+) - Terminal formatting, tables, progress bars
+### Workspace Packages (monorepo)
 
-**ORM & Database:**
-- `oxyde` (v0.4.0+) - Async SQLite ORM (replaces previous pydantic-sqlite)
-  - Async context manager pattern (`AsyncDatabase`, `async with`)
-  - Auto-register models, schema extraction via `extract_current_schema()`
-  - Used for: TDocs, Meetings, Specifications, Working Groups, Crawl Logs
+| Package | Path | Version | Dependencies | Purpose |
+|---------|------|---------|-------------|---------|
+| `3gpp-crawler` | `src/tdoc_crawler/` | dynamic | 22+ | Main application |
+| `convert-lo` | `packages/convert-lo/` | 0.1.0 | none | LibreOffice CLI conversion |
+| `pool-executors` | `packages/pool_executors/` | 0.1.0 | none | Executor pool wrappers (serial, mp, thread, subinterpreter) |
 
-**HTTP Client:**
-- `niquests` (v3.18.4+) - Drop-in `requests` replacement with enhanced features (replaces `httpx`)
-  - Supports HTTP/2, better compression, broader compatibility
-  - Integrated with `hishel` for transparent caching
+Two workspace dependencies are sourced from git:
+- `toon-format` — `git+https://github.com/toon-format/toon-python.git` (TOON output format)
+- `doc2txt` — `git+https://github.com/Quantatirsk/doc2txt-pypi.git` (text extraction)
 
-**Caching (HTTP):**
-- `hishel` (v1.1.8+) - HTTP cache layer via `CacheAdapter`
-  - `SyncSqliteStorage` backend (`http-cache.sqlite3`)
-  - Bridges niquests ↔ hishel via custom adapter (`_NiquetsCacheAdapter`)
-  - Caches responses per HTTP headers (ETags, Cache-Control)
-  - Portal session login skips cache (explicit `http_cache_enabled=False`)
+---
 
-**Document Processing:**
-- `opendataloader-pdf` (v2.2.0+, `hybrid` mode) - Primary text/table/figure extraction
-  - Hybrid extraction: docling-fast LLM-based models
-  - Output: Markdown + JSON with structured extraction
-  - Supports PDF, Office formats (via LibreOffice)
-  - Profiles: `PDF_ONLY`, `DEFAULT` (hybrid), `ADVANCED` (with VLM)
+## Core Dependencies (pyproject.toml: `[project.dependencies]`)
 
-**PDF Conversion (Office → PDF):**
-- `convert-lo` (workspace package) - LibreOffice automation via UNO bridge
-  - Converts DOCX, PPTX, XLSX, etc. to PDF
-  - Fallback remote API: `https://pdf-convert.3gpp.org` (optional)
-  - Backend selection: LOCAL, REMOTE, AUTO (fallback)
+### CLI & Terminal
 
-**Text Extraction & Parsing:**
-- `doc2txt` (git: `Quantatirsk/doc2txt-pypi.git`) - Alternative text extraction
-- `liteparse` (v1.2.0+) - Lightweight structural parsing
-- `beautifulsoup4` (v4.14.2+) - HTML parsing (portal pages, meetings)
-- `lxml` (v6.0.2+) - Fast XML/HTML operations
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `typer` | `>=0.19.2` | CLI framework — decorator-based commands, auto-help, Rich integration |
+| `rich` | `>=14.2.0` | Terminal formatting — tables (`rich.table`), progress bars (`rich.progress`), logging handler (`RichHandler`) |
 
-**Data Formats & Serialization:**
-- `pydantic` (v2.12.2+) - Data validation and model definitions
-- `pydantic-settings` (v2.13.1+) - Environment-based configuration loading
-- `ison-py` (v1.0.2) - ISON format output (JSON superset)
-- `isonantic` (v1.0.1) - Pydantic ↔ ISON bridge
-- `toon-format` (git: `toon-format/toon-python.git`) - TOON format output
-- `pyyaml` (v6.0.3+) - YAML serialization
+### Database & ORM
 
-**Excel Processing:**
-- `python-calamine` (v0.5.3+) - Fast Excel file reading (Rust-backed)
-- `xlsxwriter` (v3.2.9+) - Excel file generation
-- `openpyxl` (implicit, via calamine)
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `oxyde` | `>=0.4.0` | Async SQLite ORM — `AsyncDatabase`, `Model`, `Field`, schema extraction/migration |
+| `pydantic` | `>=2.12.2` | Data validation and model definitions (also used for Oxyde models) |
+| `pydantic-settings` | `>=2.13.1` | `BaseSettings`-based config with env var loading, `AliasChoices` for env-to-field mapping |
 
-**Utilities:**
-- `packaging` (v25.0+) - Version parsing and normalization
-- `pandas` (v3.0.0+) - Data manipulation and analysis
-- `python-dotenv` (v1.1.1+) - `.env` file loading
-- `zipinspect` (v0.1.2) - Lightweight ZIP inspection
-- `brotli` (v1.2.0) - Brotli compression support (for HTTP)
-- `aiointerpreters` (v0.4.0+) - Async subprocess/interpreter management
-- `pool-executors` (workspace package) - Thread/process pool utilities
+### HTTP Client & Caching
 
-## Key Dependencies
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `niquests` | `>=3.18.4` | HTTP client — drop-in `requests` replacement with HTTP/2, brotli compression |
+| `hishel` | `>=1.1.8` | HTTP response caching — `SyncSqliteStorage` backend, ETag/Cache-Control support |
+| `brotli` | `>=1.2.0` | Brotli compression support for HTTP responses |
 
-**Critical (extraction pipeline):**
-- `opendataloader-pdf[hybrid]` v2.2.0+ — Core document understanding (tables, figures, text)
-- `oxyde` v0.4.0+ — Persistent metadata storage (replaces volatile pydantic-based storage)
-- `hishel` v1.1.8+ — HTTP response caching (60-80% bandwidth reduction on re-crawls)
+**Bridge code:** `_NiquetsCacheAdapter` in `http_client/session.py` bridges niquests-to-hishel type incompatibilities, since `niquests.PreparedRequest` does not inherit `requests.PreparedRequest`.
 
-**Infrastructure:**
-- `niquests` v3.18.4+ — HTTP client with transparent compression and HTTP/2
-- `convert-lo` (workspace) — Office format conversion (DOCX→PDF pipeline)
-- `typer` v0.19.2+ — CLI command routing and context passing
-- `pydantic` v2.12.2+ — Config validation, serialization schemas
+### Document Processing & Extraction
 
-**Telemetry & Development:**
-- `rich` v14.2.0+ — Terminal output (tables, progress bars, error formatting)
-- `pytest` v7.2.0+ (dev) — Test runner with async support
-- `pytest-asyncio` v1.2.0+ (dev) — Async test fixtures
-- `pytest-cov` v4.0.0+ (dev) — Coverage reporting
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `opendataloader-pdf[hybrid]` | `>=2.2.0` | Core document understanding — text/table/figure extraction via hybrid LLM pipeline |
+| `convert-lo` | workspace | LibreOffice headless CLI conversion (DOCX-to-PDF, etc.) |
+| `doc2txt` | git | Alternative text extraction from office documents |
+| `liteparse` | `>=1.2.0` | Lightweight structural document parsing |
 
-## Configuration
+### Parsing & HTML
 
-**Environment:**
-- Loaded via `pydantic-settings` with `TDC_` prefix
-- Key vars: `TDC_CACHE_DIR`, `TDC_EOL_USERNAME`, `TDC_EOL_PASSWORD`, `TDC_HTTP_TIMEOUT`, `PDF_REMOTE_API_KEY`
-- `.env` files auto-loaded by `python-dotenv` before CLI entry
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `beautifulsoup4` | `>=4.14.2` | HTML parsing — portal pages, meeting listings |
+| `lxml` | `>=6.0.2` | Fast XML/HTML tree operations |
 
-**Build:**
-- `pyproject.toml` — Single source of truth for deps, build config, metadata
-- `hatch` (build backend via `hatchling`) — PEP 660 editable installs
-- `uv-dynamic-versioning` — Git-based version management (PEP 440)
+### Excel Processing
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `python-calamine` | `>=0.5.3` | Fast Excel reading (Rust-backed) — TDoc document lists |
+| `xlsxwriter` | `>=3.2.9` | Excel file generation |
+
+### Data Serialization & Output
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `pyyaml` | `>=6.0.3` | YAML serialization for CLI output |
+| `ison-py` | `>=1.0.2` | ISON format output (JSON superset with metadata) |
+| `isonantic` | `>=1.0.1` | Pydantic-to-ISON bridge |
+| `toon-format` | git | TOON format output |
+
+### Utilities
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `packaging` | `>=25.0` | Version string parsing and normalization |
+| `pandas` | `>=3.0.0` | Data manipulation and analysis |
+| `python-dotenv` | `>=1.1.1` | `.env` file auto-loading (`load_dotenv()`) |
+| `zipinspect` | `>=0.1.2` | ZIP archive inspection |
+| `aiointerpreters` | `>=0.4.0` | Async subinterpreter management for parallel crawling |
+| `pool-executors` | workspace | Thread/process/subinterpreter pool abstractions |
+
+---
+
+## Development Dependencies (`[dependency-groups.dev]`)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| `pytest` | `>=7.2.0` | Test framework |
+| `pytest-asyncio` | `>=1.2.0` | Async test fixtures |
+| `pytest-cov` | `>=4.0.0` | Coverage reporting |
+| `pre-commit` | `>=2.20.0` | Pre-commit hook framework |
+| `tox-uv` | `>=1.11.3` | Multi-env testing with uv |
+| `deptry` | `>=0.23.0` | Dependency usage checking |
+| `mkdocs` | `>=1.4.2` | Documentation generation |
+| `mkdocs-material` | `>=8.5.10` | Material theme for mkdocs |
+| `mkdocstrings[python]` | `>=0.26.1` | Python docstring extraction for mkdocs |
+| `pydeps` | `>=3.0.2` | Dependency graph visualization |
+
+---
+
+## CLI Entry Points
+
+Three separate Typer applications registered in `[project.scripts]`:
+
+| CLI Command | Entry Point | Purpose |
+|-------------|-------------|---------|
+| `tdoc-crawler` | `tdoc_crawler.cli.tdoc_app:tdoc_app` | TDoc crawling, querying, checkout, stats |
+| `spec-crawler` | `tdoc_crawler.cli.spec_app:spec_app` | Spec crawling, querying, checkout |
+| `3gpp-crawler` | `tdoc_crawler.cli.mgmt_app:mgmt_app` | Config management, workspace management |
+
+Each app has a `@callback()` that loads config, registers `CacheManager`, and sets verbosity.
+
+---
+
+## Internal Architecture (Source Layout)
+
+```
+src/tdoc_crawler/
+├── cli/               # Typer command definitions (thin wrappers only)
+│   ├── tdoc_app.py    # tdoc-crawler commands
+│   ├── spec_app.py    # spec-crawler commands
+│   ├── mgmt_app.py    # 3gpp-crawler (config+workspace) commands
+│   ├── crawl.py       # Shared crawl command logic
+│   ├── query.py       # Shared query command logic
+│   ├── _shared.py     # Progress bars, clear options
+│   ├── config.py      # CLI config loading helper
+│   ├── args.py        # Typer Annotated type aliases
+│   └── formatting.py  # Table/output formatting
+├── config/            # Configuration system
+│   ├── settings.py    # ThreeGPPConfig, PathConfig, HttpConfig, etc.
+│   ├── cache_manager.py # Centralized path resolution (singleton)
+│   ├── env_vars.py    # ConfigEnvVar StrEnum, env-to-config mapping
+│   ├── sources.py     # Config file discovery, loading, merging
+│   ├── export.py      # Config export/serialization
+│   └── workspace_registry.py # Workspace state persistence
+├── database/          # Database layer (Oxyde ORM)
+│   ├── base.py        # DocDatabase — async context manager, schema management
+│   ├── oxyde_models.py # All Oxyde Model definitions
+│   ├── tdocs.py       # TDoc database operations
+│   ├── meetings.py    # Meeting database operations
+│   ├── specs.py       # Spec database operations
+│   └── errors.py      # DatabaseError hierarchy
+├── http_client/       # HTTP client with caching
+│   ├── session.py     # create_cached_session(), download_to_file()
+│   └── protocols.py   # HTTP-related protocol definitions
+├── clients/           # External API clients
+│   └── portal.py      # PortalClient — 3GPP authenticated portal access
+├── parsers/           # Response parsers
+│   ├── portal.py      # Portal HTML page parser
+│   └── meetings.py    # Meeting HTML page parser
+├── models/            # Shared data models (neutral layer)
+│   ├── base.py        # OutputFormat, SortOrder, PortalCredentials
+│   ├── workspaces.py  # Workspace, SourceKind, extraction models
+│   ├── working_groups.py, subworking_groups.py # WG/SWG reference data
+│   └── crawl_log.py   # Crawl log models
+├── tdocs/             # TDoc domain (crawl, sources, operations)
+├── meetings/          # Meeting domain (crawl, sources, operations)
+├── specs/             # Spec domain (crawl, sources, operations)
+├── extraction/        # Document extraction pipeline
+├── workspaces/        # Workspace CRUD operations
+├── workers/           # Subinterpreter worker functions
+│   └── tdoc_worker.py # fetch_meeting_document_list_subinterpreter()
+├── utils/             # Shared utilities
+│   ├── async_helpers.py  # run_async() — safe sync-to-async bridge
+│   ├── normalization.py  # ID, release, spec number normalization
+│   ├── parse.py          # Spec version parsing
+│   ├── security.py       # Path traversal checks, URL validation
+│   ├── misc.py           # utc_now, etc.
+│   └── date_parser.py    # Date parsing utilities
+├── logging/           # RichHandler-based logging
+│   └── __init__.py    # get_logger(), get_console(), set_verbosity()
+└── constants/         # URL templates and patterns
+    ├── urls.py        # PORTAL_BASE_URL, MEETINGS_BASE_URL, etc.
+    └── patterns.py    # Regex patterns
+```
+
+---
+
+## Key Patterns
+
+### Async-to-Sync Bridge (`run_async`)
+Found in `src/tdoc_crawler/utils/async_helpers.py`. Used by 4+ caller sites to run coroutines from synchronous contexts:
+```python
+from tdoc_crawler.utils.async_helpers import run_async
+metadata = run_async(_resolve_metadata())  # safe whether or not loop is running
+```
+Detection logic: tries `asyncio.get_running_loop()`, falls back to `asyncio.run()` or background thread with its own loop.
+
+### Configuration Precedence (highest to lowest)
+1. CLI `--config` explicit file
+2. Discovered config files (project-level `.toml`/`.yaml`/`.json`)
+3. Environment variables (`TDC_*`, `HTTP_CACHE_*`)
+4. Hard-coded defaults in `settings.py`
+
+### CacheManager Singleton
+`CacheManager(cache_dir).register()` at CLI startup to `resolve_cache_manager()` anywhere else.
+
+---
 
 ## Platform Requirements
 
-**Development:**
-- Python 3.13+ (stdlib, async/await stable)
-- Git (for version tagging)
-- LibreOffice (optional, for local PDF conversion)
-- `uv` package manager
+### Development
+- Python 3.13+ (3.14+ preferred for subinterpreter support)
+- Git (for version tagging via uv-dynamic-versioning)
+- `uv` package manager (`pip install uv`)
+- LibreOffice (optional, for local document conversion)
 
-**Production:**
+### Production / Runtime
 - Python 3.14 runtime
 - SQLite3 (bundled with Python)
-- Network access to `https://www.3gpp.org`, `https://portal.3gpp.org`
-- 2+ GB disk for cache (tunable per `CacheManager`)
+- Network: `https://www.3gpp.org`, `https://portal.3gpp.org`, `https://pdf-convert.3gpp.org`, `https://whatthespec.3gpp.org`
+- 2+ GB disk for cache (`~/.3gpp-crawler/`)
+- No Dockerfile checked in (user-managed)
 
 ---
 
