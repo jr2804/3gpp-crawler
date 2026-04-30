@@ -1,11 +1,9 @@
 """Meeting database operations."""
 
-import asyncio
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import datetime
 
-from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.database.oxyde_models import CrawlLogEntry, MeetingMetadata, TDocMetadata
 from tdoc_crawler.logging import get_logger
@@ -17,6 +15,31 @@ from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
 
 _logger = get_logger(__name__)
+
+
+def _filter_by_working_group(meetings: list[MeetingMetadata], allowed_tbids: set[int]) -> list[MeetingMetadata]:
+    """Filter meetings by allowed TBID set."""
+    return [m for m in meetings if m.tbid in allowed_tbids]
+
+
+def _filter_by_subgroup(meetings: list[MeetingMetadata], allowed_codes: set[str]) -> list[MeetingMetadata]:
+    """Filter meetings by subgroup codes."""
+    return [m for m in meetings if m.subtb in SUBTB_INDEX and SUBTB_INDEX[m.subtb].code in allowed_codes]
+
+
+def _filter_with_files(meetings: list[MeetingMetadata]) -> list[MeetingMetadata]:
+    """Keep only meetings that have a files URL."""
+    return [m for m in meetings if m.files_url]
+
+
+def _filter_by_start_date(meetings: list[MeetingMetadata], start_date: datetime) -> list[MeetingMetadata]:
+    """Keep meetings starting on or after the given date."""
+    return [m for m in meetings if m.start_date and m.start_date >= start_date]
+
+
+def _filter_by_end_date(meetings: list[MeetingMetadata], end_date: datetime) -> list[MeetingMetadata]:
+    """Keep meetings ending on or before the given date."""
+    return [m for m in meetings if m.end_date and m.end_date <= end_date]
 
 
 class MeetingDatabase(DocDatabase):
@@ -119,23 +142,7 @@ class MeetingDatabase(DocDatabase):
             List of matching meeting metadata
         """
         meetings = await self._table_rows(MeetingMetadata)
-
-        if config.working_groups:
-            allowed = {wg.tbid for wg in config.working_groups}
-            meetings = [meeting for meeting in meetings if meeting.tbid in allowed]
-
-        if config.subgroups:
-            allowed_subgroups = {value.strip().upper() for value in config.subgroups}
-            meetings = [meeting for meeting in meetings if meeting.subtb in SUBTB_INDEX and SUBTB_INDEX[meeting.subtb].code in allowed_subgroups]
-
-        if not config.include_without_files:
-            meetings = [meeting for meeting in meetings if meeting.files_url]
-
-        # Date range filters
-        if config.start_date is not None:
-            meetings = [meeting for meeting in meetings if meeting.start_date and meeting.start_date >= config.start_date]
-        if config.end_date is not None:
-            meetings = [meeting for meeting in meetings if meeting.end_date and meeting.end_date <= config.end_date]
+        meetings = self._apply_meeting_filters(meetings, config)
 
         descending = config.order.value.lower() == "desc"
         meetings.sort(
@@ -277,6 +284,30 @@ class MeetingDatabase(DocDatabase):
         """Get a meeting by ID."""
         return await MeetingMetadata.objects.filter(meeting_id=meeting_id).first()
 
+    @staticmethod
+    def _apply_meeting_filters(
+        meetings: list[MeetingMetadata],
+        config: MeetingQueryConfig,
+    ) -> list[MeetingMetadata]:
+        """Apply configured filters to a meeting list."""
+        if config.working_groups:
+            allowed = {wg.tbid for wg in config.working_groups}
+            meetings = _filter_by_working_group(meetings, allowed)
+
+        if config.subgroups:
+            allowed_subgroups = {value.strip().upper() for value in config.subgroups}
+            meetings = _filter_by_subgroup(meetings, allowed_subgroups)
+
+        if not config.include_without_files:
+            meetings = _filter_with_files(meetings)
+
+        if config.start_date is not None:
+            meetings = _filter_by_start_date(meetings, config.start_date)
+        if config.end_date is not None:
+            meetings = _filter_by_end_date(meetings, config.end_date)
+
+        return meetings
+
     # ------------------------------------------------------------------
     # Normalisation helpers
     # ------------------------------------------------------------------
@@ -296,32 +327,4 @@ class MeetingDatabase(DocDatabase):
         return False
 
 
-async def _resolve_meeting_short_name(meeting_id: int) -> str | None:
-    """Look up a meeting's short name by ID.
-
-    Args:
-        meeting_id: Meeting identifier.
-
-    Returns:
-        Meeting short name (e.g., "SA4#134") if found, None otherwise.
-    """
-    async with MeetingDatabase(PathConfig().db_file) as db:
-        meeting = await db._get_meeting(meeting_id)
-        return meeting.short_name if meeting is not None else None
-
-
-def get_meeting_short_name(meeting_id: int) -> str | None:
-    """Sync convenience wrapper to look up a meeting's short name by ID.
-
-    Uses ``asyncio.run()`` — must not be called from an async context.
-
-    Args:
-        meeting_id: Meeting identifier.
-
-    Returns:
-        Meeting short name (e.g., "SA4#134") if found, None otherwise.
-    """
-    return asyncio.run(_resolve_meeting_short_name(meeting_id))
-
-
-__all__ = ["MeetingDatabase", "get_meeting_short_name"]
+__all__ = ["MeetingDatabase"]

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Self
 from uuid import uuid4
 
-from oxyde import AsyncDatabase, Model
+from oxyde import AsyncDatabase, Model, execute_raw
 from oxyde.migrations import extract_current_schema
 
 from tdoc_crawler.database.errors import DatabaseError
@@ -26,6 +26,51 @@ from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS
 
 _logger = get_logger(__name__)
+
+_PYTHON_TO_SQLITE_TYPE: dict[str, str] = {
+    "int": "INTEGER",
+    "str": "TEXT",
+    "float": "REAL",
+    "datetime": "TEXT",
+    "date": "TEXT",
+    "bool": "INTEGER",
+    "bytes": "BLOB",
+    "list": "TEXT",
+    "dict": "TEXT",
+}
+
+
+def _build_column_sql(field: dict, pk_count: int) -> str:
+    """Build a single column SQL definition from a schema field dict."""
+    col_name = field["name"]
+    sql_type = _PYTHON_TO_SQLITE_TYPE.get(field["python_type"], "TEXT")
+
+    if not field.get("nullable", True):
+        sql_type += " NOT NULL"
+
+    default = field.get("default")
+    if default is not None and default != "NULL":
+        sql_type += f" DEFAULT {default}"
+
+    is_pk = bool(field.get("primary_key", False))
+    is_unique = bool(field.get("unique", False))
+    if is_pk and pk_count == 1:
+        sql_type += " PRIMARY KEY"
+    elif is_unique:
+        sql_type += " UNIQUE"
+
+    return f"{col_name} {sql_type}"
+
+
+def _build_column_defs(fields: list[dict]) -> tuple[list[str], list[str]]:
+    """Build all column definitions and collect primary key field names.
+
+    Returns:
+        Tuple of (column SQL strings, primary key field names).
+    """
+    pk_fields = [f["name"] for f in fields if bool(f.get("primary_key", False))]
+    column_defs = [_build_column_sql(f, len(pk_fields)) for f in fields]
+    return column_defs, pk_fields
 
 
 class DocDatabase:
@@ -59,7 +104,8 @@ class DocDatabase:
             await self._ensure_tables_exist()
             await self._ensure_reference_data()
         except Exception as exc:
-            raise DatabaseError("database-initialization-failed", detail=str(exc)) from exc
+            msg = "database-initialization-failed"
+            raise DatabaseError(msg, detail=str(exc)) from exc
         return self
 
     async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, exc_tb: object | None) -> None:
@@ -146,71 +192,19 @@ class DocDatabase:
         if self._database is None:
             return
 
-        # Extract current schema from registered models
         schema = extract_current_schema(dialect="sqlite")
 
-        # Build and execute CREATE TABLE IF NOT EXISTS for each table
         for table_name, table_def in schema.get("tables", {}).items():
             fields = table_def.get("fields", [])
             if not fields:
                 continue
 
-            # Build column definitions
-            column_defs: list[str] = []
-            pk_fields: list[str] = []
-            for field in fields:
-                if bool(field.get("primary_key", False)):
-                    pk_fields.append(field["name"])
-
-            for field in fields:
-                col_name = field["name"]
-                python_type = field["python_type"]
-
-                # Map Python types to SQLite types
-                sql_type: str
-                if python_type == "int":
-                    sql_type = "INTEGER"
-                elif python_type == "str":
-                    sql_type = "TEXT"
-                elif python_type == "float":
-                    sql_type = "REAL"
-                elif python_type in ("datetime", "date"):
-                    sql_type = "TEXT"
-                elif python_type == "bool":
-                    sql_type = "INTEGER"
-                elif python_type == "bytes":
-                    sql_type = "BLOB"
-                elif python_type in ("list", "dict"):
-                    sql_type = "TEXT"  # Store as JSON
-                else:
-                    sql_type = "TEXT"
-
-                nullable = field.get("nullable", True)
-                if not nullable:
-                    sql_type += " NOT NULL"
-
-                default = field.get("default")
-                if default is not None and default != "NULL":
-                    sql_type += f" DEFAULT {default}"
-
-                is_pk = bool(field.get("primary_key", False))
-                is_unique = bool(field.get("unique", False))
-                if is_pk and len(pk_fields) == 1:
-                    sql_type += " PRIMARY KEY"
-                elif is_unique:
-                    sql_type += " UNIQUE"
-
-                column_defs.append(f"{col_name} {sql_type}")
-
+            column_defs, pk_fields = _build_column_defs(fields)
             if len(pk_fields) > 1:
-                pk_cols = ", ".join(pk_fields)
-                column_defs.append(f"PRIMARY KEY ({pk_cols})")
+                column_defs.append(f"PRIMARY KEY ({', '.join(pk_fields)})")
 
-            # Build complete CREATE TABLE IF NOT EXISTS statement
             columns_sql = ", ".join(column_defs)
             create_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_sql})"
-
-            # Execute the SQL using Oxyde's IR format for raw SQL
             raw_ir = {"proto": 1, "op": "raw", "table": "", "sql": create_sql}
             await self._database.execute(raw_ir)
 
@@ -241,8 +235,9 @@ class DocDatabase:
         try:
             return await model_class.objects.all()
         except Exception as exc:
-            _logger.error("Failed to read table for %s: %s", model_class.__name__, exc)
-            raise DatabaseError("table-read-failed", detail=f"Model '{model_class.__name__}': {exc}") from exc
+            _logger.exception("Failed to read table for %s: %s", model_class.__name__, exc)
+            msg = "table-read-failed"
+            raise DatabaseError(msg, detail=f"Model '{model_class.__name__}': {exc}") from exc
 
     async def _clear_tables(self, table_names: str | Iterable[str]) -> dict[str, int]:
         """Clear specified tables from database.
@@ -277,10 +272,11 @@ class DocDatabase:
                 continue
             try:
                 count = await model_class.objects.count()
-                await model_class.objects.delete()
+                table_name = model_class.get_table_name()
+                await execute_raw(f"DELETE FROM {table_name}", using="default")
                 counts[table] = count
             except (OSError, ValueError) as exc:
-                _logger.error("Failed to clear table %s: %s", table, exc)
+                _logger.exception("Failed to clear table %s: %s", table, exc)
                 counts[table] = 0
         return counts
 

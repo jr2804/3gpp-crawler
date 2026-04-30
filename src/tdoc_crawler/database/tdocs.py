@@ -165,8 +165,7 @@ class TDocDatabase(MeetingDatabase):
         filtered = self._filter_by_pattern(filtered, config.title_pattern, lambda record: record.title, exclude=False)
         filtered = self._filter_by_pattern(filtered, config.title_pattern_exclude, lambda record: record.title, exclude=True)
         filtered = self._filter_by_pattern(filtered, config.agenda_pattern, lambda record: record.agenda_item_text, exclude=False)
-        filtered = self._filter_by_pattern(filtered, config.agenda_pattern_exclude, lambda record: record.agenda_item_text, exclude=True)
-        return filtered
+        return self._filter_by_pattern(filtered, config.agenda_pattern_exclude, lambda record: record.agenda_item_text, exclude=True)
 
     async def _get_tdoc(self, tdoc_id: str) -> TDocMetadata | None:
         """Get a TDoc by ID."""

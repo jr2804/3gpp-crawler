@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import defaultdict
 from dataclasses import dataclass
@@ -84,16 +85,158 @@ def _build_spec_versions(
                 version=parse_spec_version_nbr(version),
                 file_name=file_name,
                 source_name=source_name,
-            )
+            ),
         )
     return spec_versions
+
+
+def _process_source_fetch(
+    source: SpecSource,
+    normalized: str,
+    compact: str,
+) -> tuple[SpecCrawlSourceOutcome, SpecificationSourceRecord | None, Specification | None, list[SpecificationVersion]] | None:
+    """Process a single source fetch for a spec.
+
+    Returns:
+        Tuple of (outcome, source_record, candidate, versions), or None if fetch failed
+        (in which case the error outcome is appended internally).
+    """
+    try:
+        payload = source.fetch(normalized)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        _logger.warning("Spec crawl failed for %s (%s): %s", normalized, source.name, exc)
+        return None
+
+    source_name = str(payload.get("source_name", source.name))
+    source_identifier = payload.get("source_identifier")
+    metadata_payload = payload.get("metadata_payload")
+    if not isinstance(metadata_payload, dict):
+        metadata_payload = {}
+
+    versions = payload.get("versions")
+    if not isinstance(versions, list):
+        versions = []
+    normalized_versions = [parse_spec_version_nbr(item) for item in versions]
+
+    outcome = SpecCrawlSourceOutcome(
+        source_name=source_name,
+        status="ok",
+        versions=normalized_versions,
+    )
+
+    source_record = SpecificationSourceRecord(
+        record_id=f"{normalized}:{source_name}",
+        spec_number=normalized,
+        source_name=source_name,
+        source_identifier=source_identifier if isinstance(source_identifier, str) else None,
+        metadata_payload=metadata_payload,
+        versions=normalized_versions,
+    )
+
+    candidate, versions_payload = _build_spec_candidate(
+        compact=compact,
+        metadata_payload=metadata_payload,
+        normalized=normalized,
+        source_name=source_name,
+        versions=normalized_versions,
+    )
+
+    return outcome, source_record, candidate, versions_payload
+
+
+def _aggregate_specs(current: Specification | None, candidate: Specification) -> Specification:
+    """Merge candidate into current aggregated spec, preferring non-None latest_version."""
+    if current is None:
+        return candidate
+    if current.latest_version is None and candidate.latest_version is not None:
+        return Specification(
+            spec_number=current.spec_number,
+            spec_number_compact=current.spec_number_compact,
+            spec_type=current.spec_type,
+            title=current.title,
+            status=current.status,
+            working_group=current.working_group,
+            series=current.series,
+            latest_version=candidate.latest_version,
+        )
+    return current
+
+
+def _apply_spec_filters(specs: list[Specification], filters: SpecQueryFilters) -> list[Specification]:
+    """Apply filter criteria to a list of specs, returning filtered list."""
+    if filters.spec_numbers:
+        allowed = {normalize_spec_number(value) for value in filters.spec_numbers}
+        specs = [spec for spec in specs if spec.spec_number in allowed]
+
+    if filters.title:
+        needle = filters.title.strip().lower()
+        specs = [spec for spec in specs if needle in (spec.title or "").lower()]
+
+    if filters.working_group:
+        needle = filters.working_group.strip().lower()
+        specs = [spec for spec in specs if (spec.working_group or "").lower() == needle]
+
+    if filters.status:
+        needle = filters.status.strip().lower()
+        specs = [spec for spec in specs if (spec.status or "").lower() == needle]
+
+    return specs
+
+
+def _build_source_differences(records: list[SpecificationSourceRecord]) -> dict[str, dict[str, str | None]]:
+    """Compare metadata payloads across source records, returning fields that differ."""
+    if len(records) < 2:
+        return {}
+
+    fields = ("title", "status", "working_group", "latest_version", "spec_type", "series")
+    differences: dict[str, dict[str, str | None]] = {}
+    for field in fields:
+        values: dict[str, str | None] = {}
+        normalized_values: set[str] = set()
+        for record in records:
+            payload = record.metadata_payload
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except json.JSONDecodeError:
+                    payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            raw_value = payload.get(field)
+            value = str(raw_value) if raw_value is not None else None
+            values[record.source_name] = value
+            normalized_values.add((value or "").strip().lower())
+
+        if len(normalized_values) > 1:
+            differences[field] = values
+
+    return differences
+
+
+def _check_release_matches(
+    outcomes: list[SpecCrawlSourceOutcome],
+    release_type: str,
+    release_value: str,
+    specificity: int,
+) -> bool:
+    """Check if any source outcome contains a version matching the release criteria."""
+    if release_type in ("all", "latest"):
+        return True
+    if release_type in ("exact", "prefix"):
+        return any(
+            _version_matches_release(v, release_type, release_value, specificity)  # type: ignore[arg-type]
+            for outcome in outcomes
+            if outcome.status == "ok"
+            for v in outcome.versions
+        )
+    return False
 
 
 def _version_matches_release(version: str, release_type: str, release_value: str, specificity: int) -> bool:
     """Check if a version string matches the release selector."""
     try:
         v_parts = list(parse_spec_version(version).release)
-    except Exception as exc:
+    except (ValueError, TypeError, AttributeError) as exc:
         _logger.debug("Version parse failed for '%s': %s", version, exc)
         return False
 
@@ -192,8 +335,9 @@ class SpecDatabase(DocDatabase):
         try:
             return await SpecificationVersion.objects.filter(spec_number=spec_number).all()
         except Exception as exc:
-            _logger.error("Failed to get spec versions for '%s': %s", spec_number, exc)
-            raise DatabaseError("spec-versions-read-failed", detail=str(exc)) from exc
+            _logger.exception("Failed to get spec versions for '%s': %s", spec_number, exc)
+            msg = "spec-versions-read-failed"
+            raise DatabaseError(msg, detail=str(exc)) from exc
 
     async def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
         """Query stored spec metadata."""
@@ -203,49 +347,7 @@ class SpecDatabase(DocDatabase):
         for record in source_records:
             records_by_spec[record.spec_number].append(record)
 
-        if filters.spec_numbers:
-            allowed = {normalize_spec_number(value) for value in filters.spec_numbers}
-            specs = [spec for spec in specs if spec.spec_number in allowed]
-
-        if filters.title:
-            needle = filters.title.strip().lower()
-            specs = [spec for spec in specs if needle in (spec.title or "").lower()]
-
-        if filters.working_group:
-            needle = filters.working_group.strip().lower()
-            specs = [spec for spec in specs if (spec.working_group or "").lower() == needle]
-
-        if filters.status:
-            needle = filters.status.strip().lower()
-            specs = [spec for spec in specs if (spec.status or "").lower() == needle]
-
-        def build_source_differences(records: list[SpecificationSourceRecord]) -> dict[str, dict[str, str | None]]:
-            if len(records) < 2:
-                return {}
-
-            fields = ("title", "status", "working_group", "latest_version", "spec_type", "series")
-            differences: dict[str, dict[str, str | None]] = {}
-            for field in fields:
-                values: dict[str, str | None] = {}
-                normalized_values: set[str] = set()
-                for record in records:
-                    payload = record.metadata_payload
-                    if isinstance(payload, str):
-                        try:
-                            payload = json.loads(payload)
-                        except json.JSONDecodeError:
-                            payload = {}
-                    if not isinstance(payload, dict):
-                        payload = {}
-                    raw_value = payload.get(field)
-                    value = str(raw_value) if raw_value is not None else None
-                    values[record.source_name] = value
-                    normalized_values.add((value or "").strip().lower())
-
-                if len(normalized_values) > 1:
-                    differences[field] = values
-
-            return differences
+        specs = _apply_spec_filters(specs, filters)
 
         return [
             SpecQueryResult(
@@ -253,7 +355,7 @@ class SpecDatabase(DocDatabase):
                 title=spec.title,
                 status=spec.status,
                 working_group=spec.working_group,
-                source_differences=build_source_differences(records_by_spec.get(spec.spec_number, [])),
+                source_differences=_build_source_differences(records_by_spec.get(spec.spec_number, [])),
             )
             for spec in specs
         ]
@@ -298,7 +400,7 @@ class SpecDatabase(DocDatabase):
                     release_value=resolved_release,
                     specificity=resolved_specificity,
                     sources=sources,
-                )
+                ),
             )
         return results
 
@@ -318,73 +420,27 @@ class SpecDatabase(DocDatabase):
         spec_versions: list[SpecificationVersion] = []
         aggregated: Specification | None = None
 
-        for source in sources:
-            try:
-                payload = source.fetch(normalized)
-            except (OSError, ValueError, KeyError, TypeError) as exc:
-                _logger.warning("Spec crawl failed for %s (%s): %s", normalized, source.name, exc)
+        # Fetch all sources in parallel (each does sync HTTP)
+        fetch_tasks = [asyncio.to_thread(_process_source_fetch, src, normalized, compact) for src in sources]
+        fetch_results = await asyncio.gather(*fetch_tasks)
+
+        for source, result in zip(sources, fetch_results, strict=False):
+            if result is None:
                 outcomes.append(
                     SpecCrawlSourceOutcome(
                         source_name=source.name,
                         status="error",
                         versions=[],
-                        message=str(exc),
-                    )
+                        message="fetch-failed",
+                    ),
                 )
                 continue
 
-            source_name = str(payload.get("source_name", source.name))
-            source_identifier = payload.get("source_identifier")
-            metadata_payload = payload.get("metadata_payload")
-            if not isinstance(metadata_payload, dict):
-                metadata_payload = {}
-
-            versions = payload.get("versions")
-            if not isinstance(versions, list):
-                versions = []
-            normalized_versions = [parse_spec_version_nbr(item) for item in versions]
-
-            outcomes.append(
-                SpecCrawlSourceOutcome(
-                    source_name=source_name,
-                    status="ok",
-                    versions=normalized_versions,
-                )
-            )
-
-            source_records.append(
-                SpecificationSourceRecord(
-                    record_id=f"{normalized}:{source_name}",
-                    spec_number=normalized,
-                    source_name=source_name,
-                    source_identifier=source_identifier if isinstance(source_identifier, str) else None,
-                    metadata_payload=metadata_payload,
-                    versions=normalized_versions,
-                )
-            )
-
-            candidate, versions_payload = _build_spec_candidate(
-                compact=compact,
-                metadata_payload=metadata_payload,
-                normalized=normalized,
-                source_name=source_name,
-                versions=normalized_versions,
-            )
-            if aggregated is None:
-                aggregated = candidate
-            elif aggregated.latest_version is None and candidate.latest_version is not None:
-                aggregated = Specification(
-                    spec_number=aggregated.spec_number,
-                    spec_number_compact=aggregated.spec_number_compact,
-                    spec_type=aggregated.spec_type,
-                    title=aggregated.title,
-                    status=aggregated.status,
-                    working_group=aggregated.working_group,
-                    series=aggregated.series,
-                    latest_version=candidate.latest_version,
-                )
-
-            spec_versions.extend(versions_payload)
+            outcome, record, candidate, versions = result
+            outcomes.append(outcome)
+            source_records.append(record)
+            aggregated = _aggregate_specs(aggregated, candidate)
+            spec_versions.extend(versions)
 
         if not outcomes:
             return SpecCrawlResult(
@@ -408,19 +464,7 @@ class SpecDatabase(DocDatabase):
                 message="3gpp-source-error",
             )
 
-        if release_type in ("all", "latest"):
-            release_matches = True
-        elif release_type in ("exact", "prefix"):
-            release_matches = any(
-                _version_matches_release(v, release_type, release_value, specificity)  # type: ignore[arg-type]
-                for outcome in outcomes
-                if outcome.status == "ok"
-                for v in outcome.versions
-            )
-        else:
-            release_matches = False
-
-        if not release_matches:
+        if not _check_release_matches(outcomes, release_type, release_value, specificity):
             return SpecCrawlResult(
                 spec_number=normalized,
                 release=release,
@@ -464,8 +508,9 @@ class SpecDatabase(DocDatabase):
         try:
             return await SpecificationSourceRecord.objects.filter(record_id=record_id).first()
         except Exception as exc:
-            _logger.warning("Failed to fetch spec source record '%s': %s", record_id, exc)
-            return None
+            _logger.exception("Failed to fetch spec source record '%s': %s", record_id, exc)
+            msg = "spec-source-read-failed"
+            raise DatabaseError(msg, detail=str(exc)) from exc
 
     async def _get_spec_version(self, record_id: str) -> SpecificationVersion | None:
         return await SpecificationVersion.objects.filter(record_id=record_id).first()
