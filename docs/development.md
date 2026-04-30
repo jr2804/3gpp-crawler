@@ -77,7 +77,7 @@ uv run ty check
 **Two complementary systems:**
 
 1. **`ThreeGPPConfig`** (pydantic-settings, alias `TDocCrawlerConfig`) — Type-safe configuration from files/env vars
-2. **`CacheManager`** (runtime paths) — File system path resolution
+1. **`CacheManager`** (runtime paths) — File system path resolution
 
 ### ThreeGPPConfig (Settings)
 
@@ -100,15 +100,17 @@ config.crawl.workers       # Concurrent crawl workers
 ```
 
 **Config file discovery order** (later overrides earlier):
+
 1. Global: `~/.config/3gpp-crawler/config.toml`
-2. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
-3. Config dir: `.config/.3gpp-crawler/conf.d/*.toml` (alphabetical)
+1. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
+1. Config dir: `.config/.3gpp-crawler/conf.d/*.toml` (alphabetical)
 
 **Precedence:** CLI args > Config file > Environment variables > Defaults
 
 **Supported formats:** TOML (primary), YAML, JSON
 
 **Environment variable prefixes:**
+
 - `TDC_*` — Path settings
 - `TDC_EOL_*` — Portal credentials
 - `TDC_CRAWL_*` — Crawl filters

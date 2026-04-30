@@ -43,15 +43,11 @@ class ConfigEnvVar(StrEnum):
     # HTTP Cache (HTTP_CACHE_*)
     HTTP_CACHE_TTL = "http.cache_ttl"
     HTTP_CACHE_ENABLED = "http.cache_enabled"
-    HTTP_CACHE_REFRESH_ON_ACCESS = "http.cache_refresh_on_access"
     # Crawl filters (TDC_ prefixed)
     TDC_WORKING_GROUP = "crawl.working_group"
     TDC_SUB_GROUP = "crawl.sub_group"
     TDC_START_DATE = "crawl.date_start"
     TDC_END_DATE = "crawl.date_end"
-    TDC_SOURCE_LIKE = "crawl.source_like"
-    TDC_AGENDA_LIKE = "crawl.agenda_like"
-    TDC_TITLE_LIKE = "crawl.title_like"
     TDC_LIMIT_TDOCS = "crawl.limit"
     TDC_WORKERS = "crawl.workers"
     TDC_LIMIT_MEETINGS = "crawl.limit_meetings"
