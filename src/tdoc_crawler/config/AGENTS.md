@@ -19,9 +19,10 @@ config.crawl.workers        # Concurrent workers
 ```
 
 **Config discovery** (later overrides earlier):
+
 1. Global: `~/.config/3gpp-crawler/config.toml`
-2. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
-3. Config dir: `.config/.3gpp-crawler/conf.d/*.toml`
+1. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
+1. Config dir: `.config/.3gpp-crawler/conf.d/*.toml`
 
 **Precedence:** CLI args > Config file > Env vars > Defaults
 
