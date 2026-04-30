@@ -28,7 +28,6 @@ from tdoc_crawler.extraction.metrics import (
     timed_operation,
 )
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
-from tdoc_crawler.extraction.workspace_utils import check_pdf_status
 
 __all__ = [
     "DEFAULT_EXTRACTION_PROFILE",
@@ -42,7 +41,6 @@ __all__ = [
     "OpendataloaderConfig",
     "TDocFiles",
     "TimedOperationResult",
-    "check_pdf_status",
     "convert_document_to_markdown",
     "convert_tdoc_metadata",
     "convert_tdoc_to_markdown",

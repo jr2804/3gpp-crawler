@@ -13,10 +13,7 @@ from enum import Enum
 class MetricType(Enum):
     """Types of performance metrics."""
 
-    EXTRACTION = "extraction"
     CONVERSION = "conversion"
-    SUMMARIZATION = "summarization"
-    GRAPH_BUILD = "graph_build"
 
 
 @dataclass
@@ -30,7 +27,6 @@ class DocumentMetric:
     timestamp: datetime = field(default_factory=datetime.now)
     error: str | None = None
     cache_hit: bool = False
-    tokens_used: int | None = None
 
 
 @dataclass
@@ -63,7 +59,6 @@ class MetricsTracker:
         duration_seconds: float,
         *,
         cache_hit: bool = False,
-        tokens_used: int | None = None,
     ) -> None:
         """Convenience method to record a successful operation.
 
@@ -72,7 +67,6 @@ class MetricsTracker:
             metric_type: Type of operation.
             duration_seconds: Operation duration.
             cache_hit: Whether result was served from cache.
-            tokens_used: Number of tokens used (for LLM operations).
         """
         self.record(
             DocumentMetric(
@@ -81,8 +75,7 @@ class MetricsTracker:
                 duration_seconds=duration_seconds,
                 success=True,
                 cache_hit=cache_hit,
-                tokens_used=tokens_used,
-            )
+            ),
         )
 
     def record_failure(
@@ -107,13 +100,8 @@ class MetricsTracker:
                 duration_seconds=duration_seconds,
                 success=False,
                 error=error,
-            )
+            ),
         )
-
-    @property
-    def metrics(self) -> list[DocumentMetric]:
-        """Get all recorded metrics."""
-        return self._metrics
 
     def summary(self) -> dict:
         """Generate summary statistics.
