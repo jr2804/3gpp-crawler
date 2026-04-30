@@ -14,56 +14,8 @@ from tdoc_crawler.models import PortalCredentials, WorkingGroup
 from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
-from tdoc_crawler.utils.parse import infer_working_groups_from_ids
 
 from .conftest import insert_sample_meetings_async
-
-
-class TestInferWorkingGroups:
-    """Tests for infer_working_groups_from_ids function."""
-
-    def test_infer_from_ran_tdocs(self) -> None:
-        """Infer RAN working group from R-prefixed IDs."""
-        ids = ["R1-2301234", "R2-2301567"]
-        groups = infer_working_groups_from_ids(ids)
-        assert WorkingGroup.RAN in groups
-        assert len(groups) == 1
-
-    def test_infer_from_sa_tdocs(self) -> None:
-        """Infer SA working group from S-prefixed IDs."""
-        ids = ["S4-2301890", "S2-2301123"]
-        groups = infer_working_groups_from_ids(ids)
-        assert WorkingGroup.SA in groups
-        assert len(groups) == 1
-
-    def test_infer_from_ct_tdocs(self) -> None:
-        """Infer CT working group from T or C prefixed IDs."""
-        ids = ["T1-2301456", "C2-2301789"]
-        groups = infer_working_groups_from_ids(ids)
-        assert WorkingGroup.CT in groups
-        assert len(groups) == 1
-
-    def test_infer_from_mixed_tdocs(self) -> None:
-        """Infer multiple working groups from mixed IDs."""
-        ids = ["R1-2301234", "S4-2301890", "T1-2301456"]
-        groups = infer_working_groups_from_ids(ids)
-        assert len(groups) == 3
-        assert WorkingGroup.RAN in groups
-        assert WorkingGroup.SA in groups
-        assert WorkingGroup.CT in groups
-
-    def test_infer_deduplicates_groups(self) -> None:
-        """Ensure duplicate working groups are removed."""
-        ids = ["R1-2301234", "R2-2301567", "R3-2301890"]
-        groups = infer_working_groups_from_ids(ids)
-        assert len(groups) == 1
-        assert WorkingGroup.RAN in groups
-
-    def test_infer_empty_list(self) -> None:
-        """Return empty list for empty input."""
-        ids: list[str] = []
-        groups = infer_working_groups_from_ids(ids)
-        assert len(groups) == 0
 
 
 @pytest.mark.asyncio

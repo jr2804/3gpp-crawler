@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from tdoc_crawler.cli._workspace_commands import _validate_and_create_members
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.config.workspace_registry import WorkspaceRegistry
 from tdoc_crawler.models.workspaces import (
@@ -225,3 +226,31 @@ class TestWorkspaceCRUD:
         """Test ensuring default workspace exists."""
         registry = ensure_default_workspace()
         assert DEFAULT_WORKSPACE in registry.workspaces
+
+
+class TestWorkspaceAddValidation:
+    """Tests for workspace add member validation behavior."""
+
+    def test_missing_withdrawn_tdoc_added_as_inactive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Withdrawn TDocs without files should still be tracked as inactive members."""
+        monkeypatch.setattr("tdoc_crawler.cli._workspace_commands._resolve_inactive_missing_tdoc_status", lambda _item: "withdrawn")
+        monkeypatch.setattr("tdoc_crawler.cli._workspace_commands._validate_tdoc_exists", lambda _item: False)
+
+        members, skipped = _validate_and_create_members(["S4-230330"], SourceKind.TDOC, release=None)
+
+        assert skipped == []
+        assert len(members) == 1
+        assert members[0].source_item_id == "S4-230330"
+        assert members[0].is_active is False
+
+    def test_missing_regular_tdoc_still_skipped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Missing TDocs without inactive-eligible status should remain skipped."""
+        monkeypatch.setattr("tdoc_crawler.cli._workspace_commands._resolve_inactive_missing_tdoc_status", lambda _item: None)
+        monkeypatch.setattr("tdoc_crawler.cli._workspace_commands._validate_tdoc_exists", lambda _item: False)
+
+        members, skipped = _validate_and_create_members(["S4-251751"], SourceKind.TDOC, release=None)
+
+        assert members == []
+        assert len(skipped) == 1
+        assert skipped[0][0] == "S4-251751"
+        assert skipped[0][1] == "TDoc not found"

@@ -72,12 +72,6 @@ class TestCacheManager:
         manager = CacheManager(tmp_path)
         assert manager.workspace_registry_file == tmp_path / "workspaces.json"
 
-    def test_is_registered(self, tmp_path: Path) -> None:
-        """Test is_registered class method."""
-        assert CacheManager.is_registered() is False
-        CacheManager(tmp_path).register()
-        assert CacheManager.is_registered() is True
-
 
 class TestCacheManagerIntegration:
     """Test CacheManager integration with actual filesystem."""

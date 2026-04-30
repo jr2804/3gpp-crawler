@@ -16,12 +16,6 @@ from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocMetadata
 
 
-def pytest_ignore_collect(collection_path: object, config: pytest.Config) -> bool:
-    """Ignore legacy tests/ai suite in the core tdoc_crawler package."""
-    path_text = str(collection_path).replace("\\", "/").lower()
-    return "/tests/ai/" in path_text or path_text.endswith("/tests/ai")
-
-
 @pytest.fixture(autouse=True)
 def _reset_cache_manager() -> None:
     """Reset CacheManager singleton before each test.
@@ -34,17 +28,21 @@ def _reset_cache_manager() -> None:
 
 
 @pytest.fixture
-def test_cache_dir(tmp_path: Path) -> Path:
+def test_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a temporary cache directory for tests.
+
+    Also sets TDC_CACHE_DIR env var so CLI tests pick up the temp directory.
 
     Args:
         tmp_path: Pytest's tmp_path fixture
+        monkeypatch: Pytest's monkeypatch fixture
 
     Returns:
         Path to test cache directory
     """
     cache_dir = tmp_path / "test-cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("TDC_CACHE_DIR", str(cache_dir))
     return cache_dir
 
 

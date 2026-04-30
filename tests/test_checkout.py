@@ -9,7 +9,12 @@ import pytest
 from packaging.version import Version
 
 from tdoc_crawler.tdocs.models import TDocMetadata
-from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checked_out_tdocs, get_checkout_path
+from tdoc_crawler.tdocs.operations.checkout import (
+    _resolve_corrected_url,
+    checkout_tdoc,
+    get_checked_out_tdocs,
+    get_checkout_path,
+)
 from tdoc_crawler.workspaces import resolve_tdoc_checkout_path
 
 
@@ -197,6 +202,180 @@ class TestCheckoutTDoc:
 
         with pytest.raises(ValueError, match="unsupported-url-scheme"):
             checkout_tdoc(metadata, checkout_dir)
+
+    @patch("tdoc_crawler.tdocs.operations.checkout._resolve_corrected_url")
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
+    def test_case_correct_fallback_on_bad_zip(
+        self,
+        mock_download_to_file: Mock,
+        mock_resolve_url: Mock,
+        sample_tdoc_metadata: TDocMetadata,
+        checkout_dir: Path,
+    ) -> None:
+        """Test that checkout retries with case-correct URL when first download is invalid."""
+        corrected_url = "https://www.3gpp.org/ftp/tsg_sa/SA4/S4-251234.zip"
+        mock_resolve_url.return_value = corrected_url
+
+        call_count = 0
+
+        def mock_download(url: str, destination: Path, session: object = None) -> None:
+            nonlocal call_count
+            call_count += 1
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            content = io.BytesIO()
+            if call_count == 1:
+                # First call: invalid/empty zip
+                destination.write_bytes(b"not-a-zip")
+            else:
+                # Second call: valid zip
+                with zipfile.ZipFile(content, "w") as zf:
+                    zf.writestr("doc.txt", "document content")
+                destination.write_bytes(content.getvalue())
+
+        mock_download_to_file.side_effect = mock_download
+
+        result = checkout_tdoc(sample_tdoc_metadata, checkout_dir)
+
+        assert result == get_checkout_path(sample_tdoc_metadata, checkout_dir)
+        assert (result / "doc.txt").exists()
+        assert call_count == 2
+        mock_resolve_url.assert_called_once()
+
+    @patch("tdoc_crawler.tdocs.operations.checkout._resolve_corrected_url")
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
+    def test_fallback_propagates_when_no_corrected_url(
+        self,
+        mock_download_to_file: Mock,
+        mock_resolve_url: Mock,
+        sample_tdoc_metadata: TDocMetadata,
+        checkout_dir: Path,
+    ) -> None:
+        """Test that BadZipFile is re-raised when no case-correct URL is found."""
+        mock_resolve_url.return_value = None
+
+        def mock_download(url: str, destination: Path, session: object = None) -> None:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(b"not-a-zip")
+
+        mock_download_to_file.side_effect = mock_download
+
+        with pytest.raises(zipfile.BadZipFile):
+            checkout_tdoc(sample_tdoc_metadata, checkout_dir)
+
+
+class TestResolveCorrectedUrl:
+    """Tests for _resolve_corrected_url function."""
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.requests.Session")
+    def test_finds_case_insensitive_match(self, mock_session_cls: Mock) -> None:
+        """Test that function finds a case-insensitive filename match in directory listing."""
+        mock_response = Mock()
+        mock_response.content = b"""
+        <html><body>
+        <a href="S4aA230110.zip">S4aA230110.zip</a>
+        <a href="OTHER.zip">OTHER.zip</a>
+        </body></html>
+        """
+        mock_response.raise_for_status = Mock()
+        mock_session = Mock()
+        mock_session.get.return_value = mock_response
+        mock_session_cls.return_value.__enter__ = Mock(return_value=mock_session)
+        mock_session_cls.return_value.__exit__ = Mock(return_value=False)
+
+        metadata = TDocMetadata(
+            tdoc_id="S4AA230110",
+            url="https://www.3gpp.org/ftp/TSG_SA/WG4_CODEC/Docs/S4AA230110.zip",
+            title="Test",
+            meeting_id=123,
+            source="Test",
+            contact="test@example.com",
+            tdoc_type="Test Type",
+            for_purpose="Test Purpose",
+            agenda_item_nbr=Version("1.0"),
+            agenda_item_text="Test Agenda Item",
+            status="available",
+            meeting_name="Test Meeting",
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
+        )
+
+        result = _resolve_corrected_url(metadata)
+
+        assert result == "https://www.3gpp.org/ftp/TSG_SA/WG4_CODEC/Docs/S4aA230110.zip"
+        mock_session.get.assert_called_once_with(
+            "https://www.3gpp.org/ftp/TSG_SA/WG4_CODEC/Docs/",
+            timeout=60,
+        )
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.requests.Session")
+    def test_returns_none_when_no_match(self, mock_session_cls: Mock) -> None:
+        """Test that function returns None when no case-insensitive match exists."""
+        mock_response = Mock()
+        mock_response.content = b"<html><body><a href='OTHER.zip'>OTHER.zip</a></body></html>"
+        mock_response.raise_for_status = Mock()
+        mock_session = Mock()
+        mock_session.get.return_value = mock_response
+        mock_session_cls.return_value.__enter__ = Mock(return_value=mock_session)
+        mock_session_cls.return_value.__exit__ = Mock(return_value=False)
+
+        metadata = TDocMetadata(
+            tdoc_id="S4AA230110",
+            url="https://www.3gpp.org/ftp/TSG_SA/WG4_CODEC/Docs/S4AA230110.zip",
+            title="Test",
+            meeting_id=123,
+            source="Test",
+            contact="test@example.com",
+            tdoc_type="Test Type",
+            for_purpose="Test Purpose",
+            agenda_item_nbr=Version("1.0"),
+            agenda_item_text="Test Agenda Item",
+            status="available",
+            meeting_name="Test Meeting",
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
+        )
+
+        result = _resolve_corrected_url(metadata)
+
+        assert result is None
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.requests.Session")
+    def test_returns_none_on_request_error(self, mock_session_cls: Mock) -> None:
+        """Test that function returns None when directory listing request fails."""
+        mock_session = Mock()
+        mock_session.get.side_effect = ConnectionError("network error")
+        mock_session_cls.return_value.__enter__ = Mock(return_value=mock_session)
+        mock_session_cls.return_value.__exit__ = Mock(return_value=False)
+
+        metadata = TDocMetadata(
+            tdoc_id="S4AA230110",
+            url="https://www.3gpp.org/ftp/TSG_SA/WG4_CODEC/Docs/S4AA230110.zip",
+            title="Test",
+            meeting_id=123,
+            source="Test",
+            contact="test@example.com",
+            tdoc_type="Test Type",
+            for_purpose="Test Purpose",
+            agenda_item_nbr=Version("1.0"),
+            agenda_item_text="Test Agenda Item",
+            status="available",
+            meeting_name="Test Meeting",
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+            validated=False,
+            validation_failed=False,
+        )
+
+        result = _resolve_corrected_url(metadata)
+
+        assert result is None
 
 
 class TestGetCheckedOutTdocs:

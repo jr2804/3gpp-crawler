@@ -104,7 +104,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(tmp_path), "open", "S4-260001", "--full-metadata"])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--full-metadata"])
 
         # Verify
         assert result.exit_code == 0, result.output
@@ -149,7 +149,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(tmp_path), "open", "S4-260001", "--use-whatthespec"])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--use-whatthespec"])
 
         # Verify
         assert result.exit_code == 0, result.output
@@ -193,7 +193,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(tmp_path), "open", "S4-260001", "--full-metadata", "--use-whatthespec"])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--full-metadata", "--use-whatthespec"])
 
         # Verify
         assert result.exit_code == 0, result.output
@@ -236,7 +236,7 @@ class TestNewCLIFlags:
         mock_checkout.return_value = tmp_path / "S4-260001.zip"
 
         # Execute
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(tmp_path), "checkout", "S4-260001", "--full-metadata"])
+        result = runner.invoke(tdoc_app, ["checkout", "S4-260001", "--full-metadata"])
 
         # Verify
         assert result.exit_code == 0, result.output
@@ -278,7 +278,7 @@ class TestNewCLIFlags:
         mock_checkout.return_value = tmp_path / "S4-260001.zip"
 
         # Execute
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(tmp_path), "checkout", "S4-260001", "--use-whatthespec"])
+        result = runner.invoke(tdoc_app, ["checkout", "S4-260001", "--use-whatthespec"])
 
         # Verify
         assert result.exit_code == 0, result.output
@@ -322,7 +322,7 @@ class TestNewCLIFlags:
         mock_session.return_value.__enter__.return_value = Mock()
 
         # Execute
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(tmp_path), "open", "S4-260001"])
+        result = runner.invoke(tdoc_app, ["open", "S4-260001"])
 
         # Verify
         assert result.exit_code == 0, result.output

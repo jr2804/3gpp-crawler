@@ -12,14 +12,12 @@ from tdoc_crawler.utils.normalization import (
     expand_spec_ranges_batch,
     normalize_portal_meeting_name,
     normalize_release,
-    normalize_release_label,
     normalize_release_version,
     normalize_spec_number,
     normalize_subgroup_alias,
     normalize_tdoc_id,
     normalize_tdoc_ids,
     normalize_working_group_alias,
-    resolve_release_to_full_version,
 )
 
 
@@ -35,8 +33,8 @@ class TestNormalizeTdocId:
         assert result == "S4-250638"
 
     def test_empty_string(self) -> None:
-        result = normalize_tdoc_id("")
-        assert result == ""
+        with pytest.raises(ValueError, match="TDoc ID cannot be empty"):
+            normalize_tdoc_id("")
 
     def test_mixed_case(self) -> None:
         result = normalize_tdoc_id("RaN1-123")
@@ -125,26 +123,6 @@ class TestNormalizeRelease:
     def test_invalid_raises(self) -> None:
         with pytest.raises(ValueError):
             normalize_release("invalid")
-
-
-class TestNormalizeReleaseLabel:
-    """Tests for normalize_release_label."""
-
-    def test_numeric_to_rel_label(self) -> None:
-        result = normalize_release_label("18")
-        assert result == "Rel-18"
-
-    def test_latest_passthrough(self) -> None:
-        result = normalize_release_label("latest")
-        assert result == "latest"
-
-    def test_none_input(self) -> None:
-        result = normalize_release_label(None)
-        assert result is None
-
-    def test_empty_string(self) -> None:
-        result = normalize_release_label("")
-        assert result is None
 
 
 class TestNormalizePortalMeetingName:
@@ -263,23 +241,3 @@ class TestExpandSpecRangesBatch:
     def test_empty_list(self) -> None:
         result = expand_spec_ranges_batch([])
         assert result == []
-
-
-class TestResolveReleaseToFullVersion:
-    """Tests for resolve_release_to_full_version."""
-
-    def test_latest(self) -> None:
-        result = resolve_release_to_full_version("latest", ["17.0.0", "18.0.0"])
-        assert result == "18.0.0"
-
-    def test_exact_match(self) -> None:
-        result = resolve_release_to_full_version("17.0.0", ["17.0.0", "17.1.0"])
-        assert result == "17.0.0"
-
-    def test_prefix_match(self) -> None:
-        result = resolve_release_to_full_version("17", ["17.0.0", "17.1.0"])
-        assert result == "17.1.0"
-
-    def test_no_versions_raises(self) -> None:
-        with pytest.raises(ValueError):
-            resolve_release_to_full_version("latest", [])

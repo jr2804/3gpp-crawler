@@ -53,7 +53,7 @@ class TestCrawlCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "crawl", "--limit-tdocs", "10"],
+            ["crawl", "--limit-tdocs", "10"],
         )
 
         assert result.exit_code == 0
@@ -89,7 +89,7 @@ class TestCrawlCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "crawl", "--working-group", "RAN"],
+            ["crawl", "--working-group", "RAN"],
         )
 
         assert result.exit_code == 0
@@ -128,8 +128,6 @@ class TestCrawlMeetingsCommand:
             tdoc_app,
             [
                 "crawl-meetings",
-                "--cache-dir",
-                str(test_cache_dir),
                 "--no-prompt-credentials",
             ],
         )
@@ -157,7 +155,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query"],
+            ["query"],
         )
 
         assert result.exit_code == 0
@@ -177,7 +175,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query", "--output", "table"],
+            ["query", "--output", "table"],
         )
 
         assert result.exit_code == 0
@@ -197,7 +195,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query", "--output", "json"],
+            ["query", "--output", "json"],
         )
 
         assert result.exit_code == 0
@@ -218,7 +216,7 @@ class TestQueryCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query", "R1-2301234"],
+            ["query", "R1-2301234"],
         )
 
         assert result.exit_code == 0
@@ -240,7 +238,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query-meetings"],
+            ["query-meetings"],
         )
 
         assert result.exit_code == 0
@@ -259,7 +257,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query-meetings", "-s", "SA4"],
+            ["query-meetings", "-s", "SA4"],
         )
 
         assert result.exit_code == 0
@@ -280,7 +278,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query-meetings", "-s", "S4"],
+            ["query-meetings", "-s", "S4"],
         )
 
         assert result.exit_code == 0
@@ -301,7 +299,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query-meetings", "-s", "RP"],
+            ["query-meetings", "-s", "RP"],
         )
 
         assert result.exit_code == 0
@@ -322,7 +320,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query-meetings", "-w", "SP"],
+            ["query-meetings", "-w", "SP"],
         )
 
         assert result.exit_code == 0
@@ -343,7 +341,7 @@ class TestQueryMeetingsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "query-meetings", "-w", "SA", "-s", "S4"],
+            ["query-meetings", "-w", "SA", "-s", "S4"],
         )
 
         assert result.exit_code == 0
@@ -374,7 +372,7 @@ class TestStatsCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_db_path.parent), "stats"],
+            ["stats"],
         )
 
         assert result.exit_code == 0
@@ -388,7 +386,7 @@ class TestStatsCommand:
         """Test stats command with missing database."""
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "stats"],
+            ["stats"],
         )
 
         assert result.exit_code == 1
@@ -422,7 +420,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "open", "R1-2301234"],
+            ["open", "R1-2301234"],
         )
 
         assert result.exit_code == 0
@@ -442,7 +440,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "open", "INVALID-ID"],
+            ["open", "INVALID-ID"],
         )
 
         assert result.exit_code == 1
@@ -511,7 +509,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "open", "S4-260001"],
+            ["open", "S4-260001"],
         )
 
         assert result.exit_code == 0
@@ -578,7 +576,7 @@ class TestOpenCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "open", "R1-260001"],
+            ["open", "R1-260001"],
         )
 
         # Should succeed (exit code 0) and use whatthespec fallback
@@ -666,7 +664,7 @@ class TestCheckoutCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "checkout", "S4-260001", "S4-260002"],
+            ["checkout", "S4-260001", "S4-260002"],
         )
 
         assert result.exit_code == 0
@@ -709,7 +707,7 @@ class TestCheckoutCommand:
 
         result = runner.invoke(
             tdoc_app,
-            ["--cache-dir", str(test_cache_dir), "checkout", "S4-999999"],
+            ["checkout", "S4-999999"],
         )
 
         # Should exit with error code due to missing TDoc
@@ -864,7 +862,7 @@ class TestEnvironmentVariables:
         db_file = PathConfig(cache_dir=test_cache_dir).db_file
         db_file.touch()
 
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(test_cache_dir), "stats"])
+        result = runner.invoke(tdoc_app, ["stats"])
 
         # Verify resolve_credentials was called
         # (Actual credential resolution happens via Typer's envvar parameter)
@@ -887,7 +885,7 @@ class TestEnvironmentVariables:
         db_file = PathConfig(cache_dir=test_cache_dir).db_file
         db_file.touch()
 
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(test_cache_dir), "stats"])
+        result = runner.invoke(tdoc_app, ["stats"])
 
         assert result.exit_code == 0
 
@@ -930,6 +928,6 @@ class TestEnvironmentVariables:
         db_file = PathConfig(cache_dir=test_cache_dir).db_file
         db_file.touch()
 
-        result = runner.invoke(tdoc_app, ["--cache-dir", str(test_cache_dir), "stats"])
+        result = runner.invoke(tdoc_app, ["stats"])
 
         assert result.exit_code == 0
