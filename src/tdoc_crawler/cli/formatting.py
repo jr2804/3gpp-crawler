@@ -76,7 +76,7 @@ def _dataframe_to_payload(df: pd.DataFrame, input_kind: str) -> Any:
     return records
 
 
-def _format_cell(value: str | int | float | bool | None) -> str:
+def _format_cell(value: str | float | bool | None) -> str:
     """Format one table cell from DataFrame value with empty handling."""
     if value is None:
         return "-"
@@ -147,7 +147,8 @@ def format_output(data: StructuredData, output_format: OutputFormat) -> str:
         case OutputFormat.TABLE:
             return df.to_string(index=False)
         case _:
-            raise ValueError(f"Unsupported output format: {output_format}. Use one of: {', '.join(f.value for f in OutputFormat)}")
+            msg = f"Unsupported output format: {output_format}. Use one of: {', '.join(f.value for f in OutputFormat)}"
+            raise ValueError(msg)
 
 
 def print_structured_output(

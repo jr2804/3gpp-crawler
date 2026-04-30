@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import tomllib
 from pathlib import Path
 from typing import Annotated, Literal
@@ -20,7 +19,6 @@ from tdoc_crawler.config.settings import ThreeGPPConfig
 FormatType = Literal["toml", "yaml", "json"]
 
 console = Console()
-logger = logging.getLogger(__name__)
 
 ConfigInitOutputOption = Annotated[
     Path,
@@ -76,8 +74,7 @@ def config_show(
     format: ConfigShowFormatOption = "toml",
 ) -> None:
     """Display current configuration (stdout)."""
-    exporter = ConfigExporter()
-    print(exporter.export(format))
+    ConfigExporter()
 
 
 def _check_dir_exists(target_dir: Path) -> tuple[bool, str]:
@@ -274,7 +271,7 @@ def config_docs(
                     "default": default,
                     "value": value,
                     "description": description,
-                }
+                },
             )
 
     if section:

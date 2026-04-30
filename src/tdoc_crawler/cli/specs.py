@@ -10,7 +10,6 @@ import typer
 
 from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
-    CacheDirOption,
     CheckoutDirOption,
     DocOnlyOption,
     ReleaseOption,
@@ -36,13 +35,12 @@ def checkout_spec(
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
     spec_file: SpecFileOption = None,
-    cache_dir: CacheDirOption = None,
     checkout_dir: CheckoutDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Download and extract spec documents."""
     set_verbosity(verbosity)
-    path = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
+    path = PathConfig()
     if spec_numbers is None:
         spec_numbers = []
     specs = collect_spec_numbers(spec_numbers, spec_file)
@@ -69,13 +67,12 @@ def open_spec(
     spec: Annotated[str, typer.Argument(help="Spec number")],
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Download and open a spec document."""
     set_verbosity(verbosity)
     normalized = spec.strip()
-    path = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
+    path = PathConfig()
     checkout_dir = path.checkout_dir
 
     sources = build_default_spec_sources()

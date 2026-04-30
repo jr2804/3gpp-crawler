@@ -89,7 +89,9 @@ AgendaPatternOption = Annotated[
 AgendaPatternExcludeOption = Annotated[
     list[str] | None,
     typer.Option(
-        "--agenda-ex", help="Glob pattern to exclude agenda_item_text field. Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_AGENDA_PATTERN_EXCLUDE.name
+        "--agenda-ex",
+        help="Glob pattern to exclude agenda_item_text field. Multiple values are OR'd.",
+        envvar=ConfigEnvVar.TDC_AGENDA_PATTERN_EXCLUDE.name,
     ),
 ]
 
@@ -114,7 +116,6 @@ ReleaseOption = Annotated[
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download")]
 
 # Options - General/Common
-CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name)]
 ClearDbOption = Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")]
 CheckoutOption = Annotated[
     bool,
@@ -150,4 +151,3 @@ NoProgressOption = Annotated[
     bool,
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
 ]
-

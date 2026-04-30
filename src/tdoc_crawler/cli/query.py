@@ -12,7 +12,6 @@ from tdoc_crawler.cli._shared import console, handle_clear_options
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
-    CacheDirOption,
     CheckoutOption,
     ClearSpecsOption,
     ClearTDocsOption,
@@ -64,6 +63,37 @@ from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, pars
 HELP_PANEL = "Query Commands"
 
 
+def _parse_query_dates(
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[datetime | None, datetime | None]:
+    """Parse and validate start/end date strings, raising typer.Exit on error."""
+    start: datetime | None = None
+    end: datetime | None = None
+    if start_date:
+        try:
+            start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC)
+        except ValueError as exc:
+            console.print("[red]Invalid start date format; use ISO-8601")
+            raise typer.Exit(code=2) from exc
+    if end_date:
+        try:
+            end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC)
+        except ValueError as exc:
+            console.print("[red]Invalid end date format; use ISO-8601")
+            raise typer.Exit(code=2) from exc
+    return start, end
+
+
+def _validate_enum(value: str, enum_cls: type, error_msg: str) -> object:
+    """Validate a string against an enum, raising typer.Exit on error."""
+    try:
+        return enum_cls(value.lower())
+    except ValueError as exc:
+        console.print(f"[red]{error_msg}")
+        raise typer.Exit(code=2) from exc
+
+
 def query_tdocs(
     tdoc_ids: TDocIdsArgument = None,
     working_group: WorkingGroupOption = None,
@@ -76,7 +106,6 @@ def query_tdocs(
     no_fetch: NoFetchOption = False,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
-    cache_dir: CacheDirOption = None,
     # Glob pattern filters
     source: SourcePatternOption = None,
     source_ex: SourcePatternExcludeOption = None,
@@ -89,31 +118,11 @@ def query_tdocs(
 ) -> None:
     """Query TDoc metadata from database."""
     set_verbosity(verbosity)
-    path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
-
+    path_config = PathConfig()
     working_groups = parse_working_groups(working_group)
-    try:
-        start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None
-    except ValueError as exc:
-        console.print("[red]Invalid start date format; use ISO-8601")
-        raise typer.Exit(code=2) from exc
-    try:
-        end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None
-    except ValueError as exc:
-        console.print("[red]Invalid end date format; use ISO-8601")
-        raise typer.Exit(code=2) from exc
-
-    try:
-        sort_order = SortOrder(order.lower())
-    except ValueError as exc:
-        console.print("[red]Invalid order value; use asc or desc")
-        raise typer.Exit(code=2) from exc
-
-    try:
-        format_val = OutputFormat(output_format.lower())
-    except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, jsonl, toon, or yaml")
-        raise typer.Exit(code=2) from exc
+    start, end = _parse_query_dates(start_date, end_date)
+    sort_order = _validate_enum(order, SortOrder, "Invalid order value; use asc or desc")
+    format_val = _validate_enum(output_format, OutputFormat, "Invalid output format; use table, json, jsonl, toon, or yaml")
 
     config = TDocQueryConfig(
         output_format=format_val,
@@ -132,13 +141,17 @@ def query_tdocs(
     )
 
     db_file = path_config.db_file
-    handle_clear_options(
-        db_file,
-        path_config.checkout_dir,
-        TDocDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
-    )
+
+    async def run_clear() -> None:
+        await handle_clear_options(
+            db_file,
+            path_config.checkout_dir,
+            TDocDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        )
+
+    asyncio.run(run_clear())
 
     async def run_query() -> list:
         async with TDocDatabase(db_file) as database:
@@ -182,7 +195,6 @@ def query_tdocs(
     # The hybrid search function is designed for semantic search + graph expansion,
     # but was being incorrectly called with a TDoc ID instead of a text query.
     # This functionality has been disabled as it doesn't make logical sense in CLI context.
-    pass
 
     if config.output_format is OutputFormat.TABLE:
         print_tdoc_table(results, meeting_map)
@@ -201,12 +213,11 @@ def query_meetings(
     include_without_files: IncludeWithoutFilesOption = False,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query meeting metadata from database."""
     set_verbosity(verbosity)
-    path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
+    path_config = PathConfig()
     working_groups = parse_working_groups(working_group)
     subgroups = parse_subgroups(subgroup)
     try:
@@ -224,13 +235,17 @@ def query_meetings(
     )
 
     db_file = path_config.db_file
-    handle_clear_options(
-        db_file,
-        path_config.checkout_dir,
-        MeetingDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
-    )
+
+    async def run_clear() -> None:
+        await handle_clear_options(
+            db_file,
+            path_config.checkout_dir,
+            MeetingDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        )
+
+    asyncio.run(run_clear())
 
     async def run_query() -> list:
         async with MeetingDatabase(db_file) as database:
@@ -270,12 +285,11 @@ def query_specs(
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
     spec_file: SpecFileOption = None,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query spec metadata from database."""
     set_verbosity(verbosity)
-    path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
+    path_config = PathConfig()
     specs = collect_spec_numbers(spec_numbers, spec_file)
     working_groups = parse_working_groups(working_group)
     wg_filter = working_groups[0].value if working_groups else None
@@ -294,13 +308,17 @@ def query_specs(
         raise typer.Exit(code=2) from exc
 
     db_file = path_config.db_file
-    handle_clear_options(
-        db_file,
-        path_config.checkout_dir,
-        SpecDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
-    )
+
+    async def run_clear() -> None:
+        await handle_clear_options(
+            db_file,
+            path_config.checkout_dir,
+            SpecDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        )
+
+    asyncio.run(run_clear())
 
     async def run_query() -> list:
         async with SpecDatabase(db_file) as database:

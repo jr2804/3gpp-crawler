@@ -11,7 +11,6 @@ from tdoc_crawler.cli._shared import console, create_progress_bar, handle_clear_
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
-    CacheDirOption,
     CheckoutOption,
     ClearDbOption,
     ClearSpecsOption,
@@ -75,6 +74,26 @@ def _parse_date(date_str: str | None, is_end: bool = False) -> date | None:
     return parse_partial_date(date_str, is_end=is_end)
 
 
+def _build_crawl_scope(
+    meetings: list[MeetingMetadata],
+    working_groups: list,
+    subgroups: list[str],
+) -> str:
+    """Build human-readable scope description for the crawl."""
+    scope_parts: list[str] = []
+    if meetings:
+        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
+        if unique_subgroups:
+            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
+        else:
+            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
+    elif subgroups:
+        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
+    else:
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+    return ", ".join(scope_parts)
+
+
 def crawl_tdocs(
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
@@ -99,7 +118,6 @@ def crawl_tdocs(
     title_ex: TitlePatternExcludeOption = None,
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
-    cache_dir: CacheDirOption = None,
     http_cache_enabled: HttpCacheOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
@@ -110,9 +128,6 @@ def crawl_tdocs(
     set_verbosity(verbosity)
 
     crawler_config = TDocCrawlerConfig.from_settings()
-    # Override cache_dir if provided (deprecated but still supported)
-    if cache_dir is not None:
-        crawler_config.path.cache_dir = cache_dir
     crawler_config.ensure_paths()
 
     subgroups = parse_subgroups(subgroup)
@@ -139,9 +154,6 @@ def crawl_tdocs(
 
     db_file = crawler_config.path.db_file
 
-    scope_parts = []
-
-    # Query actual meetings from database to show realistic scope
     async def fetch_meetings() -> list[MeetingMetadata]:
         async with MeetingDatabase(db_file) as meeting_db:
             query_config = MeetingQueryConfig(
@@ -156,29 +168,19 @@ def crawl_tdocs(
             return await meeting_db.query_meetings(query_config)
 
     meetings = asyncio.run(fetch_meetings())
+    scope = _build_crawl_scope(meetings, working_groups, subgroups)
+    console.print(f"[cyan]Crawling TDocs ({scope})[/cyan]")
 
-    if meetings:
-        # Extract unique subgroups from queried meetings
-        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
-        if unique_subgroups:
-            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
-        else:
-            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
-    # Fallback to input parameters if no meetings found in DB
-    elif subgroups:
-        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
-    else:
-        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+    async def run_clear() -> None:
+        await handle_clear_options(
+            db_file,
+            crawler_config.path.checkout_dir,
+            TDocDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        )
 
-    console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
-
-    handle_clear_options(
-        db_file,
-        crawler_config.path.checkout_dir,
-        TDocDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
-    )
+    asyncio.run(run_clear())
 
     async def run_tdoc_crawl() -> tuple[TDocCrawlResult, float]:
         async with TDocDatabase(db_file) as database:
@@ -246,6 +248,11 @@ def crawl_tdocs(
 
     result, throughput = asyncio.run(run_tdoc_crawl())
 
+    _print_crawl_results(result, throughput)
+
+
+def _print_crawl_results(result: TDocCrawlResult, throughput: float) -> None:
+    """Print crawl summary to console."""
     console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
     if result.errors:
@@ -273,7 +280,6 @@ def crawl_meetings(
     prompt_credentials: PromptCredentialsOption = None,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Crawl meeting metadata from 3GPP portal."""
@@ -281,8 +287,6 @@ def crawl_meetings(
     set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
     crawler_config = TDocCrawlerConfig.from_settings()
-    if cache_dir is not None:
-        crawler_config.path.cache_dir = cache_dir
     crawler_config.ensure_paths()
 
     subgroups = parse_subgroups(subgroup)
@@ -309,14 +313,17 @@ def crawl_meetings(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    handle_clear_options(
-        db_file,
-        crawler_config.path.checkout_dir,
-        MeetingDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
-        clear_db=clear_db,
-    )
+    async def run_clear() -> None:
+        await handle_clear_options(
+            db_file,
+            crawler_config.path.checkout_dir,
+            MeetingDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+            clear_db=clear_db,
+        )
+
+    asyncio.run(run_clear())
 
     async def run_meeting_crawl() -> MeetingCrawlResult:
         async with MeetingDatabase(db_file) as database:
@@ -384,14 +391,11 @@ def crawl_specs(
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
     spec_file: SpecFileOption = None,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Crawl spec metadata from configured sources."""
     set_verbosity(verbosity)
     crawler_config = TDocCrawlerConfig.from_settings()
-    if cache_dir is not None:
-        crawler_config.path.cache_dir = cache_dir
     crawler_config.ensure_paths()
     spec_numbers = spec_numbers or []
 
@@ -404,13 +408,16 @@ def crawl_specs(
 
     sources = build_default_spec_sources()
 
-    handle_clear_options(
-        crawler_config.path.db_file,
-        crawler_config.path.checkout_dir,
-        SpecDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
-    )
+    async def run_clear() -> None:
+        await handle_clear_options(
+            crawler_config.path.db_file,
+            crawler_config.path.checkout_dir,
+            SpecDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        )
+
+    asyncio.run(run_clear())
 
     async def crawl_specs_db() -> list[SpecCrawlResult]:
         async with SpecDatabase(crawler_config.path.db_file) as database:

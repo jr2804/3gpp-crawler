@@ -6,12 +6,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import asyncio  # noqa: E402
-import zipfile  # noqa: E402
-from pathlib import Path  # noqa: E402
-from typing import Annotated, Any, cast  # noqa: E402
+import asyncio
+import zipfile
+from pathlib import Path
+from typing import Annotated, Any, cast
 
-import typer  # noqa: E402
+import typer
 from rich.table import Table
 
 from tdoc_crawler.cli._shared import console, create_progress_bar
@@ -37,7 +37,9 @@ from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
-from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.logging import get_logger, set_verbosity
+
+_logger = get_logger(__name__)
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
@@ -59,23 +61,10 @@ def _app_callback(
             readable=True,
         ),
     ] = None,
-    cache_dir: Annotated[
-        Path | None,
-        typer.Option(
-            "--cache-dir",
-            help="Cache directory (deprecated: use config file)",
-            envvar="TDC_CACHE_DIR",
-        ),
-    ] = None,
 ) -> None:
     """Global CLI options."""
     # Load and validate config at startup
     config = load_cli_config(ctx, config_file)
-
-    # Override cache_dir if provided (deprecated but still supported)
-    if cache_dir is not None:
-        console.print("[yellow]Warning: --cache-dir is deprecated, use config file[/yellow]")
-        config.path.cache_dir = cache_dir
 
     # Register CacheManager for centralized path management
     CacheManager(config.path.cache_dir).register()
@@ -257,7 +246,7 @@ def stats(
     async def _load_stats() -> dict[str, Any]:
 
         async with MeetingDatabase(db_file) as database:
-            return cast(dict[str, Any], await database.get_statistics())
+            return cast("dict[str, Any]", await database.get_statistics())
 
     stats_dict = asyncio.run(_load_stats())
 
@@ -269,7 +258,7 @@ def stats(
 
     table.add_row("Total TDocs", str(stats_dict.get("total_tdocs", 0)))
 
-    by_working_group = cast(dict[str, int], stats_dict.get("by_working_group", {}))
+    by_working_group = cast("dict[str, int]", stats_dict.get("by_working_group", {}))
 
     for wg, count in by_working_group.items():
         table.add_row(f"  {wg}", str(count))
@@ -308,7 +297,7 @@ def stats(
                     wiki_table.add_row(name, "[dim]no build[/dim]", "", "", "")
             console.print(wiki_table)
     except Exception:
-        pass  # Registry may not be available
+        _logger.debug("Wiki health check unavailable", exc_info=True)
 
 
 # Register command aliases

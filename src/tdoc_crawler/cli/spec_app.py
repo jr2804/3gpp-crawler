@@ -7,8 +7,7 @@ from typing import Annotated
 
 import typer
 
-from tdoc_crawler.cli._shared import console
-from tdoc_crawler.cli.args import CacheDirOption, VerbosityOption
+from tdoc_crawler.cli.args import VerbosityOption
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_specs
@@ -33,18 +32,12 @@ def _spec_app_callback(
             readable=True,
         ),
     ] = None,
-    cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Global CLI options for the spec-only app."""
     # Load and validate config at startup
     config = load_cli_config(ctx, config_file)
-
-    # Handle deprecated --cache-dir
-    if cache_dir is not None:
-        console.print("[yellow]Warning: --cache-dir is deprecated, use config file[/yellow]")
-        config.path.cache_dir = cache_dir
-        ctx.obj = config
+    ctx.obj = config
 
     set_verbosity(verbosity)
 

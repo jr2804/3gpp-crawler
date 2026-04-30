@@ -14,7 +14,7 @@ from tdoc_crawler.tdocs.operations.checkout import clear_checkout_tdocs
 console = get_console()
 
 
-def handle_clear_options(
+async def handle_clear_options(
     db_file: Path,
     checkout_dir: Path,
     database_cls: type[DocDatabase],
@@ -44,16 +44,16 @@ def handle_clear_options(
             console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
         return
 
-    with database_cls(db_file) as database:
+    async with database_cls(db_file) as database:
         if clear_tdocs:
-            deleted_count = database.clear_tdocs()
+            deleted_count = await database.clear_tdocs()
             console.print(f"[yellow]Cleared {deleted_count} TDocs from database[/yellow]")
             removed = clear_checkout_tdocs(checkout_dir)
             if removed:
                 console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
 
         if clear_specs:
-            spec_counts = database.clear_specs()
+            spec_counts = await database.clear_specs()
             total_specs = sum(spec_counts.values())
             console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
             removed_specs = clear_checkout_specs(checkout_dir)

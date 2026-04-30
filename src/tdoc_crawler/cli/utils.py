@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 def launch_file(filename: Path) -> None:
     """Launch file in system's default application."""
     if not filename.exists():
-        logger.error(f"File not found: {filename}")
+        logger.error("File not found: %s", filename)
         raise typer.Exit(code=1)
 
     try:
@@ -37,5 +37,5 @@ def launch_file(filename: Path) -> None:
             else:
                 logger.warning("xdg-open command not available")
     except OSError as exc:
-        logger.error(f"Failed to open file: {exc}")
+        logger.exception("Failed to open file: %s", exc)
         raise typer.Exit(code=1) from exc
