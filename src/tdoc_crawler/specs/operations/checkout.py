@@ -10,11 +10,65 @@ import shutil
 from pathlib import Path
 from typing import cast
 
+from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.specs.sources.base import FunctionSpecSource, SpecSource
 from tdoc_crawler.specs.sources.threegpp import fetch_threegpp_metadata
 from tdoc_crawler.specs.sources.whatthespec import fetch_whatthespec_metadata
+from tdoc_crawler.utils.normalization import normalize_spec_number, resolve_release_to_full_version
+
+
+async def resolve_spec_release(
+    spec_number: str,
+    release: str,
+    *,
+    auto_crawl: bool = True,
+    cache_manager_name: str | None = None,
+) -> str:
+    """Resolve a release selector to a concrete version string for a spec.
+
+    Queries the spec database for available versions and resolves the release
+    selector (e.g., ``"latest"``, ``"17"``) to a full 3-part version string.
+
+    If no versions are found and *auto_crawl* is ``True``, triggers a metadata
+    crawl from 3GPP sources before retrying the resolution.
+
+    Args:
+        spec_number: Spec number in any format (e.g., ``"26.260"``, ``"26260"``).
+        release: Release selector (e.g., ``"latest"``, ``"17"``, ``"17.1.0"``).
+        auto_crawl: Crawl spec metadata when not in database.
+        cache_manager_name: Optional cache manager name for HTTP caching.
+
+    Returns:
+        Full 3-part version string (e.g., ``"19.0.0"``).
+
+    Raises:
+        ValueError: If no matching version can be resolved.
+    """
+    normalized = normalize_spec_number(spec_number)
+    db_file = PathConfig().db_file
+
+    async def _get_versions() -> list[str]:
+        async with SpecDatabase(db_file) as db:
+            versions = await db.get_spec_versions(normalized)
+        return [v.version for v in versions]
+
+    versions = await _get_versions()
+
+    if not versions and auto_crawl:
+        sources = build_default_spec_sources(cache_manager_name=cache_manager_name)
+        async with SpecDatabase(db_file) as db:
+            results = await db.crawl_specs([normalized], release, sources)
+        for result in results:
+            if result.status == "stored" and result.latest_version:
+                versions = await _get_versions()
+                break
+
+    if not versions:
+        raise ValueError(f"No versions found for spec {normalized} (release={release})")
+
+    return resolve_release_to_full_version(release, versions)
 
 
 def clear_checkout_specs(checkout_dir: Path) -> int:
@@ -93,4 +147,5 @@ __all__ = [
     "checkout_specs",
     "checkout_specs_async",
     "clear_checkout_specs",
+    "resolve_spec_release",
 ]

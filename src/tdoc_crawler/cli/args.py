@@ -147,6 +147,11 @@ HttpCacheOption = Annotated[
     ),
 ]
 
+AutoCrawlSpecsOption = Annotated[
+    bool,
+    typer.Option("--auto-crawl-specs/--no-auto-crawl-specs", help="Auto-crawl spec metadata when not in database"),
+]
+
 NoProgressOption = Annotated[
     bool,
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),

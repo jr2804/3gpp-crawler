@@ -17,6 +17,7 @@ from tdoc_crawler.cli._shared import console, ensure_hybrid_server_for_profile
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
+    AutoCrawlSpecsOption,
     EndDateOption,
     LimitOption,
     ReleaseOption,
@@ -35,6 +36,7 @@ from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, Extract
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.workspaces import SourceKind
+from tdoc_crawler.specs.operations.checkout import resolve_spec_release
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.workspaces import (
@@ -262,6 +264,29 @@ def workspace_process(
     console.print(f"\n[yellow]Processing complete: {processed} succeeded, {failed} failed[/yellow]")
 
 
+def _resolve_spec_release_for_add(
+    item: str,
+    release: str,
+    source_kind: SourceKind,
+    auto_crawl: bool,
+) -> str:
+    """Resolve a spec release selector to a concrete version for workspace add.
+
+    For non-spec kinds or when resolution fails, returns *release* unchanged.
+    """
+    if source_kind != SourceKind.SPEC:
+        return release
+    try:
+        resolved = asyncio.run(resolve_spec_release(item, release, auto_crawl=auto_crawl))
+        console.print(f"[dim]  Resolved {item} release '{release}' → {resolved}[/dim]")
+        return resolved
+    except ValueError as exc:
+        console.print(f"[yellow]  Warning: {exc}. Using unresolved release '{release}'.[/yellow]")
+    except Exception as exc:
+        console.print(f"[yellow]  Warning: Failed to resolve release for {item}: {exc}[/yellow]")
+    return release
+
+
 @app.command("add", help="Add documents to an existing workspace.")
 def workspace_add(
     items: WorkspaceItemsArgument = None,
@@ -278,6 +303,7 @@ def workspace_add(
     source_ex: SourcePatternExcludeOption = None,
     title: TitlePatternOption = None,
     title_ex: TitlePatternExcludeOption = None,
+    auto_crawl_specs: AutoCrawlSpecsOption = True,
 ) -> None:
     """Add documents to a workspace.
 
@@ -356,13 +382,14 @@ def workspace_add(
     elif items:
         # Direct mode: add items by ID
         for item in items:
+            resolved_release = _resolve_spec_release_for_add(item, release, source_kind, auto_crawl_specs)
             members.append(
                 make_workspace_member(
                     source_item_id=item,
                     source_path=item,
                     source_kind=source_kind,
                     added_by="cli",
-                    release=release,
+                    release=resolved_release,
                 )
             )
     else:
