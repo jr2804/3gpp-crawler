@@ -63,17 +63,29 @@ def fetch_spec_files(spec_number: str, release: str | None = None, force_downloa
     # Spec checkout path: checkout_dir/Specs/archive/{series}/{spec_number}/
     spec_dir = checkout_dir / "Specs" / "archive" / series / normalized
 
-    # Step 1: Check local checkout first
-    if spec_dir.exists() and not force_download:
+    # For "latest"/"all"/None, local-first scan is safe: any file matches.
+    # For a concrete release (e.g. "18.0.0"), we must NOT return files from
+    # a different release that happens to live in the same base directory.
+    is_generic_release = release is None or release.strip().lower() in ("latest", "all")
+
+    # Step 1: Check local checkout (only for generic release selectors)
+    if is_generic_release and spec_dir.exists() and not force_download:
         files = _scan_spec_dir(spec_dir)
         if files.primary_path is not None:
             return files
 
-    # Step 2: Download from 3GPP FTP if release is available
+    # Step 2: Download from 3GPP FTP
     if release is not None or force_download:
-        _download_spec(normalized, release or "latest", checkout_dir)
+        effective_release = release or "latest"
+        extracted_dir = _download_spec(normalized, effective_release, checkout_dir)
 
-        # Re-scan after download
+        if extracted_dir is not None and extracted_dir.exists():
+            # Scan ONLY the version-specific extracted directory
+            files = _scan_spec_dir(extracted_dir)
+            if files.primary_path is not None:
+                return SpecFiles(checkout_dir=spec_dir, docx_path=files.docx_path, doc_path=files.doc_path, pdf_path=files.pdf_path)
+
+        # Fallback: scan the entire spec directory (covers legacy layouts)
         if spec_dir.exists():
             files = _scan_spec_dir(spec_dir)
             if files.primary_path is not None:
@@ -82,14 +94,19 @@ def fetch_spec_files(spec_number: str, release: str | None = None, force_downloa
     raise FileNotFoundError(f"Spec {normalized} not found at {spec_dir}")
 
 
-def _download_spec(spec_number: str, release: str, checkout_dir: Path) -> None:
-    """Download a spec using SpecDownloads with SpecDatabase lifecycle management."""
+def _download_spec(spec_number: str, release: str, checkout_dir: Path) -> Path | None:
+    """Download a spec, returning the version-specific extracted directory.
+
+    Returns:
+        Path to the extracted directory (e.g. ``.../26261-g00/``) or ``None``
+        on failure.
+    """
     db_file = PathConfig().db_file
 
-    async def _do_download() -> None:
+    async def _do_download() -> list[Path]:
         async with SpecDatabase(db_file) as db:
             downloader = SpecDownloads(db)
-            await downloader.checkout_specs_async(
+            return await downloader.checkout_specs_async(
                 specs=[spec_number],
                 doc_only=False,
                 checkout_dir=checkout_dir,
@@ -97,9 +114,11 @@ def _download_spec(spec_number: str, release: str, checkout_dir: Path) -> None:
             )
 
     try:
-        asyncio.run(_do_download())
+        results = asyncio.run(_do_download())
+        return results[0] if results else None
     except Exception as exc:
         logger.warning("Failed to download spec %s (release=%s): %s", spec_number, release, exc)
+        return None
 
 
 def _scan_spec_dir(spec_dir: Path) -> SpecFiles:
