@@ -15,12 +15,14 @@ import opendataloader_pdf
 from rich.console import Console
 
 from tdoc_crawler.extraction.conversion import ensure_pdf
+from tdoc_crawler.extraction.fetch_spec import fetch_spec_files
 from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
 from tdoc_crawler.extraction.hybrid_server import ensure_hybrid_server
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
+from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from tdoc_crawler.utils.normalization import normalize_tdoc_id
+from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_tdoc_id
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -183,6 +185,7 @@ def convert_for_wiki(
     document_id: str,
     wiki_source_dir: Path,
     *,
+    source_kind: SourceKind = SourceKind.TDOC,
     profile: ExtractionProfile | None = None,
     force: bool = False,
 ) -> Path | None:
@@ -193,8 +196,9 @@ def convert_for_wiki(
     consistency: the source_pdf in JSON points to the actual PDF that was analyzed.
 
     Args:
-        document_id: Document identifier (TDoc ID).
+        document_id: Document identifier (TDoc ID or spec number).
         wiki_source_dir: Target directory under wiki/<workspace>/sources/<doc-id>/.
+        source_kind: Type of source document (TDOC or SPEC). Defaults to TDOC.
         profile: Extraction profile to use. Defaults to DEFAULT_EXTRACTION_PROFILE.
         force: Force reconversion.
 
@@ -207,12 +211,20 @@ def convert_for_wiki(
 
     wiki_source_dir.mkdir(parents=True, exist_ok=True)
 
-    # TDoc pipeline
-    normalized_id = normalize_tdoc_id(document_id)
-    tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)
-    primary = tdoc_files.primary_path
-    if primary is None:
-        raise ConversionError(f"No document files found for {normalized_id}")
+    # Resolve primary document based on source kind
+    primary: Path | None = None
+    if source_kind == SourceKind.SPEC:
+        normalized_id = normalize_spec_number(document_id)
+        spec_files = fetch_spec_files(normalized_id, force_download=force)
+        primary = spec_files.primary_path
+        if primary is None:
+            raise ConversionError(f"No document files found for spec {normalized_id}")
+    else:
+        normalized_id = normalize_tdoc_id(document_id)
+        tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)
+        primary = tdoc_files.primary_path
+        if primary is None:
+            raise ConversionError(f"No document files found for {normalized_id}")
 
     if profile == ExtractionProfile.PDF_ONLY:
         pdf_path = ensure_pdf(primary, wiki_source_dir, force=force)

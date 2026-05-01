@@ -244,6 +244,7 @@ def workspace_process(
             result_path = convert_for_wiki(
                 document_id=source_id,
                 wiki_source_dir=wiki_source_dir,
+                source_kind=member.source_kind,
                 profile=extraction_profile,
                 force=force,
             )
