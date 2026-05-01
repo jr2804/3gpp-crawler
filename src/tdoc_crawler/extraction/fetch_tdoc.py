@@ -7,9 +7,13 @@ from pathlib import Path
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.workspaces import TDocNotFoundError
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checkout_path
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
+from tdoc_crawler.workspaces.utils import resolve_tdoc_checkout_path
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -31,10 +35,9 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
     """Fetch TDoc files from checkout or download from 3GPP FTP.
 
     Pipeline:
-    1. Resolve TDoc ID to metadata via WhatTheSpec
-    2. Calculate checkout path
-    3. If not in checkout, download via checkout_tdoc
-    4. Find available file types in checkout directory
+    1. Check if TDoc already exists in local checkout (filesystem scan)
+    2. If found, return immediately — no network call needed
+    3. Otherwise resolve via WhatTheSpec and download if needed
 
     Args:
         document_id: TDoc identifier (e.g., "S4-260001")
@@ -46,17 +49,33 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
     Raises:
         TDocNotFoundError: If TDoc cannot be found or downloaded
     """
+    checkout_dir = PathConfig().checkout_dir
+    normalized_id = document_id.upper()
+
+    # Step 1: Check local checkout first (covers previously crawled TDocs)
+    if not force_download:
+        existing_path = resolve_tdoc_checkout_path(normalized_id, checkout_dir)
+        if existing_path is not None:
+            files = _scan_checkout_dir(existing_path)
+            if files.primary_path is not None:
+                return files
+
+    # Step 2: Resolve via WhatTheSpec and download if needed
     metadata = resolve_via_whatthespec(document_id)
     if metadata is None:
-        raise TDocNotFoundError(f"TDoc {document_id} not found via WhatTheSpec")
+        raise TDocNotFoundError(f"TDoc {document_id} not found via WhatTheSpec or local database")
 
-    checkout_dir = PathConfig().checkout_dir
     checkout_path = get_checkout_path(metadata, checkout_dir)
 
     if not checkout_path.exists() or force_download:
         with create_cached_session() as session:
             checkout_tdoc(metadata, checkout_dir, force=force_download, session=session)
 
+    return _scan_checkout_dir(checkout_path)
+
+
+def _scan_checkout_dir(checkout_path: Path) -> TDocFiles:
+    """Scan a checkout directory for available document files."""
     files = TDocFiles(checkout_dir=checkout_path)
 
     if checkout_path.is_dir():

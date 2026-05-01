@@ -148,7 +148,7 @@ def print_tdoc_table(
         meeting_map: Optional map of meeting_id to MeetingMetadata for meeting info
     """
     rows = []
-    for result in results[:100]:
+    for result in results:
         size_kb = f"{result.file_size // 1024}" if result.file_size else "?"
         meeting = meeting_map.get(result.meeting_id) if meeting_map and result.meeting_id else None
         rows.append(
@@ -185,7 +185,7 @@ def print_tdoc_table(
 def print_meeting_table(results: list[MeetingMetadata]) -> None:
     """Print meeting results as formatted table."""
     rows = []
-    for meeting in results[:100]:
+    for meeting in results:
         date_range = (
             " - ".join(
                 filter(
@@ -261,7 +261,7 @@ def spec_query_to_dict(result: SpecQueryResult) -> dict[str, Any]:
 def print_spec_crawl_table(results: list[SpecCrawlResult]) -> None:
     """Print spec crawl results as formatted table."""
     rows = []
-    for result in results[:100]:
+    for result in results:
         sources = ", ".join(f"{outcome.source_name}:{outcome.status}" for outcome in result.sources) or "-"
         rows.append(
             {
@@ -291,7 +291,7 @@ def print_spec_crawl_table(results: list[SpecCrawlResult]) -> None:
 def print_spec_table(results: list[SpecQueryResult]) -> None:
     """Print spec query results as formatted table."""
     rows = []
-    for result in results[:100]:
+    for result in results:
         differences = ", ".join(sorted(result.source_differences.keys())) if result.source_differences else "-"
         rows.append(
             {
