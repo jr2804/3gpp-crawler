@@ -7,6 +7,7 @@ supporting both local LibreOffice conversion and remote API fallback.
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
@@ -167,8 +168,6 @@ def ensure_pdf(
     Returns:
         Path to the PDF file.
     """
-    import shutil
-
     pdf_path = output_dir / f"{source_file.stem}.pdf"
 
     if pdf_path.exists() and not force:

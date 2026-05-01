@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
@@ -220,8 +220,6 @@ class WorkspaceMetadata:
         compile_hash: str,
     ) -> None:
         """Update wiki build health metadata after a compile run."""
-        from datetime import datetime
-
         self.wiki_build_timestamp = datetime.now(UTC).isoformat()
         self.wiki_page_count = page_count
         self.wiki_failed_pages = failed_pages
