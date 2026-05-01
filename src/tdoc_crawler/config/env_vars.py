@@ -65,6 +65,7 @@ class ConfigEnvVar(StrEnum):
     TDC_AGENDA_PATTERN_EXCLUDE = "crawl.agenda_pattern_exclude"
     TDC_CHECKOUT = "crawl.checkout"
     TDC_CHECKOUT_DIR = "path.checkout_dir"
+    TDC_WORKSPACES_DIR = "path.workspaces_dirname"
     TDC_VERBOSITY = "verbosity"
     TDC_USE_WHATTHESPEC = "http.use_whatthespec"
 

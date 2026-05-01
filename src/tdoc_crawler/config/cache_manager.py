@@ -28,6 +28,7 @@ from typing import ClassVar
 DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
+DEFAULT_WORKSPACES_DIRNAME = "workspaces"
 WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 
 
@@ -96,6 +97,11 @@ class CacheManager:
     def checkout_dir(self) -> Path:
         """Path to checkout directory for documents."""
         return self._cache_dir / DEFAULT_CHECKOUT_DIRNAME
+
+    @property
+    def workspaces_dir(self) -> Path:
+        """Path to workspaces directory (separate from document checkouts)."""
+        return self._cache_dir / DEFAULT_WORKSPACES_DIRNAME
 
     @property
     def workspace_registry_file(self) -> Path:

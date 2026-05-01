@@ -132,7 +132,7 @@ def workspace_delete(
     if delete_llm_wiki:
         try:
             manager = resolve_cache_manager()
-            llm_wiki_dir = manager.checkout_dir / normalized / "wiki"
+            llm_wiki_dir = manager.workspaces_dir / normalized / "wiki"
             if llm_wiki_dir.exists():
                 shutil.rmtree(llm_wiki_dir)
                 console.print(f"[green]Deleted .llm-wiki folder for '{normalized}'.[/green]")
@@ -226,7 +226,7 @@ def workspace_process(
         raise typer.Exit(1)
 
     manager = resolve_cache_manager()
-    wiki_source_dir_base = manager.checkout_dir / normalized / "sources"
+    wiki_source_dir_base = manager.workspaces_dir / normalized / "sources"
 
     processed = 0
     failed = 0

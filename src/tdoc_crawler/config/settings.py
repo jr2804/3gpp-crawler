@@ -26,6 +26,7 @@ _DEFAULT_CACHE_DIR_STR = "~/.3gpp-crawler"
 _DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 _DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 _DEFAULT_CHECKOUT_DIRNAME = "checkout"
+_DEFAULT_WORKSPACES_DIRNAME = "workspaces"
 
 
 class PathConfig(BaseSettings):
@@ -50,6 +51,10 @@ class PathConfig(BaseSettings):
         default=_DEFAULT_CHECKOUT_DIRNAME,
         description="Subdirectory name for checked-out documents",
     )
+    workspaces_dirname: str = Field(
+        default=_DEFAULT_WORKSPACES_DIRNAME,
+        description="Subdirectory name for workspace data (sources, wiki)",
+    )
 
     @property
     def db_file(self) -> Path:
@@ -65,6 +70,11 @@ class PathConfig(BaseSettings):
     def checkout_dir(self) -> Path:
         """Path to the checkout directory for documents."""
         return self.cache_dir / _DEFAULT_CHECKOUT_DIRNAME
+
+    @property
+    def workspaces_dir(self) -> Path:
+        """Path to the workspaces directory (separate from document checkouts)."""
+        return self.cache_dir / _DEFAULT_WORKSPACES_DIRNAME
 
     @field_validator("cache_dir", mode="before")
     @classmethod
@@ -279,6 +289,7 @@ class ThreeGPPConfig(BaseSettings):
         """
         self.path.cache_dir.mkdir(parents=True, exist_ok=True)
         self.path.checkout_dir.mkdir(parents=True, exist_ok=True)
+        self.path.workspaces_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def from_settings(

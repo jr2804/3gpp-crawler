@@ -57,7 +57,7 @@ def create_workspace(workspace: str | None, auto_build: bool = False, descriptio
     # Create workspace directory structure
     try:
         manager = resolve_cache_manager()
-        ws_dir = manager.checkout_dir / normalized_workspace
+        ws_dir = manager.workspaces_dir / normalized_workspace
         ws_dir.mkdir(parents=True, exist_ok=True)
 
         sources_dir = ws_dir / "sources"
@@ -113,7 +113,7 @@ def delete_workspace(workspace: str | None, *, delete_artifacts: bool = False) -
         _logger.info("Deleting artifacts for %d members", len(members))
         try:
             manager = resolve_cache_manager()
-            sources_base = manager.checkout_dir / normalized_workspace / "sources"
+            sources_base = manager.workspaces_dir / normalized_workspace / "sources"
             for member in members:
                 member_dir = sources_base / member.source_item_id
                 delete_artifact_folder(member_dir)
