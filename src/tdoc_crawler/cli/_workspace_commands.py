@@ -247,6 +247,7 @@ def workspace_process(
                 source_kind=member.source_kind,
                 profile=extraction_profile,
                 force=force,
+                release=member.release,
             )
             if result_path:
                 console.print(f"[green]  Processed {source_id} -> {result_path.name}[/green]")
@@ -361,7 +362,7 @@ def workspace_add(
                     source_path=item,
                     source_kind=source_kind,
                     added_by="cli",
-                    release=release if release != "latest" else None,
+                    release=release,
                 )
             )
     else:

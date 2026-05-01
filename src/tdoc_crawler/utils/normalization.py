@@ -11,6 +11,7 @@ _UNDOTTED_BODY_PATTERN = re.compile(r"^(?P<series>\d{2})(?P<increment>\d{1,3})$"
 _OFFSET_PATTERN = re.compile(r"^(?P<left>.+?)\s*\+\s*(?P<offset>-?\d+)\s*$")
 _RANGE_SPLIT_PATTERN = re.compile(r"\s*([-:])\s*")
 _RELEASE_PREFIX_PATTERN = re.compile(r"^(?:v|rel|rel[-])", re.IGNORECASE)
+_SPEC_REL_SUFFIX_PATTERN = re.compile(r"^(?P<spec>\d+(?:\.\d+)?)-REL(?P<version>[\d.]+)$", re.IGNORECASE)
 
 
 def normalize_release_label(release: str | None) -> str | None:
@@ -102,6 +103,65 @@ def normalize_spec_number(value: str) -> str:
     """
     series, increment, _, _ = _parse_spec_number(value)
     return f"{series}.{increment}"
+
+
+def normalize_spec_number_compact(value: str) -> str:
+    """Normalize spec numbers to compact format without dots.
+
+    Args:
+        value: Spec number in dotted or undotted form.
+
+    Returns:
+        Compact spec number (e.g., "26132").
+
+    Raises:
+        ValueError: When the spec number is not in a supported format.
+    """
+    series, increment, _, _ = _parse_spec_number(value)
+    return f"{series}{increment}"
+
+
+def extract_base_spec_number(source_item_id: str) -> str:
+    """Extract the spec number from a source_item_id that may have a -REL suffix.
+
+    Returns the spec number portion before the ``-REL`` marker, or the
+    original string unchanged when no ``-REL`` suffix is present.
+
+    Examples:
+        ``"26260-REL19.0.0"`` → ``"26260"``
+        ``"26.260-REL19.0.0"`` → ``"26.260"``
+        ``"S4-250638"`` → ``"S4-250638"``
+
+    Args:
+        source_item_id: Workspace source item identifier.
+
+    Returns:
+        Spec number portion without the release suffix.
+    """
+    match = _SPEC_REL_SUFFIX_PATTERN.match(source_item_id)
+    if match:
+        return match.group("spec")
+    return source_item_id
+
+
+def extract_release_suffix(source_item_id: str) -> str | None:
+    """Extract the release version from a source_item_id with a ``-REL`` suffix.
+
+    Examples:
+        ``"26260-REL19.0.0"`` → ``"19.0.0"``
+        ``"26.260-REL17.0.0"`` → ``"17.0.0"``
+        ``"26260"`` → ``None``
+
+    Args:
+        source_item_id: Workspace source item identifier.
+
+    Returns:
+        Release version string, or ``None`` when no ``-REL`` suffix is present.
+    """
+    match = _SPEC_REL_SUFFIX_PATTERN.match(source_item_id)
+    if match:
+        return match.group("version")
+    return None
 
 
 def expand_spec_ranges(spec_input: str) -> Generator[str]:

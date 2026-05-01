@@ -2,15 +2,19 @@
 
 Analogous to fetch_tdoc.py but for specification documents.
 Resolves spec files by number (e.g. "26.131") to their checked-out files.
+If files are not present locally and a release is provided, downloads from 3GPP FTP.
 """
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
 from tdoc_crawler.config.settings import PathConfig
+from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.utils.normalization import normalize_spec_number
 
 logger = get_logger(__name__)
@@ -31,21 +35,26 @@ class SpecFiles:
         return self.pdf_path or self.docx_path or self.doc_path
 
 
-def fetch_spec_files(spec_number: str, force_download: bool = False) -> SpecFiles:
-    """Fetch spec files from local checkout directory.
+def fetch_spec_files(spec_number: str, release: str | None = None, force_download: bool = False) -> SpecFiles:
+    """Fetch spec files from local checkout directory, downloading if needed.
 
-    Specs are checked out during the ``workspace add`` checkout phase.
-    This function locates the checked-out files for a given spec number.
+    Pipeline:
+    1. Check if spec already exists in local checkout (filesystem scan)
+    2. If found, return immediately — no network call needed
+    3. Otherwise download from 3GPP FTP via SpecDownloads if a release is provided
 
     Args:
         spec_number: Spec number (e.g., "26.131").
-        force_download: Ignored for specs — files are looked up from checkout.
+        release: Release identifier (e.g., "19.0.0", "latest"). When ``None``
+            and files are not found locally, no download is attempted.
+        force_download: Force re-download even if exists locally.
 
     Returns:
         SpecFiles with paths to available documents.
 
     Raises:
-        FileNotFoundError: If spec directory or files cannot be found.
+        FileNotFoundError: If spec directory or files cannot be found and no
+            download is possible.
     """
     checkout_dir = PathConfig().checkout_dir
     normalized = normalize_spec_number(spec_number)
@@ -54,10 +63,43 @@ def fetch_spec_files(spec_number: str, force_download: bool = False) -> SpecFile
     # Spec checkout path: checkout_dir/Specs/archive/{series}/{spec_number}/
     spec_dir = checkout_dir / "Specs" / "archive" / series / normalized
 
-    if not spec_dir.exists():
-        raise FileNotFoundError(f"Spec {normalized} not found at {spec_dir}")
+    # Step 1: Check local checkout first
+    if spec_dir.exists() and not force_download:
+        files = _scan_spec_dir(spec_dir)
+        if files.primary_path is not None:
+            return files
 
-    return _scan_spec_dir(spec_dir)
+    # Step 2: Download from 3GPP FTP if release is available
+    if release is not None or force_download:
+        _download_spec(normalized, release or "latest", checkout_dir)
+
+        # Re-scan after download
+        if spec_dir.exists():
+            files = _scan_spec_dir(spec_dir)
+            if files.primary_path is not None:
+                return files
+
+    raise FileNotFoundError(f"Spec {normalized} not found at {spec_dir}")
+
+
+def _download_spec(spec_number: str, release: str, checkout_dir: Path) -> None:
+    """Download a spec using SpecDownloads with SpecDatabase lifecycle management."""
+    db_file = PathConfig().db_file
+
+    async def _do_download() -> None:
+        async with SpecDatabase(db_file) as db:
+            downloader = SpecDownloads(db)
+            await downloader.checkout_specs_async(
+                specs=[spec_number],
+                doc_only=False,
+                checkout_dir=checkout_dir,
+                release=release,
+            )
+
+    try:
+        asyncio.run(_do_download())
+    except Exception as exc:
+        logger.warning("Failed to download spec %s (release=%s): %s", spec_number, release, exc)
 
 
 def _scan_spec_dir(spec_dir: Path) -> SpecFiles:
