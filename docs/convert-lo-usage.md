@@ -139,7 +139,3 @@ converter.convert(
 )
 "
 ```
-
-## Relationship to AI Conversion Artifacts
-
-`convert-lo` handles format conversion only. Structured AI extraction artifacts were previously produced by the `3gpp-ai` package (now removed from this repository).

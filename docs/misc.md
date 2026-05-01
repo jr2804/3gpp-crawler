@@ -50,5 +50,6 @@ By default, all data is stored in `~/.3gpp-crawler`:
 - `http-cache.sqlite3`: HTTP request cache.
 - `tdocs/`: Downloaded and extracted TDoc files.
 - `checkout/`: Files specifically exported for user review.
+- `workspaces/`: Workspace data including extraction artifacts and processed sources.
 
 You can override the root directory using the `--cache-dir` flag on most commands.

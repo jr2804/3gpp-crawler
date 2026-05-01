@@ -15,7 +15,7 @@ A command-line tool for crawling the 3GPP FTP server, caching 3GPP document meta
 - **Case-Insensitive Queries**: Search for TDocs regardless of case
 - **Multiple Output Formats**: Export results as table, JSON, or YAML
 - **Incremental Updates**: Only fetch new data on subsequent crawls
-- **Wiki-First Architecture**: Extraction artifacts organized in ~/.3gpp-crawler/wiki/ for external tool consumption
+- **Workspace Architecture**: Extraction artifacts organized in `~/.3gpp-crawler/workspaces/<ws>/sources/<doc>/`
 - **Rich CLI**: Beautiful terminal output with progress indicators
 
 ## Installation
@@ -38,6 +38,7 @@ uv sync
 ### Using pip (not recommended)
 
 ```bash
+# Note: package name may differ from repository name
 pip install 3gpp-crawler
 ```
 
@@ -57,8 +58,8 @@ cp .env.example .env
 # Acts as a "3GPP-compatible fallback". While whatthespec.net is the primary
 # data source, it is community-maintained. Credentials allow falling back to
 # official 3GPP portal endpoints if the primary source is unavailable.
-EOL_USERNAME=your_username
-EOL_PASSWORD=your_password
+TDC_EOL_USERNAME=your_username
+TDC_EOL_PASSWORD=your_password
 
 # HTTP Cache Configuration (optional - uses defaults if not set)
 HTTP_CACHE_TTL=7200                      # Cache TTL in seconds (default: 7200 = 2 hours)
@@ -71,11 +72,11 @@ Alternatively, you can:
 uvx tdoc-crawler crawl-meetings --eol-username your_username --eol-password your_password
 
 # Configure HTTP caching via CLI:
-uvx tdoc-crawler crawl-tdocs --cache-ttl 3600 --cache-refresh
+uvx tdoc-crawler crawl --cache-ttl 3600 --cache-refresh
 
 # Or set environment variables directly:
-export EOL_USERNAME=your_username
-export EOL_PASSWORD=your_password
+export TDC_EOL_USERNAME=your_username
+export TDC_EOL_PASSWORD=your_password
 export HTTP_CACHE_TTL=3600
 ```
 
@@ -87,20 +88,22 @@ NOTE:    If no credentials are provided, the tool will prompt you interactively 
 
 | Command | Alias | Purpose |
 |---------|-------|---------|
-| **Crawling** | | |
+| **tdoc-crawler** | | |
+| `crawl` | `ct` | Crawl TDoc metadata from FTP |
 | `crawl-meetings` | `cm` | Populate meeting database (Run this first!) |
-| `crawl-tdocs` | `ct` | Crawl TDoc metadata from FTP |
-| `crawl-specs` | `cs` | Crawl technical specification metadata |
-| **Querying** | | |
+| `query` | `qt` | Search for TDocs (auto-fetches if missing) |
 | `query-meetings` | `qm` | Search and display meeting metadata |
-| `query-tdocs` | `qt` | Search for TDocs (auto-fetches if missing) |
-| `query-specs` | `qs` | Search technical specifications |
-| **Utilities** | | |
 | `open` | | Download and open a TDoc |
 | `checkout` | | Batch download TDocs to local folder |
-| `open-spec` | `os` | Download and open latest spec document |
-| `checkout-spec` | `cos` | Batch download technical specifications |
 | `stats` | | View database statistics |
+| **spec-crawler** | | |
+| `crawl` | | Crawl technical specification metadata |
+| `query` | | Search technical specifications |
+| `open` | | Download and open latest spec document |
+| `checkout` | | Batch download technical specifications |
+| **3gpp-crawler** | | |
+| `config {init,show,validate,docs}` | | Manage configuration |
+| `workspace {create,list,...}` | | Manage workspaces and processing |
 
 ### 1. Crawl Metadata
 
@@ -111,10 +114,10 @@ Gather metadata from 3GPP and WhatTheSpec:
 tdoc-crawler crawl-meetings
 
 # Crawl TDoc metadata (RAN, SA, CT)
-tdoc-crawler crawl-tdocs
+tdoc-crawler crawl
 
 # Populate spec catalog
-spec-crawler crawl-specs
+spec-crawler crawl
 ```
 
 ### 2. Query Metadata
@@ -126,7 +129,7 @@ Search and filter stored information:
 tdoc-crawler query R1-2400001
 
 # Query specifications
-spec-crawler query-specs 23.501
+spec-crawler query 23.501
 
 # List recent meetings
 tdoc-crawler query-meetings --limit 10
@@ -141,13 +144,13 @@ Open documents, batch download (checkout), and check database status:
 tdoc-crawler open R1-2400001
 
 # Download and open latest version of a spec
-spec-crawler open-spec 23.501
+spec-crawler open 23.501
 
 # Batch download (checkout) TDocs to local folder
 tdoc-crawler checkout R1-2400001 S2-2400567
 
 # Batch checkout specifications
-spec-crawler checkout-spec 26130-26140
+spec-crawler checkout 26130-26140
 
 # View database statistics
 tdoc-crawler stats
