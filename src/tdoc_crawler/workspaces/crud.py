@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.config.workspace_registry import WorkspaceRegistry
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.workspaces import DEFAULT_WORKSPACE, normalize_workspace_name
 from tdoc_crawler.workspaces.members import list_workspace_members
-from tdoc_crawler.workspaces.utils import delete_ai_folder
+from tdoc_crawler.workspaces.utils import delete_artifact_folder
 
 _logger = get_logger(__name__)
 
@@ -79,12 +77,12 @@ def list_workspaces() -> list[WorkspaceRegistry]:
 
 
 def delete_workspace(workspace: str | None, *, delete_artifacts: bool = False) -> bool:
-    """Delete a workspace and optionally delete all .ai artifacts for its members.
+    """Delete a workspace and optionally delete all processing artifacts for its members.
 
     Args:
         workspace: Workspace name to delete.
-        delete_artifacts: If True, delete all .ai processing folders for workspace members
-            in the checkout directory.
+        delete_artifacts: If True, delete all workspace source artifact folders
+            for workspace members.
 
     Returns:
         True if deleted, False if not found or if attempting to delete default.
@@ -110,18 +108,17 @@ def delete_workspace(workspace: str | None, *, delete_artifacts: bool = False) -
 
     registry.save()
 
-    # Delete .ai artifacts if requested
+    # Delete workspace artifacts if requested
     if delete_artifacts and members:
-        _logger.info("Deleting .ai artifacts for %d members", len(members))
-        for member in members:
-            source_path = Path(member.source_path)
-            # Check if source_path is already the .ai folder (ends with .ai as directory)
-            if source_path.name == ".ai":
-                # Source path is the .ai folder itself
-                delete_ai_folder(source_path)
-            else:
-                # Source path is the document folder - delete .ai subfolder
-                delete_ai_folder(source_path / ".ai")
+        _logger.info("Deleting artifacts for %d members", len(members))
+        try:
+            manager = resolve_cache_manager()
+            sources_base = manager.checkout_dir / normalized_workspace / "sources"
+            for member in members:
+                member_dir = sources_base / member.source_item_id
+                delete_artifact_folder(member_dir)
+        except Exception:
+            _logger.debug("Skipping artifact deletion: CacheManager not available")
 
     _logger.info("Deleted workspace '%s' (delete_artifacts=%s)", normalized_workspace, delete_artifacts)
     return deleted
@@ -148,17 +145,6 @@ def set_active_workspace(workspace: str | None) -> None:
 def _get_registry() -> WorkspaceRegistry:
     """Get the workspace registry singleton."""
     return WorkspaceRegistry.load()
-
-
-__all__ = [
-    "create_workspace",
-    "delete_workspace",
-    "ensure_default_workspace",
-    "get_active_workspace",
-    "get_workspace",
-    "list_workspaces",
-    "set_active_workspace",
-]
 
 
 __all__ = [

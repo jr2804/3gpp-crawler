@@ -63,17 +63,13 @@ def fetch_spec_files(spec_number: str, force_download: bool = False) -> SpecFile
 def _scan_spec_dir(spec_dir: Path) -> SpecFiles:
     """Scan a spec checkout directory for available document files.
 
-    Searches the directory tree for document files, excluding hidden files
-    and the .ai subfolder.
+    Searches the directory tree for document files, excluding hidden files.
     """
     files = SpecFiles(checkout_dir=spec_dir)
 
     if spec_dir.is_dir():
         for file_path in sorted(spec_dir.rglob("*")):
             if file_path.is_file() and not file_path.name.startswith("."):
-                # Skip files inside .ai directories
-                if ".ai" in file_path.parts:
-                    continue
                 suffix = file_path.suffix.lower()
                 if suffix == ".pdf":
                     files.pdf_path = file_path

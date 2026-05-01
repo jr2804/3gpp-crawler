@@ -68,25 +68,23 @@ def is_office_format(source_file: Path) -> bool:
     return source_file.suffix.lower() in OFFICE_FORMATS
 
 
-def get_cached_pdf_path(source_file: Path) -> Path | None:
+def get_cached_pdf_path(source_file: Path, output_dir: Path) -> Path | None:
     """Get the path to a cached PDF conversion if it exists.
-
-    The cached PDF is stored in a `.ai` subdirectory next to the original file.
 
     Args:
         source_file: Path to the original Office document.
+        output_dir: Directory where the cached PDF would be stored.
 
     Returns:
         Path to cached PDF if it exists, None otherwise.
     """
-    ai_dir = source_file.parent / ".ai"
-    cached_pdf = ai_dir / f"{source_file.stem}.pdf"
+    cached_pdf = output_dir / f"{source_file.stem}.pdf"
     return cached_pdf if cached_pdf.exists() else None
 
 
 def convert_to_pdf(
     source_file: Path,
-    output_dir: Path | None = None,
+    output_dir: Path,
     *,
     force: bool = False,
     config: ConverterConfig | None = None,
@@ -100,8 +98,7 @@ def convert_to_pdf(
 
     Args:
         source_file: Path to the Office document (DOCX, DOC, PPT, etc.)
-        output_dir: Optional output directory for the PDF. If None, uses
-            the `.ai` subdirectory next to the source file.
+        output_dir: Output directory for the PDF.
         force: If True, re-convert even if a cached PDF exists.
         config: Optional converter configuration. If None, uses defaults
             from environment variables.
@@ -120,7 +117,6 @@ def convert_to_pdf(
         raise ConversionError(f"Unsupported file format: {source_file.suffix}")
 
     config = config or ConverterConfig.from_env()
-    output_dir = output_dir or source_file.parent / ".ai"
     output_file = output_dir / f"{source_file.stem}.pdf"
 
     # Check for cached conversion
@@ -161,7 +157,7 @@ def ensure_pdf(
 
     Args:
         source_file: Path to source document.
-        output_dir: Directory to place the PDF.
+        output_dir: Directory to place the PDF (typically workspace sources dir).
         force: Force reconversion.
         config: Optional converter configuration.
 

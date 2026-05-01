@@ -1,8 +1,7 @@
 """Workspace item checkout and registration logic.
 
 Handles the checkout phase of workspace item management:
-downloading/fetching documents, setting up .ai folders, and creating
-workspace member records.
+downloading/fetching documents and creating workspace member records.
 
 This module is intentionally free of document processing logic
 (PDF conversion, markdown extraction, VLM). That responsibility
@@ -39,8 +38,8 @@ async def checkout_single_item(
 ) -> tuple[WorkspaceMember | None, str | None]:
     """Checkout a single workspace item and create a member record.
 
-    Downloads the document if checkout is enabled, sets up the .ai subfolder,
-    and returns a WorkspaceMember ready for registration.
+    Downloads the document if checkout is enabled and returns a
+    WorkspaceMember ready for registration.
 
     Args:
         item: Item ID to checkout (TDoc ID, spec number, or path).

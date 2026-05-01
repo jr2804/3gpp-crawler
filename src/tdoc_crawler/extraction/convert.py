@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -138,6 +139,7 @@ def _ensure_converted(
     force: bool = False,
     config: OpendataloaderConfig | None = None,
     source_pdf: Path | None = None,
+    output_dir: Path | None = None,
 ) -> tuple[str, Path, str]:
     """Fetch TDoc and ensure markdown conversion exists.
 
@@ -151,10 +153,11 @@ def _ensure_converted(
         source_pdf: If provided, opendataloader processes this PDF instead of the
             original DOCX. This ensures all profiles use the same PDF that was
             generated for the wiki dir.
+        output_dir: Directory for conversion artifacts. If None, uses a temp dir.
 
     Returns:
         Tuple of (raw_markdown, json_path, normalized_id).
-        json_path may not exist on disk ÔÇö caller must check.
+        json_path may not exist on disk — caller must check.
 
     Raises:
         ConversionError: If no document files found or conversion fails.
@@ -166,16 +169,17 @@ def _ensure_converted(
     if primary is None:
         raise ConversionError(f"No document files found for {normalized_id}")
 
-    ai_dir = _get_ai_directory(primary)
-    md_file = ai_dir / f"{primary.stem}.md"
-    json_file = ai_dir / f"{primary.stem}.json"
+    artifact_dir = output_dir or Path(tempfile.mkdtemp(prefix="3gpp-conv-"))
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    md_file = artifact_dir / f"{primary.stem}.md"
+    json_file = artifact_dir / f"{primary.stem}.json"
 
     if md_file.exists() and not force:
         markdown_content = md_file.read_text(encoding="utf-8")
     else:
         # Use the provided PDF (from wiki dir) or fall back to original source
         input_file = source_pdf if source_pdf is not None and source_pdf.exists() else primary
-        markdown_content, _ = _run_opendataloader(input_file, ai_dir, config=config)
+        markdown_content, _ = _run_opendataloader(input_file, artifact_dir, config=config)
         md_file.write_text(markdown_content, encoding="utf-8")
 
     return markdown_content, json_file, normalized_id
@@ -237,7 +241,7 @@ def convert_for_wiki(
         hybrid="docling-fast",
         hybrid_mode="full" if profile == ExtractionProfile.ADVANCED else None,
     )
-    markdown_content, json_path, _ = _ensure_converted(document_id, force=force, config=config, source_pdf=pdf_path)
+    markdown_content, json_path, _ = _ensure_converted(document_id, force=force, config=config, source_pdf=pdf_path, output_dir=wiki_source_dir)
 
     # Write markdown to wiki source dir
     md_file = wiki_source_dir / f"{primary.stem}.md"
@@ -321,11 +325,6 @@ def convert_tdoc_metadata(
 ) -> ExtractionResult:
     """Backward-compatible alias for convert_document_to_markdown."""
     return convert_document_to_markdown(document_id, force=force, config=config)
-
-
-def _get_ai_directory(source_file: Path) -> Path:
-    """Get the .ai directory adjacent to the source file."""
-    return source_file.parent / ".ai"
 
 
 def _ensure_hybrid_server_if_needed(config: OpendataloaderConfig) -> None:

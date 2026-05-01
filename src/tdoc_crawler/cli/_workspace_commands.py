@@ -118,7 +118,7 @@ def workspace_deactivate() -> None:
 def workspace_delete(
     workspace_name: str = typer.Argument(..., help="Workspace name"),
     force: bool = typer.Option(False, "--force", help="Permanently delete workspace and all artifacts"),
-    delete_artifacts: bool = typer.Option(False, "--delete-artifacts", help="Delete all .ai artifacts for workspace members"),
+    delete_artifacts: bool = typer.Option(False, "--delete-artifacts", help="Delete all workspace artifacts for members"),
     delete_llm_wiki: bool = typer.Option(False, "--delete-llm-wiki", help="Delete the .llm-wiki folder for this workspace"),
 ) -> None:
     """Permanently delete a workspace and all associated files."""

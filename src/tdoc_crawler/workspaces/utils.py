@@ -15,30 +15,30 @@ def _get_registry() -> WorkspaceRegistry:
     return WorkspaceRegistry.load()
 
 
-def delete_ai_folder(ai_path: Path) -> int:
-    """Delete an .ai folder and return count of deleted items.
+def delete_artifact_folder(artifact_path: Path) -> int:
+    """Delete an artifact folder and return count of deleted items.
 
     Args:
-        ai_path: Path to the .ai folder.
+        artifact_path: Path to the artifact folder (e.g., workspace sources dir).
 
     Returns:
         Count of items deleted.
     """
-    if not ai_path.exists() or not ai_path.is_dir():
+    if not artifact_path.exists() or not artifact_path.is_dir():
         return 0
 
     count = 0
     try:
-        for item in ai_path.rglob("*"):
+        for item in artifact_path.rglob("*"):
             if item.is_file():
                 item.unlink()
                 count += 1
-        # Remove .ai folder itself
-        ai_path.rmdir()
+        # Remove folder itself
+        artifact_path.rmdir()
         count += 1
-        _logger.debug("Deleted .ai folder: %s", ai_path)
+        _logger.debug("Deleted artifact folder: %s", artifact_path)
     except Exception as e:
-        _logger.warning("Failed to delete .ai folder %s: %s", ai_path, e)
+        _logger.warning("Failed to delete artifact folder %s: %s", artifact_path, e)
     return count
 
 
