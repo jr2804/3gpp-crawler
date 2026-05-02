@@ -82,7 +82,7 @@ shell = "pwsh -NoProfile -Command"
 run = [
     'cls',
     'npx -y add-mcp -y -a {{usage.ai_agent}} "grepai mcp-serve"',
-    #'npx -y add-mcp -y -a {{usage.ai_agent}} -n docs-mcp-server "grepai mcp-serve"',
+    'npx -y add-mcp -y -a {{usage.ai_agent}} -n teddi "uvx --from https://forge.3gpp.org/rep/reimes/teddi-mcp.git teddi-mcp"',
     'npx -y add-mcp -y -a {{usage.ai_agent}} -n cytoscnpy-mcp "cytoscnpy mcp-server"'
 ]
 
