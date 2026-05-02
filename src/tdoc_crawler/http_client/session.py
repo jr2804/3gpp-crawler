@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import gzip
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+import brotli
 import niquests as requests
 from hishel import SyncBaseStorage, SyncSqliteStorage
 from hishel._core._headers import Headers
@@ -44,6 +47,21 @@ def _niquests_to_internal_request(model: requests.models.PreparedRequest) -> Req
     )
 
 
+def _decompress_body(body: bytes, encoding: str | None) -> bytes:
+    """Decompress response body based on Content-Encoding header."""
+    if not encoding or not body:
+        return body
+    encoding = encoding.lower().strip()
+    if encoding == "br":
+        return brotli.decompress(body)
+    if encoding == "gzip":
+        return gzip.decompress(body)
+    if encoding == "deflate":
+        return zlib.decompress(body)
+    # Unknown encoding — return as-is
+    return body
+
+
 def _internal_to_niquests_response(model: Response) -> requests.models.Response:
     """Convert hishel internal response model into niquests response model."""
     response = requests.models.Response()
@@ -51,17 +69,24 @@ def _internal_to_niquests_response(model: Response) -> requests.models.Response:
     body = b"".join(model.stream) if model.stream is not None else b""
     metadata_headers = {snake_to_header(key): str(value) for key, value in model.metadata.items()}
 
+    # Decompress body based on Content-Encoding (hishel stores raw bytes)
+    content_encoding = model.headers.get("content-encoding")
+    decompressed = _decompress_body(body, content_encoding)
+
+    # Remove content-encoding since body is now decompressed
+    stripped_headers = {k: v for k, v in model.headers.items() if k.lower() != "content-encoding"}
+    stripped_headers.update(metadata_headers)
+
     response.raw = HTTPResponse(
-        body=body,
-        headers={**model.headers, **metadata_headers},
+        body=decompressed,
+        headers=stripped_headers,
         status=model.status_code,
         preload_content=False,
         decode_content=False,
     )
     response.status_code = model.status_code
-    response.headers.update(model.headers)
-    response.headers.update(metadata_headers)
-    response._content = body
+    response.headers.update(stripped_headers)
+    response._content = decompressed
     response._content_consumed = True
     response.url = ""
 
