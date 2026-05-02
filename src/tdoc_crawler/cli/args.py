@@ -156,3 +156,54 @@ NoProgressOption = Annotated[
     bool,
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
 ]
+
+MdYamlFrontmatterOption = Annotated[
+    bool,
+    typer.Option("--md-yaml-frontmatter/--no-md-yaml-frontmatter", help="Include YAML frontmatter in generated Markdown"),
+]
+
+# Options - Workspaces
+WorkspaceDeleteForceOption = Annotated[
+    bool,
+    typer.Option("--force", help="Permanently delete workspace and all artifacts"),
+]
+DeleteArtifactsOption = Annotated[
+    bool,
+    typer.Option("--delete-artifacts", help="Delete all workspace artifacts for members"),
+]
+DeleteLlmWikiOption = Annotated[
+    bool,
+    typer.Option("--delete-llm-wiki", help="Delete the .llm-wiki folder for this workspace"),
+]
+IncludeInactiveOption = Annotated[
+    bool,
+    typer.Option("--include-inactive", help="Include inactive members"),
+]
+WorkspaceProcessForceOption = Annotated[
+    bool,
+    typer.Option("--force", help="Re-process existing artifacts"),
+]
+ProcessLimitOption = Annotated[
+    int | None,
+    typer.Option("--limit", help="Limit number of members to process"),
+]
+SkipExistingOption = Annotated[
+    bool,
+    typer.Option("--skip-existing", help="Skip members that already have artifacts"),
+]
+ProfileOption = Annotated[
+    str,
+    typer.Option("--profile", help="Extraction profile: pdf-only, default, or advanced"),
+]
+WorkspaceNameOption = Annotated[
+    str | None,
+    typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)"),
+]
+SourceKindOption = Annotated[
+    str,
+    typer.Option("--kind", help="Source kind: tdoc, spec, or other"),
+]
+DryRunOption = Annotated[
+    bool,
+    typer.Option("--dry-run", help="Show what would be removed without removing"),
+]

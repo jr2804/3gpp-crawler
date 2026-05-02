@@ -18,15 +18,27 @@ from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
     AutoCrawlSpecsOption,
+    DeleteArtifactsOption,
+    DeleteLlmWikiOption,
+    DryRunOption,
     EndDateOption,
+    IncludeInactiveOption,
     LimitOption,
+    MdYamlFrontmatterOption,
+    ProcessLimitOption,
+    ProfileOption,
     ReleaseOption,
+    SkipExistingOption,
+    SourceKindOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
     TitlePatternExcludeOption,
     TitlePatternOption,
+    WorkspaceDeleteForceOption,
     WorkspaceItemsArgument,
+    WorkspaceNameOption,
+    WorkspaceProcessForceOption,
 )
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.config import PathConfig, resolve_cache_manager
@@ -119,9 +131,9 @@ def workspace_deactivate() -> None:
 @app.command("delete", help="Delete a workspace and optionally its artifacts.")
 def workspace_delete(
     workspace_name: str = typer.Argument(..., help="Workspace name"),
-    force: bool = typer.Option(False, "--force", help="Permanently delete workspace and all artifacts"),
-    delete_artifacts: bool = typer.Option(False, "--delete-artifacts", help="Delete all workspace artifacts for members"),
-    delete_llm_wiki: bool = typer.Option(False, "--delete-llm-wiki", help="Delete the .llm-wiki folder for this workspace"),
+    force: WorkspaceDeleteForceOption = False,
+    delete_artifacts: DeleteArtifactsOption = False,
+    delete_llm_wiki: DeleteLlmWikiOption = False,
 ) -> None:
     """Permanently delete a workspace and all associated files."""
     normalized = normalize_workspace_name(workspace_name)
@@ -147,7 +159,7 @@ def workspace_delete(
 @app.command("members", help="List workspace members.")
 def workspace_members(
     workspace_name: str = typer.Argument(None, help="Workspace name (default: active workspace)"),
-    include_inactive: bool = typer.Option(False, "--include-inactive", help="Include inactive members"),
+    include_inactive: IncludeInactiveOption = False,
 ) -> None:
     """List members of a workspace."""
     if workspace_name is None:
@@ -187,14 +199,11 @@ def _should_skip_member(
 @app.command("process", help="Process workspace members.")
 def workspace_process(
     workspace_name: str = typer.Argument(None, help="Workspace name (default: active workspace)"),
-    force: bool = typer.Option(False, "--force", help="Re-process existing artifacts"),
-    limit: int = typer.Option(None, "--limit", help="Limit number of members to process"),
-    skip_existing: bool = typer.Option(False, "--skip-existing", help="Skip members that already have artifacts"),
-    profile: str = typer.Option(
-        DEFAULT_EXTRACTION_PROFILE.value,
-        "--profile",
-        help="Extraction profile: pdf-only, default, or advanced",
-    ),
+    force: WorkspaceProcessForceOption = False,
+    limit: ProcessLimitOption = None,
+    skip_existing: SkipExistingOption = False,
+    profile: ProfileOption = DEFAULT_EXTRACTION_PROFILE.value,
+    md_yaml_frontmatter: MdYamlFrontmatterOption = True,
 ) -> None:
     """Extract structured data from all workspace members."""
     if workspace_name is None:
@@ -250,6 +259,7 @@ def workspace_process(
                 profile=extraction_profile,
                 force=force,
                 release=member.release,
+                md_yaml_frontmatter=md_yaml_frontmatter,
             )
             if result_path:
                 console.print(f"[green]  Processed {source_id} -> {result_path.name}[/green]")
@@ -290,8 +300,8 @@ def _resolve_spec_release_for_add(
 @app.command("add", help="Add documents to an existing workspace.")
 def workspace_add(
     items: WorkspaceItemsArgument = None,
-    workspace: str | None = typer.Option(None, "-w", "--workspace", help="Workspace name (default: active workspace)"),
-    kind: str = typer.Option("tdoc", "--kind", help="Source kind: tdoc, spec, or other"),
+    workspace: WorkspaceNameOption = None,
+    kind: SourceKindOption = "tdoc",
     # Filter options for batch-adding from DB query
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
@@ -408,7 +418,7 @@ def workspace_add(
 @app.command("clear-invalid", help="Remove members with invalid or missing source paths.")
 def workspace_clear_invalid(
     workspace_name: str = typer.Argument(None, help="Workspace name (default: active workspace)"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed without removing"),
+    dry_run: DryRunOption = False,
 ) -> None:
     """Remove members whose source path no longer exists."""
     if workspace_name is None:
