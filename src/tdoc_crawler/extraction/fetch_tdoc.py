@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tdoc_crawler.config.settings import PathConfig
+from tdoc_crawler.database.oxyde_models import TDocMetadata as OxydeTDocMetadata
 from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.extraction.conversion import OFFICE_FORMATS
 from tdoc_crawler.http_client import create_cached_session
@@ -66,9 +67,12 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
                 return files
 
     # Step 2: Look up in local database (populated by crawl command)
-    metadata = asyncio.run(_lookup_tdoc_in_db(normalized_id))
+    tdoc_record = asyncio.run(_lookup_tdoc_in_db(normalized_id))
+    metadata: TDocMetadata | None = None
+    if tdoc_record is not None and tdoc_record.url:
+        metadata = _oxyde_to_pydantic_tdoc(tdoc_record)
 
-    # Step 3: Fall back to WhatTheSpec API if database has no record
+    # Step 3: Fall back to WhatTheSpec API if database has no valid record
     if metadata is None:
         metadata = resolve_via_whatthespec(document_id)
 
@@ -84,23 +88,25 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
     return _scan_checkout_dir(checkout_path)
 
 
-async def _lookup_tdoc_in_db(tdoc_id: str) -> TDocMetadata | None:
+async def _lookup_tdoc_in_db(tdoc_id: str) -> OxydeTDocMetadata | None:
     """Look up TDoc metadata in the local database.
 
-    The database is populated by the crawl command and contains TDoc metadata
-    including the FTP download URL, which is sufficient for checkout.
+    Returns the raw Oxyde model — callers decide if URL validation or
+    Pydantic conversion is needed. Use _oxyde_to_pydantic_tdoc() to convert.
 
     Args:
         tdoc_id: Normalized TDoc identifier (uppercase)
 
     Returns:
-        TDocMetadata if found with a valid URL, None otherwise
+        OxydeTDocMetadata if found, None otherwise
     """
     db_file = PathConfig().db_file
     async with TDocDatabase(db_file) as db:
-        record = await db._get_tdoc(tdoc_id)
-    if record is None or not record.url:
-        return None
+        return await db._get_tdoc(tdoc_id)
+
+
+def _oxyde_to_pydantic_tdoc(record: OxydeTDocMetadata) -> TDocMetadata:
+    """Convert Oxyde TDocMetadata to Pydantic TDocMetadata."""
     return TDocMetadata(
         tdoc_id=record.tdoc_id,
         meeting_id=record.meeting_id,

@@ -6,6 +6,7 @@ No wrapper layers - direct use of OpenDataLoader output files.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import tempfile
@@ -15,9 +16,13 @@ from typing import Any
 import opendataloader_pdf
 from rich.console import Console
 
+from tdoc_crawler.config.settings import PathConfig
+from tdoc_crawler.database.oxyde_models import Specification as OxydeSpecification
+from tdoc_crawler.database.oxyde_models import TDocMetadata as OxydeTDocMetadata
+from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.extraction.conversion import ensure_pdf
 from tdoc_crawler.extraction.fetch_spec import fetch_spec_files
-from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
+from tdoc_crawler.extraction.fetch_tdoc import _lookup_tdoc_in_db, fetch_tdoc_files
 from tdoc_crawler.extraction.hybrid_server import ensure_hybrid_server
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
@@ -152,7 +157,8 @@ def _ensure_converted(
         config: Optional OpenDataLoader configuration
         source_pdf: If provided, opendataloader processes this PDF instead of the
             original DOCX. This ensures all profiles use the same PDF that was
-            generated for the wiki dir.
+            generated for the wiki dir. When provided and exists, the fetch step
+            is skipped entirely (the caller already resolved the document).
         output_dir: Directory for conversion artifacts. If None, uses a temp dir.
 
     Returns:
@@ -164,10 +170,13 @@ def _ensure_converted(
     """
     normalized_id = normalize_tdoc_id(document_id)
 
-    tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)
-    primary = tdoc_files.primary_path
-    if primary is None:
-        raise ConversionError(f"No document files found for {normalized_id}")
+    if source_pdf is not None and source_pdf.exists():
+        primary = source_pdf
+    else:
+        tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)
+        primary = tdoc_files.primary_path
+        if primary is None:
+            raise ConversionError(f"No document files found for {normalized_id}")
 
     artifact_dir = output_dir or Path(tempfile.mkdtemp(prefix="3gpp-conv-"))
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -177,12 +186,55 @@ def _ensure_converted(
     if md_file.exists() and not force:
         markdown_content = md_file.read_text(encoding="utf-8")
     else:
-        # Use the provided PDF (from wiki dir) or fall back to original source
-        input_file = source_pdf if source_pdf is not None and source_pdf.exists() else primary
-        markdown_content, _ = _run_opendataloader(input_file, artifact_dir, config=config)
+        markdown_content, _ = _run_opendataloader(primary, artifact_dir, config=config)
         md_file.write_text(markdown_content, encoding="utf-8")
 
     return markdown_content, json_file, normalized_id
+
+
+async def _resolve_spec_metadata(spec_number: str) -> OxydeSpecification | None:
+    """Look up specification metadata in the local database."""
+    db_file = PathConfig().db_file
+    async with SpecDatabase(db_file) as db:
+        return await db._get_specification(spec_number)
+
+
+def _enrich_with_metadata(
+    markdown_content: str,
+    json_path: Path,
+    metadata: OxydeSpecification | OxydeTDocMetadata,
+    *,
+    source_kind: SourceKind,
+    md_yaml_frontmatter: bool = True,
+) -> str:
+    """Inject document metadata into JSON and optionally prepend YAML frontmatter.
+
+    JSON enrichment always happens. YAML frontmatter is controlled by
+    *md_yaml_frontmatter*. Uses the Oxyde model's own serialization
+    (model_dump) and field metadata (model_fields) — no hardcoded field names.
+    """
+    metadata_dict = metadata.model_dump()
+    metadata_dict["kind"] = source_kind.value
+
+    # Merge into JSON at top level
+    if json_path.exists():
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            data.update(metadata_dict)
+            json_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    if not md_yaml_frontmatter:
+        return markdown_content
+
+    # Generate YAML frontmatter from model fields
+    lines = ["---"]
+    for field_name in metadata.model_fields:
+        value = metadata_dict.get(field_name)
+        if value is not None:
+            lines.append(f"{field_name}: {value}")
+    lines.extend(["kind: " + source_kind.value, "---", ""])
+
+    return "\n".join(lines) + markdown_content
 
 
 def convert_for_wiki(
@@ -193,6 +245,7 @@ def convert_for_wiki(
     profile: ExtractionProfile | None = None,
     force: bool = False,
     release: str | None = None,
+    md_yaml_frontmatter: bool = True,
 ) -> Path | None:
     """Convert a document for wiki ingestion using the specified profile.
 
@@ -217,8 +270,9 @@ def convert_for_wiki(
 
     wiki_source_dir.mkdir(parents=True, exist_ok=True)
 
-    # Resolve primary document based on source kind
+    # Resolve primary document based on source kind and collect metadata
     primary: Path | None = None
+    metadata: OxydeSpecification | OxydeTDocMetadata | None = None
     if source_kind == SourceKind.SPEC:
         base_spec = extract_base_spec_number(document_id)
         normalized_id = normalize_spec_number(base_spec)
@@ -228,8 +282,17 @@ def convert_for_wiki(
         primary = spec_files.primary_path
         if primary is None:
             raise ConversionError(f"No document files found for spec {normalized_id}")
-    else:
+        metadata = asyncio.run(_resolve_spec_metadata(normalized_id))
+    elif source_kind == SourceKind.TDOC:
         normalized_id = normalize_tdoc_id(document_id)
+        tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)
+        primary = tdoc_files.primary_path
+        if primary is None:
+            raise ConversionError(f"No document files found for {normalized_id}")
+        metadata = asyncio.run(_lookup_tdoc_in_db(normalized_id))
+    else:
+        # SourceKind.OTHER — resolve document but skip metadata enrichment
+        normalized_id = document_id
         tdoc_files = fetch_tdoc_files(normalized_id, force_download=force)
         primary = tdoc_files.primary_path
         if primary is None:
@@ -247,6 +310,10 @@ def convert_for_wiki(
         hybrid_mode="full" if profile == ExtractionProfile.ADVANCED else None,
     )
     markdown_content, json_path, _ = _ensure_converted(document_id, force=force, config=config, source_pdf=pdf_path, output_dir=wiki_source_dir)
+
+    # Enrich markdown and JSON with document metadata
+    if metadata:
+        markdown_content = _enrich_with_metadata(markdown_content, json_path, metadata, source_kind=source_kind, md_yaml_frontmatter=md_yaml_frontmatter)
 
     # Write markdown to wiki source dir
     md_file = wiki_source_dir / f"{primary.stem}.md"
