@@ -205,6 +205,7 @@ def _enrich_with_metadata(
     metadata: OxydeSpecification | OxydeTDocMetadata,
     *,
     source_kind: SourceKind,
+    extraction_profile: ExtractionProfile = ExtractionProfile.DEFAULT,
     md_yaml_frontmatter: bool = True,
 ) -> str:
     """Inject document metadata into JSON and optionally prepend YAML frontmatter.
@@ -213,8 +214,9 @@ def _enrich_with_metadata(
     *md_yaml_frontmatter*. Uses the Oxyde model's own serialization
     (model_dump) and field metadata (model_fields) — no hardcoded field names.
     """
-    metadata_dict = metadata.model_dump()
+    metadata_dict = metadata.model_dump(mode="json")
     metadata_dict["kind"] = source_kind.value
+    metadata_dict["extraction_profile"] = extraction_profile.value
 
     # Merge into JSON at top level
     if json_path.exists():
@@ -232,7 +234,7 @@ def _enrich_with_metadata(
         value = metadata_dict.get(field_name)
         if value is not None:
             lines.append(f"{field_name}: {value}")
-    lines.extend(["kind: " + source_kind.value, "---", ""])
+    lines.extend(["kind: " + source_kind.value, "extraction_profile: " + extraction_profile.value, "---", ""])
 
     return "\n".join(lines) + markdown_content
 
@@ -302,8 +304,8 @@ def convert_for_wiki(
         pdf_path = ensure_pdf(primary, wiki_source_dir, force=force)
         return pdf_path
 
-    # default or advanced: generate wiki PDF first, then opendataloader processes it
-    pdf_path = ensure_pdf(primary, wiki_source_dir, force=force)
+    # default or advanced: reuse existing PDF, regenerate md/json only
+    pdf_path = ensure_pdf(primary, wiki_source_dir, force=False)
 
     config = OpendataloaderConfig(
         hybrid="docling-fast",
@@ -313,7 +315,14 @@ def convert_for_wiki(
 
     # Enrich markdown and JSON with document metadata
     if metadata:
-        markdown_content = _enrich_with_metadata(markdown_content, json_path, metadata, source_kind=source_kind, md_yaml_frontmatter=md_yaml_frontmatter)
+        markdown_content = _enrich_with_metadata(
+            markdown_content,
+            json_path,
+            metadata,
+            source_kind=source_kind,
+            extraction_profile=profile,
+            md_yaml_frontmatter=md_yaml_frontmatter,
+        )
 
     # Write markdown to wiki source dir
     md_file = wiki_source_dir / f"{primary.stem}.md"

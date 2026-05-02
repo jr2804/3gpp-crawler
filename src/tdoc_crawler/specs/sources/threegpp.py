@@ -54,7 +54,7 @@ _RE_TYPE = re.compile(r'<span id="typeVal">([^<]+)</span>')
 
 # Responsibility tab — primary working group
 _RE_PRIMARY_GROUP = re.compile(
-    r'PrimaryResponsibleGroupLbl.*?<span>\s*([^<]+?)\s*</span>',
+    r"PrimaryResponsibleGroupLbl.*?<span>\s*([^<]+?)\s*</span>",
     re.DOTALL,
 )
 
@@ -62,7 +62,7 @@ _RE_PRIMARY_GROUP = re.compile(
 # <a id="..._lnkFtpDownload" ... href=".../26260-j10.zip">19.1.0</a>
 _RE_VERSION_LINK = re.compile(
     r'<a\s[^>]*id="[^"]*_lnkFtpDownload"[^>]*href="([^"]+)"[^>]*>'
-    r'\s*(\d+\.\d+\.\d+)\s*</a>',
+    r"\s*(\d+\.\d+\.\d+)\s*</a>",
     re.IGNORECASE,
 )
 
@@ -262,9 +262,7 @@ def fetch_threegpp_metadata(
             normalized,
             dynareport_url,
         )
-        raise SpecNotFoundError(
-            f"Spec {normalized} not found on 3GPP portal or has no versions"
-        )
+        raise SpecNotFoundError(f"Spec {normalized} not found on 3GPP portal or has no versions")
 
     # Use the redirected URL as source identifier
     portal_url = str(response.url) if hasattr(response, "url") else dynareport_url

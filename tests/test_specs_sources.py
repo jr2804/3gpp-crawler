@@ -32,10 +32,7 @@ class _FakeResponse:
 class _FakePortalResponse:
     """Fake HTTP response with HTML text from the portal spec details page."""
 
-    _PORTAL_URL = (
-        "https://portal.3gpp.org/desktopmodules/Specifications"
-        "/SpecificationDetails.aspx?specificationId=3314"
-    )
+    _PORTAL_URL = "https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=3314"
 
     def __init__(self, html_body: str, url: str = _PORTAL_URL) -> None:
         self.text = html_body
@@ -159,9 +156,7 @@ def test_fetch_threegpp_metadata_parses_portal_page(monkeypatch: object) -> None
 
 def test_fetch_threegpp_metadata_parses_tr_type(monkeypatch: object) -> None:
     """Test that Technical Report type is correctly parsed to TR."""
-    html = _PORTAL_HTML_26260.replace(
-        "Technical specification (TS)", "Technical Report (TR)"
-    )
+    html = _PORTAL_HTML_26260.replace("Technical specification (TS)", "Technical Report (TR)")
     response = _FakePortalResponse(html)
 
     class _FakeSession:

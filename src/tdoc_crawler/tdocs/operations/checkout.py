@@ -112,9 +112,7 @@ def checkout_tdoc(
             with zipfile.ZipFile(temp_zip_file) as archive:
                 archive.extractall(checkout_path)
         except zipfile.BadZipFile as exc:
-            raise FileNotFoundError(
-                f"invalid-zip: {metadata.tdoc_id} ({zip_size} bytes, {metadata.url}): {exc}"
-            ) from exc
+            raise FileNotFoundError(f"invalid-zip: {metadata.tdoc_id} ({zip_size} bytes, {metadata.url}): {exc}") from exc
         logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
     finally:
         if temp_zip_file.exists():
@@ -170,9 +168,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
             with zipfile.ZipFile(zip_file) as archive:
                 archive.extractall(extract_dir)
         except zipfile.BadZipFile as exc:
-            raise FileNotFoundError(
-                f"invalid-zip: {metadata.tdoc_id} ({zip_size} bytes, {metadata.url}): {exc}"
-            ) from exc
+            raise FileNotFoundError(f"invalid-zip: {metadata.tdoc_id} ({zip_size} bytes, {metadata.url}): {exc}") from exc
         finally:
             with suppress(FileNotFoundError):
                 zip_file.unlink()
