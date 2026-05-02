@@ -6,6 +6,7 @@ These commands create, inspect, modify, and process workspaces.
 from __future__ import annotations
 
 import asyncio
+import json
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,7 +14,7 @@ from typing import Any
 
 import typer
 
-from tdoc_crawler.cli._shared import console, ensure_hybrid_server_for_profile
+from tdoc_crawler.cli._shared import console, create_progress_bar, ensure_hybrid_server_for_profile
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
@@ -178,6 +179,13 @@ def workspace_members(
         console.print(f"[red]Error: {e}[/red]")
 
 
+_PROFILE_LEVELS = {
+    ExtractionProfile.PDF_ONLY: 0,
+    ExtractionProfile.DEFAULT: 1,
+    ExtractionProfile.ADVANCED: 2,
+}
+
+
 def _should_skip_member(
     source_id: str,
     wiki_base: Path,
@@ -186,14 +194,51 @@ def _should_skip_member(
     skip_existing: bool,
 ) -> bool:
     """Check if a workspace member should be skipped due to existing artifacts."""
-    if not skip_existing or force:
+    if force or not skip_existing:
         return False
+
     member_dir = wiki_base / source_id
-    glob_pattern = "*.pdf" if profile == ExtractionProfile.PDF_ONLY else "*.md"
-    if list(member_dir.glob(glob_pattern)):
-        console.print(f"[dim]  Skipping {source_id} - artifacts exist[/dim]")
+
+    if profile == ExtractionProfile.PDF_ONLY:
+        if list(member_dir.glob("*.pdf")):
+            logger.debug("Skipping %s — PDF exists", source_id)
+            return True
+        return False
+
+    md_files = list(member_dir.glob("*.md"))
+    json_files = list(member_dir.glob("*.json"))
+    if not md_files or not json_files:
+        return False
+
+    saved_profile = _read_json_profile(json_files[0])
+    saved_level = _PROFILE_LEVELS.get(saved_profile, -1)
+    if saved_level < 0:
+        saved_level = _PROFILE_LEVELS.get(_coerce_profile(saved_profile), -1)
+
+    required_level = _PROFILE_LEVELS[profile]
+    if saved_level >= required_level:
+        label = saved_profile if saved_level >= 0 else "unknown"
+        logger.debug("Skipping %s — %s output exists", source_id, label)
         return True
+
     return False
+
+
+def _read_json_profile(json_path: Path) -> str:
+    """Read extraction_profile from a JSON file, empty string on failure."""
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        return data.get("extraction_profile", "")
+    except json.JSONDecodeError, OSError:
+        return ""
+
+
+def _coerce_profile(value: str) -> ExtractionProfile | None:
+    """Try to parse a string as ExtractionProfile, return None on failure."""
+    try:
+        return ExtractionProfile(value)
+    except ValueError:
+        return None
 
 
 @app.command("process", help="Process workspace members.")
@@ -241,37 +286,49 @@ def workspace_process(
 
     processed = 0
     failed = 0
+    skipped = 0
 
-    for member in members:
-        source_id = member.source_item_id
+    progress, task = create_progress_bar(
+        f"Processing [{extraction_profile.value}]",
+        total=len(members),
+    )
 
-        if _should_skip_member(source_id, wiki_source_dir_base, extraction_profile, force, skip_existing):
-            continue
+    with progress:
+        for member in members:
+            source_id = member.source_item_id
 
-        wiki_source_dir = wiki_source_dir_base / source_id
-        wiki_source_dir.mkdir(parents=True, exist_ok=True)
+            if _should_skip_member(source_id, wiki_source_dir_base, extraction_profile, force, skip_existing):
+                skipped += 1
+                progress.advance(task)
+                continue
 
-        try:
-            result_path = convert_for_wiki(
-                document_id=source_id,
-                wiki_source_dir=wiki_source_dir,
-                source_kind=member.source_kind,
-                profile=extraction_profile,
-                force=force,
-                release=member.release,
-                md_yaml_frontmatter=md_yaml_frontmatter,
-            )
-            if result_path:
-                console.print(f"[green]  Processed {source_id} -> {result_path.name}[/green]")
-                processed += 1
-            else:
-                console.print(f"[yellow]  No output for {source_id}[/yellow]")
-        except Exception as e:
-            console.print(f"[red]  Failed {source_id}: {e}[/red]")
-            logger.error(f"Failed to process {source_id}: {e}")
-            failed += 1
+            wiki_source_dir = wiki_source_dir_base / source_id
+            wiki_source_dir.mkdir(parents=True, exist_ok=True)
 
-    console.print(f"\n[yellow]Processing complete: {processed} succeeded, {failed} failed[/yellow]")
+            try:
+                result_path = convert_for_wiki(
+                    document_id=source_id,
+                    wiki_source_dir=wiki_source_dir,
+                    source_kind=member.source_kind,
+                    profile=extraction_profile,
+                    force=force,
+                    release=member.release,
+                    md_yaml_frontmatter=md_yaml_frontmatter,
+                )
+                if result_path:
+                    suffix = result_path.suffix.lstrip(".")
+                    logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
+                    processed += 1
+                else:
+                    logger.debug("No output for %s", source_id)
+            except Exception as e:
+                console.print(f"[red]  Failed {source_id}: {e}[/red]")
+                logger.error("Failed to process %s: %s", source_id, e)
+                failed += 1
+
+            progress.advance(task)
+
+    console.print(f"[yellow]Processing complete: {processed} succeeded, {failed} failed, {skipped} skipped[/yellow]")
 
 
 def _resolve_spec_release_for_add(
