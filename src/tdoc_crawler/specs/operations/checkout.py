@@ -24,7 +24,6 @@ async def resolve_spec_release(
     release: str,
     *,
     auto_crawl: bool = True,
-    cache_manager_name: str | None = None,
 ) -> str:
     """Resolve a release selector to a concrete version string for a spec.
 
@@ -38,7 +37,6 @@ async def resolve_spec_release(
         spec_number: Spec number in any format (e.g., ``"26.260"``, ``"26260"``).
         release: Release selector (e.g., ``"latest"``, ``"17"``, ``"17.1.0"``).
         auto_crawl: Crawl spec metadata when not in database.
-        cache_manager_name: Optional cache manager name for HTTP caching.
 
     Returns:
         Full 3-part version string (e.g., ``"19.0.0"``).
@@ -57,7 +55,7 @@ async def resolve_spec_release(
     versions = await _get_versions()
 
     if not versions and auto_crawl:
-        sources = build_default_spec_sources(cache_manager_name=cache_manager_name)
+        sources = build_default_spec_sources()
         async with SpecDatabase(db_file) as db:
             results = await db.crawl_specs([normalized], release, sources)
         for result in results:
@@ -87,18 +85,15 @@ def clear_checkout_specs(checkout_dir: Path) -> int:
     return 1
 
 
-def build_default_spec_sources(cache_manager_name: str | None = None) -> list[SpecSource]:
+def build_default_spec_sources() -> list[SpecSource]:
     """Build the default list of spec sources.
-
-    Args:
-        cache_manager_name: Optional cache manager name for HTTP caching
 
     Returns:
         List of SpecSource instances for fetching spec metadata
     """
     return [
-        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={"cache_manager_name": cache_manager_name})),
-        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={"cache_manager_name": cache_manager_name})),
+        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata)),
+        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata)),
     ]
 
 
@@ -108,7 +103,6 @@ def checkout_specs(
     database: SpecDatabase,
     release: str = "latest",
     doc_only: bool = False,
-    cache_manager_name: str | None = None,
 ) -> list[Path]:
     """Checkout spec documents to the checkout directory.
 
@@ -118,12 +112,11 @@ def checkout_specs(
         database: SpecDatabase instance for metadata lookup
         release: Release version to checkout
         doc_only: If True, download only document files instead of full zip
-        cache_manager_name: Optional cache manager name for HTTP caching
 
     Returns:
         List of paths to checked out specs
     """
-    sources = build_default_spec_sources(cache_manager_name=cache_manager_name)
+    sources = build_default_spec_sources()
     downloader = SpecDownloads(database)
     return downloader.checkout_specs(spec_numbers, doc_only, checkout_dir, release, sources=sources)
 
@@ -134,10 +127,9 @@ async def checkout_specs_async(
     database: SpecDatabase,
     release: str = "latest",
     doc_only: bool = False,
-    cache_manager_name: str | None = None,
 ) -> list[Path]:
     """Async variant of checkout_specs for async call paths."""
-    sources = build_default_spec_sources(cache_manager_name=cache_manager_name)
+    sources = build_default_spec_sources()
     downloader = SpecDownloads(database)
     return await downloader.checkout_specs_async(spec_numbers, doc_only, checkout_dir, release, sources=sources)
 
