@@ -10,7 +10,7 @@ Two bugs in the spec fetch pipeline:
 
 1. **`fetch_spec_files()` ignored the requested release when scanning local files.** The spec checkout directory (`checkout/Specs/archive/{series}/{spec}/`) is shared across all releases. After REL19 was downloaded, requesting REL18 triggered a local scan of the entire tree, which returned REL19 files without checking the release.
 
-2. **`_download_spec()` discarded the version-specific extracted directory path.** `checkout_specs_async()` returns `list[Path]` of version-specific subdirectories (e.g. `26261-i00/` for REL18), but the return value was ignored. The subsequent full-tree scan could return files from any release.
+1. **`_download_spec()` discarded the version-specific extracted directory path.** `checkout_specs_async()` returns `list[Path]` of version-specific subdirectories (e.g. `26261-i00/` for REL18), but the return value was ignored. The subsequent full-tree scan could return files from any release.
 
 ## Changes
 

@@ -231,7 +231,7 @@ Spec releases must always be resolved to a **full 3-part version** (e.g. `"18.0.
 **Two-layer contract:**
 
 1. **Resolve early** — `resolve_spec_release()` pins the concrete version at add-time, embedding it in the workspace member ID (e.g. `26261-REL18.0.0`).
-2. **Respect downstream** — `fetch_spec_files()` uses the pinned version to scan only the version-specific extracted directory, never the shared parent.
+1. **Respect downstream** — `fetch_spec_files()` uses the pinned version to scan only the version-specific extracted directory, never the shared parent.
 
 **Rule:** Never pass ambiguous release selectors to fetch/convert functions. Never scan a shared checkout directory without filtering by release.
 
