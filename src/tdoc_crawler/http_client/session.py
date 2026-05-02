@@ -221,6 +221,12 @@ def download_to_file(
                 if chunk:
                     target.write(chunk)
 
+        # Detect empty downloads (server returned 200 but no content)
+        file_size = target_file.stat().st_size
+        if file_size == 0:
+            target_file.unlink(missing_ok=True)
+            raise FileNotFoundError(f"empty-download: {url}")
+
         # return session or None if we created a temporary session and are closing it
         if close_session:
             active_session = None

@@ -104,8 +104,17 @@ def checkout_tdoc(
 
     try:
         download_to_file(metadata.url, temp_zip_file, session=session)
-        with zipfile.ZipFile(temp_zip_file) as archive:
-            archive.extractall(checkout_path)
+        # Validate zip file before extraction attempt
+        zip_size = temp_zip_file.stat().st_size
+        if zip_size == 0:
+            raise FileNotFoundError(f"empty-archive: {metadata.tdoc_id} (downloaded 0 bytes from {metadata.url})")
+        try:
+            with zipfile.ZipFile(temp_zip_file) as archive:
+                archive.extractall(checkout_path)
+        except zipfile.BadZipFile as exc:
+            raise FileNotFoundError(
+                f"invalid-zip: {metadata.tdoc_id} ({zip_size} bytes, {metadata.url}): {exc}"
+            ) from exc
         logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
     finally:
         if temp_zip_file.exists():
@@ -153,15 +162,23 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
             shutil.rmtree(extract_dir)
         zip_file = downloads_dir / f"{metadata.tdoc_id}.zip"
         download_to_file(metadata.url, zip_file, session=session)
+        # Validate zip file before extraction
+        zip_size = zip_file.stat().st_size
+        if zip_size == 0:
+            raise FileNotFoundError(f"empty-archive: {metadata.tdoc_id} (downloaded 0 bytes from {metadata.url})")
         try:
             with zipfile.ZipFile(zip_file) as archive:
                 archive.extractall(extract_dir)
+        except zipfile.BadZipFile as exc:
+            raise FileNotFoundError(
+                f"invalid-zip: {metadata.tdoc_id} ({zip_size} bytes, {metadata.url}): {exc}"
+            ) from exc
         finally:
             with suppress(FileNotFoundError):
                 zip_file.unlink()
         files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
         if not files:
-            raise FileNotFoundError("no-files-in-archive")
+            raise FileNotFoundError(f"no-files-in-archive: {metadata.tdoc_id} ({metadata.url})")
         return extract_dir if return_dir else files[0]
 
     # For non-zip files, download directly
@@ -262,6 +279,7 @@ def checkout_tdocs(
             if error_message == "withdrawn":  # This matches the FileNotFoundError message
                 logger.debug(f"Skipped withdrawn TDoc {metadata.tdoc_id}")
             else:
+                logger.warning(f"Checkout failed for {metadata.tdoc_id}: {exc}")
                 errors.append(f"{metadata.tdoc_id}: {exc}")
                 error_count += 1
 
