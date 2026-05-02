@@ -13,6 +13,7 @@ from pathlib import Path
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
+from tdoc_crawler.extraction.conversion import OFFICE_FORMATS
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.utils.normalization import normalize_spec_number
@@ -27,12 +28,13 @@ class SpecFiles:
     checkout_dir: Path
     docx_path: Path | None = None
     doc_path: Path | None = None
+    office_path: Path | None = None
     pdf_path: Path | None = None
 
     @property
     def primary_path(self) -> Path | None:
-        """Return the primary document path, preferring PDF > DOCX > DOC."""
-        return self.pdf_path or self.docx_path or self.doc_path
+        """Return the primary document path, preferring PDF > DOCX > DOC > other office formats."""
+        return self.pdf_path or self.docx_path or self.doc_path or self.office_path
 
 
 def fetch_spec_files(spec_number: str, release: str | None = None, force_download: bool = False) -> SpecFiles:
@@ -83,7 +85,13 @@ def fetch_spec_files(spec_number: str, release: str | None = None, force_downloa
             # Scan ONLY the version-specific extracted directory
             files = _scan_spec_dir(extracted_dir)
             if files.primary_path is not None:
-                return SpecFiles(checkout_dir=spec_dir, docx_path=files.docx_path, doc_path=files.doc_path, pdf_path=files.pdf_path)
+                return SpecFiles(
+                    checkout_dir=spec_dir,
+                    docx_path=files.docx_path,
+                    doc_path=files.doc_path,
+                    office_path=files.office_path,
+                    pdf_path=files.pdf_path,
+                )
 
         # Fallback: scan the entire spec directory (covers legacy layouts)
         if spec_dir.exists():
@@ -138,6 +146,8 @@ def _scan_spec_dir(spec_dir: Path) -> SpecFiles:
                     files.docx_path = file_path
                 elif suffix == ".doc":
                     files.doc_path = file_path
+                elif suffix in OFFICE_FORMATS:
+                    files.office_path = file_path
 
     return files
 
