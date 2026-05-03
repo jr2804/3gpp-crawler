@@ -57,6 +57,7 @@ from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata, Me
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawler, MeetingCrawlResult
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
+from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.specs.operations.checkout import build_default_spec_sources, checkout_specs
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
@@ -73,6 +74,43 @@ def _parse_date(date_str: str | None, is_end: bool = False) -> date | None:
     if not date_str or not date_str.strip():
         return None
     return parse_partial_date(date_str, is_end=is_end)
+
+
+def _build_scope_description(
+    meetings: list[MeetingMetadata],
+    subgroups: list[str] | None,
+    working_groups: list[WorkingGroup],
+) -> list[str]:
+    scope_parts = []
+    if meetings:
+        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
+        if unique_subgroups:
+            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
+        else:
+            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
+    elif subgroups:
+        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
+    else:
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+    return scope_parts
+
+
+def _print_crawl_result(result: TDocCrawlResult, throughput: float) -> None:
+    console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
+    console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
+    if result.errors:
+        console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
+        for error in result.errors[:5]:
+            console.print(f"  - {error}")
+
+
+def _print_meeting_crawl_result(result: MeetingCrawlResult) -> None:
+    console.print(f"[green]Processed {result.processed} meetings[/green]")
+    console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
+    if result.errors:
+        console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
+        for error in result.errors[:5]:
+            console.print(f"  - {error}")
 
 
 def crawl_tdocs(
@@ -139,9 +177,6 @@ def crawl_tdocs(
 
     db_file = crawler_config.path.db_file
 
-    scope_parts = []
-
-    # Query actual meetings from database to show realistic scope
     async def fetch_meetings() -> list[MeetingMetadata]:
         async with MeetingDatabase(db_file) as meeting_db:
             query_config = MeetingQueryConfig(
@@ -156,19 +191,7 @@ def crawl_tdocs(
             return await meeting_db.query_meetings(query_config)
 
     meetings = asyncio.run(fetch_meetings())
-
-    if meetings:
-        # Extract unique subgroups from queried meetings
-        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
-        if unique_subgroups:
-            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
-        else:
-            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
-    # Fallback to input parameters if no meetings found in DB
-    elif subgroups:
-        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
-    else:
-        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+    scope_parts = _build_scope_description(meetings, subgroups, working_groups)
 
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
@@ -245,13 +268,7 @@ def crawl_tdocs(
             return result, throughput
 
     result, throughput = asyncio.run(run_tdoc_crawl())
-
-    console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
-    console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
-    if result.errors:
-        console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
-        for error in result.errors[:5]:
-            console.print(f"  - {error}")
+    _print_crawl_result(result, throughput)
 
 
 def crawl_meetings(
@@ -348,12 +365,7 @@ def crawl_meetings(
 
     result = asyncio.run(run_meeting_crawl())
 
-    console.print(f"[green]Processed {result.processed} meetings[/green]")
-    console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
-    if result.errors:
-        console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
-        for error in result.errors[:5]:
-            console.print(f"  - {error}")
+    _print_meeting_crawl_result(result)
 
     if checkout:
         query_config = MeetingQueryConfig(

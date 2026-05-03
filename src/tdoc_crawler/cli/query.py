@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Annotated
 
 import typer
 
@@ -64,6 +63,20 @@ from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, pars
 HELP_PANEL = "Query Commands"
 
 
+def _parse_date_range(start_date: str | None, end_date: str | None) -> tuple[datetime | None, datetime | None]:
+    try:
+        start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None
+    except ValueError as exc:
+        console.print("[red]Invalid start date format; use ISO-8601")
+        raise typer.Exit(code=2) from exc
+    try:
+        end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None
+    except ValueError as exc:
+        console.print("[red]Invalid end date format; use ISO-8601")
+        raise typer.Exit(code=2) from exc
+    return start, end
+
+
 def query_tdocs(
     tdoc_ids: TDocIdsArgument = None,
     working_group: WorkingGroupOption = None,
@@ -84,7 +97,6 @@ def query_tdocs(
     title_ex: TitlePatternExcludeOption = None,
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
-    graph_rag: Annotated[bool, typer.Option("--graph-rag", help="Use hybrid graph-RAG search")] = False,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query TDoc metadata from database."""
@@ -92,16 +104,7 @@ def query_tdocs(
     path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
 
     working_groups = parse_working_groups(working_group)
-    try:
-        start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC) if start_date else None
-    except ValueError as exc:
-        console.print("[red]Invalid start date format; use ISO-8601")
-        raise typer.Exit(code=2) from exc
-    try:
-        end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC) if end_date else None
-    except ValueError as exc:
-        console.print("[red]Invalid end date format; use ISO-8601")
-        raise typer.Exit(code=2) from exc
+    start, end = _parse_date_range(start_date, end_date)
 
     try:
         sort_order = SortOrder(order.lower())
@@ -176,13 +179,6 @@ def query_tdocs(
             return await meeting_db._meeting_map()
 
     meeting_map = asyncio.run(load_meeting_map())
-
-    # If graph-rag flag is set, perform hybrid search
-    # Disabled due to logical inconsistency - query_hybrid expects text query, not TDoc ID
-    # The hybrid search function is designed for semantic search + graph expansion,
-    # but was being incorrectly called with a TDoc ID instead of a text query.
-    # This functionality has been disabled as it doesn't make logical sense in CLI context.
-    pass
 
     if config.output_format is OutputFormat.TABLE:
         print_tdoc_table(results, meeting_map)
