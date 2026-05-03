@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -93,17 +94,32 @@ def _should_skip_member(
     return False
 
 
+def _read_page_count(json_dir: Path) -> int:
+    """Read the number of pages from opendataloader JSON output.
+
+    Returns 0 if the JSON file is not found or cannot be read.
+    """
+    json_files = list(json_dir.glob("*.json"))
+    if not json_files:
+        return 0
+    try:
+        data = json.loads(json_files[0].read_text(encoding="utf-8"))
+        return int(data.get("number of pages", 0))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return 0
+
+
 def _process_member(
     member: Any,
     wiki_source_dir_base: Path,
     extraction_profile: ExtractionProfile,
     force: bool,
     md_yaml_frontmatter: bool,
-) -> tuple[str, bool, bool]:
+) -> tuple[str, bool, bool, int]:
     """Process a single workspace member.
 
     Returns:
-        Tuple of (source_id, succeeded, failed).
+        Tuple of (source_id, succeeded, failed, page_count).
     """
     source_id = member.source_item_id
     wiki_source_dir = wiki_source_dir_base / source_id
@@ -122,13 +138,13 @@ def _process_member(
         if result_path:
             suffix = result_path.suffix.lstrip(".")
             logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
-            return source_id, True, False
+            return source_id, True, False, _read_page_count(wiki_source_dir)
         logger.debug("No output for %s", source_id)
-        return source_id, False, False
+        return source_id, False, False, 0
     except Exception as e:
         console.print(f"[red]  Failed {source_id}: {e}[/red]")
         logger.error("Failed to process %s: %s", source_id, e)
-        return source_id, False, True
+        return source_id, False, True, 0
 
 
 def workspace_process(
@@ -182,6 +198,8 @@ def workspace_process(
     processed = 0
     failed = 0
     skipped = 0
+    total_pages = 0
+    start_time = time.monotonic()
 
     progress, task = create_progress_bar(
         f"Processing [{extraction_profile.value}]",
@@ -198,7 +216,7 @@ def workspace_process(
                 continue
 
             progress.update(task, description=f"Processing [{extraction_profile.value}] {source_id}")
-            _, succeeded, errored = _process_member(
+            _, succeeded, errored, pages = _process_member(
                 member,
                 wiki_source_dir_base,
                 extraction_profile,
@@ -207,9 +225,28 @@ def workspace_process(
             )
             if succeeded:
                 processed += 1
+                total_pages += pages
             if errored:
                 failed += 1
 
+            elapsed = time.monotonic() - start_time
+            if elapsed > 0 and total_pages > 0:
+                pps = total_pages / elapsed
+                progress.update(
+                    task,
+                    description=f"Processing [{extraction_profile.value}] {source_id}  ({total_pages}p, {pps:.1f} p/s)",
+                )
+            else:
+                progress.update(
+                    task,
+                    description=f"Processing [{extraction_profile.value}] {source_id}",
+                )
+
             progress.advance(task)
 
-    console.print(f"[yellow]Processing complete: {processed} succeeded, {failed} failed, {skipped} skipped[/yellow]")
+    elapsed_total = time.monotonic() - start_time
+    summary = f"Processing complete: {processed} succeeded, {failed} failed, {skipped} skipped"
+    if total_pages > 0 and elapsed_total > 0:
+        avg_pps = total_pages / elapsed_total
+        summary += f"  ({total_pages} pages, {avg_pps:.1f} p/s avg)"
+    console.print(f"[yellow]{summary}[/yellow]")
