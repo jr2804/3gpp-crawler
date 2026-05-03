@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import opendataloader_pdf
-from rich.console import Console
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.oxyde_models import Specification as OxydeSpecification
@@ -32,7 +31,6 @@ from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.normalization import extract_base_spec_number, extract_release_suffix, normalize_spec_number, normalize_tdoc_id
 
 logger = logging.getLogger(__name__)
-console = Console()
 
 __all__ = [
     "ExtractedEquation",
@@ -272,6 +270,7 @@ def convert_for_wiki(
         profile: Extraction profile to use. Defaults to DEFAULT_EXTRACTION_PROFILE.
         force: Force reconversion.
         release: Release identifier for spec downloads (e.g., "19.0.0", "latest").
+        md_yaml_frontmatter: Prepend YAML frontmatter with metadata to the Markdown output.
 
     Returns:
         Path to the primary output file (PDF for pdf-only, MD for default/advanced),

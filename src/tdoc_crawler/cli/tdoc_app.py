@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio  # noqa: E402
+import logging  # noqa: E402
 import zipfile  # noqa: E402
 from pathlib import Path  # noqa: E402
 from typing import Annotated, Any, cast  # noqa: E402
@@ -43,6 +44,7 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_f
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
 
+logger = logging.getLogger(__name__)
 tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
 
 
@@ -308,7 +310,7 @@ def stats(
                     wiki_table.add_row(name, "[dim]no build[/dim]", "", "", "")
             console.print(wiki_table)
     except Exception:
-        pass  # Registry may not be available
+        logger.debug("Wiki build health not available", exc_info=True)
 
 
 # Register command aliases
