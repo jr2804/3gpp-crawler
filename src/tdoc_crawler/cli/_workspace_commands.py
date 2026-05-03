@@ -243,6 +243,44 @@ def _coerce_profile(value: str) -> ExtractionProfile | None:
         return None
 
 
+def _process_member(
+    member: Any,
+    wiki_source_dir_base: Path,
+    extraction_profile: ExtractionProfile,
+    force: bool,
+    md_yaml_frontmatter: bool,
+) -> tuple[str, bool, bool]:
+    """Process a single workspace member.
+
+    Returns:
+        Tuple of (source_id, succeeded, failed).
+    """
+    source_id = member.source_item_id
+    wiki_source_dir = wiki_source_dir_base / source_id
+    wiki_source_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result_path = convert_for_wiki(
+            document_id=source_id,
+            wiki_source_dir=wiki_source_dir,
+            source_kind=member.source_kind,
+            profile=extraction_profile,
+            force=force,
+            release=member.release,
+            md_yaml_frontmatter=md_yaml_frontmatter,
+        )
+        if result_path:
+            suffix = result_path.suffix.lstrip(".")
+            logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
+            return source_id, True, False
+        logger.debug("No output for %s", source_id)
+        return source_id, False, False
+    except Exception as e:
+        console.print(f"[red]  Failed {source_id}: {e}[/red]")
+        logger.error("Failed to process %s: %s", source_id, e)
+        return source_id, False, True
+
+
 @app.command("process", help="Process workspace members.")
 def workspace_process(
     workspace_name: str = typer.Argument(None, help="Workspace name (default: active workspace)"),
@@ -282,12 +320,11 @@ def workspace_process(
     if limit is not None:
         members = members[:limit]
 
-    # Pre-start hybrid server if extraction profile requires it
     if not ensure_hybrid_server_for_profile(extraction_profile):
         raise typer.Exit(1)
 
-    manager = resolve_cache_manager()
-    wiki_source_dir_base = manager.workspaces_dir / normalized / "sources"
+    cache_manager = resolve_cache_manager()
+    wiki_source_dir_base = cache_manager.workspaces_dir / normalized / "sources"
 
     processed = 0
     failed = 0
@@ -307,28 +344,17 @@ def workspace_process(
                 progress.advance(task)
                 continue
 
-            wiki_source_dir = wiki_source_dir_base / source_id
-            wiki_source_dir.mkdir(parents=True, exist_ok=True)
-
-            try:
-                result_path = convert_for_wiki(
-                    document_id=source_id,
-                    wiki_source_dir=wiki_source_dir,
-                    source_kind=member.source_kind,
-                    profile=extraction_profile,
-                    force=force,
-                    release=member.release,
-                    md_yaml_frontmatter=md_yaml_frontmatter,
-                )
-                if result_path:
-                    suffix = result_path.suffix.lstrip(".")
-                    logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
-                    processed += 1
-                else:
-                    logger.debug("No output for %s", source_id)
-            except Exception as e:
-                console.print(f"[red]  Failed {source_id}: {e}[/red]")
-                logger.error("Failed to process %s: %s", source_id, e)
+            progress.update(task, description=f"Processing [{extraction_profile.value}] {source_id}")
+            _, succeeded, errored = _process_member(
+                member,
+                wiki_source_dir_base,
+                extraction_profile,
+                force,
+                md_yaml_frontmatter,
+            )
+            if succeeded:
+                processed += 1
+            if errored:
                 failed += 1
 
             progress.advance(task)
