@@ -61,12 +61,14 @@ class OpendataloaderConfig:
         page_range: str | None = None,
         workers: int | None = None,
         hybrid_timeout_ms: int | None = None,
+        hybrid_fallback: bool = False,
     ) -> None:
         self.hybrid = hybrid
         self.hybrid_mode = hybrid_mode
         self.page_range = page_range
         self.workers = workers
         self.hybrid_timeout_ms = hybrid_timeout_ms
+        self.hybrid_fallback = hybrid_fallback
 
     def to_convert_kwargs(self) -> dict[str, object]:
         """Convert config to kwargs for opendataloader_pdf.convert()."""
@@ -78,9 +80,11 @@ class OpendataloaderConfig:
         if self.page_range is not None:
             kwargs["pages"] = self.page_range
         if self.workers is not None:
-            kwargs["threads"] = self.workers
+            kwargs["threads"] = str(self.workers)
         if self.hybrid_timeout_ms is not None:
-            kwargs["hybrid_timeout"] = self.hybrid_timeout_ms
+            kwargs["hybrid_timeout"] = str(self.hybrid_timeout_ms)
+        if self.hybrid_fallback:
+            kwargs["hybrid_fallback"] = True
         return kwargs
 
     @classmethod
@@ -320,6 +324,11 @@ def convert_for_wiki(
         hybrid="docling-fast",
         hybrid_mode="full" if profile == ExtractionProfile.ADVANCED else None,
     )
+
+    # For "full" hybrid mode, enable Java fallback so pages the hybrid backend
+    # cannot process still produce output via the native pipeline.
+    if profile == ExtractionProfile.ADVANCED:
+        config.hybrid_fallback = True
     markdown_content, json_path, _ = _ensure_converted(document_id, force=force, config=config, source_pdf=pdf_path, output_dir=wiki_source_dir)
 
     # Enrich markdown and JSON with document metadata
@@ -497,6 +506,7 @@ def _run_opendataloader(
             page_range=config.page_range,
             workers=config.workers,
             hybrid_timeout_ms=OpendataloaderConfig.default_hybrid_timeout_ms(),
+            hybrid_fallback=config.hybrid_fallback,
         )
 
     formats = "markdown,json,markdown-with-images"
