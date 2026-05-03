@@ -352,6 +352,8 @@ class MeetingDatabase(DocDatabase):
     @staticmethod
     def _prepare_meeting(metadata: MeetingMetadata) -> MeetingMetadata:
         """Prepare meeting metadata for insertion (set defaults)."""
+        if metadata.location is None:
+            metadata.location = ""
         return metadata
 
     @staticmethod
