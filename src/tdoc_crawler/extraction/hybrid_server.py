@@ -11,8 +11,12 @@ import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
+from typing import IO
 
 import niquests
+
+from tdoc_crawler.config import resolve_cache_manager
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +26,8 @@ DEFAULT_URL = f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"
 _HEALTH_CHECK_TIMEOUT = 15.0
 _CONNECT_TIMEOUT = 10.0
 _STARTUP_MAX_WAIT = 600  # seconds — docling model loading can take several minutes
+_LOGS_DIR_NAME = "logs"
+_SERVER_LOG_FILENAME = "hybrid-server.log"
 
 
 @dataclass
@@ -53,6 +59,7 @@ class HybridServerManager:
     def __init__(self, config: HybridServerConfig | None = None) -> None:
         self.config = config or HybridServerConfig()
         self._process: subprocess.Popen[bytes] | None = None
+        self._log_file_handle: IO[bytes] | None = None
 
     @property
     def url(self) -> str:
@@ -64,6 +71,14 @@ class HybridServerManager:
         if self._process is None:
             return False
         return self._process.poll() is None
+
+    @property
+    def log_file(self) -> Path:
+        """Path to the hybrid server log file."""
+        cache = resolve_cache_manager()
+        logs_dir = cache.root / _LOGS_DIR_NAME
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        return logs_dir / _SERVER_LOG_FILENAME
 
     def check_health(self) -> HybridServerStatus:
         """Check if the hybrid server is reachable via HTTP health endpoint."""
@@ -142,12 +157,14 @@ class HybridServerManager:
         ]
 
         try:
+            log_path = self.log_file
+            self._log_file_handle = log_path.open("ab")
             self._process = subprocess.Popen(  # noqa: S603 — binary name is hardcoded, not user input
                 cmd,
-                stdout=subprocess.PIPE,
+                stdout=self._log_file_handle,
                 stderr=subprocess.STDOUT,
             )
-            logger.info("Started opendataloader-pdf-hybrid (pid=%s) at %s", self._process.pid, self.url)
+            logger.info("Started opendataloader-pdf-hybrid (pid=%s) at %s — logs: %s", self._process.pid, self.url, log_path)
         except FileNotFoundError:
             return HybridServerStatus(
                 running=False,
@@ -178,6 +195,10 @@ class HybridServerManager:
             logger.info("Stopped opendataloader-pdf-hybrid (pid=%s)", pid)
         except Exception as e:
             logger.warning("Error stopping hybrid server: %s", e)
+        finally:
+            if self._log_file_handle is not None:
+                self._log_file_handle.close()
+                self._log_file_handle = None
 
         status = HybridServerStatus(running=False, url=self.url, pid=pid)
         self._process = None
@@ -224,13 +245,14 @@ class HybridServerManager:
         )
 
     def _capture_output(self) -> str:
-        """Capture output from the process if it has exited."""
-        if self._process is None or self._process.poll() is None:
+        """Read recent output from the server log file."""
+        if self._log_file_handle is None:
             return ""
         try:
-            stdout, _ = self._process.communicate(timeout=1.0)
-            return stdout.decode("utf-8", errors="replace") if stdout else ""
-        except subprocess.TimeoutExpired, Exception:
+            log_path = self.log_file
+            text = log_path.read_text(encoding="utf-8", errors="replace")
+            return text[-2000:] if len(text) > 2000 else text
+        except OSError:
             return ""
 
 
