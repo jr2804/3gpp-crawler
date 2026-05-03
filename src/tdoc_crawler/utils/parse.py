@@ -138,3 +138,35 @@ def collect_spec_numbers(specs: list[str] | None, spec_file: Path | None) -> lis
         return []
 
     return expand_spec_ranges_batch(collected)
+
+
+def infer_working_groups_from_ids(tdoc_ids: list[str]) -> list[WorkingGroup]:
+    """Infer working groups from TDoc ID prefixes.
+
+    The first character of a TDoc ID determines the working group:
+    - R → RAN
+    - S → SA
+    - C or T → CT
+
+    Args:
+        tdoc_ids: List of TDoc identifiers (e.g., ["R1-2301234", "S4-2301890"])
+
+    Returns:
+        Deduplicated list of inferred working groups.
+    """
+    working_groups: list[WorkingGroup] = []
+    for tdoc_id in tdoc_ids:
+        if not tdoc_id:
+            continue
+        first_char = tdoc_id[0].upper()
+        if first_char == "R":
+            wg = WorkingGroup.RAN
+        elif first_char == "S":
+            wg = WorkingGroup.SA
+        else:
+            wg = WorkingGroup.CT
+
+        if wg not in working_groups:
+            working_groups.append(wg)
+
+    return working_groups

@@ -429,6 +429,24 @@ def normalize_release_version(release: str) -> str:
     return ".".join(parts)
 
 
+def normalize_release_label(release: str | None) -> str | None:
+    """Normalize a release number to a standard label.
+
+    Args:
+        release: Release number (e.g., "18") or special value ("latest")
+
+    Returns:
+        "Rel-{number}" for numeric values, "latest" for "latest", None for
+        None or empty string.
+    """
+    if release is None or release == "":
+        return None
+    if release.lower() == "latest":
+        return "latest"
+    cleaned = release.strip()
+    return f"Rel-{cleaned}"
+
+
 def normalize_working_group_alias(alias: str) -> WorkingGroup:
     """Normalize working group aliases to canonical working group enums.
 
