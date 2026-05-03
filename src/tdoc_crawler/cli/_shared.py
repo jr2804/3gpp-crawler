@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskID, TextColumn
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
 
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.extraction.hybrid_server import ensure_hybrid_server
@@ -101,6 +101,7 @@ def create_progress_bar(description: str, total: float = 100) -> tuple[Progress,
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         MofNCompleteColumn(),
+        TimeElapsedColumn(),
         console=console,
     )
     task = progress.add_task(description, total=total)
