@@ -36,6 +36,7 @@ from tdoc_crawler.cli.args import (
     StartDateOption,
     TitlePatternExcludeOption,
     TitlePatternOption,
+    VerbosityOption,
     WorkspaceDeleteForceOption,
     WorkspaceItemsArgument,
     WorkspaceNameOption,
@@ -46,7 +47,8 @@ from tdoc_crawler.config import PathConfig, resolve_cache_manager
 from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.extraction.convert import convert_for_wiki
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
-from tdoc_crawler.logging import get_logger
+from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
+from tdoc_crawler.logging import get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.specs.operations.checkout import resolve_spec_release
@@ -249,8 +251,11 @@ def workspace_process(
     skip_existing: SkipExistingOption = False,
     profile: ProfileOption = DEFAULT_EXTRACTION_PROFILE.value,
     md_yaml_frontmatter: MdYamlFrontmatterOption = True,
+    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Extract structured data from all workspace members."""
+    set_verbosity(verbosity)
+
     if workspace_name is None:
         workspace_name = get_active_workspace()
 
