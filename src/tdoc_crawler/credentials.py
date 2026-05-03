@@ -33,7 +33,7 @@ def resolve_credentials(
     prompt: bool | None = None,
     credentials_config: CredentialsConfig | None = None,
 ) -> PortalCredentials | None:
-    """Resolve portal credentials with TDocCrawlerConfig integration.
+    """Resolve portal credentials with ThreeGPPConfig integration.
 
     Resolution order (per D-03):
     1. CLI parameters (username, password)

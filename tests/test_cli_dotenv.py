@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tdoc_crawler.config import TDocCrawlerConfig
+from tdoc_crawler.config import ThreeGPPConfig
 
 
 class TestLoadDotenvConsolidation:
@@ -66,7 +66,7 @@ class TestBackwardCompatibility:
         test_path = Path.home() / ".explicit_cache_test"
         monkeypatch.setenv("TDC_CACHE_DIR", str(test_path))
 
-        config = TDocCrawlerConfig()
+        config = ThreeGPPConfig()
 
         assert config.path.cache_dir == test_path
 
@@ -74,7 +74,7 @@ class TestBackwardCompatibility:
         """HTTP_CACHE_TTL env var still works."""
         monkeypatch.setenv("HTTP_CACHE_TTL", "3600")
 
-        config = TDocCrawlerConfig()
+        config = ThreeGPPConfig()
 
         assert config.http.cache_ttl == 3600
 

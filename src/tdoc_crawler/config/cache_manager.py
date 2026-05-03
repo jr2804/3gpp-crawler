@@ -108,6 +108,11 @@ class CacheManager:
         """Path to workspace registry JSON file."""
         return self._cache_dir / WORKSPACE_REGISTRY_FILENAME
 
+    @classmethod
+    def is_registered(cls) -> bool:
+        """Check if a CacheManager instance has been registered."""
+        return cls._instance is not None
+
 
 def resolve_cache_manager() -> CacheManager:
     """Resolve the registered CacheManager instance.

@@ -17,16 +17,16 @@ from pathlib import Path
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from tdoc_crawler.config.cache_manager import (
+    DEFAULT_CHECKOUT_DIRNAME,
+    DEFAULT_DATABASE_FILENAME,
+    DEFAULT_HTTP_CACHE_FILENAME,
+    DEFAULT_WORKSPACES_DIRNAME,
+)
 from tdoc_crawler.config.env_vars import ConfigEnvVar
 from tdoc_crawler.config.sources import discover_config_files, load_config_file, merge_configs
 
-# Default values (not constants - just module-level defaults)
-# Actual paths are resolved by CacheManager at runtime
 _DEFAULT_CACHE_DIR_STR = "~/.3gpp-crawler"
-_DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
-_DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
-_DEFAULT_CHECKOUT_DIRNAME = "checkout"
-_DEFAULT_WORKSPACES_DIRNAME = "workspaces"
 
 
 class PathConfig(BaseSettings):
@@ -44,37 +44,33 @@ class PathConfig(BaseSettings):
         description="Root cache directory for storing downloaded files and metadata",
     )
     db_filename: str = Field(
-        default=_DEFAULT_DATABASE_FILENAME,
+        default=DEFAULT_DATABASE_FILENAME,
         description="SQLite database filename for storing crawl metadata",
     )
     checkout_dirname: str = Field(
-        default=_DEFAULT_CHECKOUT_DIRNAME,
+        default=DEFAULT_CHECKOUT_DIRNAME,
         description="Subdirectory name for checked-out documents",
     )
     workspaces_dirname: str = Field(
-        default=_DEFAULT_WORKSPACES_DIRNAME,
+        default=DEFAULT_WORKSPACES_DIRNAME,
         description="Subdirectory name for workspace data (sources, wiki)",
     )
 
     @property
     def db_file(self) -> Path:
-        """Path to the SQLite database file."""
-        return self.cache_dir / _DEFAULT_DATABASE_FILENAME
+        return self.cache_dir / DEFAULT_DATABASE_FILENAME
 
     @property
     def http_cache_file(self) -> Path:
-        """Path to the HTTP cache database file."""
-        return self.cache_dir / _DEFAULT_HTTP_CACHE_FILENAME
+        return self.cache_dir / DEFAULT_HTTP_CACHE_FILENAME
 
     @property
     def checkout_dir(self) -> Path:
-        """Path to the checkout directory for documents."""
-        return self.cache_dir / _DEFAULT_CHECKOUT_DIRNAME
+        return self.cache_dir / DEFAULT_CHECKOUT_DIRNAME
 
     @property
     def workspaces_dir(self) -> Path:
-        """Path to the workspaces directory (separate from document checkouts)."""
-        return self.cache_dir / _DEFAULT_WORKSPACES_DIRNAME
+        return self.cache_dir / DEFAULT_WORKSPACES_DIRNAME
 
     @field_validator("cache_dir", mode="before")
     @classmethod
@@ -327,14 +323,10 @@ class ThreeGPPConfig(BaseSettings):
         return cls(**merged)
 
 
-# Backward-compatible alias — remove after all consumers are updated
-TDocCrawlerConfig = ThreeGPPConfig
-
 __all__ = [
     "CrawlConfig",
     "CredentialsConfig",
     "HttpConfig",
     "PathConfig",
-    "TDocCrawlerConfig",
     "ThreeGPPConfig",
 ]

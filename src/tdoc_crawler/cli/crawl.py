@@ -46,7 +46,7 @@ from tdoc_crawler.cli.args import (
 )
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_spec_crawl_table, spec_crawl_to_dict
-from tdoc_crawler.config import TDocCrawlerConfig
+from tdoc_crawler.config import ThreeGPPConfig
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.database.specs import SpecCrawlResult, SpecDatabase
@@ -147,7 +147,7 @@ def crawl_tdocs(
     """
     set_verbosity(verbosity)
 
-    crawler_config = TDocCrawlerConfig.from_settings()
+    crawler_config = ThreeGPPConfig.from_settings()
     # Override cache_dir if provided (deprecated but still supported)
     if cache_dir is not None:
         crawler_config.path.cache_dir = cache_dir
@@ -297,7 +297,7 @@ def crawl_meetings(
     set_verbosity(verbosity)
     set_credentials(eol_username, eol_password, prompt=prompt_credentials)
 
-    crawler_config = TDocCrawlerConfig.from_settings()
+    crawler_config = ThreeGPPConfig.from_settings()
     if cache_dir is not None:
         crawler_config.path.cache_dir = cache_dir
     crawler_config.ensure_paths()
@@ -401,7 +401,7 @@ def crawl_specs(
 ) -> None:
     """Crawl spec metadata from configured sources."""
     set_verbosity(verbosity)
-    crawler_config = TDocCrawlerConfig.from_settings()
+    crawler_config = ThreeGPPConfig.from_settings()
     if cache_dir is not None:
         crawler_config.path.cache_dir = cache_dir
     crawler_config.ensure_paths()
