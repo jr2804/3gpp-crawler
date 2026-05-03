@@ -154,14 +154,10 @@ class PortalClient:
         login_response.raise_for_status()
 
         response_text = login_response.text.strip()
-        # Step 3: store the authenticated session
-        self._session = session
-        self._authenticated = True
 
         if response_text.lower() == "failed":
             raise PortalAuthenticationError("Authentication failed - check credentials")
 
-        # Step 3: Store the authenticated session
         self._session = session
         self._authenticated = True
         logger.info("Successfully authenticated with 3GPP portal")
