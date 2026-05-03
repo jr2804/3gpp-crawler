@@ -35,13 +35,21 @@ def get_workspace(workspace: str | None) -> WorkspaceRegistry | None:
     return registry.get_workspace(normalized_workspace)
 
 
-def create_workspace(workspace: str | None, auto_build: bool = False, description: str = "") -> WorkspaceRegistry:
+def create_workspace(
+    workspace: str | None,
+    auto_build: bool = False,
+    description: str = "",
+    workspace_dir: str | None = None,
+    sources_dirname: str | None = None,
+) -> WorkspaceRegistry:
     """Create a workspace entry after canonical normalization.
 
     Args:
         workspace: Workspace name to create.
         auto_build: When True, newly added members are automatically processed.
         description: Optional workspace description.
+        workspace_dir: Custom workspace data directory path.
+        sources_dirname: Custom sources subdirectory name (default: "sources").
 
     Returns:
         WorkspaceRegistry with created workspace.
@@ -49,22 +57,28 @@ def create_workspace(workspace: str | None, auto_build: bool = False, descriptio
     normalized_workspace = normalize_workspace_name(workspace)
     registry = _get_registry()
     try:
-        registry.create_workspace(normalized_workspace, description=description, auto_build=auto_build)
+        registry.create_workspace(
+            normalized_workspace,
+            description=description,
+            auto_build=auto_build,
+            workspace_dir=workspace_dir,
+            sources_dirname=sources_dirname,
+        )
         registry.save()
     except ValueError:
         pass  # Workspace already exists
 
-    # Create workspace directory structure
-    try:
-        manager = resolve_cache_manager()
-        ws_dir = manager.workspaces_dir / normalized_workspace
-        ws_dir.mkdir(parents=True, exist_ok=True)
-
-        sources_dir = ws_dir / "sources"
-        sources_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        # CacheManager may not be registered in all contexts (e.g., tests without CLI entry)
-        _logger.debug("Skipping workspace directory creation: CacheManager not available")
+    # Resolve actual directory paths from metadata
+    metadata = registry.get_workspace(normalized_workspace)
+    if metadata is not None:
+        try:
+            manager = resolve_cache_manager()
+            ws_dir = metadata.resolve_workspace_directory(manager.workspaces_dir)
+            sources_dir = metadata.resolve_sources_directory(manager.workspaces_dir)
+            ws_dir.mkdir(parents=True, exist_ok=True)
+            sources_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            _logger.debug("Skipping workspace directory creation: CacheManager not available")
 
     return registry
 
@@ -99,7 +113,8 @@ def delete_workspace(workspace: str | None, *, delete_artifacts: bool = False) -
         _logger.warning("Workspace '%s' not found — nothing to delete", normalized_workspace)
         return False
 
-    # Get members before deleting workspace
+    # Get members and metadata before deleting workspace
+    metadata = registry.get_workspace(normalized_workspace)
     members = list_workspace_members(normalized_workspace, include_inactive=True)
 
     deleted = registry.delete_workspace(normalized_workspace)
@@ -109,11 +124,11 @@ def delete_workspace(workspace: str | None, *, delete_artifacts: bool = False) -
     registry.save()
 
     # Delete workspace artifacts if requested
-    if delete_artifacts and members:
+    if delete_artifacts and members and metadata is not None:
         _logger.info("Deleting artifacts for %d members", len(members))
         try:
             manager = resolve_cache_manager()
-            sources_base = manager.workspaces_dir / normalized_workspace / "sources"
+            sources_base = metadata.resolve_sources_directory(manager.workspaces_dir)
             for member in members:
                 member_dir = sources_base / member.source_item_id
                 delete_artifact_folder(member_dir)

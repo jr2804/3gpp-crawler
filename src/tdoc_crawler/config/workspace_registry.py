@@ -64,6 +64,8 @@ class WorkspaceMetadataDict(TypedDict, total=False):
     wiki_page_count: int
     wiki_failed_pages: int
     wiki_compile_hash: str
+    workspace_dir: str
+    sources_dirname: str
 
 
 def normalize_spec_member_id(source_item_id: str) -> str:
@@ -144,6 +146,9 @@ class WorkspaceMember:
         )
 
 
+DEFAULT_SOURCES_DIRNAME = "sources"
+
+
 @dataclass
 class WorkspaceMetadata:
     """Metadata for a single workspace."""
@@ -157,6 +162,8 @@ class WorkspaceMetadata:
     wiki_page_count: int = 0
     wiki_failed_pages: int = 0
     wiki_compile_hash: str | None = None
+    workspace_dir: str | None = None
+    sources_dirname: str = DEFAULT_SOURCES_DIRNAME
 
     def to_dict(self) -> WorkspaceMetadataDict:
         result: WorkspaceMetadataDict = {
@@ -173,6 +180,10 @@ class WorkspaceMetadata:
             result["wiki_failed_pages"] = self.wiki_failed_pages
         if self.wiki_compile_hash is not None:
             result["wiki_compile_hash"] = self.wiki_compile_hash
+        if self.workspace_dir is not None:
+            result["workspace_dir"] = self.workspace_dir
+        if self.sources_dirname != DEFAULT_SOURCES_DIRNAME:
+            result["sources_dirname"] = self.sources_dirname
         return result
 
     def add_member(self, member: WorkspaceMember) -> None:
@@ -222,6 +233,30 @@ class WorkspaceMetadata:
             members.append(member)
         return sorted(members, key=lambda m: m.source_item_id)
 
+    def resolve_workspace_directory(self, fallback_base: Path) -> Path:
+        """Resolve the workspace directory.
+
+        Args:
+            fallback_base: Default workspaces root (e.g. ~/.3gpp-crawler/workspaces).
+
+        Returns:
+            Absolute path to the workspace data directory.
+        """
+        if self.workspace_dir:
+            return Path(self.workspace_dir)
+        return fallback_base / self.name
+
+    def resolve_sources_directory(self, fallback_base: Path) -> Path:
+        """Resolve the sources subdirectory within the workspace.
+
+        Args:
+            fallback_base: Default workspaces root (e.g. ~/.3gpp-crawler/workspaces).
+
+        Returns:
+            Absolute path to the sources directory.
+        """
+        return self.resolve_workspace_directory(fallback_base) / self.sources_dirname
+
     @classmethod
     def from_dict(cls, name: str, data: WorkspaceMetadataDict) -> WorkspaceMetadata:
         return cls(
@@ -234,6 +269,8 @@ class WorkspaceMetadata:
             wiki_page_count=data.get("wiki_page_count", 0),
             wiki_failed_pages=data.get("wiki_failed_pages", 0),
             wiki_compile_hash=data.get("wiki_compile_hash"),
+            workspace_dir=data.get("workspace_dir"),
+            sources_dirname=data.get("sources_dirname", DEFAULT_SOURCES_DIRNAME),
         )
 
 
@@ -289,6 +326,8 @@ class WorkspaceRegistry:
         name: str,
         description: str = "",
         auto_build: bool = True,
+        workspace_dir: str | None = None,
+        sources_dirname: str | None = None,
     ) -> WorkspaceMetadata:
         """Create a new workspace entry.
 
@@ -296,6 +335,8 @@ class WorkspaceRegistry:
             name: Workspace name.
             description: Optional description.
             auto_build: Whether to auto-build when members are added.
+            workspace_dir: Custom workspace data directory path.
+            sources_dirname: Custom sources subdirectory name (default: "sources").
 
         Returns:
             Created WorkspaceMetadata.
@@ -310,11 +351,17 @@ class WorkspaceRegistry:
         if normalized_name in self.workspaces:
             raise ValueError(f"Workspace '{normalized_name}' already exists")
 
-        metadata = WorkspaceMetadata(
-            name=normalized_name,
-            description=description,
-            auto_build=auto_build,
-        )
+        metadata_kwargs: dict = {
+            "name": normalized_name,
+            "description": description,
+            "auto_build": auto_build,
+        }
+        if workspace_dir is not None:
+            metadata_kwargs["workspace_dir"] = workspace_dir
+        if sources_dirname is not None:
+            metadata_kwargs["sources_dirname"] = sources_dirname
+
+        metadata = WorkspaceMetadata(**metadata_kwargs)
         self.workspaces[normalized_name] = metadata
         logger.info(f"Created workspace '{normalized_name}'")
         return metadata
@@ -451,6 +498,7 @@ class WorkspaceRegistry:
 
 
 __all__ = [
+    "DEFAULT_SOURCES_DIRNAME",
     "WorkspaceDisplayInfo",
     "WorkspaceMember",
     "WorkspaceMemberDict",
