@@ -11,9 +11,9 @@ from typing import Annotated
 
 import typer
 
-from tdoc_crawler.cli._workspace_commands import app as workspace_app
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
+from tdoc_crawler.cli.workspace import app as workspace_app
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
