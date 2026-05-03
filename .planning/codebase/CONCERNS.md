@@ -2,224 +2,354 @@
 
 **Analysis Date:** 2026-05-03
 
-## Tech Debt
-
-**Path traversal via `LIBREOFFICE_PATH` environment variable:**
-- Issue: `packages/convert-lo/convert_lo/locator.py` line 22-24 reads an environment variable and uses it directly as an executable path without validation. An attacker who controls the environment variable can point to an arbitrary binary.
-- Files: `packages/convert-lo/convert_lo/locator.py:22-26`
-- Impact: Arbitrary code execution if an attacker can set `LIBREOFFICE_PATH` (exploitability score: 87 per static analysis)
-- Fix approach: Validate the candidate path resolves to a real `soffice` binary (check filename, verify signature or at minimum that it's an executable file with expected name). Consider restricting to known install locations only.
-
-**Duplicate default constant definitions between `PathConfig` and `CacheManager`:**
-- Issue: Default filenames/dirnames are defined independently in `src/tdoc_crawler/config/settings.py` (lines 23-28 as `_DEFAULT_*` module-level strings) and `src/tdoc_crawler/config/cache_manager.py` (lines 28-32 as `DEFAULT_*` constants). If one changes without the other, paths diverge silently.
-- Files: `src/tdoc_crawler/config/settings.py:23-28`, `src/tdoc_crawler/config/cache_manager.py:28-32`
-- Impact: PathConfig properties may resolve to different paths than CacheManager if defaults drift
-- Fix approach: Consolidate into a single `DEFAULTS` module or have `PathConfig` import from `cache_manager`. `CacheManager` is the canonical source of truth per AGENTS.md.
-
-**PLR6301 method-could-be-function in database layer (11 instances):**
-- Issue: Multiple database methods don't use `self` beyond accessing `self._database`, making them candidates for static/class methods. Linter flags these as PLR6301.
-- Files: `src/tdoc_crawler/database/tdocs.py`, `src/tdoc_crawler/database/specs.py`, `src/tdoc_crawler/database/meetings.py`
-- Impact: Low — methods correctly reference `self._database` through the connection property. Refactoring to static methods would break the consistent interface pattern.
-- Fix approach: Low priority. Methods use `self._database` through the `connection` property indirection. Keep as-is unless the pattern changes.
-
-**Unused `LibreOfficeFormat` enum values and `convert_batch` method:**
-- Issue: The `LibreOfficeFormat` enum in `packages/convert-lo/convert_lo/formats.py` defines 21 format values, but the main codebase only uses `LibreOfficeFormat.PDF`. The `Converter.convert_batch()` method in `packages/convert-lo/convert_lo/converter.py:113-133` is never called.
-- Files: `packages/convert-lo/convert_lo/formats.py`, `packages/convert-lo/convert_lo/converter.py:113-133`
-- Impact: Dead code increases maintenance surface. Enum values may become stale or inconsistent with actual LibreOffice support.
-- Fix approach: Keep the enum and `convert_batch` for API completeness of the shared package, but document which formats are actually used by tdoc-crawler.
-
-**Unused `Runner.start()` context manager pattern and `SerialPoolExecutor.submit` trivial wrapper:**
-- Issue: `Runner.start()` in `packages/pool_executors/pool_executors/runner.py:60-66` returns a `_RunnerContextManager` but no caller uses it — the main codebase creates executors via `create_executor()` factory instead. `SerialPoolExecutor.submit()` at `packages/pool_executors/pool_executors/serial.py:77-101` is a trivial delegation to `SerialFuture`.
-- Files: `packages/pool_executors/pool_executors/runner.py:60-66`, `packages/pool_executors/pool_executors/serial.py:77-101`
-- Impact: Dead code in shared packages. No runtime impact.
-- Fix approach: Remove `Runner` class if not used by any consumer. Keep `SerialPoolExecutor.submit` as it implements the `Executor` interface correctly.
-
-**Backward-compatible alias `TDocCrawlerConfig` still in use:**
-- Issue: `src/tdoc_crawler/config/settings.py:331` defines `TDocCrawlerConfig = ThreeGPPConfig` as a backward-compatible alias. Comment says "remove after all consumers are updated."
-- Files: `src/tdoc_crawler/config/settings.py:331`
-- Impact: Naming confusion — two names for the same class.
-- Fix approach: Search all consumers, update to `ThreeGPPConfig`, and remove the alias.
-
-**Config file env-var interpolation before TOML parsing:**
-- Issue: `src/tdoc_crawler/config/sources.py:171-175` performs `${ENV_VAR}` interpolation on the raw TOML string before parsing. This could break TOML syntax if an env var value contains TOML special characters (quotes, newlines, `[`, etc.).
-- Files: `src/tdoc_crawler/config/sources.py:53-77`, `src/tdoc_crawler/config/sources.py:169-175`
-- Impact: Config loading crashes or produces incorrect values when env vars contain TOML metacharacters.
-- Fix approach: Interpolate after parsing (post-load on individual string values), or escape interpolated values for TOML safety.
-
 ## Known Bugs
 
-**Portal authentication duplicate session assignment:**
-- Symptoms: In `PortalClient.authenticate()`, the authenticated session is assigned twice at lines 158 and 165, with the comment "Step 3" appearing twice (lines 157 and 164).
-- Files: `src/tdoc_crawler/clients/portal.py:157-166`
-- Trigger: Calling `PortalClient.authenticate()` — the duplicate assignment is benign but indicates copy-paste error. If the code between the two assignments were changed, only one branch would take effect.
-- Workaround: No workaround needed — current behavior is correct but confusing.
+### Python 2 Exception Syntax (`except X, Y`)
 
-**`_filter_by_retrieved_dates` calls `_normalized_bound` twice per comparison:**
-- Symptoms: In `TDocDatabase._filter_by_retrieved_dates()`, each filter comparison calls `_normalized_bound()` twice with identical arguments (lines 232-233, 237-238). This is a correctness issue because the function returns a tuple and both elements are compared against each other.
-- Files: `src/tdoc_crawler/database/tdocs.py:220-240`
-- Trigger: Querying TDocs with `start_date` or `end_date` filters.
-- Workaround: None — the current code works because it normalizes both sides and compares. But it's wasteful and confusing.
+**Symptoms:** Only `OSError` is caught. `ValueError` and `json.JSONDecodeError` pass through unhandled, potentially crashing the caller.
+
+**Files:**
+- `src/tdoc_crawler/extraction/workspace_utils.py:39` — `except OSError, ValueError:`
+- `src/tdoc_crawler/cli/_workspace_commands.py:234` — `except json.JSONDecodeError, OSError:`
+
+**Trigger:** Any `ValueError` inside `check_pdf_status()` (e.g., invalid path string) or any `OSError` inside `_read_json_profile()` (e.g., file not found).
+
+**Workaround:** None. These are silently swallowing only `OSError` (first case) or only `json.JSONDecodeError` (second case), aliasing the exception instance to the second name.
+
+**Fix:** Replace `except OSError, ValueError:` with `except (OSError, ValueError):` and `except json.JSONDecodeError, OSError:` with `except (json.JSONDecodeError, OSError):`.
+
+### Stale Config Reference to Non-Existent Package
+
+**Symptoms:** `ruff` per-file-ignore references `packages/3gpp-ai/threegpp_ai/cli.py` which does not exist in this repository.
+
+**Files:**
+- `ruff.toml:71` — `"packages/3gpp-ai/threegpp_ai/cli.py" = ["E402"]`
+
+**Impact:** Linting works but the configuration is misleading. If the `3gpp-ai` package is re-added, E402 violations in its CLI will be silently ignored.
+
+**Fix:** Either remove the stale entry or verify the 3gpp-ai package has been intentionally separated into a different repository and remove the reference.
+
+## Tech Debt
+
+### Widespread Bare `except Exception` Usage
+
+**Issue:** 45 instances of bare `except Exception` across the codebase. Many swallow errors with a `logger.warning()` and continue, potentially masking bugs.
+
+**Files (representative):**
+- `src/tdoc_crawler/extraction/convert.py:121,135,149,365,534`
+- `src/tdoc_crawler/cli/_workspace_commands.py:156,180,278,312,383,461,533`
+- `src/tdoc_crawler/database/base.py:61,241,270`
+- `src/tdoc_crawler/database/specs.py:96,194,477`
+- `src/tdoc_crawler/clients/portal.py:219,244`
+- `src/tdoc_crawler/workspaces/crud.py:65,120`
+- `src/tdoc_crawler/tdocs/sources/doclist.py:172,225,240,265,304,344,364,368`
+- `src/tdoc_crawler/extraction/conversion.py:140,218`
+
+**Impact:** Exceptions in these blocks are caught and logged, but program state may be left inconsistent. Real bugs can be hidden for months.
+
+**Fix approach:** Audit each bare `except Exception` and determine if it should:
+1. Catch a more specific exception type
+2. Re-raise after logging
+3. Clean up state before continuing
+
+Priority: `doclist.py` (8 instances), `_workspace_commands.py` (6 instances), `convert.py` (5 instances)
+
+### Near-Duplicate Extraction Functions
+
+**Issue:** Three functions in `extraction/convert.py` share identical structure — only the `type` filter differs:
+- `_extract_tables_from_opendataloader_json` (line 112) — filters `type == "table"`
+- `_extract_figures_from_opendataloader_json` (line 126) — filters `type in ("image", "figure")`
+- `_extract_formulas_from_opendataloader_json` (line 140) — filters `type == "formula"`
+
+**Files:** `src/tdoc_crawler/extraction/convert.py`
+
+**Fix approach:** Extract a single `_extract_items_from_opendataloader_json(json_path, accepted_types)` function.
+
+### `ConversionError` is an Empty Exception Class
+
+**Issue:** `ConversionError` in `src/tdoc_crawler/extraction/convert.py:48-51` has a `pass` body. It carries no structured error information (file path, document ID, error type).
+
+**Impact:** Callers cannot distinguish between "file not found", "conversion timeout", or "bad input" without parsing the string message.
+
+**Fix approach:** Add attributes for `document_id`, `reason`, and optionally the `source_file` path.
+
+### `CacheManagerNotRegisteredError` Has No Context
+
+**Issue:** `src/tdoc_crawler/config/cache_manager.py:35-38` — exception class with `pass` body. Provides no hint about when/where registration was expected.
+
+**Impact:** Users debugging a library integration get "CacheManager not registered" with no guidance.
+
+**Fix approach:** Add a `recommendation` attribute or descriptive message suggesting `CacheManager(cache_dir).register()`.
+
+### Direct `os.environ` Mutation in Credential Module
+
+**Issue:** `src/tdoc_crawler/credentials.py:23-27` — `set_credentials()` directly writes to `os.environ` as a side effect.
+
+```python
+os.environ["TDC_EOL_USERNAME"] = username
+os.environ["TDC_EOL_PASSWORD"] = password
+```
+
+**Impact:** Mutating global process state makes testing harder, can cause subtle interactions between components reading environment variables at different times, and bypasses the `ThreeGPPConfig` / `CredentialsConfig` abstraction.
+
+**Fix approach:** Deprecate `set_credentials()` in favor of `ThreeGPPConfig.from_settings()` with explicit credential parameters. If environment variable mutation is required for subprocess spawning, isolate it to the CLI entry point only.
+
+### Hardcoded Env Var String Literals in Credential Resolution
+
+**Issue:** `src/tdoc_crawler/credentials.py:54-55,64` uses string literals `"TDC_EOL_USERNAME"`, `"TDC_EOL_PASSWORD"`, `"TDC_EOL_PROMPT"` instead of the `ConfigEnvVar` enum.
+
+**Files:** `src/tdoc_crawler/credentials.py`
+
+**Impact:** If env var names change, this module won't be updated. Inconsistent with the rest of the config system which uses `ConfigEnvVar`.
+
+**Fix approach:** Replace with `ConfigEnvVar.TDC_EOL_USERNAME.name`, etc.
+
+### `CredentialsConfig.password` Lacks Sensitive Marking
+
+**Issue:** `src/tdoc_crawler/config/settings.py:167-170` — `CredentialsConfig.password` is a plain `str | None` field with no `SecretStr` wrapper.
+
+**Impact:** The password appears in plain text in logs, tracebacks, and serialized config output. The `noqa: S105` suppression on `env_vars.py:37` confirms this was flagged but suppressed.
+
+**Fix approach:** Use `pydantic.SecretStr` for the password field. Modify `env_vars.py` to handle serialization correctly.
 
 ## Security Considerations
 
-**Path traversal via `LIBREOFFICE_PATH`:**
-- Risk: High — arbitrary binary execution if attacker controls environment variable
-- Files: `packages/convert-lo/convert_lo/locator.py:22-26`
-- Current mitigation: The value must be a valid `Path` that `exists()`, but no further validation is performed
-- Recommendations: Validate filename matches expected binary name (`soffice`/`soffice.exe`), reject paths containing `..`, restrict to known LibreOffice install locations
+### API Key Read Outside Configuration System
 
-**Credentials stored in environment variables and config files:**
-- Risk: Medium — EOL credentials can be stored in config TOML files or env vars. Config file discovery searches multiple locations.
-- Files: `src/tdoc_crawler/config/settings.py:158-185` (`CredentialsConfig`), `src/tdoc_crawler/credentials.py`
-- Current mitigation: `.env` is in `.gitignore`. Config files support `${ENV_VAR}` interpolation to avoid hardcoding secrets.
-- Recommendations: Ensure `.3gpp-crawler.toml` and `3gpp-crawler.toml` are in `.gitignore` at project level. Document that credential values should use env var interpolation, not plaintext.
+**Risk:** `src/tdoc_crawler/extraction/conversion.py:54-55` reads `PDF_REMOTE_API_KEY` directly via `os.getenv()`, bypassing the centralized `ThreeGPPConfig` and `ConfigEnvVar` system.
 
-**Remote PDF converter API key in env var:**
-- Risk: Low — `PDF_REMOTE_API_KEY` env var is used for remote conversion fallback.
-- Files: `src/tdoc_crawler/extraction/conversion.py:41-56` (`ConverterConfig`)
-- Current mitigation: Environment variable only, not committed to code
-- Recommendations: None — current approach is standard.
+**Files:** `src/tdoc_crawler/extraction/conversion.py:46-56`
 
-**`subprocess.Popen` with hardcoded binary name:**
-- Risk: Low — `opendataloader-pdf-hybrid` subprocess launch uses a hardcoded binary name (not user input), mitigated by `noqa: S603` with justification.
-- Files: `src/tdoc_crawler/extraction/hybrid_server.py:155`
-- Current mitigation: Binary name is a Python package CLI tool, not user-supplied
-- Recommendations: None — acceptable risk for a developer tool.
+**Current mitigation:** The API key is only used for the remote PDF converter backend (LibreOffice is default). However, there is no validation, no masking in logs, and no integration with the config file system.
+
+**Recommendation:** Add `ConverterConfig` fields to `ThreeGPPConfig` (e.g., `conversion.pdf_remote_api_key: SecretStr | None`) or provide a dedicated `ConverterConfig` dataclass that accepts the key from the config system rather than reading os.environ directly.
+
+### Config File Environment Variable Interpolation
+
+**Risk:** `src/tdoc_crawler/config/sources.py:53-77` — `_interpolate_env_vars()` replaces `${ENV_VAR}` patterns in config files with environment variable values. If a malicious config file contains `${PATH}` or `${HOME}`, those values are injected into the config.
+
+**Files:** `src/tdoc_crawler/config/sources.py`
+
+**Current mitigation:** Config files must be writable by the user running the tool. This is a low-risk concern for a CLI tool but could be relevant in shared environments.
+
+**Recommendation:** Document the interpolation behavior. Consider adding an allowlist of interpolatable variable names.
+
+### Pre-Commit Lacks Dedicated Security Scanning
+
+**Issue:** The pre-commit config (`pre-commit-config.yaml`) enables ruff's `S` (bandit) rules, but has no standalone `bandit` hook or `detect-secrets` hook. Relies entirely on ruff's bandit implementation.
+
+**Files:** `.pre-commit-config.yaml`
+
+**Recommendation:** Ruff's S rules cover common patterns. No immediate action needed, but consider adding `detect-secrets` for credential scanning.
 
 ## Performance Bottlenecks
 
-**Full-table scan for every query:**
-- Problem: All database queries load entire tables via `_table_rows()` into Python lists, then filter in-memory. This includes `query_tdocs()`, `query_meetings()`, `query_specs()`, `get_existing_tdoc_ids()`, and `get_statistics()`.
-- Files: `src/tdoc_crawler/database/base.py:239-245`, `src/tdoc_crawler/database/tdocs.py:93-132`, `src/tdoc_crawler/database/meetings.py:112-152`, `src/tdoc_crawler/database/specs.py:198-259`
-- Cause: Oxyde ORM may not support complex filtering natively; the workaround loads all rows and filters in Python.
-- Improvement path: Add database-level filtering (WHERE clauses) for common filters (working group, date range). Cache lookup tables in memory. For `query_tdocs()`, the meeting_map is built on every call — cache it.
+### Sequential Workspace Processing
 
-**Dual table load for TDoc queries (TDocs + Meetings):**
-- Problem: `TDocDatabase.query_tdocs()` at line 106 loads both `TDocMetadata` and `MeetingMetadata` tables for working group and meeting date filtering. For large datasets, this doubles memory usage.
-- Files: `src/tdoc_crawler/database/tdocs.py:106`
-- Cause: Meeting data is needed to resolve working group and date filters for TDocs.
-- Improvement path: Denormalize `tbid` into `TDocMetadata` to avoid the join, or use SQL JOIN.
+**Problem:** `src/tdoc_crawler/cli/_workspace_commands.py:338-360` processes workspace members one at a time in a sequential `for` loop.
 
-**Sequential upsert in bulk operations:**
-- Problem: `bulk_upsert_tdocs()` and `bulk_upsert_meetings()` iterate one-by-one, calling `upsert_tdoc()`/`upsert_meeting()` for each record sequentially. Each upsert does a SELECT + INSERT/UPDATE.
-- Files: `src/tdoc_crawler/database/tdocs.py:63-91`, `src/tdoc_crawler/database/meetings.py:82-110`
-- Cause: No batch INSERT/UPDATE support in current ORM usage pattern.
-- Improvement path: Batch operations using SQLite's `INSERT OR REPLACE` or `INSERT ... ON CONFLICT UPDATE`.
+**Files:** `src/tdoc_crawler/cli/_workspace_commands.py`
 
-**Hybrid server startup can take up to 10 minutes:**
-- Problem: `_STARTUP_MAX_WAIT = 600` seconds for the hybrid server to become healthy. Model loading can take several minutes.
-- Files: `src/tdoc_crawler/extraction/hybrid_server.py:28`
-- Cause: Docling model loading is slow on CPU or first-run GPU.
-- Improvement path: Keep the hybrid server running as a daemon. Add a `--keep-alive` flag. Pre-warm the model at install time.
+**Cause:** No parallelism in the workspace `process` command. Each member's PDF conversion, OpenDataLoader extraction, and metadata enrichment run serially.
+
+**Improvement path:** Use `concurrent.futures.ThreadPoolExecutor` or process pool for parallel member processing, similar to the `TDocCrawler._crawl_meetings()` pattern in `src/tdoc_crawler/tdocs/operations/crawl.py`.
+
+### Synchronous `asyncio.run()` in a Loop
+
+**Problem:** `src/tdoc_crawler/extraction/convert.py:307` calls `asyncio.run(_lookup_tdoc_in_db(...))` synchronously. When processing multiple documents, each one spawns and tears down a new event loop.
+
+**Files:** `src/tdoc_crawler/extraction/convert.py:307`
+
+**Improvement path:** Batch database lookups or reuse a single event loop context.
+
+### Large Single-File Modules
+
+**Problem:** Several files exceed 300 lines and handle multiple responsibilities:
+- `extraction/convert.py` — 589 lines (TDoc conversion, spec conversion, OpenDataLoader integration, hybrid server management, metadata enrichment)
+- `cli/_workspace_commands.py` — 534 lines (all workspace CLI commands in one file)
+- `database/specs.py` — 494 lines (spec DB ops, version resolution, crawling)
+- `config/workspace_registry.py` — 461 lines (registry CRUD, TypedDict definitions, serialization)
+
+**Improvement path:** Split `extraction/convert.py` into separate modules for spec vs. TDoc conversion, OpenDataLoader wrapper, and metadata enrichment. Split `_workspace_commands.py` into per-command modules.
 
 ## Fragile Areas
 
-**Database class inheritance chain:**
-- Files: `src/tdoc_crawler/database/base.py` → `src/tdoc_crawler/database/meetings.py` (`MeetingDatabase`) → `src/tdoc_crawler/database/tdocs.py` (`TDocDatabase`) → `src/tdoc_crawler/database/specs.py` (`SpecDatabase`)
-- Why fragile: `TDocDatabase` inherits from `MeetingDatabase` (not compositional), and `SpecDatabase` inherits from `DocDatabase`. The chain makes it hard to test one layer without the others. Adding a new domain (e.g., CRs) requires adding another database class in this hierarchy.
-- Safe modification: Test changes against all layers. Prefer adding new database classes that inherit from `DocDatabase` directly rather than extending the chain.
-- Test coverage: Integration tests in `tests/test_database.py`, `tests/test_specs_database.py`.
+### `extraction/convert.py` — High Coupling Module
 
-**Workspace registry JSON file:**
-- Files: `src/tdoc_crawler/config/workspace_registry.py`, `src/tdoc_crawler/workspaces/crud.py`
-- Why fragile: Workspace state is stored in a single JSON file (`workspaces.json`). Concurrent writes could corrupt it. `save()` in `workspace_registry.py:272-285` overwrites the file atomically but uses no file locking. Registry is loaded fresh from disk on every `_get_registry()` call.
-- Safe modification: Ensure only one process writes at a time. Consider file locking or a SQLite backend for concurrent access.
-- Test coverage: `tests/test_workspaces.py`.
+**Files:** `src/tdoc_crawler/extraction/convert.py` (589 lines)
 
-**`CacheManager` singleton lifecycle:**
-- Files: `src/tdoc_crawler/config/cache_manager.py`
-- Why fragile: `CacheManager` uses a class variable `_instance` singleton. Once registered, it cannot be re-registered. Tests that don't go through CLI entry points may hit `CacheManagerNotRegisteredError`. Some code defensively catches this exception (e.g., `workspaces/crud.py:65-67`) while AGENTS.md says not to.
-- Safe modification: Always register CacheManager at test setup. Never add defensive fallbacks per AGENTS.md.
-- Test coverage: `tests/test_cache_manager.py`.
+**Why fragile:** This module imports from 15+ internal modules (fetch_tdoc, fetch_spec, hybrid_server, profiles, database, whatthespec, normalization, etc.) and handles conversion for both TDocs and Specs with different code paths. Changes in any dependency ripple through here.
 
-**HTTP caching bridge (`_NiquetsCacheAdapter`):**
-- Files: `src/tdoc_crawler/http_client/session.py:96-114`
-- Why fragile: Bridges niquests `PreparedRequest` to hishel `CacheAdapter` internals. Uses private hishel APIs (`_cache_proxy`, internal `Request`/`Response` models). Any hishel version upgrade could break this bridge.
-- Safe modification: Pin hishel version. Add integration tests that exercise cached HTTP flows. Test after any hishel upgrade.
-- Test coverage: `tests/test_http_client.py`.
+**Safe modification:** Before modifying, run the full test suite focused on extraction:
+```bash
+uv run pytest tests/convert_lo/ tests/test_checkout.py -v
+```
 
-**Oxyde ORM schema auto-creation:**
-- Files: `src/tdoc_crawler/database/base.py:140-215`
-- Why fragile: `_ensure_tables_exist()` builds raw SQL from schema metadata extracted at runtime. Column type mapping is manual (Python type → SQLite type string). Any Oxyde schema change or new field type may not map correctly.
-- Safe modification: Add a test that verifies schema creation for all registered models. Check after Oxyde version upgrades.
-- Test coverage: Implicit via database integration tests.
+**Test coverage:** Convert-lo tests exist (`tests/convert_lo/`) but may not cover the spec conversion path or metadata enrichment logic.
+
+### `cli/_workspace_commands.py` — God Command File
+
+**Files:** `src/tdoc_crawler/cli/_workspace_commands.py` (534 lines)
+
+**Why fragile:** Contains 6 Typer commands (`create`, `list`, `activate`, `deactivate`, `delete`, `members`, `process`, `add`) plus helper functions in a single file. Any change risks breaking unrelated commands.
+
+**Safe modification:** Split one command at a time into submodules. Run `uv run pytest tests/test_workspaces.py -v` after each split.
+
+**Test coverage:** `tests/test_workspaces.py` covers workspace CRUD but likely does not exercise the full `process` pipeline.
+
+### `config/workspace_registry.py` — JSON File as Database
+
+**Files:** `src/tdoc_crawler/config/workspace_registry.py` (461 lines)
+
+**Why fragile:** Workspace metadata is stored in a single JSON file (`workspaces.json`). Concurrent access from multiple CLI invocations can corrupt the file. No file locking, no atomic writes.
+
+**Safe modification:** Ensure `_save_registry()` always uses atomic write (write to temp file, then rename).
+
+**Fix approach:** Implement atomic file writes using `tempfile.NamedTemporaryFile` + `os.replace()`. Consider migrating to SQLite for the registry.
+
+### `tdocs/sources/doclist.py` — Heavy Exception Swallowing
+
+**Files:** `src/tdoc_crawler/tdocs/sources/doclist.py` (372 lines)
+
+**Why fragile:** 8 bare `except Exception` blocks that catch any error and return `None`. If a parsing bug is introduced, it silently fails instead of raising.
+
+**Safe modification:** Add specific exception types. At minimum, log the full traceback with `logger.exception()` instead of just the message.
+
+### `http_client/session.py` — hishel Internal API Dependency
+
+**Files:** `src/tdoc_crawler/http_client/session.py` (348 lines)
+
+**Why fragile:** Imports from `hishel._core._headers` and `hishel._core.models` — these are internal (underscore-prefixed) hishel modules, not part of the public API. Any hishel upgrade can break these imports.
+
+**Safe modification:** Pin hishel version tightly. Consider wrapping hishel access behind an adapter that isolates the internal imports.
+
+**Fix approach:** Submit upstream PR to hishel to expose the needed types from the public API, or vendor the minimal necessary types.
 
 ## Scaling Limits
 
-**SQLite single-writer constraint:**
-- Current capacity: Single-process writes, multiple readers
-- Limit: Concurrent CLI invocations or workspace operations may contend on writes
-- Scaling path: WAL mode (already likely enabled by Oxyde), or migrate to PostgreSQL for multi-user scenarios
+### SQLite for Multi-User / Concurrent Access
 
-**In-memory full-table scan for filtering:**
-- Current capacity: Works well for tens of thousands of TDocs and hundreds of meetings
-- Limit: Queries slow down linearly as table sizes grow. The `_table_rows()` pattern loads entire tables into Python lists.
-- Scaling path: Add WHERE-clause filtering using Oxyde's query API. Add database indices on frequently filtered columns (`meeting_id`, `tdoc_id`, `spec_number`, `start_date`).
+**Current capacity:** Single-user CLI tool with SQLite backend.
 
-**Workspace registry single-file JSON:**
-- Current capacity: Small workspaces (< 100 members) load/save quickly
-- Limit: Large workspaces (1000+ members) cause the entire JSON to be rewritten on every save
-- Scaling path: Migrate workspace registry to SQLite table for atomic, concurrent access
+**Limit:** SQLite does not handle concurrent writes well. If multiple CLI invocations (`tdoc-crawler crawl` simultaneously), one will get `database is locked` errors.
+
+**Scaling path:** The application is currently designed as a single-user CLI. If multi-user access is needed, migrate to PostgreSQL or add WAL mode + busy timeout to SQLite. The Oxyde ORM abstracts the backend, making migration feasible.
+
+### Workspace Registry JSON File
+
+**Current capacity:** Single JSON file for all workspace metadata.
+
+**Limit:** With hundreds of workspaces each containing hundreds of members, the JSON file can grow to multiple megabytes. Loading and saving the entire file for every add/remove operation becomes slow.
+
+**Scaling path:** Migrate workspace members to SQLite (same database as crawl metadata) or use a per-workspace JSON file instead of a single global file.
+
+### In-Memory TDoc Collection During Crawl
+
+**Files:** `src/tdoc_crawler/tdocs/operations/crawl.py:74`
+
+**Limit:** All crawled TDoc metadata is accumulated in a `list[TDocMetadata]` before bulk upsert. With `limit_tdocs=10000`, this represents ~100MB of in-memory data.
+
+**Scaling path:** Stream TDocs to the database in batches (e.g., 500 at a time) rather than collecting all before inserting.
 
 ## Dependencies at Risk
 
-**hishel (HTTP caching library):**
-- Risk: The codebase depends on hishel's internal API (`_core._headers.Headers`, `_core.models.Request/Response`, `_cache_proxy.handle_request`) which are not public API.
-- Impact: Breaking changes in hishel minor/patch versions could break the HTTP caching bridge
-- Migration plan: Pin hishel version in requirements. If hishel changes internals, evaluate switching to a simpler caching strategy (e.g., requests-cache).
+### hishel Internal API Usage
 
-**oxyde (ORM):**
-- Risk: Relatively new ORM (`oxyde>=0.4.0`). API may change. The codebase uses it for all database operations.
-- Impact: Schema migration, query API changes, or breaking changes could affect the entire database layer
-- Migration plan: Pin version. Abstract database operations behind the existing facade classes (`DocDatabase`, `TDocDatabase`, etc.) to ease potential migration.
+**Package:** `hishel>=1.1.8`
 
-**opendataloader-pdf (document extraction):**
-- Risk: Heavy dependency with hybrid server mode. Depends on docling model loading which is slow and resource-intensive.
-- Impact: Conversion pipeline failures if the hybrid server is unavailable or model loading fails
-- Migration plan: Keep the abstraction layer in `extraction/convert.py` which wraps opendataloader. Alternative extraction backends can be swapped.
+**Risk:** `src/tdoc_crawler/http_client/session.py` imports from `hishel._core._headers` and `hishel._core.models` — private modules that can change without notice.
+
+**Impact:** A hishel minor version update could break the entire HTTP caching layer, halting all crawl operations.
+
+**Migration plan:** Pin to exact hishel version in `pyproject.toml`. Long-term: abstract the cache adapter behind a stable interface or vendor the needed conversion utilities.
+
+### niquests (Alternative HTTP Library)
+
+**Package:** `niquests>=3.18.4`
+
+**Risk:** The project uses `niquests` instead of the more standard `requests` library. While niquests is API-compatible, it has a smaller community and may lag in security patches.
+
+**Impact:** If niquests development slows, the project may need to migrate back to `requests` or `httpx`.
+
+**Migration plan:** The codebase wraps niquests through `http_client/session.py`. The adapter pattern makes migration feasible if needed.
+
+### opendataloader-pdf Hybrid Mode Dependency
+
+**Package:** `opendataloader-pdf[hybrid]>=2.2.0`
+
+**Risk:** The hybrid server (Java-based) is started as a subprocess (`src/tdoc_crawler/extraction/hybrid_server.py`). Server failures trigger automatic restarts, but this adds complexity and external process management.
+
+**Impact:** If the hybrid server cannot start (missing Java, port conflict, incompatible version), document extraction falls back to the native pipeline only, producing lower-quality output.
+
+**Migration plan:** The fallback mechanism helps. Consider adding a health check that validates the hybrid server at startup.
 
 ## Missing Critical Features
 
-**No database migration system:**
-- Problem: Schema is recreated from Oxyde models on every connection (`_ensure_tables_exist` with `CREATE TABLE IF NOT EXISTS`). No ALTER TABLE support, no migration versioning.
-- Impact: Schema changes require manual database deletion or adding migration logic
-- Priority: Medium — current approach works for a single-user CLI tool but blocks multi-user or production deployments
+### No Retry Logic for Document Download Failures
 
-**No rate limiting for 3GPP portal requests:**
-- Problem: No explicit rate limiting when crawling meetings or fetching TDocs from the 3GPP portal. Relies on HTTP cache and timeout only.
-- Impact: May trigger IP blocks or throttling from 3GPP servers during large crawls
-- Priority: Medium — current crawl patterns are moderate, but large batch operations could trigger limits
+**Problem:** `src/tdoc_crawler/tdocs/operations/checkout.py` downloads TDoc files but does not implement retry with backoff for transient network failures.
 
-**No workspace locking or concurrent access control:**
-- Problem: Workspace registry is a JSON file with no locking mechanism.
-- Impact: Two concurrent CLI processes could corrupt the registry
-- Priority: Low — single-user CLI tool, concurrent access is rare
+**Blocks:** Bulk document download in unstable network conditions can produce many "file not found" errors that would succeed on retry.
+
+**Fix approach:** Add exponential backoff retry to `download_to_file()` in `http_client/session.py`, or use the existing `HttpConfig.max_retries` setting consistently.
+
+### No Progress Persistence for Workspace Processing
+
+**Problem:** If `workspace process` is interrupted (Ctrl+C, crash, power loss), there is no way to resume. All processing starts from scratch.
+
+**Blocks:** Large workspaces with hundreds of documents. An interruption at 95% means full restart.
+
+**Fix approach:** Record per-member processing state in the workspace registry. On resume, skip members whose artifacts already exist and match the requested profile level (the `--skip-existing` flag partially addresses this but requires manual opt-in).
+
+### No Dry-Run for Crawl Operations
+
+**Problem:** There is no way to preview what a crawl command will do before executing it. `--dry-run` exists for workspace add but not for crawl.
+
+**Blocks:** Safe exploration of crawl filters. Users must commit to a full crawl to see what would be collected.
+
+**Fix approach:** Add `--dry-run` to `crawl` and `crawl-meetings` commands that shows meeting count, estimated TDoc count, and filter summary without performing downloads.
 
 ## Test Coverage Gaps
 
-**Extraction pipeline (`src/tdoc_crawler/extraction/`):**
-- What's not tested: `convert.py` (document-to-markdown conversion), `hybrid_server.py` (server lifecycle), `profiles.py` (extraction profiles), `workspace_utils.py`, `metrics.py`
-- Files: `src/tdoc_crawler/extraction/convert.py`, `src/tdoc_crawler/extraction/hybrid_server.py`
-- Risk: Conversion failures go undetected until runtime. The hybrid server auto-restart logic is untested.
-- Priority: High — conversion is a critical user-facing feature
+### Extraction Pipeline
 
-**CLI command integration tests:**
-- What's not tested: End-to-end CLI command flows (`crawl-tdocs`, `crawl-meetings`, `workspace add-members`, `workspace process`)
-- Files: `src/tdoc_crawler/cli/tdoc_app.py`, `src/tdoc_crawler/cli/spec_app.py`, `src/tdoc_crawler/cli/_workspace_commands.py`
-- Risk: CLI flag parsing or command wiring regressions go undetected
-- Priority: Medium — basic CLI tests exist in `tests/test_cli.py` but don't cover full command flows
+**What's not tested:** `extraction/convert.py` — `convert_for_wiki()`, `_run_opendataloader()`, `_ensure_converted()`, metadata enrichment, spec conversion path.
 
-**Spec checkout and download pipeline:**
-- What's not tested: `src/tdoc_crawler/specs/operations/checkout.py`, `src/tdoc_crawler/specs/downloads.py` (download + extract + convert pipeline)
-- Files: `src/tdoc_crawler/specs/operations/checkout.py`, `src/tdoc_crawler/specs/downloads.py`
-- Risk: Download failures, ZIP extraction errors, and path resolution issues go undetected
-- Priority: Medium — tested partially via `tests/test_specs_downloads.py`
+**Files:** `src/tdoc_crawler/extraction/convert.py`
 
-**Workspace member processing pipeline:**
-- What's not tested: The full add-member → fetch → extract → convert pipeline in workspace context
-- Files: `src/tdoc_crawler/workspaces/members.py`, `src/tdoc_crawler/extraction/workspace_utils.py`
-- Risk: Integration bugs between workspace management and extraction pipeline
-- Priority: Medium
+**Risk:** Changes to the conversion pipeline can break workspace processing silently. The hybrid server restart logic is particularly hard to test and verify manually.
+
+**Priority:** High
+
+### Workspace Processing End-to-End
+
+**What's not tested:** Full `workspace process` pipeline from member list → fetch → PDF conversion → OpenDataLoader → Wiki output.
+
+**Files:** `src/tdoc_crawler/cli/_workspace_commands.py`, `src/tdoc_crawler/extraction/convert.py`
+
+**Risk:** Integration failures between components may not surface until runtime. The sequential processing loop has no unit test coverage for error handling paths.
+
+**Priority:** Medium
+
+### Database Spec Operations
+
+**What's not tested:** `database/specs.py` — `crawl_specs()`, version resolution from multiple sources, bulk upsert logic.
+
+**Files:** `src/tdoc_crawler/database/specs.py` (494 lines)
+
+**Risk:** Spec crawling is complex (multiple sources, version deduplication). Breaking changes may not be caught.
+
+**Priority:** Medium
+
+### Portal Authentication Edge Cases
+
+**What's not tested:** Session expiration handling, credential rotation, concurrent portal sessions, non-JSON login responses.
+
+**Files:** `src/tdoc_crawler/clients/portal.py`
+
+**Risk:** Portal authentication failures manifest as cryptic parsing errors rather than clear auth failure messages.
+
+**Priority:** Low (covered by integration tests when credentials are available)
 
 ---
 

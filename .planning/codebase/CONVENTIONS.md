@@ -5,202 +5,201 @@
 ## Naming Patterns
 
 **Files:**
-- Snake_case for Python modules: `cache_manager.py`, `crawl.py`, `date_parser.py`
-- Test files prefixed with `test_`: `test_models.py`, `test_database.py`
-- Sub-packages as directories with `__init__.py`
+- `snake_case` for all module files: `cache_manager.py`, `env_vars.py`, `test_database.py`
+- Session constants in `constants/` subdirectory: `urls.py`, `patterns.py`
+- CLI layer: `tdoc_app.py`, `spec_app.py`, `mgmt_app.py` for Typer entry points
 
 **Functions:**
-- snake_case for all functions: `normalize_tdoc_id()`, `resolve_cache_manager()`
-- Private helpers prefixed with single underscore: `_parse_date()`, `_build_scope_description()`
-- Field validators use `_validate_` prefix: `_validate_status()`, `_validate_agenda_item_nbr()`
-- Field serializers use `_serialize_` prefix: `_serialize_status()`
+- `snake_case` for functions and methods: `resolve_cache_manager()`, `normalize_tdoc_id()`, `create_workspace()`
+- Private helpers prefixed with `_`: `_parse_spec_number()`, `_decompress_body()`, `_strip_prefixes()`
+- Factory functions use descriptive names: `create_cached_session()`, `get_logger()`, `get_metrics_tracker()`
 
 **Variables:**
-- Path variables use suffix convention: `cache_dir`, `db_file`, `checkout_dir`, `http_cache_file` (never `dir_cache`, `file_db`)
-- Module-level private defaults use `_UPPER_SNAKE` prefix: `_DEFAULT_CACHE_DIR_STR`, `_DEFAULT_DATABASE_FILENAME`
-- Regex patterns use `UPPER_SNAKE`: `TDOC_PATTERN`, `DATE_PATTERN`, `_DOTTED_BODY_PATTERN`
-- Constants use `UPPER_SNAKE`: `DEFAULT_LEVEL`, `BROWSER_HEADERS`, `TDOC_SUBDIRS`
+- `snake_case` for local variables and instance attributes: `cache_dir`, `sample_tdocs`, `test_db_path`
+- Module-level constants use `UPPER_CASE` with `Final` type: `DEFAULT_DATABASE_FILENAME`, `MEETINGS_BASE_URL`
+- Logger instances: `_logger` (private) or `logger` (public) — set at module level via `get_logger(__name__)`
 
-**Types:**
-- Pipe syntax for unions: `str | None`, `Path | str | None` — **never** `Optional[T]` or `Union[T, None]`
-- Type aliases at module level: `StructuredData = dict | list | str | int | float | bool | None`
-- Pydantic models use PascalCase: `TDocMetadata`, `MeetingCrawlConfig`, `ThreeGPPConfig`
-- Enums use PascalCase members: `WorkingGroup.RAN`, `TDocStatus.AGREED`
-- `Final` for constants: `DEFAULT_LEVEL: Final[int] = logging.WARNING`
-
-**CLI Option Types:**
-- Typer options defined as module-level `Annotated` aliases in `src/tdoc_crawler/cli/args.py`
-- Naming convention: `{Name}Option`, `{Name}Argument` (PascalCase): `WorkingGroupOption`, `TDocIdsArgument`, `ForceOption`
+**Types/Classes:**
+- `PascalCase` for classes and models: `CacheManager`, `TDocMetadata`, `ThreeGPPConfig`
+- `PascalCase` for custom exceptions: `CacheManagerNotRegisteredError`, `NormalizationError`, `DatabaseError`
+- Enum members: individual members `UPPER_CASE` (e.g., `WorkingGroup.RAN`), not used in code directly
+- Typed argument aliases use `PascalCase`: `TdocIdArgument`, `WorkingGroupOption`, `OutputFormatOption`
 
 ## Code Style
 
 **Formatting:**
-- Ruff formatter (replaces Black)
-- Line length: 160 characters
-- Target: Python 3.14
-- Docstring code blocks: also 160 chars line length
+- Tool: `ruff format` (with `ruff.toml` config)
+- Line length: **160 characters** (`line-length = 160`)
+- Docstring code line length: 160
+- Target Python version: `py314`
+- `undersort` pre-commit hook enforces method ordering: public → protected → private
+- `from __future__ import annotations` in **every** module (enforced by `pyupgrade`/`UP` rules)
 
 **Linting:**
-- Ruff with preview rules enabled
-- Key rule categories: E, F, C4, C90, D, I, PT, PL, SIM, UP, W, S, ANN, B, NPY
-- Extended: RUF022 (sorted `__all__`), PLR6301 (no-self-use), PLC0415, E402
-- Docstring convention: Google style (`[lint.pydocstyle] convention = "google"`)
-
-**Key Ignored Rules (intentional):**
-- D100–D107 (module/class/function docstrings not required)
-- PLR0913 (many parameters allowed for config models)
-- ANN401 (dynamically typed expressions allowed)
-- C901 (complex structure — mccabe)
-
-**Forbidden Patterns (non-negotiable):**
-- PLC0415 (`import-outside-top-level`) — **NEVER** introduce inline imports
-- No `# noqa` comments to suppress legitimate linting issues
-- No `TYPE_CHECKING` guards
-- No `.format()` or `%` string formatting — **f-strings only**
-- No hardcoded paths like `~/.3gpp-crawler` — use `CacheManager`
-- No hardcoded string values — use existing enums/structures from `constants/`, `models/`, or `ConfigEnvVar`
+- Tool: `ruff check` — ruleset in `ruff.toml`:
+  - `E`, `W` — pycodestyle
+  - `F` — Pyflakes
+  - `I` — isort (import ordering)
+  - `D` — pydocstyle (Google convention)
+  - `ANN` — flake8-annotations (type annotations required)
+  - `PL` — Pylint (complexity, antipatterns)
+  - `SIM` — flake8-simplify
+  - `S` — flake8-bandit (security)
+  - `C4`, `C90` — comprehensions, complexity
+  - `PT` — flake8-pytest-style
+- Critical enforced rules: `PLC0415` (no import-outside-top-level), `E402` (module-import-not-at-top-of-file)
+- Per-file ignores: `tests/` relaxes `S101`, `S106`, `S603` (bandit warns about test assets); `tdoc_app.py` allows `E402` for `load_dotenv()` ordering
 
 ## Import Organization
 
-**Order (enforced by Ruff isort):**
-1. Standard library: `from __future__ import annotations`, then `pathlib`, `re`, `asyncio`, etc.
-2. Third-party: `pydantic`, `typer`, `rich`, `pytest`, etc.
-3. Local application: `from tdoc_crawler.config import ...`, `from tdoc_crawler.models import ...`
+**Standard order (enforced by ruff `I`/isort):**
+1. `from __future__ import annotations` — always first
+2. Standard library imports
+3. Third-party imports (`typer`, `pydantic`, `rich`, `niquests`, etc.)
+4. `tdoc_crawler.*` local imports
 
-**Pattern:**
 ```python
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
-from typing import Annotated, Final
+from typing import Final
 
-import typer
 from pydantic import BaseModel, Field
+import typer
 
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import get_logger
 ```
 
 **Path Aliases:**
-- No path aliases configured (no `tsconfig`-style paths)
-- All imports use full package path: `from tdoc_crawler.cli.args import ...`
-- Workspace packages imported by name: `from pool_executors.pool_executors import ...`
+- No import path aliases (no `@src` or `~` prefixes). All imports are relative to the `src/` root via the `tdoc_crawler` package.
+- `pyproject.toml` sets `pythonpath = ["src"]` for pytest.
 
-**`__all__` exports:**
-- Every module defines `__all__` as a list of public names
-- Ruff RUF022 enforces sorted `__all__`
+**`__all__` Exports:**
+- Every package `__init__.py` declares an `__all__` list with **sorted** public API (enforced by `RUF022` unsorted-dunder-all rule):
+  ```python
+  __all__ = [
+      "CacheManager",
+      "CacheManagerNotRegisteredError",
+      "resolve_cache_manager",
+  ]
+  ```
 
 ## Error Handling
 
+**Strategy:** Raise explicitly typed exceptions. Never return `None` as an error signal. Let errors propagate unless there is a specific recovery strategy.
+
+**Custom Exception Hierarchy:**
+- `DatabaseError(RuntimeError)` in `database/errors.py` — database constraint/execution failures
+- `CacheManagerNotRegisteredError(RuntimeError)` in `config/cache_manager.py` — missing CacheManager registration
+- `NormalizationError(ValueError)` in `utils/normalization.py` — spec number parsing failures
+- `SpecNotFoundError` in `specs/sources/threegpp.py` — spec resolution failures
+
 **Patterns:**
-- Custom exceptions inherit from domain-appropriate base: `CacheManagerNotRegisteredError(RuntimeError)`, `NormalizationError(ValueError)`, `ConfigLoadError(Exception)`
-- Raise with `from` for exception chaining: `raise ValueError(f"...") from exc` (see `src/tdoc_crawler/utils/normalization.py`)
-- Database errors wrapped in `DatabaseError`
-- Never silently swallow errors — let CacheManagerNotRegisteredError propagate if not registered
-- Pydantic validators return normalized values or raise `ValueError`
-
-**Anti-patterns:**
 ```python
-# ❌ WRONG — defensive fallback for CacheManager
-try:
-    manager = resolve_cache_manager()
-except CacheManagerNotRegisteredError:
-    manager = CacheManager(default_cache_dir).register()
-
-# ✅ CORRECT — let it fail, registration is a dev concern
-manager = resolve_cache_manager()
+# ✅ CORRECT — raise dedicated exception with diagnostic info
+if CacheManager._instance is None:
+    raise CacheManagerNotRegisteredError("CacheManager not registered.")
 ```
+
+**Anti-patterns (explicitly forbidden per `docs/development.md`):**
+- Do **NOT** catch `CacheManagerNotRegisteredError` to create a fallback — let it fail
+- Do **NOT** return `None` to encode errors — use exceptions
+- Do **NOT** use inconsistent return types (`InfoObject | str | None`)
+- Do **NOT** use `typing.TYPE_CHECKING` as a circular import workaround — refactor to `models/` layer instead
 
 ## Logging
 
-**Framework:** Standard `logging` with Rich handler via `src/tdoc_crawler/logging/__init__.py`
+**Framework:** Standard `logging` module with `RichHandler` (from `rich.logging`)
 
-**Logger acquisition:**
+**Implementation:** `src/tdoc_crawler/logging/__init__.py`
+- Root logger configured once via `@functools.cache` (`configure_logger()`)
+- Factory function `get_logger(name: str) -> logging.Logger` — cached per name
+- Default level: `logging.WARNING`
+- Level set via `set_verbosity(level)` at CLI startup
+
+**Patterns:**
 ```python
+# Module-level logger (highest scope safe)
 from tdoc_crawler.logging import get_logger
+
 _logger = get_logger(__name__)
 ```
 
-**Patterns:**
-- Module-level logger: `_logger = get_logger(__name__)` at top of module
-- Use `_logger.debug()`, `_logger.info()`, `_logger.warning()` etc.
-- Rich markup supported in log messages
-- Verbosity set via `set_verbosity(level)` at CLI entry points
-- Default level: `WARNING` (constant `DEFAULT_LEVEL`)
+**Usage conventions:**
+- Use `_logger.debug()` for diagnostics, `_logger.info()` for key events, `_logger.warning()` for recoverable issues, `_logger.error()` for failures
+- Never use `print()` — always use logger or `console` from `rich.console`
+- CLI output uses `rich.console.Console` (via `get_console()` singleton) for user-facing messages
 
 ## Comments
 
-**When to Comment:**
-- Google-style docstrings for all public classes and functions
-- Module-level docstring in every `.py` file
-- Docstrings include `Args:`, `Returns:`, `Raises:` sections
-- Include `Examples:` section for utility functions
+**Docstrings:**
+- **Google-style** docstrings (configured in `ruff.toml`: `convention = "google"`)
+- Required for public functions/classes (enforced by pydocstyle `D` rules with relaxed granularity — module-level `D100` ignored)
+- Docstring code formatting enabled: `docstring-code-format = true`
 
-**JSDoc/TSDoc:**
-- Not applicable (Python project)
-- Pydantic `Field(description=...)` serves as inline documentation for model fields
+**When to Comment:**
+- Module-level docstrings describe purpose and usage
+- Class docstrings with `Example:` sections where helpful
+- Function docstrings with `Args:` and `Returns:` for public API
+- Inline comments only for non-obvious logic (sparingly — let code self-document)
 
 ## Function Design
 
-**Size:** Functions range from single-line helpers to ~50 line methods. Complex operations broken into helper functions.
+**Size:** No hard limit, but `PLR0912` (too-many-branches) and `PLR0913` (too-many-arguments) are ignored. `max-locals = 20` (pylint).
 
-**Parameters:** Use Pydantic config models (e.g., `TDocCrawlConfig`, `TDocQueryConfig`) for functions with many parameters rather than long parameter lists.
+**Parameters:**
+- Use `*` for keyword-only arguments where appropriate: `def delete_workspace(workspace, *, delete_artifacts=False)`
+- Type annotations on all parameters (enforced by `ANN` rules, except `ANN002`, `ANN003` ignored for `*args`/`**kwargs`)
+- Return type annotations required (enforced by `ANN` rules, except `ANN204` for dynamic types)
 
 **Return Values:**
-- Pydantic models for structured data: `TDocMetadata`, `MeetingMetadata`
-- Result dataclasses/tuples for operation outcomes: `TDocCrawlResult(processed, inserted, updated, errors)`
-- `bool` for success/failure where appropriate
-- `None` for void operations
+- Consistent return types (no `Union[str, None]` as error encoding)
+- Use `None` only for optional values where the semantics are "not applicable," not "error occurred"
 
 ## Module Design
 
 **Exports:**
-- Every module defines `__all__` with all public names
-- Package `__init__.py` re-exports from submodules for convenient imports
-- Example: `from tdoc_crawler.config import CacheManager, resolve_cache_manager`
+- Explicit `__all__` in every `__init__.py`
+- Re-export from `__init__.py` for top-level convenience: `from tdoc_crawler.config import CacheManager`
+- Do **NOT** re-export from domain packages to avoid circular imports (`tdocs/operations/` imports are explicit submodule imports)
 
-**Barrel Files:**
-- Used selectively in `__init__.py` files for major subpackages
-- Domain packages (`tdocs/`, `meetings/`, `specs/`) do **not** re-export operations to avoid circular imports
+**Package Structure:**
+- `cli/` — thin Typer/Rich wrappers only; all logic in core library
+- `models/` — shared types, enums, dataclasses (the neutral layer for cross-domain types)
+- `database/` — SQLite/pydantic-sqlite persistence
+- Domain packages (`tdocs/`, `specs/`, `meetings/`) — operations and domain-specific models
 
-**CLI thin layer:**
-- `src/tdoc_crawler/cli/` contains only Typer/Rich wrappers
-- All domain logic belongs in `src/tdoc_crawler/<domain>/`
-- CLI commands call core library functions; never implement business logic in CLI
+## Type Annotation Patterns
 
-## Async Patterns
+- Use `X | None` (not `Optional[X]`)
+- Use `list[X]`, `dict[K, V]` (not `typing.List`, `typing.Dict`)
+- `Annotated[X, typer.Argument(...)]` for CLI argument types in `cli/args.py`
+- `ClassVar` for class-level mutable state: `_instance: ClassVar[CacheManager | None] = None`
+- `Final[str]` for module-level immutable constants
+- `StrEnum` with `auto()` for string enumeration types
 
-- Database operations are async: `async with TDocDatabase(db_file) as db:`
-- CLI bridges sync→async with `asyncio.run()`: `result = asyncio.run(run_tdoc_crawl())`
-- Async context managers for database connections
-- `@pytest.mark.asyncio` for async test methods
+## Pydantic Model Conventions
 
-## Configuration Patterns
+- Use `pydantic.BaseModel` for data models that enter the database
+- Use `@dataclass` for simple data holders not stored in DB (e.g., `PortalCredentials`)
+- `field_validator` with `mode="before"` for input normalization
+- `AliasChoices` for env var + config key dual resolution
+- `model_config = SettingsConfigDict(env_prefix="...", ...)` for pydantic-settings models
 
-**Config precedence (highest to lowest):**
-1. CLI explicit `--config` parameter
-2. Discovered config files (later overrides earlier)
-3. Environment variables (`TDC_*`, `TDC_EOL_*`, `TDC_CRAWL_*`, `HTTP_CACHE_*`)
-4. Hard-coded defaults
+## Forbidden Patterns
 
-**Environment variables:**
-- Defined as `ConfigEnvVar` enum in `src/tdoc_crawler/config/env_vars.py`
-- CLI options reference env vars via `ConfigEnvVar.TDC_WORKING_GROUP.name`
-- pydantic-settings `AliasChoices` maps env vars to config fields
-
-**Singleton pattern:**
-- `CacheManager` uses class-level `_instance` singleton
-- Registered once at CLI startup via `CacheManager(cache_dir).register()`
-- Resolved everywhere via `resolve_cache_manager()`
-- Reset in tests via `_reset_cache_manager` autouse fixture
-
-## Pre-commit Hooks
-
-**Config:** `.pre-commit-config.yaml`
-- `ruff-check` with `--exit-non-zero-on-fix`
-- `ruff-format`
-- `undersort` (method visibility ordering: public → protected → private)
-- Standard hooks: check-toml, check-yaml, check-json, end-of-file-fixer, trailing-whitespace
+| Pattern | Why Forbidden | Reference |
+|---------|---------------|-----------|
+| Hardcoded paths (`~/.3gpp-crawler`) | Must use `CacheManager` | `AGENTS.md`, `docs/development.md` |
+| `typing.TYPE_CHECKING` for circular imports | Refactor to `models/` layer instead | `docs/development.md` |
+| Inline imports (`import` inside functions) | Violates `PLC0415` rule | `ruff.toml` |
+| Defensive CacheManager fallbacks | Let it fail if not registered | `docs/development.md` |
+| Returning `None` for errors | Use exceptions with consistent return types | `docs/development.md` |
+| CLI containing business logic | `cli/` is thin — all logic in core | `AGENTS.md` |
+| HTTP requests without `create_cached_session()` | Must use cached session | `AGENTS.md` |
+| Hardcoded env var strings in CLI options | Use `ConfigEnvVar` enum | `cli/args.py` |
 
 ---
 
