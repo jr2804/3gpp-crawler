@@ -207,3 +207,11 @@ DryRunOption = Annotated[
     bool,
     typer.Option("--dry-run", help="Show what would be removed without removing"),
 ]
+WorkspaceDirOption = Annotated[
+    Path | None,
+    typer.Option("--dir", "-d", help="Custom workspace data directory (default: ~/.3gpp-crawler/workspaces/<name>)"),
+]
+SourcesDirNameOption = Annotated[
+    str | None,
+    typer.Option("--src-dir", "-s", help="Custom sources subdirectory name (default: 'sources')"),
+]
