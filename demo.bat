@@ -36,4 +36,6 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 3gpp-crawler workspace members
 
 :: convert tdocs/specs to PDF/Markdown/artefacts for AI processing
-3gpp-crawler workspace process --profile pdf-only
+:: 3gpp-crawler workspace process --profile pdf-only
+:: 3gpp-crawler workspace process --profile default
+3gpp-crawler workspace process --profile advanced --force
