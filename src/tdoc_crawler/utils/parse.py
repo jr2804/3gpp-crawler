@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable
 from pathlib import Path
 
 from packaging.version import InvalidVersion, Version
@@ -139,21 +138,3 @@ def collect_spec_numbers(specs: list[str] | None, spec_file: Path | None) -> lis
         return []
 
     return expand_spec_ranges_batch(collected)
-
-
-def infer_working_groups_from_ids(ids: Iterable[str]) -> list[WorkingGroup]:
-    """Infer working groups from TDoc IDs based on first character."""
-    mapping = {
-        "R": WorkingGroup.RAN,
-        "S": WorkingGroup.SA,
-        "T": WorkingGroup.CT,
-        "C": WorkingGroup.CT,
-    }
-    resolved: list[WorkingGroup] = []
-    for value in ids:
-        if not value:
-            continue
-        group = mapping.get(value[0].upper())
-        if group and group not in resolved:
-            resolved.append(group)
-    return resolved

@@ -110,11 +110,6 @@ class MetricsTracker:
             )
         )
 
-    @property
-    def metrics(self) -> list[DocumentMetric]:
-        """Get all recorded metrics."""
-        return self._metrics
-
     def summary(self) -> dict:
         """Generate summary statistics.
 

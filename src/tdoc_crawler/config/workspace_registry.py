@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
@@ -212,18 +211,6 @@ class WorkspaceMetadata:
                 counts["other"] += 1
             counts["total"] += 1
         return counts
-
-    def update_wiki_build_health(
-        self,
-        page_count: int,
-        failed_pages: int,
-        compile_hash: str,
-    ) -> None:
-        """Update wiki build health metadata after a compile run."""
-        self.wiki_build_timestamp = datetime.now(UTC).isoformat()
-        self.wiki_page_count = page_count
-        self.wiki_failed_pages = failed_pages
-        self.wiki_compile_hash = compile_hash
 
     def list_members(self, include_inactive: bool = False) -> list[WorkspaceMember]:
         """List members of the workspace."""

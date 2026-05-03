@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import tomllib
 from pathlib import Path
 from typing import Annotated, Literal
@@ -20,7 +19,6 @@ from tdoc_crawler.config.settings import ThreeGPPConfig
 FormatType = Literal["toml", "yaml", "json"]
 
 console = Console()
-logger = logging.getLogger(__name__)
 
 ConfigInitOutputOption = Annotated[
     Path,

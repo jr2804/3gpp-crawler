@@ -66,13 +66,6 @@ class HybridServerManager:
         return f"http://{self.config.host}:{self.config.port}"
 
     @property
-    def is_running(self) -> bool:
-        """Check if the server subprocess is still alive."""
-        if self._process is None:
-            return False
-        return self._process.poll() is None
-
-    @property
     def log_file(self) -> Path:
         """Path to the hybrid server log file."""
         cache = resolve_cache_manager()

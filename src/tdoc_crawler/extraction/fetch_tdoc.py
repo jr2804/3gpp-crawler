@@ -11,14 +11,11 @@ from tdoc_crawler.database.oxyde_models import TDocMetadata as OxydeTDocMetadata
 from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.extraction.conversion import OFFICE_FORMATS
 from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.workspaces import TDocNotFoundError
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checkout_path
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.workspaces.utils import resolve_tdoc_checkout_path
-
-logger = get_logger(__name__)
 
 
 @dataclass
