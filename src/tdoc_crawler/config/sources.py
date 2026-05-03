@@ -167,12 +167,10 @@ def load_config_file(config_file: Path) -> dict[str, Any]:
 
     try:
         if suffix == ".toml":
-            # For TOML, we need to interpolate BEFORE parsing since TOML
-            # doesn't support ${VAR} syntax natively
             with config_file.open("r", encoding="utf-8") as f:
                 content = f.read()
-            content = _interpolate_env_vars(content)
             data = tomllib.loads(content)
+            data = _interpolate_env_vars(data)
         elif suffix in {".yaml", ".yml"}:
             yaml = import_module("yaml")
 
