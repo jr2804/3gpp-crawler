@@ -214,6 +214,33 @@ class DocDatabase:
             raw_ir = {"proto": 1, "op": "raw", "table": "", "sql": create_sql}
             await self._database.execute(raw_ir)
 
+        await self._run_migrations()
+
+    async def _run_migrations(self) -> None:
+        """Apply incremental schema migrations for existing databases."""
+        if self._database is None:
+            return
+
+        migrations = [
+            (
+                "tdocs",
+                "tbid",
+                "ALTER TABLE tdocs ADD COLUMN tbid INTEGER DEFAULT NULL",
+            ),
+        ]
+
+        for table_name, column_name, alter_sql in migrations:
+            try:
+                raw_ir = {"proto": 1, "op": "raw", "table": "", "sql": f"PRAGMA table_info({table_name})"}
+                result = await self._database.execute(raw_ir)
+                columns = [row[1] for row in result] if result else []
+                if column_name not in columns:
+                    _logger.info("Migrating %s: adding column %s", table_name, column_name)
+                    migrate_ir = {"proto": 1, "op": "raw", "table": "", "sql": alter_sql}
+                    await self._database.execute(migrate_ir)
+            except Exception as exc:
+                _logger.debug("Migration check for %s.%s skipped: %s", table_name, column_name, exc)
+
     async def _ensure_reference_data(self) -> None:
         """Populate reference tables for working and subworking groups."""
         for record in WORKING_GROUP_RECORDS:

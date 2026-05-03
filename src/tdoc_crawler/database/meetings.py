@@ -3,7 +3,8 @@
 import asyncio
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from datetime import datetime
+
+from oxyde import Q
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.base import DocDatabase
@@ -86,31 +87,100 @@ class MeetingDatabase(DocDatabase):
     ) -> tuple[int, int]:
         """Bulk upsert meetings with optional progress callback.
 
+        Splits records into new vs existing, then uses ``bulk_create`` for
+        inserts and ``bulk_update`` for updates instead of one-by-one queries.
+
         Args:
             meetings: Iterable of meeting metadata to upsert
-            progress_callback: Optional callback to call after each meeting is processed.
+            progress_callback: Optional callback to call after batch processing.
                 Takes (completed, total) as float parameters.
 
         Returns:
             Tuple of (inserted_count, updated_count)
         """
         meetings_list = list(meetings)
-        total = float(len(meetings_list))
+        if not meetings_list:
+            return 0, 0
 
-        inserted = 0
-        updated = 0
-        for index, meeting in enumerate(meetings_list, start=1):
-            created, changed = await self.upsert_meeting(meeting)
-            if created:
-                inserted += 1
-            elif changed:
-                updated += 1
-            if progress_callback:
-                progress_callback(float(index), total)
-        return inserted, updated
+        total = float(len(meetings_list))
+        now = utc_now()
+
+        to_create: list[MeetingMetadata] = []
+        to_update: list[MeetingMetadata] = []
+        for meeting in meetings_list:
+            record = self._prepare_meeting(meeting)
+            existing = await self._get_meeting(record.meeting_id)
+            if existing is None:
+                to_create.append(
+                    MeetingMetadata(
+                        meeting_id=record.meeting_id,
+                        tbid=record.tbid,
+                        subtb=record.subtb,
+                        short_name=record.short_name,
+                        title=record.title,
+                        start_date=record.start_date,
+                        end_date=record.end_date,
+                        location=record.location,
+                        files_url=record.files_url,
+                        portal_url=record.portal_url,
+                        tdoc_count=record.tdoc_count,
+                        last_synced=record.last_synced or now,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+            else:
+                to_update.append(
+                    MeetingMetadata(
+                        meeting_id=record.meeting_id,
+                        tbid=record.tbid,
+                        subtb=record.subtb,
+                        short_name=record.short_name,
+                        title=record.title,
+                        start_date=record.start_date,
+                        end_date=record.end_date,
+                        location=record.location,
+                        files_url=record.files_url,
+                        portal_url=record.portal_url,
+                        tdoc_count=record.tdoc_count,
+                        last_synced=record.last_synced or existing.last_synced,
+                        created_at=record.created_at or existing.created_at,
+                        updated_at=now,
+                    )
+                )
+
+        if to_create:
+            await MeetingMetadata.objects.bulk_create(to_create)
+        if to_update:
+            await MeetingMetadata.objects.bulk_update(
+                to_update,
+                fields=[
+                    "tbid",
+                    "subtb",
+                    "short_name",
+                    "title",
+                    "start_date",
+                    "end_date",
+                    "location",
+                    "files_url",
+                    "portal_url",
+                    "tdoc_count",
+                    "last_synced",
+                    "created_at",
+                    "updated_at",
+                ],
+            )
+
+        if progress_callback:
+            progress_callback(total, total)
+
+        return len(to_create), len(to_update)
 
     async def query_meetings(self, config: MeetingQueryConfig) -> list[MeetingMetadata]:
         """Query meetings with filtering and sorting.
+
+        Pushes filters to SQL WHERE clauses via Oxyde ORM instead of loading
+        all rows and filtering in Python.
 
         Args:
             config: Query configuration with filters and options
@@ -118,38 +188,37 @@ class MeetingDatabase(DocDatabase):
         Returns:
             List of matching meeting metadata
         """
-        meetings = await self._table_rows(MeetingMetadata)
+        qs = MeetingMetadata.objects
 
         if config.working_groups:
-            allowed = {wg.tbid for wg in config.working_groups}
-            meetings = [meeting for meeting in meetings if meeting.tbid in allowed]
+            allowed_tbids = [wg.tbid for wg in config.working_groups]
+            qs = qs.filter(tbid__in=allowed_tbids)
 
         if config.subgroups:
             allowed_subgroups = {value.strip().upper() for value in config.subgroups}
-            meetings = [meeting for meeting in meetings if meeting.subtb in SUBTB_INDEX and SUBTB_INDEX[meeting.subtb].code in allowed_subgroups]
+            allowed_subtbs = [subtb for subtb, rec in SUBTB_INDEX.items() if rec.code.upper() in allowed_subgroups]
+            if allowed_subtbs:
+                qs = qs.filter(subtb__in=allowed_subtbs)
+            else:
+                return []
 
         if not config.include_without_files:
-            meetings = [meeting for meeting in meetings if meeting.files_url]
+            qs = qs.exclude(Q(files_url__isnull=True) | Q(files_url=""))
 
-        # Date range filters
         if config.start_date is not None:
-            meetings = [meeting for meeting in meetings if meeting.start_date and meeting.start_date >= config.start_date]
+            qs = qs.filter(start_date__gte=config.start_date)
+
         if config.end_date is not None:
-            meetings = [meeting for meeting in meetings if meeting.end_date and meeting.end_date <= config.end_date]
+            qs = qs.filter(end_date__lte=config.end_date)
 
         descending = config.order.value.lower() == "desc"
-        meetings.sort(
-            key=lambda meeting: (
-                meeting.start_date or datetime.min.date(),
-                meeting.meeting_id,
-            ),
-            reverse=descending,
-        )
+        order_prefix = "-" if descending else ""
+        qs = qs.order_by(f"{order_prefix}start_date", f"{order_prefix}meeting_id")
 
         if config.limit is not None:
-            meetings = meetings[: config.limit]
+            qs = qs.limit(config.limit)
 
-        return meetings
+        return await qs.all()
 
     async def get_existing_meeting_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[int]:
         """Get set of existing meeting IDs, optionally filtered by working group.
@@ -160,12 +229,13 @@ class MeetingDatabase(DocDatabase):
         Returns:
             Set of meeting IDs
         """
-        meetings = await self._table_rows(MeetingMetadata)
         if not working_groups:
+            meetings = await self._table_rows(MeetingMetadata)
             return {meeting.meeting_id for meeting in meetings}
 
-        allowed = {wg.tbid for wg in working_groups}
-        return {meeting.meeting_id for meeting in meetings if meeting.tbid in allowed}
+        allowed_tbids = [wg.tbid for wg in working_groups]
+        meetings = await MeetingMetadata.objects.filter(tbid__in=allowed_tbids).all()
+        return {meeting.meeting_id for meeting in meetings}
 
     async def resolve_meeting_id(self, meeting_name: str) -> int | None:
         """Resolve meeting name to meeting_id from database.
@@ -270,8 +340,7 @@ class MeetingDatabase(DocDatabase):
 
     async def _meeting_map(self) -> dict[int, MeetingMetadata]:
         """Get mapping of meeting ID to meeting metadata."""
-        meetings = await self._table_rows(MeetingMetadata)
-        return {meeting.meeting_id: meeting for meeting in meetings}
+        return {m.meeting_id: m for m in await self._table_rows(MeetingMetadata)}
 
     async def _get_meeting(self, meeting_id: int) -> MeetingMetadata | None:
         """Get a meeting by ID."""

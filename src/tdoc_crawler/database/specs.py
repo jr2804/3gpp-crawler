@@ -196,28 +196,39 @@ class SpecDatabase(DocDatabase):
             raise DatabaseError("spec-versions-read-failed", detail=str(exc)) from exc
 
     async def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
-        """Query stored spec metadata."""
-        specs = await self._spec_table_rows()
+        """Query stored spec metadata.
+
+        Pushes spec_number, title, status, and working_group filters to SQL
+        WHERE clauses via Oxyde ORM instead of loading all rows and filtering
+        in Python.
+
+        Args:
+            filters: Query filters for spec metadata
+
+        Returns:
+            List of spec query results with source differences
+        """
         source_records = await self._table_rows(SpecificationSourceRecord)
         records_by_spec: dict[str, list[SpecificationSourceRecord]] = defaultdict(list)
         for record in source_records:
             records_by_spec[record.spec_number].append(record)
 
+        qs = Specification.objects
+
         if filters.spec_numbers:
-            allowed = {normalize_spec_number(value) for value in filters.spec_numbers}
-            specs = [spec for spec in specs if spec.spec_number in allowed]
+            allowed = [normalize_spec_number(value) for value in filters.spec_numbers]
+            qs = qs.filter(spec_number__in=allowed)
 
         if filters.title:
-            needle = filters.title.strip().lower()
-            specs = [spec for spec in specs if needle in (spec.title or "").lower()]
+            qs = qs.filter(title__icontains=filters.title.strip())
 
         if filters.working_group:
-            needle = filters.working_group.strip().lower()
-            specs = [spec for spec in specs if (spec.working_group or "").lower() == needle]
+            qs = qs.filter(working_group__iexact=filters.working_group.strip())
 
         if filters.status:
-            needle = filters.status.strip().lower()
-            specs = [spec for spec in specs if (spec.status or "").lower() == needle]
+            qs = qs.filter(status__iexact=filters.status.strip())
+
+        specs = await qs.all()
 
         def build_source_differences(records: list[SpecificationSourceRecord]) -> dict[str, dict[str, str | None]]:
             if len(records) < 2:
