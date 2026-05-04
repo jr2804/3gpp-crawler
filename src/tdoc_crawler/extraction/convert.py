@@ -263,7 +263,7 @@ def convert_for_wiki(
     pdf_path = ensure_pdf(primary, wiki_source_dir, force=force)
 
     config = OpendataloaderConfig(
-        hybrid="docling-fast",
+        hybrid="docling-fast" if profile == ExtractionProfile.ADVANCED else None,
         hybrid_mode="full" if profile == ExtractionProfile.ADVANCED else None,
     )
     markdown_content, json_path, _ = _ensure_converted(

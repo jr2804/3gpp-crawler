@@ -38,6 +38,8 @@ class HybridServerConfig:
     port: int = DEFAULT_PORT
     device: str = "auto"
     log_level: str = "info"
+    enrich_formula: bool = False
+    enrich_picture: bool = False
 
 
 @dataclass
@@ -145,9 +147,11 @@ class HybridServerManager:
             "--log-level",
             self.config.log_level,
             "--force-ocr",
-            "--enrich-formula",
-            "--enrich-picture-description",
         ]
+        if self.config.enrich_formula:
+            cmd.append("--enrich-formula")
+        if self.config.enrich_picture:
+            cmd.append("--enrich-picture-description")
 
         try:
             log_path = self.log_file
