@@ -16,7 +16,6 @@ from tdoc_crawler.config.settings import (
     CredentialsConfig,
     HttpConfig,
     PathConfig,
-    TDocCrawlerConfig,
     ThreeGPPConfig,
 )
 from tdoc_crawler.config.sources import (
@@ -42,7 +41,6 @@ __all__ = [
     "CredentialsConfig",
     "HttpConfig",
     "PathConfig",
-    "TDocCrawlerConfig",
     "ThreeGPPConfig",
     "discover_config_files",
     "load_config_file",

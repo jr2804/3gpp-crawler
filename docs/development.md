@@ -127,7 +127,8 @@ manager = resolve_cache_manager()
 manager.root              # cache root directory
 manager.db_file           # SQLite database
 manager.http_cache_file   # HTTP cache
-manager.checkout_dir      # Spec checkout directory
+manager.checkout_dir      # Document checkout directory
+manager.workspaces_dir    # Workspace data directory (sources, wiki)
 ```
 
 The `CacheManager` is instantiated by the CLI wrapper. Library users must register their own instance at program start.
@@ -181,6 +182,62 @@ manager = resolve_cache_manager()
 ### TYPE_CHECKING for Circular Imports
 
 Avoid `typing.TYPE_CHECKING` as a workaround for circular imports. It indicates structural problems. Refactor instead — extract shared types to a neutral `models/` layer.
+
+## Design Principles
+
+### Directory Separation: Checkout vs. Workspaces
+
+Document checkouts and workspace artifacts are stored in **separate directory trees** under the cache root:
+
+```
+~/.3gpp-crawler/
+├── checkout/          # Raw downloaded/extracted documents (TDocs, Specs)
+├── workspaces/        # Workspace data (sources, wiki) — separate from checkouts
+├── 3gpp_crawler.db
+└── http-cache.sqlite3
+```
+
+**Why separate:** Checkouts are raw crawled data managed by `tdocs/` and `specs/` packages. Workspaces are user-curated processing artifacts (converted PDFs, extracted markdown, wiki output). Mixing them causes naming collisions (a workspace named "Specs" would collide with the spec checkout directory) and makes cleanup error-prone.
+
+**Rule:** `manager.checkout_dir` is for raw documents only. `manager.workspaces_dir` is for workspace artifacts only. Never use `checkout_dir` for workspace paths or vice versa.
+
+### SourceKind-Aware Processing
+
+The extraction pipeline must branch on `SourceKind` (TDoc vs. Spec). TDocs and Specs have fundamentally different fetch and file-resolution logic:
+
+- **TDocs**: Checked out via FTP/meeting folder structure, resolved through `resolve_tdoc_checkout_path()`
+- **Specs**: Checked out from `Specs/archive/{series}/{spec_number}/`, resolved via spec-specific path logic
+
+Functions like `convert_for_wiki()` and `_ensure_converted()` accept a `source_kind` parameter and dispatch to the appropriate handler. Never assume all sources are TDocs.
+
+### No Artifact Directories in Checkout Folders
+
+Processing artifacts (converted PDFs, extracted markdown, figures, tables) must be stored in the workspace `sources/` directory, never as subdirectories of checkout folders.
+
+**Pattern:** `workspaces/<workspace>/sources/<doc-id>/` — not `checkout/<doc-path>/.ai/`
+
+Checkout folders contain only the raw downloaded/extracted source files. This keeps checkouts clean and ensures artifacts can be deleted independently without affecting source data.
+
+### Workspace Directory Creation is Lazy
+
+Workspace directories are created on demand by `crud.create_workspace()` (which calls `manager.workspaces_dir / <name>.mkdir()`). The `ensure_paths()` method creates the top-level `workspaces/` directory at startup, but individual workspace subdirectories are created only when a workspace is created.
+
+### Spec Release Resolution Must Be Concrete
+
+Spec releases must always be resolved to a **full 3-part version** (e.g. `"18.0.0"`) before being stored or used for file resolution. Ambiguous selectors like `"latest"`, `"18"`, or `"18.0"` are resolved via database lookup at the **earliest possible point** — at `workspace add`-time via `resolve_spec_release()` in `specs/operations/checkout.py`.
+
+**Why:** The spec checkout directory (`checkout/Specs/archive/{series}/{spec}/`) is **shared across all releases** of a spec. After downloading REL19, files for REL18 and REL19 coexist as version-specific subdirectories (e.g. `26261-g00/` for REL19, `26261-i00/` for REL18). If a downstream function receives an unresolved `"latest"` and scans the whole tree, it can return files from the wrong release.
+
+**Two-layer contract:**
+
+1. **Resolve early** — `resolve_spec_release()` pins the concrete version at add-time, embedding it in the workspace member ID (e.g. `26261-REL18.0.0`).
+1. **Respect downstream** — `fetch_spec_files()` uses the pinned version to scan only the version-specific extracted directory, never the shared parent.
+
+**Rule:** Never pass ambiguous release selectors to fetch/convert functions. Never scan a shared checkout directory without filtering by release.
+
+### Function Renaming Follows Scope
+
+When a function's scope changes, rename it to match. Example: `delete_ai_folder()` became `delete_artifact_folder()` when it stopped being `.ai`-specific and started cleaning generic workspace artifact directories. Names should describe current behavior, not historical behavior.
 
 ## Project Structure
 

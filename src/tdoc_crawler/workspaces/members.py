@@ -7,7 +7,7 @@ from pathlib import Path
 from tdoc_crawler.config.workspace_registry import WorkspaceMember, WorkspaceRegistry
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.workspaces import SourceKind, WorkspaceNotFoundError, normalize_workspace_name
-from tdoc_crawler.utils.normalization import normalize_tdoc_id
+from tdoc_crawler.utils.normalization import normalize_release_version, normalize_spec_number_compact, normalize_tdoc_id
 
 _logger = get_logger(__name__)
 
@@ -194,23 +194,43 @@ def make_workspace_member(
     source_path: str | Path,
     source_kind: SourceKind | str,
     added_by: str | None = None,
+    release: str | None = None,
 ) -> WorkspaceMember:
     """Build a normalized workspace member model from raw input.
 
+    For specs with a concrete release, the ``source_item_id`` is constructed
+    as ``{compact_spec}-REL{major.minor.patch}`` (e.g. ``26260-REL19.0.0``).
+    When no release or a sentinel value (``"latest"``/``"all"``) is given,
+    the ID stays as the compact spec number without a ``-REL`` suffix.
+
     Args:
-        source_item_id: Source item ID.
+        source_item_id: Source item ID (spec number, TDoc ID, etc.).
         source_path: Path to the source item.
         source_kind: Kind of source (TDoc, Spec, etc.).
         added_by: Optional identifier of who added this member.
+        release: Optional spec release version (e.g. "18", "18.1.0", "latest").
 
     Returns:
         WorkspaceMember instance.
     """
+    kind = SourceKind(source_kind)
+
+    if kind == SourceKind.SPEC:
+        compact_spec = normalize_spec_number_compact(source_item_id)
+        if release and release.strip().lower() not in ("latest", "all"):
+            normalized_release = normalize_release_version(release)
+            member_id = f"{compact_spec}-REL{normalized_release}"
+        else:
+            member_id = compact_spec
+    else:
+        member_id = normalize_tdoc_id(source_item_id) or source_item_id
+
     return WorkspaceMember(
-        source_item_id=normalize_tdoc_id(source_item_id) or source_item_id,
+        source_item_id=member_id,
         source_path=str(source_path),
-        source_kind=SourceKind(source_kind),
+        source_kind=kind,
         added_by=added_by or "",
+        release=release,
     )
 
 

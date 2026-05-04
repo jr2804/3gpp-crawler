@@ -29,14 +29,14 @@ Config files are discovered in this order (later files override earlier):
 
 ### Path Settings
 
-*File system paths for cache, database, checkout, and AI storage*
+*File system paths for cache, database, checkout, and workspaces*
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `cache_dir` | Path | ~/.3gpp-crawler | Root cache directory for storing downloaded files and metadata |
 | `db_filename` | str | "3gpp_crawler.db" | SQLite database filename for storing crawl metadata |
 | `checkout_dirname` | str | "checkout" | Subdirectory name for checked-out documents |
-| `ai_cache_dirname` | str | "lightrag" | Subdirectory name for AI-related cache (embeddings, graphs) |
+| `workspaces_dirname` | str | "workspaces" | Subdirectory name for workspace data (sources, wiki) |
 
 ### HTTP Settings
 
@@ -248,6 +248,7 @@ For backward compatibility, environment variables are still supported:
 | Variable | Description |
 |----------|-------------|
 | `TDC_CACHE_DIR` | Cache directory path |
+| `TDC_WORKSPACES_DIRNAME` | Workspaces subdirectory name |
 | `TDC_EOL_USERNAME` | ETSI Online username |
 | `TDC_EOL_PASSWORD` | ETSI Online password |
 | `TDC_TIMEOUT` | HTTP timeout in seconds |

@@ -2,10 +2,6 @@
 
 Query commands allow you to search and display metadata stored in your local database. They support various output formats like tables, JSON, and YAML.
 
-## AI RAG Query
-
-> **⚠️ Deprecated:** The `3gpp-ai` package has been removed from this repository. AI RAG query is no longer available.
-
 ## Commands
 
 ### `query` (TDocs) (alias: `qt`)

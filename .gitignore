@@ -256,3 +256,5 @@ src/teddi-mcp/uv.lock
 #.planning/
 /PLAN.md
 .opencode/
+/.beads/export-state.json
+opencode.json

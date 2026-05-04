@@ -95,6 +95,7 @@ class TDocMetadata(Model):
 
     tdoc_id: str = Field(db_pk=True)
     meeting_id: int
+    tbid: int | None = None
     title: str
     url: str | None = None
     source: str

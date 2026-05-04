@@ -1,4 +1,4 @@
-"""Tests for credentials resolution with TDocCrawlerConfig integration."""
+"""Tests for credentials resolution with ThreeGPPConfig integration."""
 
 from __future__ import annotations
 
