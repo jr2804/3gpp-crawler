@@ -61,7 +61,7 @@ def workspace_delete(
         try:
             manager = resolve_cache_manager()
             metadata = get_workspace(normalized)
-            ws_dir = metadata.resolve_workspace_directory(manager.workspaces_dir) if metadata is not None else manager.workspaces_dir / normalized
+            ws_dir = metadata.resolve_workspace_directory(manager.llm_wiki_dir) if metadata is not None else manager.llm_wiki_dir / normalized
             llm_wiki_dir = ws_dir / "wiki"
             if llm_wiki_dir.exists():
                 shutil.rmtree(llm_wiki_dir)

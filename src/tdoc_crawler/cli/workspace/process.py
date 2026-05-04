@@ -132,8 +132,6 @@ def _process_member(
             source_kind=member.source_kind,
             profile=extraction_profile,
             force=force,
-            release=member.release,
-            md_yaml_frontmatter=md_yaml_frontmatter,
         )
         if result_path:
             suffix = result_path.suffix.lstrip(".")
@@ -191,9 +189,9 @@ def workspace_process(
     cache_manager = resolve_cache_manager()
     metadata = get_workspace(normalized)
     if metadata is not None:
-        wiki_source_dir_base = metadata.resolve_sources_directory(cache_manager.workspaces_dir)
+        wiki_source_dir_base = metadata.resolve_sources_directory(cache_manager.llm_wiki_dir)
     else:
-        wiki_source_dir_base = cache_manager.workspaces_dir / normalized / "sources"
+        wiki_source_dir_base = cache_manager.llm_wiki_dir / normalized / "sources"
 
     processed = 0
     failed = 0
