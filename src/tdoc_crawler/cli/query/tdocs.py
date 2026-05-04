@@ -100,12 +100,14 @@ def query_tdocs(
     )
 
     db_file = path_config.db_file
-    handle_clear_options(
-        db_file,
-        path_config.checkout_dir,
-        TDocDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
+    asyncio.run(
+        handle_clear_options(
+            db_file,
+            path_config.checkout_dir,
+            TDocDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        ),
     )
 
     async def run_query() -> list:
