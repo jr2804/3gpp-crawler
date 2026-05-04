@@ -78,7 +78,9 @@ def _resolve_spec_release_for_add(
     if source_kind != SourceKind.SPEC:
         return release
     try:
-        resolved, _ = asyncio.run(resolve_spec_release_from_db(item, release))
+        resolved, _ = asyncio.run(
+            resolve_spec_release_from_db(item, release, auto_crawl=auto_crawl),
+        )
         console.print(f"[dim]  Resolved {item} release '{release}' → {resolved}[/dim]")
         return resolved
     except ValueError as exc:
@@ -197,6 +199,9 @@ def workspace_add(
 
     added = add_workspace_members(normalized, members)
     mode = "from query" if has_filters else "directly"
+    duplicates = len(members) - added
+    if duplicates > 0:
+        console.print(f"[yellow]Skipped {duplicates} duplicate(s) already in workspace '{normalized}'.[/yellow]")
     console.print(f"[green]Added {added} item(s) to workspace '{normalized}' ({mode}).[/green]")
 
 

@@ -18,6 +18,8 @@ from tdoc_crawler.specs.operations.checkout import (
     build_default_spec_sources,
     checkout_specs_async,
 )
+from tdoc_crawler.specs.sources.base import FunctionSpecSource
+from tdoc_crawler.specs.sources.threegpp import fetch_threegpp_metadata
 from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
@@ -61,6 +63,8 @@ async def resolve_spec_release_from_db(
     spec_number: str,
     requested_release: str,
     db_file: Path | None = None,
+    *,
+    auto_crawl: bool = False,
 ) -> tuple[str, list[str]]:
     """Resolve a short release string to a full version from the spec database.
 
@@ -73,6 +77,7 @@ async def resolve_spec_release_from_db(
         spec_number: Spec number (e.g., "26.260").
         requested_release: Release version (e.g., "16", "17.0.0", or "latest").
         db_file: Optional path to database file. If None, uses PathConfig default.
+        auto_crawl: If True, crawl spec metadata from 3GPP when DB has no version info.
 
     Returns:
         Tuple of (resolved_version, version_codes) where:
@@ -111,31 +116,45 @@ async def resolve_spec_release_from_db(
                     spec_number,
                     exc,
                 )
-        # If we can't find a version, return "latest" as fallback
+        if auto_crawl and resolved.lower() in ("latest", requested_release.lower()):
+            resolved, version_codes = await _auto_crawl_and_resolve(
+                normalized_spec,
+                requested_release,
+                db_path,
+                db_file,
+            )
         return resolved, version_codes
 
     # Normal release resolution (not "latest")
     db_path = db_file if db_file is not None else PathConfig().db_file
     if db_path is None or not db_path.exists():
+        if auto_crawl:
+            return await _auto_crawl_and_resolve(
+                normalized_spec,
+                requested_release,
+                db_path,
+                db_file,
+            )
         return resolved, version_codes
 
     try:
         async with SpecDatabase(db_path) as db:
             versions = await db.get_spec_versions(normalized_spec)
             if versions:
-                # Extract the major release number from requested version
-                # e.g., "19" -> 19, "19.1" -> 19, "19.0.0" -> 19
                 requested_normalized = normalize_release_version(requested_release)
-                requested_major = requested_normalized.split(".")[0] if "." in requested_normalized else requested_normalized
-
-                # Find matching versions whose first component matches the requested release
+                requested_major = requested_normalized.split(".")[0] if "." in requested_normalized else requested_release
                 matching = [v for v in versions if v.version and v.version.split(".")[0] == requested_major]
 
                 if matching:
-                    # Use the first matching version as the resolved version
                     resolved = matching[0].version
-                    # Extract version codes (suffix after "-" in original version)
                     version_codes.extend(v.version.split("-", 1)[1] for v in matching if "-" in v.version)
+            elif auto_crawl:
+                return await _auto_crawl_and_resolve(
+                    normalized_spec,
+                    requested_release,
+                    db_path,
+                    db_file,
+                )
     except (OSError, ValueError) as exc:
         _logger.debug(
             "Could not resolve release '%s' for spec %s: %s",
@@ -145,6 +164,31 @@ async def resolve_spec_release_from_db(
         )
 
     return resolved, version_codes
+
+
+async def _auto_crawl_and_resolve(
+    normalized_spec: str,
+    requested_release: str,
+    db_path: Path | None,
+    db_file: Path | None,
+) -> tuple[str, list[str]]:
+    """Crawl spec metadata from 3GPP, store versions, then retry resolution."""
+    try:
+        sources = [FunctionSpecSource("3gpp", fetch_threegpp_metadata)]
+        effective_db = db_path if db_path is not None else PathConfig().db_file
+        if effective_db is None:
+            return requested_release, []
+        async with SpecDatabase(effective_db) as db:
+            await db.crawl_specs([normalized_spec], requested_release, sources)
+        return await resolve_spec_release_from_db(
+            normalized_spec,
+            requested_release,
+            db_file=db_file,
+            auto_crawl=False,
+        )
+    except Exception as exc:
+        _logger.debug("Auto-crawl failed for spec %s: %s", normalized_spec, exc)
+        return requested_release, []
 
 
 async def checkout_tdoc_to_workspace(

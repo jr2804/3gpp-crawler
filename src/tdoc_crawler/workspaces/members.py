@@ -44,19 +44,19 @@ def add_workspace_members(
     added_count = 0
     skipped_count = 0
     for member in members:
-        existing_ids = [_normalize_member_id(str(m.get("source_item_id", ""))) for m in metadata.members]
+        existing_ids = {_normalize_member_id(str(m.get("source_item_id", ""))) for m in metadata.members}
         new_id = _normalize_member_id(member.source_item_id)
 
         if new_id in existing_ids:
             skipped_count += 1
+            _logger.warning("Skipping duplicate member '%s' — already in workspace '%s'", member.source_item_id, normalized_workspace)
+            continue
 
         metadata.add_member(member)
         added_count += 1
 
-    registry.save()
-
-    if skipped_count > 0:
-        pass
+    if added_count > 0:
+        registry.save()
 
     return added_count
 

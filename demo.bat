@@ -32,6 +32,9 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 3gpp-crawler workspace add 26260 26261 --kind spec --release 18.0
 3gpp-crawler workspace add 26260 --kind spec --release 17
 
+:: duplicates should give a warning
+3gpp-crawler workspace add 26260 --kind spec --release 18.1
+
 :: overview
 3gpp-crawler workspace members
 

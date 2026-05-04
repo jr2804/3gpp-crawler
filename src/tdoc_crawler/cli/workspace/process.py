@@ -105,7 +105,7 @@ def _read_page_count(json_dir: Path) -> int:
     try:
         data = json.loads(json_files[0].read_text(encoding="utf-8"))
         return int(data.get("number of pages", 0))
-    except (json.JSONDecodeError, OSError, ValueError):
+    except json.JSONDecodeError, OSError, ValueError:
         return 0
 
 
