@@ -16,7 +16,6 @@ from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.config.workspace_registry import WorkspaceMember
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.workspaces import SourceKind
-from tdoc_crawler.utils.normalization import normalize_release_version
 from tdoc_crawler.workspaces import (
     checkout_spec_to_workspace,
     checkout_tdoc_to_workspace,
@@ -86,8 +85,7 @@ async def checkout_single_item(
     if source_kind == SourceKind.SPEC:
         resolved_release, _ = await resolve_spec_release_from_db(item, release or "latest")
 
-    source_item_id = f"{item}-REL{normalize_release_version(resolved_release)}" if resolved_release else item
-    member = make_workspace_member(source_item_id, source_path, source_kind)
+    member = make_workspace_member(item, source_path, source_kind, release=resolved_release)
     return member, None
 
 
