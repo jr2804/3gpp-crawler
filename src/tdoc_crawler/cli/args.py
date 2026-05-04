@@ -14,6 +14,7 @@ TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifi
 TDocIdArgument = Annotated[str, typer.Argument(help="TDoc identifier to download and open")]
 CheckoutTDocIdsArgument = Annotated[list[str], typer.Argument(help="TDoc identifier(s) to checkout")]
 SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) to query (dotted or undotted)")]
+WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(help="Items to add (TDoc IDs, spec numbers, etc.)")]
 
 # Options - TDocs/Meetings
 WorkingGroupOption = Annotated[
@@ -116,6 +117,7 @@ ReleaseOption = Annotated[
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download")]
 
 # Options - General/Common
+CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name)]
 ClearDbOption = Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")]
 CheckoutOption = Annotated[
     bool,
@@ -135,6 +137,11 @@ UseWhatTheSpecOption = Annotated[
     typer.Option("--use-whatthespec/--no-use-whatthespec", help="Use WhatTheSpec API for fetching", envvar=ConfigEnvVar.TDC_USE_WHATTHESPEC.name),
 ]
 
+AutoCrawlSpecsOption = Annotated[
+    bool,
+    typer.Option("--auto-crawl-specs/--no-auto-crawl-specs", help="Auto-crawl spec metadata when not in database"),
+]
+
 
 ForceOption = Annotated[bool, typer.Option("--force", "-f", help="Re-download even if already checked out")]
 
@@ -150,4 +157,63 @@ HttpCacheOption = Annotated[
 NoProgressOption = Annotated[
     bool,
     typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
+]
+
+MdYamlFrontmatterOption = Annotated[
+    bool,
+    typer.Option("--md-yaml-frontmatter/--no-md-yaml-frontmatter", help="Include YAML frontmatter in generated Markdown"),
+]
+
+WorkspaceDeleteForceOption = Annotated[
+    bool,
+    typer.Option("--force", help="Permanently delete workspace and all artifacts"),
+]
+DeleteArtifactsOption = Annotated[
+    bool,
+    typer.Option("--delete-artifacts", help="Delete all workspace artifacts for members"),
+]
+DeleteLlmWikiOption = Annotated[
+    bool,
+    typer.Option("--delete-llm-wiki", help="Delete the .llm-wiki folder for this workspace"),
+]
+IncludeInactiveOption = Annotated[
+    bool,
+    typer.Option("--include-inactive", help="Include inactive members"),
+]
+WorkspaceProcessForceOption = Annotated[
+    bool,
+    typer.Option("--force", help="Re-process existing artifacts"),
+]
+ProcessLimitOption = Annotated[
+    int | None,
+    typer.Option("--limit", help="Limit number of members to process"),
+]
+SkipExistingOption = Annotated[
+    bool,
+    typer.Option("--skip-existing", help="Skip members that already have artifacts"),
+]
+ProfileOption = Annotated[
+    str,
+    typer.Option("--profile", help="Extraction profile: pdf-only, default, or advanced"),
+]
+WorkspaceNameOption = Annotated[
+    str | None,
+    typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)"),
+]
+SourceKindOption = Annotated[
+    str,
+    typer.Option("--kind", help="Source kind: tdoc, spec, or other"),
+]
+DryRunOption = Annotated[
+    bool,
+    typer.Option("--dry-run", help="Show what would be removed without removing"),
+]
+
+WorkspaceDirOption = Annotated[
+    Path | None,
+    typer.Option("--dir", "-d", help="Custom workspace data directory (default: ~/.3gpp-crawler/workspaces/<name>)"),
+]
+SourcesDirNameOption = Annotated[
+    str | None,
+    typer.Option("--src-dir", "-s", help="Custom sources subdirectory name (default: 'sources')"),
 ]
