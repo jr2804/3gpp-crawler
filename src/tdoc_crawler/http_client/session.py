@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from gzip import decompress as gzip_decompress
 from pathlib import Path
 from typing import cast
+from zlib import decompress as zlib_decompress
 
+import brotli
 import niquests as requests
 from hishel import SyncBaseStorage, SyncSqliteStorage
 from hishel._core._headers import Headers
@@ -45,16 +48,30 @@ def _niquests_to_internal_request(model: requests.models.PreparedRequest) -> Req
     )
 
 
+def _decompress_body(body: bytes, content_encoding: str) -> bytes:
+    encoding = content_encoding.lower().strip()
+    if encoding == "br":
+        return brotli.decompress(body)
+    if encoding == "gzip":
+        return gzip_decompress(body)
+    if encoding == "deflate":
+        return zlib_decompress(body)
+    return body
+
+
 def _internal_to_niquests_response(model: Response) -> requests.models.Response:
-    """Convert hishel internal response model into niquests response model."""
     response = requests.models.Response()
 
-    body = b"".join(model.stream) if model.stream is not None else b""
+    raw_body = b"".join(model.stream) if model.stream is not None else b""
     metadata_headers = {snake_to_header(key): str(value) for key, value in model.metadata.items()}
+    merged_headers = {**model.headers, **metadata_headers}
+
+    content_encoding = merged_headers.get("content-encoding", "")
+    body = _decompress_body(raw_body, content_encoding) if content_encoding else raw_body
 
     response.raw = HTTPResponse(
-        body=body,
-        headers={**model.headers, **metadata_headers},
+        body=raw_body,
+        headers=merged_headers,
         status=model.status_code,
         preload_content=False,
         decode_content=False,
