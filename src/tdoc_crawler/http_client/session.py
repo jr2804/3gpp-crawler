@@ -248,7 +248,8 @@ def create_cached_session(
         Configured requests.Session with caching enabled (unless disabled)
     """
     # Create session, use requests with browser-like headers to avoid 403 Forbidden
-    session = requests.Session()
+    # Disable HTTP/3 to avoid MustDowngradeError with servers advertising Alt-Svc: h3
+    session = requests.Session(disable_http3=True)
     session.headers.update(BROWSER_HEADERS)
 
     # Use http_config for SSL if no explicit verify provided
