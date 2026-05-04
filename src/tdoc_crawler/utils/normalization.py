@@ -81,6 +81,21 @@ def normalize_spec_number(value: str) -> str:
     return f"{series}.{increment}"
 
 
+def normalize_spec_number_compact(value: str) -> str:
+    """Normalize spec numbers to compact canonical format.
+
+    Args:
+        value: Spec number in dotted or undotted form.
+
+    Returns:
+        Normalized compact spec number (e.g., "26260").
+
+    Raises:
+        ValueError: When the spec number is not in a supported format.
+    """
+    return normalize_spec_number(value).replace(".", "")
+
+
 def _expand_offset_range(cleaned: str) -> Generator[str]:
     """Expand offset range syntax like '26.260+6'."""
     offset_match = _OFFSET_PATTERN.match(cleaned)

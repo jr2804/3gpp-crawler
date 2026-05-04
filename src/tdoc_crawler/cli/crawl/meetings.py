@@ -96,13 +96,15 @@ def crawl_meetings(
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    handle_clear_options(
-        db_file,
-        crawler_config.path.checkout_dir,
-        MeetingDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
-        clear_db=clear_db,
+    asyncio.run(
+        handle_clear_options(
+            db_file,
+            crawler_config.path.checkout_dir,
+            MeetingDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+            clear_db=clear_db,
+        ),
     )
 
     async def run_meeting_crawl() -> object:

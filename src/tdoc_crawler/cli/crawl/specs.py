@@ -57,12 +57,14 @@ def crawl_specs(
 
     sources = build_default_spec_sources()
 
-    handle_clear_options(
-        crawler_config.path.db_file,
-        crawler_config.path.checkout_dir,
-        SpecDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
+    asyncio.run(
+        handle_clear_options(
+            crawler_config.path.db_file,
+            crawler_config.path.checkout_dir,
+            SpecDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        ),
     )
 
     async def crawl_specs_db() -> list:

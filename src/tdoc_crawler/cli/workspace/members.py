@@ -31,7 +31,6 @@ from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.workspaces import SourceKind
-from tdoc_crawler.specs.operations.checkout import resolve_spec_release
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.workspaces import (
@@ -42,6 +41,7 @@ from tdoc_crawler.workspaces import (
     normalize_workspace_name,
     remove_workspace_member,
 )
+from tdoc_crawler.workspaces.utils import resolve_spec_release_from_db
 
 
 def workspace_members(
@@ -78,7 +78,7 @@ def _resolve_spec_release_for_add(
     if source_kind != SourceKind.SPEC:
         return release
     try:
-        resolved = asyncio.run(resolve_spec_release(item, release, auto_crawl=auto_crawl))
+        resolved, _ = asyncio.run(resolve_spec_release_from_db(item, release))
         console.print(f"[dim]  Resolved {item} release '{release}' → {resolved}[/dim]")
         return resolved
     except ValueError as exc:

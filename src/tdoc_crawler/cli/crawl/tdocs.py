@@ -128,12 +128,14 @@ def crawl_tdocs(
 
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
 
-    handle_clear_options(
-        db_file,
-        crawler_config.path.checkout_dir,
-        TDocDatabase,
-        clear_tdocs=clear_tdocs,
-        clear_specs=clear_specs,
+    asyncio.run(
+        handle_clear_options(
+            db_file,
+            crawler_config.path.checkout_dir,
+            TDocDatabase,
+            clear_tdocs=clear_tdocs,
+            clear_specs=clear_specs,
+        ),
     )
 
     async def run_tdoc_crawl() -> tuple:
