@@ -7,8 +7,6 @@ from pathlib import Path
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskID, TextColumn
 
 from tdoc_crawler.database.base import DocDatabase
-from tdoc_crawler.extraction.hybrid_server import HybridServerConfig, ensure_hybrid_server
-from tdoc_crawler.extraction.profiles import ExtractionProfile
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.specs.operations.checkout import clear_checkout_specs
 from tdoc_crawler.tdocs.operations.checkout import clear_checkout_tdocs
@@ -84,28 +82,8 @@ def create_progress_bar(description: str, total: float = 100) -> tuple[Progress,
     return progress, task
 
 
-def ensure_hybrid_server_for_profile(profile: ExtractionProfile) -> bool:
-    """Ensure hybrid server is available for extraction profiles that require it."""
-    if profile != ExtractionProfile.ADVANCED:
-        return True
-
-    config = HybridServerConfig(
-        enrich_formula=True,
-        enrich_picture=True,
-    )
-    console.print(f"[dim]Ensuring hybrid server for profile '{profile.value}'...[/dim]")
-    _, status = ensure_hybrid_server(config=config, auto_start=True, progress_callback=lambda message: console.print(f"[dim]{message}[/dim]"))
-    if status.running:
-        return True
-
-    error = status.error or "unknown startup failure"
-    console.print(f"[red]Hybrid server is not available: {error}[/red]")
-    return False
-
-
 __all__ = [
     "console",
     "create_progress_bar",
-    "ensure_hybrid_server_for_profile",
     "handle_clear_options",
 ]

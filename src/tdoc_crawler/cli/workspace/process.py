@@ -9,17 +9,20 @@ from typing import Any
 
 import typer
 
-from tdoc_crawler.cli._shared import console, create_progress_bar, ensure_hybrid_server_for_profile
+from tdoc_crawler.cli._shared import console, create_progress_bar
 from tdoc_crawler.cli.args import (
+    DeviceOption,
+    FiguresModeOption,
     MdYamlFrontmatterOption,
     ProcessLimitOption,
     ProfileOption,
     SkipExistingOption,
+    TablesModeOption,
     VerbosityOption,
     WorkspaceProcessForceOption,
 )
 from tdoc_crawler.config import resolve_cache_manager
-from tdoc_crawler.extraction.convert import convert_for_wiki
+from tdoc_crawler.extraction.convert import ConversionError, DoclingConfig, convert_for_wiki
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
@@ -95,7 +98,7 @@ def _should_skip_member(
 
 
 def _read_page_count(json_dir: Path) -> int:
-    """Read the number of pages from opendataloader JSON output.
+    """Read page count from Docling JSON output.
 
     Returns 0 if the JSON file is not found or cannot be read.
     """
@@ -104,7 +107,9 @@ def _read_page_count(json_dir: Path) -> int:
         return 0
     try:
         data = json.loads(json_files[0].read_text(encoding="utf-8"))
-        return int(data.get("number of pages", 0))
+        # DoclingDocument stores pages as a list
+        pages = data.get("pages", [])
+        return len(pages) if isinstance(pages, list) else 0
     except json.JSONDecodeError, OSError, ValueError:
         return 0
 
@@ -115,11 +120,12 @@ def _process_member(
     extraction_profile: ExtractionProfile,
     force: bool,
     md_yaml_frontmatter: bool,
+    docling_config: DoclingConfig,
 ) -> tuple[str, bool, bool, int]:
     """Process a single workspace member.
 
     Returns:
-        Tuple of (source_id, succeeded, failed, page_count).
+        Tuple of ``(source_id, succeeded, failed, page_count)``.
     """
     source_id = member.source_item_id
     wiki_source_dir = wiki_source_dir_base / source_id
@@ -132,6 +138,7 @@ def _process_member(
             source_kind=member.source_kind,
             profile=extraction_profile,
             force=force,
+            docling_config=docling_config,
         )
         if result_path:
             suffix = result_path.suffix.lstrip(".")
@@ -139,6 +146,10 @@ def _process_member(
             return source_id, True, False, _read_page_count(wiki_source_dir)
         logger.debug("No output for %s", source_id)
         return source_id, False, False, 0
+    except (ConversionError, FileNotFoundError) as e:
+        console.print(f"[red]  Failed {source_id}: {e}[/red]")
+        logger.error("Failed to process %s: %s", source_id, e)
+        return source_id, False, True, 0
     except Exception as e:
         console.print(f"[red]  Failed {source_id}: {e}[/red]")
         logger.error("Failed to process %s: %s", source_id, e)
@@ -151,6 +162,9 @@ def workspace_process(
     limit: ProcessLimitOption = None,
     skip_existing: SkipExistingOption = False,
     profile: ProfileOption = DEFAULT_EXTRACTION_PROFILE.value,
+    figures: FiguresModeOption = "embed",
+    tables: TablesModeOption = "embed",
+    device: DeviceOption = "auto",
     md_yaml_frontmatter: MdYamlFrontmatterOption = True,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
@@ -168,7 +182,20 @@ def workspace_process(
         console.print(f"[red]Invalid profile '{profile}'. Use: pdf-only, default, advanced[/red]")
         raise typer.Exit(1)
 
-    console.print(f"[yellow]Processing workspace '{normalized}' with profile '{extraction_profile.value}'...[/yellow]")
+    # Validate figure/table mode options
+    if figures not in ("embed", "reference"):
+        console.print(f"[red]Invalid figures mode '{figures}'. Use: embed, reference[/red]")
+        raise typer.Exit(1)
+    if tables not in ("embed", "csv"):
+        console.print(f"[red]Invalid tables mode '{tables}'. Use: embed, csv[/red]")
+        raise typer.Exit(1)
+    if device not in ("auto", "cpu", "cuda", "mps"):
+        console.print(f"[red]Invalid device '{device}'. Use: auto, cpu, cuda, mps[/red]")
+        raise typer.Exit(1)
+
+    docling_config = DoclingConfig(figures_mode=figures, tables_mode=tables, device=device)
+
+    console.print(f"[yellow]Processing workspace '{normalized}' with profile '{extraction_profile.value}' (figures={figures}, tables={tables})...[/yellow]")
 
     try:
         members = list_workspace_members(normalized, include_inactive=False)
@@ -182,9 +209,6 @@ def workspace_process(
 
     if limit is not None:
         members = members[:limit]
-
-    if not ensure_hybrid_server_for_profile(extraction_profile):
-        raise typer.Exit(1)
 
     cache_manager = resolve_cache_manager()
     metadata = get_workspace(normalized)
@@ -220,6 +244,7 @@ def workspace_process(
                 extraction_profile,
                 force,
                 md_yaml_frontmatter,
+                docling_config,
             )
             if succeeded:
                 processed += 1

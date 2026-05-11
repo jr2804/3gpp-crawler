@@ -196,6 +196,27 @@ ProfileOption = Annotated[
     str,
     typer.Option("--profile", help="Extraction profile: pdf-only, default, or advanced"),
 ]
+FiguresModeOption = Annotated[
+    str,
+    typer.Option(
+        "--figures",
+        help="Figure handling: embed (placeholder in markdown) or reference (extract image files)",
+    ),
+]
+TablesModeOption = Annotated[
+    str,
+    typer.Option(
+        "--tables",
+        help="Table handling: embed (in markdown) or csv (separate CSV files)",
+    ),
+]
+DeviceOption = Annotated[
+    str,
+    typer.Option(
+        "--device",
+        help="Accelerator device: auto (detect), cpu, cuda, or mps",
+    ),
+]
 WorkspaceNameOption = Annotated[
     str | None,
     typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)"),

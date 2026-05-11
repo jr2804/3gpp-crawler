@@ -1,7 +1,7 @@
 """Extraction pipeline for 3GPP documents.
 
 This package provides document conversion, PDF processing, and
-extraction operations using OpenDataLoader and LibreOffice.
+extraction operations using Docling and LibreOffice.
 """
 
 from tdoc_crawler.extraction.conversion import (
@@ -12,21 +12,12 @@ from tdoc_crawler.extraction.conversion import (
     is_office_format,
 )
 from tdoc_crawler.extraction.convert import (
-    OpendataloaderConfig,
-    convert_document_to_markdown,
-    convert_tdoc_metadata,
-    convert_tdoc_to_markdown,
-    extract_document_structured_from_tdoc,
+    ConversionError,
+    DoclingConfig,
+    convert_for_wiki,
 )
+from tdoc_crawler.extraction.fetch_spec import SpecFiles, fetch_spec_files
 from tdoc_crawler.extraction.fetch_tdoc import TDocFiles, fetch_tdoc_files
-from tdoc_crawler.extraction.hybrid_server import (
-    DEFAULT_URL,
-    HybridServerConfig,
-    HybridServerManager,
-    HybridServerStatus,
-    ensure_hybrid_server,
-    get_manager,
-)
 from tdoc_crawler.extraction.metrics import (
     DocumentMetric,
     MetricsTracker,
@@ -39,28 +30,22 @@ from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, Extract
 
 __all__ = [
     "DEFAULT_EXTRACTION_PROFILE",
-    "DEFAULT_URL",
     "OFFICE_FORMATS",
+    "ConversionError",
     "ConverterBackend",
     "ConverterConfig",
+    "DoclingConfig",
     "DocumentMetric",
     "ExtractionProfile",
-    "HybridServerConfig",
-    "HybridServerManager",
-    "HybridServerStatus",
     "MetricType",
     "MetricsTracker",
-    "OpendataloaderConfig",
+    "SpecFiles",
     "TDocFiles",
     "TimedOperationResult",
-    "convert_document_to_markdown",
-    "convert_tdoc_metadata",
-    "convert_tdoc_to_markdown",
+    "convert_for_wiki",
     "convert_to_pdf",
-    "ensure_hybrid_server",
-    "extract_document_structured_from_tdoc",
+    "fetch_spec_files",
     "fetch_tdoc_files",
-    "get_manager",
     "get_metrics_tracker",
     "is_office_format",
     "timed_operation",

@@ -90,7 +90,7 @@ run = [
 run = [
     "cls",
     # python & programming skills
-    "npx -y skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate -s code-deduplication, -s coding-discipline -s output-quality",
+    "npx -y skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate -s code-deduplication -s docling-document-intelligence -s coding-discipline -s output-quality",
     "npx -y skills add https://github.com/jiatastic/open-python-skills -a universal -y -s ty-skills -s pydantic",
     "npx -y skills add https://github.com/glaforge/deslopify -a universal -y",
 
