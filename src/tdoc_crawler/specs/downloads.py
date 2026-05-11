@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import niquests as requests
-from zipinspect import HTTPZipReader
+from unzip_http import RemoteZipFile
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
@@ -232,29 +232,22 @@ class SpecDownloads:
     async def _attempt_doc_only_async(url: str, normalized: str, target_dir: Path) -> bool:
         """Attempt to download only the document file from remote zip."""
         try:
-            async with HTTPZipReader(url) as reader:
-                # entries is populated by __aenter__ via load_entries()
-                # Find doc entry using .path (not .filename)
-                entries = reader.entries
-                if entries is None:
-                    _logger.info("Doc-only: No entries found in %s", url)
-                    return False
-
-                doc_file = _select_doc_entry([e.path for e in entries], normalized)
-
-                if not doc_file:
-                    _logger.info("Doc-only: No document found in %s", url)
-                    return False
-
-                # Extract matching entries to target_dir
-                for entry in entries:
-                    if entry.path == doc_file:
-                        target_file = target_dir / doc_file.split("/")[-1]
-                        with target_file.open("wb") as f:
-                            async for _ in reader.extract(entry, f):
-                                pass
-                        return True
+            rzf = RemoteZipFile(url)
+            entries = rzf.namelist()
+            if not entries:
+                _logger.info("Doc-only: No entries found in %s", url)
                 return False
+
+            doc_file = _select_doc_entry(entries, normalized)
+
+            if not doc_file:
+                _logger.info("Doc-only: No document found in %s", url)
+                return False
+
+            target_file = target_dir / doc_file.split("/")[-1]
+            with target_file.open("wb") as f:
+                f.write(rzf.open(doc_file).read())
+            return True
         except Exception as exc:
             _logger.warning("Doc-only download failed for %s: %s", url, exc)
             return False

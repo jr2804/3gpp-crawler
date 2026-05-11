@@ -109,7 +109,7 @@ Two workspace dependencies are sourced from git:
 | `packaging` | `>=25.0` | Version string parsing and normalization |
 | `pandas` | `>=3.0.0` | Data manipulation and analysis |
 | `python-dotenv` | `>=1.1.1` | `.env` file auto-loading (`load_dotenv()`) |
-| `zipinspect` | `>=0.1.2` | ZIP archive inspection |
+| `unzip-http` | `>=0.7` | Remote ZIP extraction over HTTP |
 | `aiointerpreters` | `>=0.4.0` | Async subinterpreter management for parallel crawling |
 | `pool-executors` | workspace | Thread/process/subinterpreter pool abstractions |
 
@@ -234,6 +234,7 @@ Detection logic: tries `asyncio.get_running_loop()`, falls back to `asyncio.run(
 ## Platform Requirements
 
 ### Development
+
 - Python 3.13+ (3.14+ preferred for subinterpreter support)
 - Git (for version tagging via uv-dynamic-versioning)
 - `uv` package manager (`pip install uv`)

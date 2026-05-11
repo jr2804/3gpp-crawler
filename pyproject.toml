@@ -5,7 +5,7 @@ description = "Crawl 3GPP FTP server, cache all(!) 3GPP document data, return st
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.14,<4.0"
+requires-python = ">=3.13,<3.14"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
@@ -15,15 +15,14 @@ classifiers = [
 ]
 
 dependencies = [
-    "aiointerpreters>=0.4.0",
     "beautifulsoup4>=4.14.2",
     "brotli>=1.2.0",
     "convert-lo",
     # "doc2txt>=1.0.8",
     "hishel>=1.1.8",
     "liteparse>=1.2.0",
-    "docling>=2.92.0",
-    "packaging>=25.0",
+    "docling>=2.93.0",
+    "packaging>=24.0",
     "pandas>=3.0.0",
     "pydantic>=2.12.2",
     "python-calamine>=0.5.3",
@@ -32,7 +31,7 @@ dependencies = [
     "rich>=14.2.0",
     "typer>=0.19.2",
     "xlsxwriter>=3.2.9",
-    "zipinspect>=0.1.2",
+    "unzip-http>=0.7",
     "lxml>=6.0.2",
     "pool-executors",
     "oxyde>=0.4.0",
@@ -41,7 +40,7 @@ dependencies = [
     "toon-format",
     "pydantic-settings>=2.13.1",
     "niquests>=3.18.4",
-    "opencv-python-headless>=4.13.0.92",
+    "opencv-python-headless>=4.13.0.92"
 ]
 
 [project.urls]

@@ -47,7 +47,7 @@ def _read_json_profile(json_path: Path) -> str:
     try:
         data = json.loads(json_path.read_text(encoding="utf-8"))
         return data.get("extraction_profile", "")
-    except json.JSONDecodeError, OSError:
+    except (json.JSONDecodeError, OSError):
         return ""
 
 
@@ -110,7 +110,7 @@ def _read_page_count(json_dir: Path) -> int:
         # DoclingDocument stores pages as a list
         pages = data.get("pages", [])
         return len(pages) if isinstance(pages, list) else 0
-    except json.JSONDecodeError, OSError, ValueError:
+    except (json.JSONDecodeError, OSError, ValueError):
         return 0
 
 

@@ -5,14 +5,14 @@ modelling conventions for the 3gpp-crawler project.
 
 ## Python Version
 
-Python 3.14+ only (requires-python = ">=3.14,<4.0").
-Code can use all 3.14 features (T | None is native and preferred).
+Python 3.13+ only (requires-python = ">=3.13,<4.0").
+Code can use all 3.13 features (T | None is native and preferred).
 
 ## Code Style
 
 ### Type Hints
 
-- **Use T | None, never Optional[T].** The project uses Python 3.14 and
+- **Use T | None, never Optional[T].** The project uses Python 3.13 and
   `from __future__ import annotations` in all files, so `str | None` is universal.
 - **Use list[X], dict[K, V], tuple[X, ...]** from builtins -- never
   typing.List, typing.Dict, etc.
@@ -233,7 +233,8 @@ tdoc_app.command("ct", rich_help_panel=HELP_PANEL_CRAWLING, hidden=True)(crawl_t
 ## Ruff Configuration
 
 See ruff.toml:
-- target-version = "py314"
+
+- target-version = "py313"
 - line-length = 160
 - preview = true
 - Selected rule sets: E, F, C4, C90, D, I, PT, PL, SIM, UP, W, S, ANN, B, NPY

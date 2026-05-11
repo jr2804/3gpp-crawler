@@ -92,7 +92,7 @@ def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | N
                 actual_filename = posixpath.basename(full_url)
                 if actual_filename.lower() == expected_lower:
                     return full_url
-    except requests.RequestException, OSError:
+    except (requests.RequestException, OSError):
         logger.debug(f"Failed to fetch directory listing from {directory_url}")
 
     return None
