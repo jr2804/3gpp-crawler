@@ -217,6 +217,13 @@ DeviceOption = Annotated[
         help="Accelerator device: auto (detect), cpu, cuda, or mps",
     ),
 ]
+DocxDirectOption = Annotated[
+    bool,
+    typer.Option(
+        "--docx-direct",
+        help="Feed .docx/.doc directly to backend, skip LibreOffice PDF conversion",
+    ),
+]
 WorkspaceNameOption = Annotated[
     str | None,
     typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)"),

@@ -12,6 +12,7 @@ import typer
 from tdoc_crawler.cli._shared import console, create_progress_bar
 from tdoc_crawler.cli.args import (
     DeviceOption,
+    DocxDirectOption,
     FiguresModeOption,
     MdYamlFrontmatterOption,
     ProcessLimitOption,
@@ -37,8 +38,9 @@ logger = get_logger(__name__)
 
 _PROFILE_LEVELS = {
     ExtractionProfile.PDF_ONLY: 0,
-    ExtractionProfile.DEFAULT: 1,
-    ExtractionProfile.ADVANCED: 2,
+    ExtractionProfile.MARKDOWN_ONLY: 1,
+    ExtractionProfile.DEFAULT: 2,
+    ExtractionProfile.ADVANCED: 3,
 }
 
 
@@ -73,8 +75,15 @@ def _should_skip_member(
     member_dir = wiki_base / source_id
 
     if profile == ExtractionProfile.PDF_ONLY:
-        if list(member_dir.glob("*.pdf")):
-            logger.debug("Skipping %s — PDF exists", source_id)
+        check_glob, label = "*.pdf", "PDF"
+    elif profile == ExtractionProfile.MARKDOWN_ONLY:
+        check_glob, label = "*.md", "Markdown"
+    else:
+        check_glob, label = None, None
+
+    if check_glob is not None:
+        if list(member_dir.glob(check_glob)):
+            logger.debug("Skipping %s — %s exists", source_id, label)
             return True
         return False
 
@@ -121,6 +130,7 @@ def _process_member(
     force: bool,
     md_yaml_frontmatter: bool,
     docling_config: DoclingConfig,
+    docx_direct: bool = False,
 ) -> tuple[str, bool, bool, int]:
     """Process a single workspace member.
 
@@ -139,6 +149,7 @@ def _process_member(
             profile=extraction_profile,
             force=force,
             docling_config=docling_config,
+            docx_direct=docx_direct,
         )
         if result_path:
             suffix = result_path.suffix.lstrip(".")
@@ -165,6 +176,7 @@ def workspace_process(
     figures: FiguresModeOption = "embed",
     tables: TablesModeOption = "embed",
     device: DeviceOption = "auto",
+    docx_direct: DocxDirectOption = False,
     md_yaml_frontmatter: MdYamlFrontmatterOption = True,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
@@ -179,7 +191,7 @@ def workspace_process(
     try:
         extraction_profile = ExtractionProfile(profile)
     except ValueError:
-        console.print(f"[red]Invalid profile '{profile}'. Use: pdf-only, default, advanced[/red]")
+        console.print(f"[red]Invalid profile '{profile}'. Use: pdf-only, markdown-only, default, advanced[/red]")
         raise typer.Exit(1)
 
     # Validate figure/table mode options
@@ -245,6 +257,7 @@ def workspace_process(
                 force,
                 md_yaml_frontmatter,
                 docling_config,
+                docx_direct,
             )
             if succeeded:
                 processed += 1
