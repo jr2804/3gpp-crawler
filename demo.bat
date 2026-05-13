@@ -40,4 +40,5 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 
 :: convert tdocs/specs to PDF/artefacts for AI processing (portable fallback profile)
 :: 3gpp-crawler workspace process --profile pdf-only
-3gpp-crawler workspace process --profile default
+3gpp-crawler workspace process --profile markdown-only --docx-direct --device cuda
+:: 3gpp-crawler workspace process --profile default
