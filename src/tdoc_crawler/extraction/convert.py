@@ -1,78 +1,227 @@
-"""Document to structured Markdown/JSON conversion using Docling.
+"""Document conversion orchestrator — PDF generation + structured extraction.
 
 After checkout/fetch, all source types (TDocs, Specs, Other) are treated as
-generic documents.  Three extraction profiles are supported:
+generic documents.  Four extraction profiles are supported:
 
 - **pdf-only**:  Convert to PDF only (via LibreOffice).  No structured extraction.
+- **markdown-only**:  Fast markitdown extraction (.md only, no ML).
 - **default**:   PDF → Docling structured output (Markdown + JSON).
 - **advanced**:  Same as default + picture descriptions, code/formula enrichment.
 """
 
 from __future__ import annotations
 
-import csv
-import json
 import logging
+import os
 import re
+import shutil
+import tempfile
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
 
-from docling.datamodel.accelerator_options import AcceleratorOptions
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling_core.types.doc.base import ImageRefMode
+import niquests as requests
+from convert_lo import LibreOfficeFormat
+from convert_lo.converter import Converter
 
 from tdoc_crawler.config.settings import PathConfig
-from tdoc_crawler.extraction.conversion import ensure_pdf
+from tdoc_crawler.extraction.docling import (
+    DoclingConfig,
+    _run_docling,
+)
+from tdoc_crawler.extraction.errors import ConversionError
 from tdoc_crawler.extraction.fetch_tdoc import fetch_spec_files as fetch_spec_files_from_tdoc
 from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
+from tdoc_crawler.extraction.markitdown import _run_markitdown
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
+from tdoc_crawler.utils.security import validate_api_url
 from tdoc_crawler.workspaces import checkout_spec_to_workspace
 
 logger = logging.getLogger(__name__)
 
-__all__ = [
-    "ConversionError",
-    "DoclingConfig",
-    "convert_for_wiki",
-]
+# File suffixes that can be fed directly to backends (no LibreOffice PDF step).
+_DOCX_SUFFIXES: frozenset[str] = frozenset({".docx"})
 
 
-class ConversionError(Exception):
-    """Raised when document conversion fails."""
+# ---------------------------------------------------------------------------
+# PDF conversion (LibreOffice / remote API)
+# ---------------------------------------------------------------------------
+
+# File formats that need PDF conversion.
+OFFICE_FORMATS: frozenset[str] = frozenset(
+    {".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".rtf", ".odt", ".odp", ".ods"},
+)
 
 
-class DoclingConfig:
-    """Configuration for Docling conversion.
+class ConverterBackend(Enum):
+    """PDF conversion backends."""
 
-    Args:
-        figures_mode: How to handle figures in output.
-            - ``"embed"``: Placeholder in markdown, data in JSON (default).
-            - ``"reference"``: Extract figure images, reference via URI in markdown.
-        tables_mode: How to handle tables in output.
-            - ``"embed"``: Tables embedded in markdown (default).
-            - ``"csv"``: Tables exported as separate CSV files alongside the JSON.
-        device: Accelerator device for Docling models.
-            - ``"auto"``: Auto-detect (CUDA if available, else CPU).
-            - ``"cpu"``: Force CPU-only (avoids CUDA warnings).
-            - ``"cuda"``: Force NVIDIA CUDA GPU.
-            - ``"mps"``: Force Apple Metal Performance Shaders.
+    LIBREOFFICE = "libreoffice"
+    REMOTE = "remote"
+    AUTO = "auto"
+
+
+@dataclass
+class ConverterConfig:
+    """PDF converter configuration."""
+
+    backend: ConverterBackend = ConverterBackend.AUTO
+    api_key: str | None = None
+    api_base: str = "https://pdf-convert.3gpp.org"
+
+    @classmethod
+    def from_env(cls) -> ConverterConfig:
+        """Build converter config from environment variables.
+
+        Supported variables:
+        - ``PDF_REMOTE_API_KEY``: API key for remote converter
+        - ``PDF_REMOTE_API_BASE``: Base URL for remote converter API
+        """
+        return cls(
+            api_key=os.getenv("PDF_REMOTE_API_KEY"),
+            api_base=os.getenv("PDF_REMOTE_API_BASE", "https://pdf-convert.3gpp.org"),
+        )
+
+
+def is_office_format(source_file: Path) -> bool:
+    """Check if a file is an Office document that needs PDF conversion."""
+    return source_file.suffix.lower() in OFFICE_FORMATS
+
+
+def ensure_pdf(
+    source_file: Path,
+    output_dir: Path,
+    *,
+    force: bool = False,
+    config: ConverterConfig | None = None,
+) -> Path:
+    """Ensure a PDF version of *source_file* exists in *output_dir*.
+
+    For office documents, converts via LibreOffice (or remote fallback).
+    For native PDFs, copies.  Uses cached conversion when available.
     """
+    pdf_path = output_dir / f"{source_file.stem}.pdf"
 
-    def __init__(
-        self,
-        figures_mode: Literal["embed", "reference"] = "embed",
-        tables_mode: Literal["embed", "csv"] = "embed",
-        device: Literal["auto", "cpu", "cuda", "mps"] = "auto",
-    ) -> None:
-        self.figures_mode = figures_mode
-        self.tables_mode = tables_mode
-        self.device = device
+    if pdf_path.exists() and not force:
+        return pdf_path
+
+    if is_office_format(source_file):
+        return convert_to_pdf(source_file, output_dir, force=force, config=config)
+
+    # Native PDF — copy to output.
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_file, pdf_path)
+    return pdf_path
+
+
+def convert_to_pdf(
+    source_file: Path,
+    output_dir: Path,
+    *,
+    force: bool = False,
+    config: ConverterConfig | None = None,
+) -> Path:
+    """Convert an Office document to PDF.
+
+    Selects the appropriate backend and falls back from local to remote
+    when using ``AUTO``.
+
+    Raises:
+        ConversionError: If conversion fails with all available backends.
+        FileNotFoundError: If the input file does not exist.
+    """
+    if not source_file.exists():
+        msg = f"Input file not found: {source_file}"
+        raise FileNotFoundError(msg)
+
+    if not is_office_format(source_file):
+        msg = f"Unsupported file format: {source_file.suffix}"
+        raise ConversionError(msg)
+
+    config = config or ConverterConfig.from_env()
+    output_file = output_dir / f"{source_file.stem}.pdf"
+
+    if not force and output_file.exists():
+        logger.debug("Using cached PDF: %s", output_file)
+        return output_file
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if config.backend == ConverterBackend.REMOTE:
+        return _convert_via_remote(source_file, output_dir, config)
+    if config.backend == ConverterBackend.LIBREOFFICE:
+        return _convert_via_libreoffice(source_file, output_dir)
+
+    # AUTO: try local, fall back to remote.
+    try:
+        return _convert_via_libreoffice(source_file, output_dir)
+    except ConversionError as e:
+        logger.warning("LibreOffice conversion failed for %s: %s", source_file.name, e)
+        logger.info("Falling back to remote converter for %s", source_file.name)
+        return _convert_via_remote(source_file, output_dir, config)
+
+
+def _convert_via_libreoffice(source_file: Path, output_dir: Path) -> Path:
+    """Convert Office document to PDF via local LibreOffice (headless mode)."""
+    output_file = output_dir / f"{source_file.stem}.pdf"
+
+    try:
+        converter = Converter()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = converter.convert(source_file, LibreOfficeFormat.PDF, Path(tmpdir))
+            if result is None or result.output_file is None:
+                msg = f"LibreOffice returned empty result for {source_file.name}"
+                raise ConversionError(msg)
+            output_file.write_bytes(result.output_file.read_bytes())
+
+        logger.info("Converted %s to PDF via LibreOffice: %s", source_file.name, output_file)
+        return output_file
+
+    except ConversionError:
+        raise
+    except Exception as e:
+        msg = f"LibreOffice conversion failed for {source_file.name}: {e}"
+        logger.exception(msg)
+        raise ConversionError(msg) from e
+
+
+def _convert_via_remote(
+    source_file: Path,
+    output_dir: Path,
+    config: ConverterConfig | None = None,
+) -> Path:
+    """Convert Office document to PDF via remote API (fallback)."""
+    config = config or ConverterConfig.from_env()
+    validate_api_url(config.api_base)
+    output_file = output_dir / f"{source_file.stem}.pdf"
+
+    try:
+        with source_file.open("rb") as f:
+            files = {"file": (source_file.name, f, "application/octet-stream")}
+            headers: dict[str, str] = {}
+            if config.api_key:
+                headers["X-API-Key"] = config.api_key
+
+            response = requests.post(
+                f"{config.api_base}/convert",
+                files=files,
+                headers=headers,
+                timeout=300,
+            )
+            response.raise_for_status()
+            output_file.write_bytes(response.content)
+
+        logger.info("Converted %s to PDF via remote API: %s", source_file.name, output_file)
+        return output_file
+
+    except requests.RequestException as e:
+        msg = f"Remote conversion failed for {source_file.name}: {e}"
+        logger.exception(msg)
+        raise ConversionError(msg) from e
 
 
 # ---------------------------------------------------------------------------
@@ -89,18 +238,6 @@ def _resolve_source_files(
 ) -> Path:
     """Resolve source document files and return the primary path.
 
-    Handles the source-kind-specific checkout/fetch, then returns
-    the primary document path for generic conversion.
-
-    Args:
-        document_id: Document identifier.
-        source_kind: Type of source.
-        source_path: Optional explicit path to source.
-        force: Force re-download.
-
-    Returns:
-        Path to the primary source document.
-
     Raises:
         ConversionError: If no document files can be found.
     """
@@ -115,11 +252,7 @@ def _resolve_source_files(
         else:
             checkout_base = PathConfig().checkout_dir
             actual_path = run_async(
-                checkout_spec_to_workspace(
-                    spec_number,
-                    checkout_base,
-                    release=spec_release,
-                ),
+                checkout_spec_to_workspace(spec_number, checkout_base, release=spec_release),
             )
 
         if actual_path is None:
@@ -140,149 +273,6 @@ def _resolve_source_files(
 
 
 # ---------------------------------------------------------------------------
-# Docling pipeline configuration
-# ---------------------------------------------------------------------------
-
-
-def _build_pipeline_options(
-    profile: ExtractionProfile,
-    *,
-    device: Literal["auto", "cpu", "cuda", "mps"] = "auto",
-) -> PdfPipelineOptions:
-    """Build Docling ``PdfPipelineOptions`` for the given extraction profile.
-
-    Args:
-        profile: Extraction profile level.
-        device: Accelerator device (auto, cpu, cuda, mps).
-
-    Returns:
-        Configured ``PdfPipelineOptions``.
-    """
-    pipeline_opts = PdfPipelineOptions(
-        accelerator_options=AcceleratorOptions(device=device),
-    )
-
-    if profile == ExtractionProfile.ADVANCED:
-        pipeline_opts.do_picture_description = True
-        pipeline_opts.do_code_enrichment = True
-        pipeline_opts.do_formula_enrichment = True
-
-    return pipeline_opts
-
-
-# ---------------------------------------------------------------------------
-# Core Docling conversion
-# ---------------------------------------------------------------------------
-
-
-def _run_docling(
-    input_file: Path,
-    output_dir: Path,
-    *,
-    profile: ExtractionProfile,
-    config: DoclingConfig | None = None,
-) -> tuple[str, Path, int]:
-    """Run Docling conversion on a document file.
-
-    Args:
-        input_file: Path to the input document (typically PDF).
-        output_dir: Directory for output files (``.md``, ``.json``).
-        profile: Extraction profile to use.
-        config: Optional Docling configuration.
-
-    Returns:
-        Tuple of ``(markdown_content, json_path, page_count)``.
-
-    Raises:
-        ConversionError: If conversion fails.
-    """
-    config = config or DoclingConfig()
-    pipeline_opts = _build_pipeline_options(profile, device=config.device)
-
-    converter = DocumentConverter(
-        allowed_formats=[InputFormat.PDF],
-        format_options={
-            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts),
-        },
-    )
-
-    try:
-        result = converter.convert(input_file)
-    except Exception as e:
-        msg = f"Docling conversion failed for {input_file.name}: {e}"
-        logger.exception(msg)
-        raise ConversionError(msg) from e
-
-    stem = input_file.stem
-    md_path = output_dir / f"{stem}.md"
-    json_path = output_dir / f"{stem}.json"
-
-    # --- Export markdown ---
-    if config.figures_mode == "reference":
-        result.document.save_as_markdown(
-            md_path,
-            image_mode=ImageRefMode.REFERENCED,
-        )
-        markdown_content = md_path.read_text(encoding="utf-8")
-    else:
-        markdown_content = result.document.export_to_markdown(
-            image_mode=ImageRefMode.PLACEHOLDER,
-        )
-        md_path.write_text(markdown_content, encoding="utf-8")
-
-    # --- Export JSON (DoclingDocument schema) ---
-    result.document.save_as_json(json_path)
-
-    # Enrich JSON with extraction metadata
-    _enrich_json_metadata(json_path, profile, input_file)
-
-    # --- Export tables as CSV if requested ---
-    if config.tables_mode == "csv":
-        _export_tables_as_csv(result, output_dir, stem)
-
-    page_count = getattr(result.input, "page_count", 0) or 0
-
-    return markdown_content, json_path, page_count
-
-
-def _enrich_json_metadata(json_path: Path, profile: ExtractionProfile, source_file: Path) -> None:
-    """Add extraction metadata to the DoclingDocument JSON output."""
-    try:
-        data = json.loads(json_path.read_text(encoding="utf-8"))
-        if isinstance(data, dict):
-            data["extraction_profile"] = profile.value
-            data["source_file"] = str(source_file)
-        json_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    except (OSError, json.JSONDecodeError) as e:
-        logger.warning("Failed to enrich JSON metadata: %s", e)
-
-
-def _export_tables_as_csv(result: Any, output_dir: Path, stem: str) -> None:
-    """Export tables from DoclingDocument as CSV files.
-
-    Each table is written to ``{stem}_table_{index}.csv`` in the output directory.
-    """
-    doc = result.document
-    tables = doc.tables if doc else []
-
-    for i, table_item in enumerate(tables):
-        try:
-            tbl_data = table_item.data
-            if tbl_data is None or not hasattr(tbl_data, "grid"):
-                continue
-
-            csv_path = output_dir / f"{stem}_table_{i}.csv"
-            with csv_path.open("w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                for row in tbl_data.grid:
-                    cells = [cell.text if hasattr(cell, "text") else str(cell) for cell in (row.cells if hasattr(row, "cells") else [])]
-                    writer.writerow(cells)
-
-        except Exception as e:
-            logger.warning("Failed to export table %d as CSV: %s", i, e)
-
-
-# ---------------------------------------------------------------------------
 # Public conversion entry point
 # ---------------------------------------------------------------------------
 
@@ -296,12 +286,20 @@ def convert_for_wiki(
     profile: ExtractionProfile | None = None,
     force: bool = False,
     docling_config: DoclingConfig | None = None,
+    docx_direct: bool = False,
+    extract_media: bool = False,
 ) -> Path | None:
     """Convert a document for wiki ingestion using the specified profile.
 
+    For **markdown-only** the pipeline is:
+    1. Convert legacy ``.doc`` files to PDF (via LibreOffice) — they are binary
+       format and cannot be processed directly by markitdown.
+    2. Feed ``.docx`` or PDF to markitdown — no ML, no JSON.
+    3. Write ``.md`` to *wiki_source_dir*.
+
     For **default** and **advanced** profiles the pipeline is:
-    1. Convert to PDF (via LibreOffice) if not already PDF.
-    2. Feed the PDF to Docling for structured extraction.
+    1. Convert to PDF (via LibreOffice) if not already PDF, unless docx_direct.
+    2. Feed to Docling for structured extraction.
     3. Write Markdown + JSON to *wiki_source_dir*.
 
     Args:
@@ -312,9 +310,12 @@ def convert_for_wiki(
         profile: Extraction profile. Defaults to ``DEFAULT_EXTRACTION_PROFILE``.
         force: Force reconversion.
         docling_config: Optional Docling-specific configuration (figure/table modes).
+        docx_direct: Feed .docx directly to backend, skip LibreOffice PDF step.
+        extract_media: Extract embedded images to ``./media/`` next to the
+            markdown (markdown-only profile, .docx only).
 
     Returns:
-        Path to the primary output file (PDF for pdf-only, MD for default/advanced),
+        Path to the primary output file (PDF for pdf-only, MD for others),
         or ``None`` if conversion fails.
     """
     if profile is None:
@@ -334,21 +335,51 @@ def convert_for_wiki(
     if profile == ExtractionProfile.PDF_ONLY:
         return ensure_pdf(primary, wiki_source_dir, force=force)
 
-    # Step 2b: default/advanced → ensure PDF first, then Docling
-    pdf_path = ensure_pdf(primary, wiki_source_dir, force=force)
+    # Step 2b: markdown-only → fast markitdown, .md only
+    if profile == ExtractionProfile.MARKDOWN_ONLY:
+        md_file = wiki_source_dir / f"{primary.stem}.md"
+        if not force and md_file.exists():
+            logger.debug("Skipping %s — markdown already exists", document_id)
+            return md_file
+        # Legacy .doc files (binary format) cannot be processed directly;
+        # convert to PDF first, then run markitdown on the PDF.
+        input_for_markitdown = primary
+        if primary.suffix.lower() == ".doc":
+            input_for_markitdown = ensure_pdf(primary, wiki_source_dir, force=force)
+        with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
+            return _run_markitdown(input_for_markitdown, wiki_source_dir, extract_media=extract_media)
+
+    # Step 2c: default/advanced → check existing output before running Docling
+    md_file = wiki_source_dir / f"{primary.stem}.md"
+    json_file = wiki_source_dir / f"{primary.stem}.json"
+    if not force and md_file.exists() and json_file.exists():
+        logger.debug("Skipping %s — output already exists", document_id)
+        return md_file
+
+    # Step 2d: ensure PDF first (unless docx-direct), then Docling
+    is_docx_direct = docx_direct and primary.suffix.lower() in _DOCX_SUFFIXES
+    input_for_docling = primary if is_docx_direct else ensure_pdf(primary, wiki_source_dir, force=force)
 
     with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
-        _, json_path, _ = _run_docling(
-            pdf_path,
+        _, _, _ = _run_docling(
+            input_for_docling,
             wiki_source_dir,
             profile=profile,
             config=docling_config,
+            docx_direct=is_docx_direct,
         )
 
-    # Write final markdown
-    md_file = wiki_source_dir / f"{primary.stem}.md"
-    if not md_file.exists():
-        # _run_docling already wrote it; this is a safety net
-        pass
-
     return md_file
+
+
+__all__ = [
+    "OFFICE_FORMATS",
+    "ConversionError",
+    "ConverterBackend",
+    "ConverterConfig",
+    "DoclingConfig",
+    "convert_for_wiki",
+    "convert_to_pdf",
+    "ensure_pdf",
+    "is_office_format",
+]

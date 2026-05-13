@@ -4,17 +4,15 @@ This package provides document conversion, PDF processing, and
 extraction operations using Docling and LibreOffice.
 """
 
-from tdoc_crawler.extraction.conversion import (
+from tdoc_crawler.extraction.convert import (
     OFFICE_FORMATS,
+    ConversionError,
     ConverterBackend,
     ConverterConfig,
-    convert_to_pdf,
-    is_office_format,
-)
-from tdoc_crawler.extraction.convert import (
-    ConversionError,
     DoclingConfig,
     convert_for_wiki,
+    convert_to_pdf,
+    is_office_format,
 )
 from tdoc_crawler.extraction.fetch_spec import SpecFiles, fetch_spec_files
 from tdoc_crawler.extraction.fetch_tdoc import TDocFiles, fetch_tdoc_files

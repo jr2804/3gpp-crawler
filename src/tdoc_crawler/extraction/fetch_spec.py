@@ -13,7 +13,7 @@ from pathlib import Path
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
-from tdoc_crawler.extraction.conversion import OFFICE_FORMATS
+from tdoc_crawler.extraction.convert import OFFICE_FORMATS
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.utils.normalization import normalize_spec_number
