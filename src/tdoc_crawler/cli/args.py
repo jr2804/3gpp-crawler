@@ -224,6 +224,13 @@ DocxDirectOption = Annotated[
         help="Feed .docx/.doc directly to backend, skip LibreOffice PDF conversion",
     ),
 ]
+ExtractMediaOption = Annotated[
+    bool,
+    typer.Option(
+        "--extract-media",
+        help="Extract embedded images to a ./media folder next to the markdown",
+    ),
+]
 WorkspaceNameOption = Annotated[
     str | None,
     typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)"),
