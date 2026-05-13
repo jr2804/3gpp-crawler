@@ -1,25 +1,16 @@
-"""Meeting crawler for retrieving meeting metadata from 3GPP portal."""
+"""Meeting crawler for retrieving meeting metadata from 3GPP portal REST API."""
 
 from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
-from tdoc_crawler.constants.urls import MEETINGS_BASE_URL
-from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database.meetings import MeetingDatabase
-from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
-from tdoc_crawler.models.subworking_groups import (
-    CODE_INDEX,
-    SUBWORKING_GROUP_RECORDS,
-    SubWorkingGroupRecord,
-)
+from tdoc_crawler.meetings.sources.portal import fetch_meetings
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.parsers.meetings import parse_meeting_page
 
 logger = get_logger(__name__)
 
@@ -35,10 +26,9 @@ class MeetingCrawlResult:
 
 
 class MeetingCrawler:
-    """Crawler fetching meeting metadata from the 3GPP portal."""
+    """Crawler fetching meeting metadata from the 3GPP portal REST API."""
 
     def __init__(self, database: MeetingDatabase) -> None:
-
         if not isinstance(database, MeetingDatabase):
             msg = f"Expected MeetingDatabase, got {type(database)}"
             raise TypeError(msg)
@@ -49,84 +39,83 @@ class MeetingCrawler:
         config: MeetingCrawlConfig,
         progress_callback: Callable[[float, float], None] | None = None,
     ) -> MeetingCrawlResult:
-        """Crawl meeting metadata from 3GPP portal.
+        """Crawl meeting metadata from the portal REST API.
 
         Args:
-            config: Configuration for crawl operation
-            progress_callback: Optional callback for progress updates (processed, total)
+            config: Configuration for crawl operation.
+            progress_callback: Optional callback for progress updates.
 
         Returns:
-            Summary of crawl results (processed, inserted, updated, errors)
+            Summary of crawl results.
         """
         errors: list[str] = []
-        meetings: list[MeetingMetadata] = []
 
-        working_groups = self._limit_working_groups(config.working_groups, config.limit_subwgs)
-        existing_ids: set[int] = set()
-        if config.incremental:
-            existing_ids = await self.database.get_existing_meeting_ids(working_groups)
-        credentials = resolve_credentials(None, None)
-        session = create_cached_session(http_config=config.http_config)
-        if credentials is not None:
-            session.auth = (credentials.username, credentials.password)
+        # Determine date range from config
+        start_date = config.start_date
+        end_date = config.end_date
+
+        # Build subgroup list for API filter
+        subgroups: list[str] | None = None
+        if config.subgroups:
+            subgroups = list(config.subgroups)
+        elif config.working_groups:
+            # Convert WorkingGroup enum values to subgroup codes
+            codes: set[str] = set()
+            for wg in config.working_groups:
+                if wg == WorkingGroup.RAN:
+                    codes.add("RP")
+                elif wg == WorkingGroup.SA:
+                    codes.add("SP")
+                elif wg == WorkingGroup.CT:
+                    codes.add("CP")
+                else:
+                    codes.add(wg.value)
+            subgroups = sorted(codes)
+
+        if progress_callback:
+            progress_callback(0, 0)
 
         try:
-            for working_group in working_groups:
-                meetings.extend(
-                    self._crawl_working_group(
-                        session=session,
-                        working_group=working_group,
-                        config=config,
-                        existing_ids=existing_ids,
-                        errors=errors,
-                    ),
-                )
-        finally:
-            session.close()
+            meetings = fetch_meetings(
+                subgroups=subgroups,
+                start_date=start_date,
+                end_date=end_date,
+                timeout=config.timeout,
+            )
+        except Exception as exc:
+            msg = f"Portal meetings API failed: {exc}"
+            logger.exception(msg)
+            errors.append(msg)
+            return MeetingCrawlResult(processed=0, inserted=0, updated=0, errors=errors)
 
-        filtered = self._apply_limits(meetings, config.limit_meetings, config.limit_meetings_per_subwg)
+        if progress_callback:
+            progress_callback(len(meetings), len(meetings))
+
+        # Apply incremental filter
+        if config.incremental and meetings:
+            existing_ids = await self.database.get_existing_meeting_ids(config.working_groups)
+            meetings = [m for m in meetings if m.meeting_id not in existing_ids]
+
+        # Apply meeting count limits
+        meetings = self._apply_limits(meetings, config.limit_meetings, config.limit_meetings_per_subwg)
+
         inserted = 0
         updated = 0
-        if filtered:
-            # Pass progress callback to bulk_upsert_meetings to update after each DB operation
+        if meetings:
             inserted, updated = await self.database.bulk_upsert_meetings(
-                filtered,
+                meetings,
                 progress_callback=progress_callback,
             )
 
         return MeetingCrawlResult(
-            processed=len(filtered),
+            processed=len(meetings),
             inserted=inserted,
             updated=updated,
             errors=errors,
         )
 
-    def _crawl_working_group(
-        self,
-        session: Any,
-        working_group: WorkingGroup,
-        config: MeetingCrawlConfig,
-        existing_ids: set[int],
-        errors: list[str],
-    ) -> list[MeetingMetadata]:
-        """Crawl and parse meeting metadata for one working group."""
-        meetings: list[MeetingMetadata] = []
-        records = [record for record in SUBWORKING_GROUP_RECORDS if record.tbid == working_group.tbid and self._record_is_in_scope(record, config)]
-        for record in records:
-            html_text = self._fetch_meeting_page_text(session, record, config.timeout, errors)
-            if html_text is None:
-                continue
-            parsed_meetings = parse_meeting_page(
-                html_text,
-                working_group,
-                record.code,
-                get_subtb=self._get_subtb,
-            )
-            meetings.extend(meeting for meeting in parsed_meetings if self._include_meeting(meeting, config, existing_ids))
-        return meetings
-
+    @staticmethod
     def _apply_limits(
-        self,
         meetings: list[MeetingMetadata],
         limit_meetings: int | None,
         limit_meetings_per_subwg: int | None,
@@ -135,50 +124,8 @@ class MeetingCrawler:
         if not meetings:
             return []
         filtered = list(meetings)
-        filtered = self._limit_meetings_per_subwg(filtered, limit_meetings_per_subwg)
-        return self._limit_meetings(filtered, limit_meetings)
-
-    @staticmethod
-    def _get_subtb(subgroup_code: str) -> int | None:
-        """Resolve subgroup code to subtb via lookup index."""
-        record = CODE_INDEX.get(subgroup_code.upper())
-        return record.subtb if record else None
-
-    @staticmethod
-    def _record_is_in_scope(record: SubWorkingGroupRecord, config: MeetingCrawlConfig) -> bool:
-        """Check whether subgroup record should be crawled for the current config."""
-        return not config.subgroups or record.code in config.subgroups
-
-    @staticmethod
-    def _include_meeting(meeting: MeetingMetadata, config: MeetingCrawlConfig, existing_ids: set[int]) -> bool:
-        """Apply incremental and files-url filters before persisting meetings."""
-        if config.incremental and meeting.meeting_id in existing_ids:
-            return False
-        return config.include_without_files or bool(meeting.files_url)
-
-    @staticmethod
-    def _fetch_meeting_page_text(session: Any, record: SubWorkingGroupRecord, timeout: float, errors: list[str]) -> str | None:
-        """Fetch meeting page HTML text for one subgroup record."""
-        url = MEETINGS_BASE_URL.format(code=record.code)
-        try:
-            response = session.get(url, timeout=timeout)
-            response.raise_for_status()
-        except Exception as exc:
-            message = f"Meeting crawl failed for {record.code}: {exc}"
-            logger.warning(message)
-            errors.append(message)
-            return None
-        return response.text
-
-    @staticmethod
-    def _limit_working_groups(
-        working_groups: list[WorkingGroup],
-        limit_subwgs: int | None,
-    ) -> list[WorkingGroup]:
-        """Apply working group limits from crawl configuration."""
-        if limit_subwgs is None or limit_subwgs == 0:
-            return working_groups
-        return working_groups[:limit_subwgs] if limit_subwgs > 0 else working_groups[limit_subwgs:]
+        filtered = MeetingCrawler._limit_meetings_per_subwg(filtered, limit_meetings_per_subwg)
+        return MeetingCrawler._limit_meetings(filtered, limit_meetings)
 
     @staticmethod
     def _limit_meetings_per_subwg(
@@ -198,7 +145,7 @@ class MeetingCrawler:
         for wg_id, sequence in order.items():
             selected = sequence[:limit] if limit > 0 else sequence[limit:]
             allowed_ids[wg_id] = set(selected)
-        return [meeting for meeting in meetings if meeting.meeting_id in allowed_ids.get(meeting.subtb or meeting.tbid, {meeting.meeting_id})]
+        return [m for m in meetings if m.meeting_id in allowed_ids.get(m.subtb or m.tbid, {m.meeting_id})]
 
     @staticmethod
     def _limit_meetings(
@@ -213,7 +160,7 @@ class MeetingCrawler:
             if meeting.meeting_id not in sequence:
                 sequence.append(meeting.meeting_id)
         allowed = set(sequence[:limit]) if limit > 0 else set(sequence[limit:])
-        return [meeting for meeting in meetings if meeting.meeting_id in allowed]
+        return [m for m in meetings if m.meeting_id in allowed]
 
 
 __all__ = [

@@ -13,7 +13,7 @@ from tdoc_crawler.constants.patterns import (
 )
 from tdoc_crawler.constants.urls import (
     LOGIN_URL,
-    MEETINGS_BASE_URL,
+    MEETINGS_REST_URL,
     PORTAL_BASE_URL,
     SPEC_URL_TEMPLATE,
     TDOC_DOWNLOAD_URL,
@@ -25,7 +25,7 @@ __all__ = [
     "EXCLUDED_DIRS",
     "EXCLUDED_DIRS_NORMALIZED",
     "LOGIN_URL",
-    "MEETINGS_BASE_URL",
+    "MEETINGS_REST_URL",
     "PORTAL_BASE_URL",
     "SPEC_URL_TEMPLATE",
     "TDOC_DOWNLOAD_URL",

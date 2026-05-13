@@ -81,6 +81,8 @@ class MeetingCrawlConfig(BaseModel):
     limit_meetings: int | None = Field(None, description="Maximum meetings to crawl overall (negative = newest N)")
     limit_meetings_per_subwg: int | None = Field(None, description="Per sub-working group meeting limit")
     limit_subwgs: int | None = Field(None, description="Maximum number of sub-working groups to process")
+    start_date: date | None = Field(None, description="Only crawl meetings starting from this date")
+    end_date: date | None = Field(None, description="Only crawl meetings ending before this date")
 
     @field_validator("working_groups", mode="before")
     @classmethod

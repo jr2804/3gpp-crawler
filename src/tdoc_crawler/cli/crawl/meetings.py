@@ -85,6 +85,8 @@ def crawl_meetings(
         limit_meetings=limit_meetings,
         limit_meetings_per_subwg=limit_meetings_per_subwg,
         limit_subwgs=limit_subwgs,
+        start_date=_parse_date(start_date),
+        end_date=_parse_date(end_date, is_end=True),
     )
 
     db_file = crawler_config.path.db_file
