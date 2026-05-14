@@ -24,19 +24,16 @@ logger = logging.getLogger(__name__)
 _TSG_PARENT_TBIDS: list[int] = [373, 375, 649]  # RAN, SA, CT
 
 # Map SubTB → (tbid, code) for reverse lookup from API TBId field
-_SUBTB_TO_WG: dict[int, tuple[int, str]] = {
-    r.subtb: (r.tbid, r.code) for r in SUBWORKING_GROUP_RECORDS
-}
+_SUBTB_TO_WG: dict[int, tuple[int, str]] = {r.subtb: (r.tbid, r.code) for r in SUBWORKING_GROUP_RECORDS}
 
 # Map code → subtb
-_CODE_TO_SUBTB: dict[str, int] = {
-    r.code: r.subtb for r in SUBWORKING_GROUP_RECORDS
-}
+_CODE_TO_SUBTB: dict[str, int] = {r.code: r.subtb for r in SUBWORKING_GROUP_RECORDS}
 
 _PAGE_SIZE = 500
 
 DEFAULT_START_DATE = date(1994, 1, 1)
 DEFAULT_END_DATE = date.today() + timedelta(days=365 * 3)  # 3 years in the future, to include upcoming meetings
+
 
 def _build_subtb_filter(subgroups: list[str] | None) -> list[int]:
     """Convert subgroup codes to SubTB IDs for the API ``Tbs`` parameter.
