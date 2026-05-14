@@ -13,7 +13,7 @@ from typing import Any
 
 import niquests
 
-from tdoc_crawler.constants.urls import MEETINGS_REST_URL
+from tdoc_crawler.constants.urls import MEETING_PORTAL_URL_TEMPLATE, MEETINGS_REST_URL, PORTAL_BASE_URL
 from tdoc_crawler.meetings.models import MeetingMetadata
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 
@@ -80,7 +80,7 @@ def _portal_meeting_to_metadata(m: dict[str, Any]) -> MeetingMetadata:
         end_date=_parse_portal_date(m.get("EndDate")),
         location=m.get("Location") or None,
         files_url=m.get("MtgDocURL") or None,
-        portal_url=f"https://portal.3gpp.org/Home.aspx#/meeting?MtgId={m['Id']}",
+        portal_url=MEETING_PORTAL_URL_TEMPLATE.format(portal_base=PORTAL_BASE_URL, meeting_id=m["Id"]),
         tdoc_count=m.get("DocCount", 0),
     )
 

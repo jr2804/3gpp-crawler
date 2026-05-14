@@ -124,8 +124,8 @@ class SpecDownloads:
                 return extract_subdir
 
             return target_dir
-        except Exception as exc:
-            _logger.exception("Failed to checkout %s: %s", spec, exc)
+        except (ValueError, OSError, requests.RequestException) as exc:
+            _logger.warning("Failed to checkout %s: %s", spec, exc)
             return None
 
     async def _resolve_spec_url_with_fallback(
@@ -183,7 +183,7 @@ class SpecDownloads:
 
     def _download_full_zip(self, url: str, target_file: Path) -> None:
         """Download full zip file, re-use session if already created for doc-only attempt."""
-        self.session = download_to_file(url, target_file, session=self.session, close_session=False, http_cache_file=self._http_cache_file)
+        download_to_file(url, target_file, session=self.session, http_cache_file=self._http_cache_file)
 
     @staticmethod
     def _filter_versions_by_release(
@@ -248,7 +248,7 @@ class SpecDownloads:
             with target_file.open("wb") as f:
                 f.write(rzf.open(doc_file).read())
             return True
-        except Exception as exc:
+        except (OSError, ValueError, requests.RequestException) as exc:
             _logger.warning("Doc-only download failed for %s: %s", url, exc)
             return False
 
@@ -260,7 +260,7 @@ class SpecDownloads:
 
             if not keep_zip:
                 zip_file.unlink()
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             _logger.exception("Failed to extract %s: %s", zip_file, exc)
 
 

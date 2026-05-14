@@ -15,6 +15,7 @@ import niquests as requests
 import pandas as pd
 
 from tdoc_crawler.config.settings import HttpConfig
+from tdoc_crawler.constants.urls import DOCLIST_URL_TEMPLATE, PORTAL_BASE_URL
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
@@ -53,7 +54,7 @@ def fetch_meeting_document_list(
         DocumentListError: If document list cannot be fetched or parsed
     """
     # Construct document list URL
-    doclist_url = f"https://portal.3gpp.org/ngppapp/GenerateDocumentList.aspx?meetingId={meeting_id}"
+    doclist_url = DOCLIST_URL_TEMPLATE.format(portal_base=PORTAL_BASE_URL, meeting_id=meeting_id)
     _logger.debug("Fetching document list for meeting %s from %s", meeting_id, doclist_url)
 
     # Create cached session (no credentials required)

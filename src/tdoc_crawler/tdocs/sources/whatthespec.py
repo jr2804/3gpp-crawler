@@ -11,6 +11,7 @@ from pathlib import Path
 import niquests as requests
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
+from tdoc_crawler.constants.urls import WHATSPEC_TDOC_URL_TEMPLATE
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
@@ -21,8 +22,6 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_id
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 logger = get_logger(__name__)
-
-WHATSPEC_BASE_URL = "https://whatthespec.net/3gpp/tdoc.php?name={tdoc}&api=1"
 
 
 class WhatTheSpecResolutionError(Exception):
@@ -57,7 +56,7 @@ def resolve_via_whatthespec(
     else:
         active_session = session
 
-    url = WHATSPEC_BASE_URL.format(tdoc=tdoc_id)
+    url = WHATSPEC_TDOC_URL_TEMPLATE.format(tdoc_id=tdoc_id)
     try:
         response = active_session.get(url, timeout=timeout)
         response.raise_for_status()
@@ -191,7 +190,6 @@ class WhatTheSpecSource(TDocSource):
 
 
 __all__ = [
-    "WHATSPEC_BASE_URL",
     "WhatTheSpecResolutionError",
     "WhatTheSpecSource",
     "resolve_via_whatthespec",

@@ -12,6 +12,12 @@ TDOC_DOWNLOAD_URL: Final[str] = f"{PORTAL_BASE_URL}/ngppapp/DownloadTDoc.aspx"
 LOGIN_URL: Final[str] = f"{PORTAL_BASE_URL}/login.aspx"
 
 SPEC_URL_TEMPLATE: Final[str] = "https://www.3gpp.org/ftp/Specs/archive/{series}/{normalized}/{file_name}"
+SPEC_DYNAREPORT_URL_TEMPLATE: Final[str] = "https://www.3gpp.org/dynareport/{compact}.htm"
+DOCLIST_URL_TEMPLATE: Final[str] = "{portal_base}/ngppapp/GenerateDocumentList.aspx?meetingId={meeting_id}"
+MEETING_PORTAL_URL_TEMPLATE: Final[str] = "{portal_base}/Home.aspx#/meeting?MtgId={meeting_id}"
+WHATSPEC_BASE_URL: Final[str] = "https://whatthespec.net"
+WHATSPEC_TDOC_URL_TEMPLATE: Final[str] = "{base}/3gpp/tdoc.php?name={tdoc_id}&api=1"
+WHATSPEC_SPEC_URL_TEMPLATE: Final[str] = "{base}/3gpp/spec.php?q={compact}&api=1"
 
 # Common browser headers to avoid 403 Forbidden responses
 BROWSER_HEADERS: dict[str, str] = {
@@ -25,10 +31,16 @@ BROWSER_HEADERS: dict[str, str] = {
 }
 
 __all__ = [
+    "DOCLIST_URL_TEMPLATE",
     "LOGIN_URL",
     "MEETINGS_REST_URL",
+    "MEETING_PORTAL_URL_TEMPLATE",
     "PORTAL_BASE_URL",
+    "SPEC_DYNAREPORT_URL_TEMPLATE",
     "SPEC_URL_TEMPLATE",
     "TDOC_DOWNLOAD_URL",
     "TDOC_VIEW_URL",
+    "WHATSPEC_BASE_URL",
+    "WHATSPEC_SPEC_URL_TEMPLATE",
+    "WHATSPEC_TDOC_URL_TEMPLATE",
 ]

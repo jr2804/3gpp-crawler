@@ -48,7 +48,7 @@ class TDocDatabase(MeetingDatabase):
             Tuple of (created, changed) booleans
         """
         record = self._prepare_tdoc(metadata)
-        if getattr(record, "tbid", None) is None:
+        if not record.tbid:
             record = await self._resolve_tbid(record)
         existing = await self._get_tdoc(record.tdoc_id)
         now = utc_now()
@@ -102,7 +102,7 @@ class TDocDatabase(MeetingDatabase):
         prepared: list[TDocMetadata] = []
         for metadata in tdocs_list:
             record = self._prepare_tdoc(metadata)
-            if getattr(record, "tbid", None) is None:
+            if not record.tbid:
                 record = await self._resolve_tbid(record)
             prepared.append(record)
 
