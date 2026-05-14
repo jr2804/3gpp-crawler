@@ -110,7 +110,10 @@ class DocDatabase:
 
     async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, exc_tb: object | None) -> None:
         if self._database is not None:
-            await self._database.disconnect()
+            try:
+                await self._database.disconnect()
+            except RuntimeError:
+                pass  # Pool already closed by nested overwrite
         self._database = None
 
     # ------------------------------------------------------------------

@@ -120,8 +120,8 @@ async def resolve_spec_release_from_db(
             resolved, version_codes = await _auto_crawl_and_resolve(
                 normalized_spec,
                 requested_release,
-                db_path,
-                db_file,
+                db_path=db_path,
+                db_file=db_file,
             )
         return resolved, version_codes
 
@@ -132,8 +132,8 @@ async def resolve_spec_release_from_db(
             return await _auto_crawl_and_resolve(
                 normalized_spec,
                 requested_release,
-                db_path,
-                db_file,
+                db_path=db_path,
+                db_file=db_file,
             )
         return resolved, version_codes
 
@@ -152,8 +152,9 @@ async def resolve_spec_release_from_db(
                 return await _auto_crawl_and_resolve(
                     normalized_spec,
                     requested_release,
-                    db_path,
-                    db_file,
+                    db=db,
+                    db_path=db_path,
+                    db_file=db_file,
                 )
     except (OSError, ValueError) as exc:
         _logger.debug(
@@ -169,8 +170,9 @@ async def resolve_spec_release_from_db(
 async def _auto_crawl_and_resolve(
     normalized_spec: str,
     requested_release: str,
-    db_path: Path | None,
-    db_file: Path | None,
+    db: SpecDatabase | None = None,
+    db_path: Path | None = None,
+    db_file: Path | None = None,
 ) -> tuple[str, list[str]]:
     """Crawl spec metadata from 3GPP, store versions, then retry resolution."""
     try:
@@ -178,8 +180,11 @@ async def _auto_crawl_and_resolve(
         effective_db = db_path if db_path is not None else PathConfig().db_file
         if effective_db is None:
             return requested_release, []
-        async with SpecDatabase(effective_db) as db:
+        if db is not None:
             await db.crawl_specs([normalized_spec], requested_release, sources)
+        else:
+            async with SpecDatabase(effective_db) as inner_db:
+                await inner_db.crawl_specs([normalized_spec], requested_release, sources)
         return await resolve_spec_release_from_db(
             normalized_spec,
             requested_release,

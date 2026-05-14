@@ -210,12 +210,12 @@ def checkout(
                 try:
                     checkout_path = checkout_tdoc(metadata, checkout_dir, force=force, session=session)
 
-                    progress.console.print(f"[green]✓ {metadata.tdoc_id} → {checkout_path}")
+                    progress.console.print(f"[green]ok {metadata.tdoc_id} -> {checkout_path}")
 
                     success_count += 1
 
                 except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
-                    progress.console.print(f"[red]✗ {metadata.tdoc_id}: {exc}")
+                    progress.console.print(f"[red]FAIL {metadata.tdoc_id}: {exc}")
 
                     error_count += 1
 

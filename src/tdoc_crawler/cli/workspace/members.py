@@ -81,7 +81,7 @@ def _resolve_spec_release_for_add(
         resolved, _ = asyncio.run(
             resolve_spec_release_from_db(item, release, auto_crawl=auto_crawl),
         )
-        console.print(f"[dim]  Resolved {item} release '{release}' → {resolved}[/dim]")
+        console.print(f"[dim]  Resolved {item} release '{release}' -> {resolved}[/dim]")
         return resolved
     except ValueError as exc:
         console.print(f"[yellow]  Warning: {exc}. Using unresolved release '{release}'.[/yellow]")
