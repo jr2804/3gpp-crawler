@@ -55,7 +55,7 @@ from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.specs.models import SpecQueryFilters
 from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.tdocs.models import TDocQueryConfig
-from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs, checkout_tdocs
+from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs, checkout_tdocs, resolve_tdoc_file_sizes
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.date_parser import parse_partial_date
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, parse_working_groups
@@ -182,6 +182,9 @@ def query_tdocs(
     if checkout:
         with create_cached_session() as session:
             checkout_tdocs(results, path_config.checkout_dir, force=False, session=session)
+
+    # Resolve file sizes from on-disk checkout directories for display
+    resolve_tdoc_file_sizes(results, path_config.checkout_dir)
 
     # Build meeting map for enriched output
     async def load_meeting_map() -> dict:

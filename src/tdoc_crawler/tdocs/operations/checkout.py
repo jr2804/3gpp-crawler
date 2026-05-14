@@ -18,10 +18,9 @@ from urllib.parse import urljoin, urlparse
 import niquests as requests
 from bs4 import BeautifulSoup
 
-from tdoc_crawler.database.oxyde_models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocStatus
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
 from tdoc_crawler.utils.security import safe_extract_zip
@@ -36,6 +35,26 @@ class CheckoutResult:
     success_count: int
     error_count: int
     errors: list[str]
+
+
+def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> None:
+    """Resolve file sizes for TDocs from on-disk checkout directories.
+
+    For each TDoc with ``file_size`` unset and a valid URL, computes the
+    checkout path and sums the sizes of all files in that directory.
+    Updates ``record.file_size`` in-place.
+    """
+    for record in results:
+        if record.file_size is not None or not record.url:
+            continue
+        tdoc_dir = get_checkout_path(record, checkout_dir)
+        if not tdoc_dir.exists():
+            continue
+        total = sum(
+            f.stat().st_size for f in tdoc_dir.iterdir() if f.is_file()
+        )
+        if total:
+            record.file_size = total
 
 
 def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
