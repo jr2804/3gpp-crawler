@@ -147,6 +147,9 @@ class TDocDatabase(MeetingDatabase):
         still require in-memory processing because they span multiple tables
         or use fnmatch.
 
+        Sort order: meeting start_date, then tdoc_id (case-insensitive).
+        Direction controlled by ``config.order``.
+
         Args:
             config: Query configuration with filters and options
 
@@ -178,11 +181,14 @@ class TDocDatabase(MeetingDatabase):
 
         records = self._apply_pattern_filters(records, config)
 
+        # Build meeting map for sort (need start_date from meetings)
+        meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
         descending = config.order.value.lower() == "desc"
+        fallback = date.max if descending else date.min
         records.sort(
             key=lambda record: (
-                record.date_created or datetime.min.replace(tzinfo=UTC),
-                record.tdoc_id,
+                self._meeting_start_date(record, meeting_map, fallback),
+                record.tdoc_id.upper(),
             ),
             reverse=descending,
         )
@@ -191,6 +197,16 @@ class TDocDatabase(MeetingDatabase):
             records = records[: config.limit]
 
         return records
+
+    @staticmethod
+    def _meeting_start_date(record: TDocMetadata, meeting_map: dict[int, MeetingMetadata], fallback: date) -> date:
+        """Return the meeting start_date for sorting, or fallback if unavailable."""
+        if not record.meeting_id:
+            return fallback
+        meeting = meeting_map.get(record.meeting_id)
+        if meeting is None or meeting.start_date is None:
+            return fallback
+        return meeting.start_date
 
     async def get_existing_tdoc_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[str]:
         """Get set of existing TDoc IDs, optionally filtered by working group.

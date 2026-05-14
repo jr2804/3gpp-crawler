@@ -100,7 +100,7 @@ def query_tdocs(
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     limit: LimitOption = None,
-    order: OrderOption = SortOrder.DESC.value,
+    order: OrderOption = SortOrder.ASC.value,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
     checkout: CheckoutOption = False,
     fetch: FetchOption = True,

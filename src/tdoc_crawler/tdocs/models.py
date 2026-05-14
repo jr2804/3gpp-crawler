@@ -161,7 +161,7 @@ class TDocQueryConfig(BaseModel):
     agenda_pattern: list[str] | None = Field(None, description="Glob pattern(s) for agenda_item_text field; multiple values are OR'd")
     agenda_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude agenda_item_text field; multiple values are OR'd")
     limit: int | None = Field(None, ge=1, description="Maximum results")
-    order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to date_retrieved")
+    order: SortOrder = Field(SortOrder.ASC, description="Sort order (asc|desc) applied to meeting start_date, then tdoc_id")
 
     @field_validator("tdoc_ids", mode="before")
     @classmethod
