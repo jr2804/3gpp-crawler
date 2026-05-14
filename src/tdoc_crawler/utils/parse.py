@@ -8,44 +8,44 @@ from packaging.version import InvalidVersion, Version
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.utils.normalization import expand_spec_ranges_batch
+from tdoc_crawler.utils.version_types import AgendaItem, SpecVersion
 
-type AgendaItemNumber = str
-type SpecificationVersionNumber = str
-
-
-def parse_agenda_item_nbr(value: str | int | None) -> AgendaItemNumber:
-    """Parse agenda item number as canonical string."""
-    return str(parse_agenda_item_version(value))
+type AgendaItemNumber = AgendaItem
+type SpecificationVersionNumber = SpecVersion
 
 
-def parse_agenda_item_version(value: str | int | None) -> Version:
-    """Parse agenda item number as Version."""
+def parse_agenda_item(value: str | int | None) -> AgendaItem:
+    """Parse agenda item number as AgendaItem (Version subclass)."""
     if value is None:
-        return Version("0")
+        return AgendaItem("0")
     try:
-        return Version(str(value).strip())
+        return AgendaItem(str(value).strip())
     except InvalidVersion:
-        return Version("0")
+        return AgendaItem("0")
 
 
-def parse_spec_version_nbr(value: str | int | None) -> SpecificationVersionNumber:
-    """Parse specification version as canonical three-part string."""
-    return str(parse_spec_version(value))
+# Backward-compatible aliases
+parse_agenda_item_nbr = parse_agenda_item
+parse_agenda_item_version = parse_agenda_item
 
 
-def parse_spec_version(value: str | int | None) -> Version:
-    """Parse specification version as Version, normalized to major.minor.patch."""
+def parse_spec_version(value: str | int | None) -> SpecVersion:
+    """Parse specification version as SpecVersion (Version subclass).
+
+    Normalizes to major.minor.patch.
+    """
     if value is None:
-        return Version("0.0.0")
+        return SpecVersion("0.0.0")
+    try:
+        v = Version(str(value).strip())
+    except InvalidVersion:
+        return SpecVersion("0.0.0")
+    parts = list(v.release) + [0] * (3 - len(v.release))
+    return SpecVersion(".".join(str(p) for p in parts[:3]))
 
-    parsed = Version(str(value).strip())
-    release_parts = list(parsed.release)
 
-    if len(release_parts) >= 3:
-        return Version(".".join(str(part) for part in release_parts[:3]))
-
-    padded_parts = release_parts + [0] * (3 - len(release_parts))
-    return Version(".".join(str(part) for part in padded_parts))
+# Backward-compatible aliases
+parse_spec_version_nbr = parse_spec_version
 
 
 def infer_working_groups_from_subgroups(subgroups: list[str]) -> list[WorkingGroup]:

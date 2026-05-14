@@ -13,6 +13,8 @@ from typing import Any
 from oxyde import Field, Model
 from pydantic import field_validator
 
+from tdoc_crawler.utils.version_types import AgendaItem, SpecVersion
+
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
@@ -102,7 +104,7 @@ class TDocMetadata(Model):
     contact: str
     tdoc_type: str = Field(default="unknown")
     for_purpose: str = Field(default="unknown")
-    agenda_item_nbr: str
+    agenda_item_nbr: AgendaItem
     agenda_item_text: str = Field(default="Unknown")
     status: str | None = None
     is_revision_of: str | None = None
@@ -129,7 +131,7 @@ class Specification(Model):
     status: str
     working_group: str
     series: str
-    latest_version: str | None = None
+    latest_version: SpecVersion | None = None
 
     class Meta:
         """Oxyde table configuration."""
@@ -145,7 +147,7 @@ class SpecificationSourceRecord(Model):
     source_name: str
     source_identifier: str | None = None
     metadata_payload: dict[str, Any] = Field(default_factory=dict)
-    versions: list[str] = Field(default_factory=list)
+    versions: list[SpecVersion] = Field(default_factory=list)
     fetched_at: datetime | None = None
 
     @field_validator("metadata_payload", mode="before")
@@ -161,14 +163,14 @@ class SpecificationSourceRecord(Model):
 
     @field_validator("versions", mode="before")
     @classmethod
-    def _parse_versions(cls, value: list[str] | str) -> list[str]:
+    def _parse_versions(cls, value: list[str | SpecVersion] | str) -> list[SpecVersion]:
         if isinstance(value, str):
             try:
                 parsed = json.loads(value)
             except json.JSONDecodeError:
                 return []
-            return [str(item) for item in parsed] if isinstance(parsed, list) else []
-        return [str(item) for item in value]
+            return [SpecVersion(str(item)) for item in parsed] if isinstance(parsed, list) else []
+        return [SpecVersion(str(item)) for item in value]
 
     class Meta:
         """Oxyde table configuration."""
@@ -181,7 +183,7 @@ class SpecificationVersion(Model):
 
     record_id: str = Field(db_pk=True)
     spec_number: str
-    version: str
+    version: SpecVersion
     file_name: str
     source_name: str
 
@@ -196,7 +198,7 @@ class SpecificationDownload(Model):
 
     record_id: str = Field(db_pk=True)
     spec_number: str
-    version: str
+    version: SpecVersion
     download_url: str
     checkout_path: str
     document_path: str

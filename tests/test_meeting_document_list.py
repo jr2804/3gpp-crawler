@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list, parse_excel_document_list
+from tdoc_crawler.utils.version_types import AgendaItem
 
 
 class TestMeetingDocumentList:
@@ -39,7 +40,7 @@ class TestMeetingDocumentList:
         assert len(result) == 3
         assert result[0].tdoc_id == "R1-2301234"
         assert result[0].title == "Test Document 1"
-        assert result[0].agenda_item_nbr == "7.1"
+        assert result[0].agenda_item_nbr == AgendaItem("7.1")
         assert result[0].agenda_item_text == "Radio"
         assert result[0].meeting_id == 12345
         assert result[0].validated is True  # Direct from portal

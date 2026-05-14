@@ -13,6 +13,7 @@ from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import WHATSPEC_BASE_URL, WhatTheSpecResolutionError, resolve_via_whatthespec
+from tdoc_crawler.utils.version_types import AgendaItem
 
 from .conftest import insert_sample_meetings_async
 
@@ -102,7 +103,7 @@ class TestWhatTheSpecResolution:
             assert result.tdoc_type == "agenda"
             assert result.for_purpose == "Approval"
             assert result.url == "https://www.3gpp.org/tsg_sa/WG4_CODEC/TSGS4_135_India/Docs/S4-260001.zip"
-            assert result.agenda_item_nbr == "2"
+            assert result.agenda_item_nbr == AgendaItem("2")
             assert result.agenda_item_text == "Approval of agenda and association of documents"
             assert result.status == "available"
             assert result.validated is False
@@ -262,7 +263,7 @@ class TestWhatTheSpecResolution:
             assert result.tdoc_type == "discussion"  # tdoctype -> tdoc_type
             assert result.for_purpose == "information"  # for -> for_purpose
             assert result.url == "https://example.com/doc.zip"  # link -> url
-            assert result.agenda_item_nbr == "3.5"  # ainumber -> agenda_item_nbr
+            assert result.agenda_item_nbr == AgendaItem("3.5")  # ainumber -> agenda_item_nbr
             assert result.agenda_item_text == "Test agenda item"  # ainame -> agenda_item_text
             assert result.status == "approved"  # status -> status
 
@@ -297,7 +298,7 @@ class TestWhatTheSpecResolution:
             assert result.for_purpose == "unknown"  # default for missing for
             assert result.source == ""  # default for missing source
             assert result.contact == ""  # default for missing contact
-            assert result.agenda_item_nbr == "0"  # default for invalid ainumber
+            assert result.agenda_item_nbr == AgendaItem("0")  # default for invalid ainumber
             assert result.agenda_item_text == "Unknown"  # default for missing ainame
             assert result.status is None  # None for missing status
 
@@ -329,7 +330,7 @@ class TestWhatTheSpecResolution:
             )
 
             assert result is not None
-            assert result.agenda_item_nbr == "0"
+            assert result.agenda_item_nbr == AgendaItem("0")
 
     def test_meeting_id_lazy_resolution(
         self,
