@@ -16,9 +16,9 @@ from tdoc_crawler.cli.args import (
     ClearSpecsOption,
     ClearTDocsOption,
     EndDateOption,
+    FetchOption,
     IncludeWithoutFilesOption,
     LimitOption,
-    NoFetchOption,
     OrderOption,
     OutputFormatOption,
     SourcePatternExcludeOption,
@@ -103,7 +103,7 @@ def query_tdocs(
     order: OrderOption = SortOrder.DESC.value,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
     checkout: CheckoutOption = False,
-    no_fetch: NoFetchOption = False,
+    fetch: FetchOption = True,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
     # Glob pattern filters
@@ -156,7 +156,7 @@ def query_tdocs(
     async def run_query() -> list:
         async with TDocDatabase(db_file) as database:
             results = await database.query_tdocs(config)
-            if not no_fetch:
+            if fetch:
                 with create_cached_session() as session:
                     result = await fetch_missing_tdocs(
                         database,

@@ -41,15 +41,16 @@ EndDateOption = Annotated[
     str | None,
     typer.Option("--end-date", help="Filter until ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar=ConfigEnvVar.TDC_END_DATE.name),
 ]
-NoFetchOption = Annotated[
+FetchOption = Annotated[
     bool,
-    typer.Option("--no-fetch", help="Disable automatic fetching of missing TDocs from portal"),
+    typer.Option("--fetch/--no-fetch", help="Enable/disable automatic fetching of missing TDocs from portal", envvar=ConfigEnvVar.TDC_FETCH.name),
 ]
 IncrementalOption = Annotated[
     bool,
     typer.Option(
         "--incremental/--full",
         help=("When true, skip items already present in the database (incremental mode). Use --full to re-scan everything."),
+        envvar=ConfigEnvVar.TDC_INCREMENTAL.name,
     ),
 ]
 LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar=ConfigEnvVar.TDC_LIMIT_TDOCS.name)]
@@ -59,13 +60,24 @@ EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="E
 EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password", envvar=ConfigEnvVar.TDC_EOL_PASSWORD.name)]
 PromptCredentialsOption = Annotated[
     bool | None,
-    typer.Option("--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing"),
+    typer.Option("--prompt-credentials/--no-prompt-credentials", help="Prompt for credentials when missing", envvar=ConfigEnvVar.TDC_PROMPT_CREDENTIALS.name),
 ]
 IncludeWithoutFilesOption = Annotated[
     bool,
-    typer.Option("--include-without-files", help="Include meetings without files URLs"),
+    typer.Option(
+        "--include-without-files/--exclude-without-files",
+        help="Include/exclude meetings without files URLs",
+        envvar=ConfigEnvVar.TDC_INCLUDE_WITHOUT_FILES.name,
+    ),
 ]
-FullMetadataOption = Annotated[bool, typer.Option("--full-metadata", help="Fetch full metadata instead of URL only")]
+FullMetadataOption = Annotated[
+    bool,
+    typer.Option(
+        "--full-metadata/--brief-metadata",
+        help="Fetch full metadata instead of URL only",
+        envvar=ConfigEnvVar.TDC_FULL_METADATA.name,
+    ),
+]
 # Glob pattern filters for TDocs
 SourcePatternOption = Annotated[
     list[str] | None,
@@ -114,7 +126,7 @@ ReleaseOption = Annotated[
         ),
     ),
 ]
-DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download")]
+DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download", envvar=ConfigEnvVar.TDC_DOC_ONLY.name)]
 
 # Options - General/Common
 CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name)]
@@ -139,7 +151,11 @@ UseWhatTheSpecOption = Annotated[
 
 AutoCrawlSpecsOption = Annotated[
     bool,
-    typer.Option("--auto-crawl-specs/--no-auto-crawl-specs", help="Auto-crawl spec metadata when not in database"),
+    typer.Option(
+        "--auto-crawl-specs/--no-auto-crawl-specs",
+        help="Auto-crawl spec metadata when not in database",
+        envvar=ConfigEnvVar.TDC_AUTO_CRAWL_SPECS.name,
+    ),
 ]
 
 
@@ -154,14 +170,18 @@ HttpCacheOption = Annotated[
     ),
 ]
 
-NoProgressOption = Annotated[
+ProgressOption = Annotated[
     bool,
-    typer.Option("--no-progress", help="Disable progress bar (useful for scripts and CI)"),
+    typer.Option("--progress/--no-progress", help="Enable/disable progress bar (disable for scripts and CI)", envvar=ConfigEnvVar.TDC_PROGRESS.name),
 ]
 
 MdYamlFrontmatterOption = Annotated[
     bool,
-    typer.Option("--md-yaml-frontmatter/--no-md-yaml-frontmatter", help="Include YAML frontmatter in generated Markdown"),
+    typer.Option(
+        "--md-yaml-frontmatter/--no-md-yaml-frontmatter",
+        help="Include YAML frontmatter in generated Markdown",
+        envvar=ConfigEnvVar.TDC_MD_YAML_FRONTMATTER.name,
+    ),
 ]
 
 WorkspaceDeleteForceOption = Annotated[
@@ -178,7 +198,7 @@ DeleteLlmWikiOption = Annotated[
 ]
 IncludeInactiveOption = Annotated[
     bool,
-    typer.Option("--include-inactive", help="Include inactive members"),
+    typer.Option("--include-inactive/--exclude-inactive", help="Include/exclude inactive members", envvar=ConfigEnvVar.TDC_INCLUDE_INACTIVE.name),
 ]
 WorkspaceProcessForceOption = Annotated[
     bool,
@@ -190,17 +210,18 @@ ProcessLimitOption = Annotated[
 ]
 SkipExistingOption = Annotated[
     bool,
-    typer.Option("--skip-existing", help="Skip members that already have artifacts"),
+    typer.Option("--skip-existing/--process-existing", help="Skip members that already have artifacts", envvar=ConfigEnvVar.TDC_SKIP_EXISTING.name),
 ]
 ProfileOption = Annotated[
     str,
-    typer.Option("--profile", help="Extraction profile: pdf-only, default, or advanced"),
+    typer.Option("--profile", help="Extraction profile: pdf-only, default, or advanced", envvar=ConfigEnvVar.TDC_PROFILE.name),
 ]
 FiguresModeOption = Annotated[
     str,
     typer.Option(
         "--figures",
         help="Figure handling: embed (placeholder in markdown) or reference (extract image files)",
+        envvar=ConfigEnvVar.TDC_FIGURES.name,
     ),
 ]
 TablesModeOption = Annotated[
@@ -208,6 +229,7 @@ TablesModeOption = Annotated[
     typer.Option(
         "--tables",
         help="Table handling: embed (in markdown) or csv (separate CSV files)",
+        envvar=ConfigEnvVar.TDC_TABLES.name,
     ),
 ]
 DeviceOption = Annotated[
@@ -215,20 +237,23 @@ DeviceOption = Annotated[
     typer.Option(
         "--device",
         help="Accelerator device: auto (detect), cpu, cuda, or mps",
+        envvar=ConfigEnvVar.TDC_DEVICE.name,
     ),
 ]
 DocxDirectOption = Annotated[
     bool,
     typer.Option(
-        "--docx-direct",
+        "--docx-direct/--docx-convert",
         help="Feed .docx/.doc directly to backend, skip LibreOffice PDF conversion",
+        envvar=ConfigEnvVar.TDC_DOCX_DIRECT.name,
     ),
 ]
 ExtractMediaOption = Annotated[
     bool,
     typer.Option(
-        "--extract-media",
+        "--extract-media/--no-extract-media",
         help="Extract embedded images to a ./media folder next to the markdown",
+        envvar=ConfigEnvVar.TDC_EXTRACT_MEDIA.name,
     ),
 ]
 WorkspaceNameOption = Annotated[

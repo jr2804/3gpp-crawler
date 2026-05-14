@@ -26,8 +26,8 @@ from tdoc_crawler.cli.args import (
     LimitSubWgsOption,
     LimitTDocsOption,
     MaxRetriesOption,
-    NoProgressOption,
     OutputFormatOption,
+    ProgressOption,
     PromptCredentialsOption,
     ReleaseOption,
     SourcePatternExcludeOption,
@@ -109,7 +109,7 @@ def crawl_tdocs(
     timeout: TimeoutOption = 30,
     max_retries: MaxRetriesOption = 3,
     overall_timeout: int | None = None,
-    no_progress: NoProgressOption = False,
+    show_progress: ProgressOption = True,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     source: SourcePatternOption = None,
@@ -193,7 +193,7 @@ def crawl_tdocs(
 
             crawl_start_time = datetime.now()
 
-            if no_progress:
+            if not show_progress:
                 # No progress bar - just run the crawl
                 result = await crawler.crawl(config, progress_callback=None)
             else:
