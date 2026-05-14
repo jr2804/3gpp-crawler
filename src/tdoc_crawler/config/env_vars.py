@@ -75,7 +75,6 @@ class ConfigEnvVar(StrEnum):
     TDC_AUTO_CRAWL_SPECS = "crawl.auto_crawl_specs"
     TDC_MD_YAML_FRONTMATTER = "workspace.md_yaml_frontmatter"
     TDC_DOCX_DIRECT = "workspace.docx_direct"
-    TDC_EXTRACT_MEDIA = "workspace.extract_media"
     TDC_SKIP_EXISTING = "workspace.skip_existing"
     # Workspace extraction settings
     TDC_PROFILE = "workspace.profile"

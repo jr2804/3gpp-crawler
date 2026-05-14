@@ -12,7 +12,6 @@ from tdoc_crawler.cli._shared import console, create_progress_bar
 from tdoc_crawler.cli.args import (
     DeviceOption,
     DocxDirectOption,
-    ExtractMediaOption,
     FiguresModeOption,
     MdYamlFrontmatterOption,
     ProcessLimitOption,
@@ -132,7 +131,6 @@ def _process_member(
     md_yaml_frontmatter: bool,
     docling_config: DoclingConfig,
     docx_direct: bool = False,
-    extract_media: bool = False,
 ) -> tuple[str, bool, bool, int]:
     """Process a single workspace member.
 
@@ -152,7 +150,7 @@ def _process_member(
             force=force,
             docling_config=docling_config,
             docx_direct=docx_direct,
-            extract_media=extract_media,
+            md_yaml_frontmatter=md_yaml_frontmatter,
         )
         suffix = result_path.suffix.lstrip(".")
         logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
@@ -177,7 +175,6 @@ def workspace_process(
     tables: TablesModeOption = "embed",
     device: DeviceOption = "auto",
     docx_direct: DocxDirectOption = False,
-    extract_media: ExtractMediaOption = False,
     md_yaml_frontmatter: MdYamlFrontmatterOption = True,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
@@ -259,7 +256,6 @@ def workspace_process(
                 md_yaml_frontmatter,
                 docling_config,
                 docx_direct,
-                extract_media,
             )
             if succeeded:
                 processed += 1

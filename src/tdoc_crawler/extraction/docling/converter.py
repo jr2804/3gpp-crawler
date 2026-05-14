@@ -145,10 +145,11 @@ def _run_docling(
     md_path = output_dir / f"{stem}.md"
     json_path = output_dir / f"{stem}.json"
 
-    # --- Export markdown with referenced figure images ---
+    # --- Export markdown with figure images ---
+    image_mode = ImageRefMode.PLACEHOLDER if config.figures_mode == "embed" else ImageRefMode.REFERENCED
     result.document.save_as_markdown(
         md_path,
-        image_mode=ImageRefMode.REFERENCED,
+        image_mode=image_mode,
     )
     markdown_content = md_path.read_text(encoding="utf-8")
 

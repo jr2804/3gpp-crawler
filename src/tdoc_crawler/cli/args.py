@@ -220,7 +220,10 @@ FiguresModeOption = Annotated[
     str,
     typer.Option(
         "--figures",
-        help="Figure handling: embed (placeholder in markdown) or reference (extract image files)",
+        help=(
+            "Figure handling for all profiles: "
+            "embed (images embedded/self-contained) or reference (extract image files)"
+        ),
         envvar=ConfigEnvVar.TDC_FIGURES.name,
     ),
 ]
@@ -246,14 +249,6 @@ DocxDirectOption = Annotated[
         "--docx-direct/--docx-convert",
         help="Feed .docx/.doc directly to backend, skip LibreOffice PDF conversion",
         envvar=ConfigEnvVar.TDC_DOCX_DIRECT.name,
-    ),
-]
-ExtractMediaOption = Annotated[
-    bool,
-    typer.Option(
-        "--extract-media/--no-extract-media",
-        help="Extract embedded images to a ./media folder next to the markdown",
-        envvar=ConfigEnvVar.TDC_EXTRACT_MEDIA.name,
     ),
 ]
 WorkspaceNameOption = Annotated[

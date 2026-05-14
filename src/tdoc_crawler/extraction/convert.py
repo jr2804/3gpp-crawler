@@ -18,6 +18,7 @@ import re
 import shutil
 import tempfile
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -230,8 +231,8 @@ def _convert_via_remote(
 # ---------------------------------------------------------------------------
 
 # Matches ``![alt](media/image_NNN.png)`` — pymupdf4llm output with write_images=True.
-_MEDIA_REF_PATTERN = re.compile(r"!\[([^\]]*)\]\((media/[^)]+)\)")
-
+# Also matches absolute paths like ``![alt](C:/.../media/image_NNN.png)``.
+_MEDIA_REF_PATTERN_ABS = re.compile(r"!\[([^\]]*)\]\(([^)]*media/[^)]+)\)")
 _SUFFIX_TO_MIME: dict[str, str] = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -245,14 +246,17 @@ _SUFFIX_TO_MIME: dict[str, str] = {
 def _embed_media_as_base64(text: str, output_dir: Path) -> str:
     """Replace ``media/`` file references with base64 data URIs.
 
+    Handles both relative ``media/...`` and absolute paths emitted by pymupdf4llm.
     After embedding, the ``media/`` directory is removed.
     """
     media_dir = output_dir / "media"
 
     def _replacement(match: re.Match) -> str:
         alt_text = match.group(1)
-        rel_path = match.group(2)
-        img_path = output_dir / rel_path
+        img_ref = match.group(2)
+        img_path = Path(img_ref)
+        if not img_path.is_absolute():
+            img_path = output_dir / img_ref
         try:
             data = img_path.read_bytes()
             b64 = base64.b64encode(data).decode("ascii")
@@ -262,17 +266,38 @@ def _embed_media_as_base64(text: str, output_dir: Path) -> str:
             logger.warning("Failed to embed image: %s", img_path, exc_info=True)
             return match.group(0)
 
-    result = _MEDIA_REF_PATTERN.sub(_replacement, text)
+    # Match both relative ``media/...`` and absolute ``C:/.../media/...`` paths.
+    result = _MEDIA_REF_PATTERN_ABS.sub(_replacement, text)
     if media_dir.exists():
         shutil.rmtree(media_dir, ignore_errors=True)
     return result
+
+
+def _add_yaml_frontmatter(
+    md_path: Path,
+    *,
+    document_id: str,
+    source_kind: SourceKind,
+    profile: ExtractionProfile,
+) -> None:
+    """Prepend YAML frontmatter to a Markdown file."""
+    frontmatter = (
+        "---\n"
+        f"document_id: {document_id}\n"
+        f"source_kind: {source_kind.value}\n"
+        f"profile: {profile.value}\n"
+        f"extraction_date: \"{datetime.now(UTC).isoformat()}\"\n"
+        "---\n\n"
+    )
+    content = md_path.read_text(encoding="utf-8")
+    md_path.write_text(frontmatter + content, encoding="utf-8")
 
 
 def _run_markdown_only(
     primary: Path,
     output_dir: Path,
     *,
-    extract_media: bool = False,
+    figures_mode: str = "embed",
 ) -> Path:
     """Convert a PDF document to Markdown using pymupdf4llm."""
     media_dir = output_dir / "media"
@@ -285,7 +310,11 @@ def _run_markdown_only(
         image_format="png",
     )
 
-    if not extract_media:
+    # pymupdf4llm may emit absolute paths — normalize to relative ``media/``.
+    media_prefix = str(media_dir).replace("\\", "/")
+    md_text = md_text.replace(media_prefix + "/", "media/")
+
+    if figures_mode == "embed":
         md_text = _embed_media_as_base64(md_text, output_dir)
 
     md_path = output_dir / f"{primary.stem}.md"
@@ -356,7 +385,7 @@ def convert_for_wiki(
     force: bool = False,
     docling_config: DoclingConfig | None = None,
     docx_direct: bool = False,
-    extract_media: bool = False,
+    md_yaml_frontmatter: bool = True,
 ) -> Path:
     """Convert a document for wiki ingestion using the specified profile.
 
@@ -380,8 +409,7 @@ def convert_for_wiki(
         force: Force reconversion.
         docling_config: Optional Docling-specific configuration (figure/table modes).
         docx_direct: Feed .docx directly to backend, skip LibreOffice PDF step.
-        extract_media: Extract embedded images to ``./media/`` next to the
-            markdown (markdown-only profile).
+        md_yaml_frontmatter: Prepend YAML frontmatter to generated Markdown.
 
     Returns:
         Path to the primary output file (PDF for pdf-only, MD for others).
@@ -414,8 +442,12 @@ def convert_for_wiki(
             return md_file
         # Office formats → LibreOffice PDF first; native PDFs pass through.
         input_for_md = ensure_pdf(primary, wiki_source_dir, force=force)
+        figures_mode = docling_config.figures_mode if docling_config else "embed"
         with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
-            return _run_markdown_only(input_for_md, wiki_source_dir, extract_media=extract_media)
+            result = _run_markdown_only(input_for_md, wiki_source_dir, figures_mode=figures_mode)
+        if md_yaml_frontmatter:
+            _add_yaml_frontmatter(result, document_id=document_id, source_kind=source_kind, profile=profile)
+        return result
 
     # Step 2c: default/advanced → check existing output before running Docling
     md_file = wiki_source_dir / f"{primary.stem}.md"
@@ -437,6 +469,8 @@ def convert_for_wiki(
             docx_direct=is_docx_direct,
         )
 
+    if md_yaml_frontmatter:
+        _add_yaml_frontmatter(md_file, document_id=document_id, source_kind=source_kind, profile=profile)
     return md_file
 
 
