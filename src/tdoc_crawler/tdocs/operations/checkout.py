@@ -86,34 +86,52 @@ def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
 
 
 def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | None = None) -> str | None:
-    """Fetch directory listing and find case-correct URL for the TDoc zip.
+    """Fetch directory listing and find the correct URL for the TDoc zip.
 
-    When the server hosts a file with different casing than expected,
-    this parses the directory listing HTML to find the actual filename.
+    Tries the direct parent directory first. If that fails (e.g. the
+    directory does not exist due to path duplication like ``Docs/Docs/``),
+    progressively tries ancestor directories until a match is found.
+
+    Handles case-mismatched filenames and duplicated path segments.
     """
     if not metadata.url:
         return None
 
-    directory_url = metadata.url.rsplit("/", 1)[0] + "/"
     expected_filename = posixpath.basename(metadata.url)
+    expected_lower = expected_filename.lower()
 
-    try:
-        with requests.Session() as plain_session:
-            response = plain_session.get(directory_url, timeout=60)
-            response.raise_for_status()
+    # Build candidate directory URLs: direct parent, then grandparents
+    url_parts = metadata.url.rsplit("/", 1)
+    directory_url = url_parts[0] + "/"
+    candidate_dirs = [directory_url]
+
+    # Walk up the path to handle duplicated segments (e.g. Docs/Docs/)
+    parsed = urlparse(directory_url)
+    path_segments = [s for s in parsed.path.split("/") if s]
+    # Remove the last segment and try again (up to 3 levels)
+    for i in range(1, min(4, len(path_segments))):
+        shorter = "/" + "/".join(path_segments[:-i]) + "/"
+        candidate = f"{parsed.scheme}://{parsed.netloc}{shorter}"
+        candidate_dirs.append(candidate)
+
+    with requests.Session() as plain_session:
+        for dir_url in candidate_dirs:
+            try:
+                response = plain_session.get(dir_url, timeout=60)
+                response.raise_for_status()
+            except (requests.RequestException, OSError):
+                logger.debug("Directory listing failed for %s", dir_url)
+                continue
+
             soup = BeautifulSoup(response.content or b"", "html.parser")
-            expected_lower = expected_filename.lower()
-
             for link in soup.find_all("a", href=True):
                 href = link.get("href")
                 if not isinstance(href, str):
                     continue
-                full_url = urljoin(directory_url, href)
+                full_url = urljoin(dir_url, href)
                 actual_filename = posixpath.basename(full_url)
                 if actual_filename.lower() == expected_lower:
                     return full_url
-    except (requests.RequestException, OSError):
-        logger.debug(f"Failed to fetch directory listing from {directory_url}")
 
     return None
 
@@ -148,8 +166,11 @@ def checkout_tdoc(
     checkout_path = get_checkout_path(metadata, checkout_dir)
 
     if checkout_path.exists() and not force:
-        logger.debug(f"TDoc {metadata.tdoc_id} already checked out at {checkout_path}")
-        return checkout_path
+        has_files = any(f.is_file() for f in checkout_path.rglob("*") if not f.name.startswith("."))
+        if has_files:
+            logger.debug(f"TDoc {metadata.tdoc_id} already checked out at {checkout_path}")
+            return checkout_path
+        logger.debug(f"TDoc {metadata.tdoc_id} checkout dir exists but is empty, re-downloading")
 
     checkout_path.mkdir(parents=True, exist_ok=True)
     temp_zip_file = checkout_path / f"{metadata.tdoc_id}.zip"
@@ -159,20 +180,29 @@ def checkout_tdoc(
         raise ValueError(msg)
 
     try:
-        download_to_file(metadata.url, temp_zip_file, session=session)
+        try:
+            download_to_file(metadata.url, temp_zip_file, session=session)
+        except requests.HTTPError:
+            corrected_url = _resolve_corrected_url(metadata)
+            if corrected_url and corrected_url != metadata.url:
+                logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
+                with requests.Session() as plain_session:
+                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
+            else:
+                raise
         try:
             with zipfile.ZipFile(temp_zip_file) as _zf:
                 pass
         except zipfile.BadZipFile:
             corrected_url = _resolve_corrected_url(metadata)
             if corrected_url and corrected_url != metadata.url:
-                logger.info(f"Retrying checkout for {metadata.tdoc_id} with corrected URL: {corrected_url}")
+                logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
                 with requests.Session() as plain_session:
                     download_to_file(corrected_url, temp_zip_file, session=plain_session)
             else:
                 raise
         safe_extract_zip(temp_zip_file, checkout_path)
-        logger.info(f"Checked out {metadata.tdoc_id} to {checkout_path}")
+        logger.info("Checked out %s to %s", metadata.tdoc_id, checkout_path)
     finally:
         if temp_zip_file.exists():
             temp_zip_file.unlink()

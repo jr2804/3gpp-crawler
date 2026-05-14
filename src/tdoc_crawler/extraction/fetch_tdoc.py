@@ -78,7 +78,8 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
     checkout_dir = PathConfig().checkout_dir
     checkout_path = get_checkout_path(metadata, checkout_dir)
 
-    if not checkout_path.exists() or force_download:
+    needs_download = force_download or not _checkout_has_files(checkout_path)
+    if needs_download:
         with create_cached_session() as session:
             checkout_tdoc(metadata, checkout_dir, force=force_download, session=session)
 
@@ -95,6 +96,13 @@ def fetch_spec_files(checkout_path: Path) -> TDocFiles:
         TDocFiles with paths to available documents.
     """
     return _find_files_in_checkout(checkout_path)
+
+
+def _checkout_has_files(checkout_path: Path) -> bool:
+    """Check if a checkout directory exists and contains actual files."""
+    if not checkout_path.is_dir():
+        return False
+    return any(f.is_file() for f in checkout_path.rglob("*") if not f.name.startswith("."))
 
 
 def _find_files_in_checkout(checkout_path: Path) -> TDocFiles:
