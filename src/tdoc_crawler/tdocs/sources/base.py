@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from tdoc_crawler.config.settings import HttpConfig
-from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 
 
 class TDocSource(Protocol):

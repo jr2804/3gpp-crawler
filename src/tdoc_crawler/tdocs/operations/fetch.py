@@ -15,8 +15,9 @@ from pydantic import ValidationError
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
+from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.sources import (
     DocumentListSource,

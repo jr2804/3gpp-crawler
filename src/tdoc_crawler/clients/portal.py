@@ -22,11 +22,11 @@ import niquests as requests
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.constants.urls import LOGIN_URL, PORTAL_BASE_URL, TDOC_DOWNLOAD_URL, TDOC_VIEW_URL
 from tdoc_crawler.credentials import resolve_credentials
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session, resolve_ssl_verify
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError, parse_tdoc_portal_page
-from tdoc_crawler.tdocs.models import TDocMetadata
 
 logger = get_logger(__name__)
 

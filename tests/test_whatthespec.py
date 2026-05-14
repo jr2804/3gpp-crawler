@@ -11,7 +11,7 @@ import pytest
 
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import WHATSPEC_BASE_URL, WhatTheSpecResolutionError, resolve_via_whatthespec
 
 from .conftest import insert_sample_meetings_async

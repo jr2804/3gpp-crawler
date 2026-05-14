@@ -12,9 +12,9 @@ import niquests as requests
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.database.meetings import MeetingDatabase
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id

@@ -6,22 +6,16 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from enum import StrEnum, auto
 
-from packaging.version import Version
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from tdoc_crawler.config.settings import HttpConfig
-from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models.base import (
     OutputFormat,
     SortOrder,
 )
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.utils.misc import utc_now
-from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
-from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr
-
-_logger = get_logger(__name__)
+from tdoc_crawler.utils.normalization import normalize_tdoc_ids
 
 
 class TDocStatus(StrEnum):
@@ -78,88 +72,9 @@ class TDocStatus(StrEnum):
         return None
 
 
-class TDocMetadata(BaseModel):
-    """Persistent representation for a TDoc entry."""
-
-    # Mandatory metadata fields from portal
-    tdoc_id: str = Field(..., description="Unique TDoc identifier (case-normalized)")
-    meeting_id: int = Field(..., description="Foreign key reference to the meetings table")
-    title: str = Field(..., description="Document title as published on the portal")
-    url: str | None = Field(None, description="Full URL to the TDoc resource, None if not available")
-    source: str = Field(..., description="Contact person or organization")
-    contact: str = Field(..., description="Contact person or organization")
-
-    tdoc_type: str = Field("unknown", description="TDoc classification as reported by the portal")
-    for_purpose: str = Field("unknown", description="Purpose of the contribution (agreement, information, etc.)")
-    agenda_item_nbr: AgendaItemNumber = Field(..., description="Associated agenda item number (hierarchical identifier, e.g., 1.2.3)")
-    agenda_item_text: str = Field("Unknown", description="Associated agenda item (text identifier)")
-    status: str | None = Field(None, description="Document status as reported by the portal")
-
-    @classmethod
-    @field_serializer("agenda_item_nbr")
-    def _serialize_agenda_item_nbr(cls, value: AgendaItemNumber) -> str:
-        """Serialize agenda item version for storage and JSON output."""
-        return value
-
-    @field_validator("agenda_item_nbr", mode="before")
-    @classmethod
-    def _validate_agenda_item_nbr(cls, value: Version | AgendaItemNumber | float | None) -> AgendaItemNumber:
-        """Normalize agenda item numbers into Version objects."""
-        return parse_agenda_item_nbr(value)
-
-    @classmethod
-    @field_serializer("status")
-    def _serialize_status(cls, value: TDocStatus | str | None) -> str | None:
-        """Serialize TDocStatus enum to string for database storage."""
-        if value is None:
-            return None
-        if isinstance(value, TDocStatus):
-            return value.value
-        return value
-
-    @field_validator("status", mode="before")
-    @classmethod
-    def _validate_status(cls, value: str | TDocStatus | None) -> str | None:
-        """Validate and normalize status value against TDocStatus enum.
-
-        Args:
-            value: Status string or enum value
-
-        Returns:
-            Normalized status string (lowercase) or None
-
-        Raises:
-            ValueError: If status value is not in TDocStatus enum
-        """
-        if value is None:
-            return None
-
-        if isinstance(value, TDocStatus):
-            return value.value
-
-        # Use _missing_ directly for case-insensitive lookup; return None for unknown statuses
-        status = TDocStatus._missing_(value)
-        if status is None:
-            return None
-        return status.value
-
-    @field_validator("tdoc_id")
-    @classmethod
-    def _normalize_tdoc_id(cls, value: str) -> str:
-        """Ensure identifiers are uppercase and trimmed."""
-        return normalize_tdoc_id(value)
-
-    # Optional metadata fields (from portal or determined otherwise)
-    is_revision_of: str | None = Field(None, description="Reference to a previous TDoc version")
-    file_size: int | None = Field(None, description="File size in bytes, when available/downloaded")
-
-    # fields for local database management
-
-    date_created: datetime | None = Field(None, description="Original creation timestamp when provided")
-    date_retrieved: datetime = Field(default_factory=utc_now, description="Timestamp of the last retrieval")
-    date_updated: datetime = Field(default_factory=utc_now, description="Timestamp of the last database update")
-    validated: bool = Field(False, description="Flag indicating successful portal validation")
-    validation_failed: bool = Field(False, description="Flag indicating cached failed validation")
+# TDocMetadata is defined in tdoc_crawler.database.oxyde_models.
+# Import it from there directly:
+#   from tdoc_crawler.database.oxyde_models import TDocMetadata
 
 
 class TDocCrawlConfig(BaseModel):
@@ -266,7 +181,6 @@ class TDocQueryConfig(BaseModel):
 
 __all__ = [
     "TDocCrawlConfig",
-    "TDocMetadata",
     "TDocQueryConfig",
     "TDocStatus",
 ]

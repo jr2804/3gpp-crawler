@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.config.settings import PathConfig
-from tdoc_crawler.database.oxyde_models import TDocMetadata as TDocRecord
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.models.workspaces import TDocNotFoundError
@@ -54,7 +54,7 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
     """
     normalized_id = normalize_tdoc_id(document_id)
 
-    async def _resolve_metadata() -> TDocRecord | None:
+    async def _resolve_metadata() -> TDocMetadata | None:
         manager = resolve_cache_manager()
         async with TDocDatabase(manager.db_file) as db:
             # 1. Check database
@@ -65,21 +65,9 @@ def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFile
             # 2. Resolve via WhatTheSpec
             metadata = resolve_via_whatthespec(normalized_id)
             if metadata:
-                # Convert Pydantic to Oxyde record
-                new_record = TDocRecord(
-                    tdoc_id=metadata.tdoc_id,
-                    meeting_id=metadata.meeting_id,
-                    title=metadata.title,
-                    url=metadata.url,
-                    source=metadata.source,
-                    agenda_item_nbr=metadata.agenda_item_nbr,
-                    agenda_item_text=metadata.agenda_item_text,
-                    status=metadata.status,
-                    is_withdrawn=metadata.is_withdrawn,
-                )
                 # 3. Put into database
-                await db.upsert_tdoc(new_record)
-                return new_record
+                await db.upsert_tdoc(metadata)
+                return metadata
         return None
 
     metadata = run_async(_resolve_metadata())

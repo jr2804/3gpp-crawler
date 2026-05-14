@@ -7,9 +7,9 @@ from typing import Any
 import niquests as requests
 from bs4 import BeautifulSoup
 
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 logger = get_logger(__name__)

@@ -6,12 +6,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from packaging.version import Version
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME
-from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
 
@@ -30,7 +29,7 @@ def sample_tdoc_metadata() -> TDocMetadata:
         title="Sample TDoc",
         source="Qualcomm",
         contact="John Doe",
-        agenda_item_nbr=Version("1.1"),
+        agenda_item_nbr="1.1",
         url="https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_123/Docs/S4-260001.zip",
         tdoc_type="unknown",
         for_purpose="unknown",

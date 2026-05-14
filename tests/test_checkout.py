@@ -6,9 +6,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-from packaging.version import Version
 
-from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import (
     _resolve_corrected_url,
     checkout_tdoc,
@@ -30,7 +29,7 @@ def sample_tdoc_metadata() -> TDocMetadata:
         contact="test@example.com",
         tdoc_type="Test Type",
         for_purpose="Test Purpose",
-        agenda_item_nbr=Version("1.0"),
+        agenda_item_nbr="1.0",
         agenda_item_text="Test Agenda Item",
         status="available",
         meeting_name="Test Meeting",
@@ -68,7 +67,7 @@ class TestGetCheckoutPath:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Version("1.0"),
+            agenda_item_nbr="1.0",
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",
@@ -93,7 +92,7 @@ class TestGetCheckoutPath:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Version("1.0"),
+            agenda_item_nbr="1.0",
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",
@@ -189,7 +188,7 @@ class TestCheckoutTDoc:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Version("1.0"),
+            agenda_item_nbr="1.0",
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",
@@ -291,7 +290,7 @@ class TestResolveCorrectedUrl:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Version("1.0"),
+            agenda_item_nbr="1.0",
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",
@@ -330,7 +329,7 @@ class TestResolveCorrectedUrl:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Version("1.0"),
+            agenda_item_nbr="1.0",
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",
@@ -362,7 +361,7 @@ class TestResolveCorrectedUrl:
             contact="test@example.com",
             tdoc_type="Test Type",
             for_purpose="Test Purpose",
-            agenda_item_nbr=Version("1.0"),
+            agenda_item_nbr="1.0",
             agenda_item_text="Test Agenda Item",
             status="available",
             meeting_name="Test Meeting",

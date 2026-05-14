@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Self
 
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.parsers.portal import PortalParsingError
-from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 
 logger = get_logger(__name__)

@@ -12,9 +12,9 @@ import pytest
 from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient, PortalCredentialsError
 from tdoc_crawler.clients.portal import PortalClient as ReExportedPortalClient
 from tdoc_crawler.constants.urls import TDOC_DOWNLOAD_URL
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError
-from tdoc_crawler.tdocs.models import TDocMetadata
 
 
 class TestPortalClientInit:
@@ -254,14 +254,13 @@ class TestPortalClientFetchTdocMetadata:
             mock_parse.return_value = TDocMetadata(
                 tdoc_id="S4-251364",
                 meeting_id=0,
-                meeting_name="SA4#133-e",
                 title="Test Title",
                 url="https://example.com",
                 source="Test Source",
                 contact="Test Contact",
                 tdoc_type="Discussion",
                 for_purpose="Discussion",
-                agenda_item_nbr=1,
+                agenda_item_nbr="1",
                 agenda_item_text="Test",
                 status="Approved",
                 validated=True,

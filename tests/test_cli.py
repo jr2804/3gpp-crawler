@@ -7,14 +7,13 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from packaging.version import Version
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
@@ -483,7 +482,7 @@ class TestOpenCommand:
             contact="Test Contact",
             tdoc_type="agenda",
             for_purpose="Approval",
-            agenda_item_nbr=Version("2"),
+            agenda_item_nbr="2",
             agenda_item_text="Agenda item text",
             status="available",
             validated=False,
@@ -551,7 +550,7 @@ class TestOpenCommand:
             tdoc_type="discussion",
             agenda_item_text="Test agenda item text",
             for_purpose="Discussion",
-            agenda_item_nbr=Version("3.1"),
+            agenda_item_nbr="3.1",
             status="available",
             validated=False,
             validation_failed=False,
@@ -624,7 +623,7 @@ class TestCheckoutCommand:
             tdoc_type="agenda",
             agenda_item_text="Test agenda item text",
             for_purpose="Approval",
-            agenda_item_nbr=Version("2"),
+            agenda_item_nbr="2",
             status="available",
             validated=False,
             validation_failed=False,
@@ -642,7 +641,7 @@ class TestCheckoutCommand:
             tdoc_type="discussion",
             agenda_item_text="Test agenda item text",
             for_purpose="Discussion",
-            agenda_item_nbr=Version("3"),
+            agenda_item_nbr="3",
             status="available",
             validated=False,
             validation_failed=False,

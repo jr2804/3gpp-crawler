@@ -11,6 +11,7 @@ import niquests as requests
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.config.workspace_registry import WorkspaceRegistry
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.logging import get_logger
@@ -20,7 +21,6 @@ from tdoc_crawler.specs.operations.checkout import (
 )
 from tdoc_crawler.specs.sources.base import FunctionSpecSource
 from tdoc_crawler.specs.sources.threegpp import fetch_threegpp_metadata
-from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.normalization import (

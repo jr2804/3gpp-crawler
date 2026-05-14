@@ -15,9 +15,9 @@ import niquests as requests
 import pandas as pd
 
 from tdoc_crawler.config.settings import HttpConfig
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.models import TDocMetadata
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr
 

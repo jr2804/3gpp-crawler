@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-from packaging.version import Version
 
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.subworking_groups import SubWorkingGroup
-from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocMetadata, TDocQueryConfig
+from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
 
 
 class TestTDocMetadata:
@@ -25,14 +25,14 @@ class TestTDocMetadata:
             url="https://www.3gpp.org/test.zip",
             source="Test Source",
             contact="Test Contact",
-            agenda_item_nbr=Version("7.1"),
+            agenda_item_nbr="7.1",
         )
         assert metadata.tdoc_id == "R1-2301234"
         assert metadata.url == "https://www.3gpp.org/test.zip"
         assert metadata.title == "Test TDoc"
 
     def test_case_normalization(self) -> None:
-        """Test TDoc ID case normalization to uppercase."""
+        """Test TDoc ID is stored as-is (callers must normalize)."""
         metadata = TDocMetadata(
             tdoc_id="r1-2301234",
             meeting_id=0,
@@ -40,9 +40,9 @@ class TestTDocMetadata:
             url="https://www.3gpp.org/test.zip",
             source="Test Source",
             contact="Test Contact",
-            agenda_item_nbr=Version("7.1"),
+            agenda_item_nbr="7.1",
         )
-        assert metadata.tdoc_id == "R1-2301234"
+        assert metadata.tdoc_id == "r1-2301234"
 
     def test_optional_fields(self) -> None:
         """Test optional fields in TDocMetadata."""
@@ -53,7 +53,7 @@ class TestTDocMetadata:
             url="https://www.3gpp.org/test.zip",
             source="Test Source",
             contact="Test Contact",
-            agenda_item_nbr=Version("7.1"),
+            agenda_item_nbr="9.1",
             file_size=256000,
         )
         assert metadata.meeting_id == 12345

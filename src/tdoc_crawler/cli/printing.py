@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any
 
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.database.specs import SpecCrawlResult
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.meetings.models import MeetingMetadata
@@ -14,7 +15,6 @@ from tdoc_crawler.models.base import OutputFormat
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.specs.models import SpecQueryResult
-from tdoc_crawler.tdocs.models import TDocMetadata
 
 console = get_console()
 
