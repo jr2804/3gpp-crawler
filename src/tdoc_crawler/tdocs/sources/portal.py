@@ -130,7 +130,7 @@ class PortalSource(TDocSource):
             Configured PortalClient instance
         """
         if self._client is None:
-            self._client = PortalClient(timeout=self.config.timeout, http_config=self.config.http_config, cache_manager_name=self.config.cache_manager_name)
+            self._client = PortalClient(timeout=self.config.timeout, http_config=self.config.http_config)
         return self._client
 
 
