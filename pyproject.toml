@@ -41,8 +41,6 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "niquests>=3.18.4",
     "opencv-python-headless>=4.13.0.92",
-    "markitdown[all]>=0.1.5",
-    "markitdown-ocr>=0.1.0",
     "pymupdf>=1.27.2.3",
     "pymupdf4llm>=1.27.2.3",
 ]
