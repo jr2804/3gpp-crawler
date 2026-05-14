@@ -45,7 +45,7 @@ def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> 
     Updates ``record.file_size`` in-place.
     """
     for record in results:
-        if record.file_size is not None or not record.url:
+        if record.file_size or not record.url:
             continue
         tdoc_dir = get_checkout_path(record, checkout_dir)
         if not tdoc_dir.exists():

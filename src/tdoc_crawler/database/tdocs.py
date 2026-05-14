@@ -343,8 +343,6 @@ class TDocDatabase(MeetingDatabase):
             updates["date_created"] = metadata.date_retrieved or utc_now()
         if metadata.tbid is None:
             updates["tbid"] = 0
-        if metadata.file_size is None:
-            updates["file_size"] = 0
         if updates:
             return TDocDatabase._clone_tdoc(metadata, updates)
         return metadata
