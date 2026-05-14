@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from packaging.version import Version
 
 from tdoc_crawler.database import DatabaseError, TDocDatabase
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
 from tdoc_crawler.models import SortOrder, WorkingGroup
-from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
+from tdoc_crawler.tdocs.models import TDocQueryConfig
 
 
 @pytest.mark.asyncio
@@ -158,6 +158,7 @@ class TestTDocDatabase:
             _ = await db.upsert_tdoc(sample_tdocs[0])
             updated_tdoc = TDocMetadata(
                 tdoc_id="R1-2301234",
+                tbid=373,
                 url="https://www.3gpp.org/updated/r1-2301234.zip",
                 meeting_id=12345,
                 file_size=512000,
@@ -166,12 +167,12 @@ class TestTDocDatabase:
                 contact="Updated Contact",
                 tdoc_type="Updated Type",
                 for_purpose="Updated Purpose",
-                agenda_item_nbr=Version("7.2"),
+                agenda_item_nbr="7.2",
                 agenda_item_text="Updated agenda",
                 status="revised",
-                is_revision_of=None,
-                date_created=None,
-                date_retrieved=datetime(2023, 1, 17),
+                is_revision_of="",
+                date_created=datetime(2023, 1, 15, tzinfo=UTC),
+                date_retrieved=datetime(2023, 1, 17, tzinfo=UTC),
                 validated=False,
                 validation_failed=False,
             )

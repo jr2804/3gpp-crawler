@@ -7,11 +7,11 @@ from unittest.mock import MagicMock, patch
 
 import niquests as requests
 import pytest
-from packaging.version import Version
 
 from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.models import PortalCredentials, WorkingGroup
-from tdoc_crawler.tdocs.models import TDocMetadata, TDocQueryConfig
+from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
 
@@ -35,19 +35,19 @@ class TestFetchMissingTdocsBatch:
         mock_source_instance.fetch_by_id.return_value = TDocMetadata(
             tdoc_id="R1-2301234",
             meeting_id=0,
+            tbid=373,
             title="Test TDoc",
             url="https://example.com/R1-2301234.zip",
             contact="Test Contact",
             source="Test Source",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Version("7.1"),
+            agenda_item_nbr="7.1",
             agenda_item_text="Test agenda",
             status="Approved",
             validated=True,
-            is_revision_of=None,
-            file_size=None,
-            date_created=None,
+            is_revision_of="",
+            file_size=0,
             validation_failed=False,
         )
         mock_portal_source_class.return_value = mock_source_instance
@@ -80,37 +80,37 @@ class TestFetchMissingTdocsBatch:
             TDocMetadata(
                 tdoc_id="R1-2301234",
                 meeting_id=0,
+                tbid=373,
                 title="Test TDoc 1",
                 url="https://example.com/R1-2301234.zip",
                 contact="Test Contact",
                 source="Test Source",
                 tdoc_type="Discussion",
                 for_purpose="Discussion",
-                agenda_item_nbr=Version("7.1"),
+                agenda_item_nbr="7.1",
                 agenda_item_text="Test agenda",
                 status="Approved",
                 validated=True,
-                is_revision_of=None,
-                file_size=None,
-                date_created=None,
+                is_revision_of="",
+                file_size=0,
                 validation_failed=False,
             ),
             TDocMetadata(
                 tdoc_id="S4-2301890",
                 meeting_id=0,
+                tbid=375,
                 title="Test TDoc 2",
                 url="https://example.com/S4-2301890.zip",
                 contact="Test Contact",
                 source="Test Source",
                 tdoc_type="Discussion",
                 for_purpose="Discussion",
-                agenda_item_nbr=Version("8.2"),
+                agenda_item_nbr="8.2",
                 agenda_item_text="Test agenda",
                 status="Approved",
                 validated=True,
-                is_revision_of=None,
-                file_size=None,
-                date_created=None,
+                is_revision_of="",
+                file_size=0,
                 validation_failed=False,
             ),
         ]
@@ -288,19 +288,19 @@ class TestWhatTheSpecFallback:
             metadata = TDocMetadata(
                 tdoc_id="S4-260001",
                 meeting_id=0,
+                tbid=375,
                 title="SA4#135 meeting agenda",
                 url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
                 source="SA WG4 Chair",
                 contact="Test Contact",
                 tdoc_type="agenda",
                 for_purpose="Approval",
-                agenda_item_nbr=Version("2"),
+                agenda_item_nbr="2",
                 agenda_item_text="Unknown",
                 status="available",
                 validated=False,
-                is_revision_of=None,
-                file_size=None,
-                date_created=None,
+                is_revision_of="",
+                file_size=0,
                 validation_failed=False,
             )
 
@@ -371,38 +371,38 @@ class TestWhatTheSpecFallback:
                         metadata = TDocMetadata(
                             tdoc_id="S4-260001",
                             meeting_id=0,
+                            tbid=375,
                             title="SA4#135 meeting agenda",
                             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
                             source="SA WG4 Chair",
                             contact="Test Contact",
                             tdoc_type="agenda",
                             for_purpose="Approval",
-                            agenda_item_nbr=Version("2"),
+                            agenda_item_nbr="2",
                             agenda_item_text="Unknown",
                             status="available",
                             validated=False,
-                            is_revision_of=None,
-                            file_size=None,
-                            date_created=None,
+                            is_revision_of="",
+                            file_size=0,
                             validation_failed=False,
                         )
                     elif tdoc_id == "S4-260002":
                         metadata = TDocMetadata(
                             tdoc_id="S4-260002",
                             meeting_id=0,
+                            tbid=375,
                             title="SA4#135 another document",
                             url="https://www.3gpp.org/tsg_sa/WG4/s4-260002.zip",
                             source="SA WG4 Chair",
                             contact="Test Contact",
                             tdoc_type="discussion",
                             for_purpose="Discussion",
-                            agenda_item_nbr=Version("3"),
+                            agenda_item_nbr="3",
                             agenda_item_text="Unknown",
                             status="available",
                             validated=False,
-                            is_revision_of=None,
-                            file_size=None,
-                            date_created=None,
+                            is_revision_of="",
+                            file_size=0,
                             validation_failed=False,
                         )
                     else:
@@ -524,19 +524,19 @@ class TestWhatTheSpecFallback:
         metadata = TDocMetadata(
             tdoc_id="S4-260001",
             meeting_id=0,
+            tbid=375,
             title="SA4#135 meeting agenda",
             url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
             source="SA WG4 Chair",
             contact="Gilles Teniou",
             tdoc_type="agenda",
             for_purpose="Approval",
-            agenda_item_nbr=Version("2"),
+            agenda_item_nbr="2",
             agenda_item_text="Unknown",
             status="available",
             validated=False,
-            is_revision_of=None,
-            file_size=None,
-            date_created=None,
+            is_revision_of="",
+            file_size=0,
             validation_failed=False,
         )
 

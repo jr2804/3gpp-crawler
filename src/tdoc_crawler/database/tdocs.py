@@ -306,10 +306,29 @@ class TDocDatabase(MeetingDatabase):
     # ------------------------------------------------------------------
     @staticmethod
     def _prepare_tdoc(metadata: TDocMetadata) -> TDocMetadata:
-        """Prepare TDoc metadata for insertion (set defaults)."""
+        """Prepare TDoc metadata for insertion (set defaults).
+
+        Oxyde's ``bulk_create`` uses ``exclude_none=True``, so ``None`` fields
+        are dropped from the INSERT payload.  If some rows in a batch have a
+        field set while others drop it, oxyde raises ``Missing column``.  We
+        normalise nullable fields that vary across data sources to non-``None``
+        defaults so every row has a consistent set of columns.
+        """
         updates: dict[str, object] = {}
         if metadata.date_retrieved is None:
             updates["date_retrieved"] = utc_now()
+        if metadata.status is None:
+            updates["status"] = ""
+        if metadata.url is None:
+            updates["url"] = ""
+        if metadata.is_revision_of is None:
+            updates["is_revision_of"] = ""
+        if metadata.date_created is None:
+            updates["date_created"] = metadata.date_retrieved or utc_now()
+        if metadata.tbid is None:
+            updates["tbid"] = 0
+        if metadata.file_size is None:
+            updates["file_size"] = 0
         if updates:
             return TDocDatabase._clone_tdoc(metadata, updates)
         return metadata

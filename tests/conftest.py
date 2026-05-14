@@ -7,13 +7,12 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
-from packaging.version import Version
 
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.meetings.models import MeetingMetadata
-from tdoc_crawler.tdocs.models import TDocMetadata
 
 
 @pytest.fixture(autouse=True)
@@ -69,6 +68,7 @@ def sample_tdocs() -> list[TDocMetadata]:
     return [
         TDocMetadata(
             tdoc_id="R1-2301234",
+            tbid=373,
             url="https://www.3gpp.org/ftp/tsg_ran/RAN1/r1-2301234.zip",
             meeting_id=12345,
             file_size=256000,
@@ -77,10 +77,10 @@ def sample_tdocs() -> list[TDocMetadata]:
             contact="Test Contact",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Version("7.1"),
+            agenda_item_nbr="7.1",
             agenda_item_text="Test agenda item",
             status="approved",
-            is_revision_of=None,
+            is_revision_of="",
             date_created=datetime(2023, 1, 15, tzinfo=UTC),
             date_retrieved=datetime(2023, 1, 16, tzinfo=UTC),
             validated=False,
@@ -88,6 +88,7 @@ def sample_tdocs() -> list[TDocMetadata]:
         ),
         TDocMetadata(
             tdoc_id="R2-2301567",
+            tbid=373,
             url="https://www.3gpp.org/ftp/tsg_ran/RAN2/r2-2301567.zip",
             meeting_id=12346,
             file_size=512000,
@@ -96,10 +97,10 @@ def sample_tdocs() -> list[TDocMetadata]:
             contact="Test Contact",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Version("8.1"),
+            agenda_item_nbr="8.1",
             agenda_item_text="Test agenda item",
             status="approved",
-            is_revision_of=None,
+            is_revision_of="",
             date_created=datetime(2023, 1, 15, tzinfo=UTC),
             date_retrieved=datetime(2023, 1, 16, tzinfo=UTC),
             validated=False,
@@ -107,6 +108,7 @@ def sample_tdocs() -> list[TDocMetadata]:
         ),
         TDocMetadata(
             tdoc_id="S4-2301890",
+            tbid=375,
             url="https://www.3gpp.org/ftp/tsg_sa/SA4/s4-2301890.zip",
             meeting_id=12347,
             file_size=128000,
@@ -115,10 +117,10 @@ def sample_tdocs() -> list[TDocMetadata]:
             contact="Test Contact",
             tdoc_type="Discussion",
             for_purpose="Discussion",
-            agenda_item_nbr=Version("9.1"),
+            agenda_item_nbr="9.1",
             agenda_item_text="Test agenda item",
             status="approved",
-            is_revision_of=None,
+            is_revision_of="",
             date_created=datetime(2023, 1, 15, tzinfo=UTC),
             date_retrieved=datetime(2023, 1, 16, tzinfo=UTC),
             validated=False,
