@@ -4,13 +4,14 @@ After checkout/fetch, all source types (TDocs, Specs, Other) are treated as
 generic documents.  Four extraction profiles are supported:
 
 - **pdf-only**:  Convert to PDF only (via LibreOffice).  No structured extraction.
-- **markdown-only**:  Fast markitdown extraction (.md only, no ML).
+- **markdown-only**:  Fast pymupdf4llm extraction (.md only, no ML).
 - **default**:   PDF → Docling structured output (Markdown + JSON).
 - **advanced**:  Same as default + picture descriptions, code/formula enrichment.
 """
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import re
@@ -21,6 +22,7 @@ from enum import Enum
 from pathlib import Path
 
 import niquests as requests
+import pymupdf4llm
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
 
@@ -32,7 +34,6 @@ from tdoc_crawler.extraction.docling import (
 from tdoc_crawler.extraction.errors import ConversionError
 from tdoc_crawler.extraction.fetch_tdoc import fetch_spec_files as fetch_spec_files_from_tdoc
 from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
-from tdoc_crawler.extraction.markitdown import _run_markitdown
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.models.workspaces import SourceKind
@@ -225,6 +226,74 @@ def _convert_via_remote(
 
 
 # ---------------------------------------------------------------------------
+# pymupdf4llm markdown extraction (fast, no ML)
+# ---------------------------------------------------------------------------
+
+# Matches ``![alt](media/image_NNN.png)`` — pymupdf4llm output with write_images=True.
+_MEDIA_REF_PATTERN = re.compile(r"!\[([^\]]*)\]\((media/[^)]+)\)")
+
+_SUFFIX_TO_MIME: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+    ".webp": "image/webp",
+}
+
+
+def _embed_media_as_base64(text: str, output_dir: Path) -> str:
+    """Replace ``media/`` file references with base64 data URIs.
+
+    After embedding, the ``media/`` directory is removed.
+    """
+    media_dir = output_dir / "media"
+
+    def _replacement(match: re.Match) -> str:
+        alt_text = match.group(1)
+        rel_path = match.group(2)
+        img_path = output_dir / rel_path
+        try:
+            data = img_path.read_bytes()
+            b64 = base64.b64encode(data).decode("ascii")
+            mime = _SUFFIX_TO_MIME.get(img_path.suffix.lower(), "application/octet-stream")
+            return f"![{alt_text}](data:{mime};base64,{b64})"
+        except (OSError, ValueError):
+            logger.warning("Failed to embed image: %s", img_path, exc_info=True)
+            return match.group(0)
+
+    result = _MEDIA_REF_PATTERN.sub(_replacement, text)
+    if media_dir.exists():
+        shutil.rmtree(media_dir, ignore_errors=True)
+    return result
+
+
+def _run_markdown_only(
+    primary: Path,
+    output_dir: Path,
+    *,
+    extract_media: bool = False,
+) -> Path:
+    """Convert a PDF document to Markdown using pymupdf4llm."""
+    media_dir = output_dir / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+
+    md_text = pymupdf4llm.to_markdown(
+        str(primary),
+        write_images=True,
+        image_path=str(media_dir),
+        image_format="png",
+    )
+
+    if not extract_media:
+        md_text = _embed_media_as_base64(md_text, output_dir)
+
+    md_path = output_dir / f"{primary.stem}.md"
+    md_path.write_text(md_text, encoding="utf-8")
+    return md_path
+
+
+# ---------------------------------------------------------------------------
 # Source file resolution (source-kind-specific, before generic conversion)
 # ---------------------------------------------------------------------------
 
@@ -292,9 +361,9 @@ def convert_for_wiki(
     """Convert a document for wiki ingestion using the specified profile.
 
     For **markdown-only** the pipeline is:
-    1. Convert legacy ``.doc`` files to PDF (via LibreOffice) — they are binary
-       format and cannot be processed directly by markitdown.
-    2. Feed ``.docx`` or PDF to markitdown — no ML, no JSON.
+    1. Convert Office documents to PDF (via LibreOffice); native PDFs pass through.
+    2. Feed PDF to :func:`pymupdf4llm.to_markdown` for layout-aware extraction
+       with inline images, tables, and multi-column support.
     3. Write ``.md`` to *wiki_source_dir*.
 
     For **default** and **advanced** profiles the pipeline is:
@@ -312,7 +381,7 @@ def convert_for_wiki(
         docling_config: Optional Docling-specific configuration (figure/table modes).
         docx_direct: Feed .docx directly to backend, skip LibreOffice PDF step.
         extract_media: Extract embedded images to ``./media/`` next to the
-            markdown (markdown-only profile, .docx only).
+            markdown (markdown-only profile).
 
     Returns:
         Path to the primary output file (PDF for pdf-only, MD for others),
@@ -335,19 +404,16 @@ def convert_for_wiki(
     if profile == ExtractionProfile.PDF_ONLY:
         return ensure_pdf(primary, wiki_source_dir, force=force)
 
-    # Step 2b: markdown-only → fast markitdown, .md only
+    # Step 2b: markdown-only → pymupdf4llm (fast, no ML, layout-aware)
     if profile == ExtractionProfile.MARKDOWN_ONLY:
         md_file = wiki_source_dir / f"{primary.stem}.md"
         if not force and md_file.exists():
             logger.debug("Skipping %s — markdown already exists", document_id)
             return md_file
-        # Legacy .doc files (binary format) cannot be processed directly;
-        # convert to PDF first, then run markitdown on the PDF.
-        input_for_markitdown = primary
-        if primary.suffix.lower() == ".doc":
-            input_for_markitdown = ensure_pdf(primary, wiki_source_dir, force=force)
+        # Office formats → LibreOffice PDF first; native PDFs pass through.
+        input_for_md = ensure_pdf(primary, wiki_source_dir, force=force)
         with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
-            return _run_markitdown(input_for_markitdown, wiki_source_dir, extract_media=extract_media)
+            return _run_markdown_only(input_for_md, wiki_source_dir, extract_media=extract_media)
 
     # Step 2c: default/advanced → check existing output before running Docling
     md_file = wiki_source_dir / f"{primary.stem}.md"
