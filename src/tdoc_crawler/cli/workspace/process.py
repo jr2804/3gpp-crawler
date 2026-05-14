@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
 
 import typer
 
@@ -24,6 +23,7 @@ from tdoc_crawler.cli.args import (
     WorkspaceProcessForceOption,
 )
 from tdoc_crawler.config import resolve_cache_manager
+from tdoc_crawler.config.workspace_registry import WorkspaceMember
 from tdoc_crawler.extraction.convert import ConversionError, DoclingConfig, convert_for_wiki
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
@@ -125,7 +125,7 @@ def _read_page_count(json_dir: Path) -> int:
 
 
 def _process_member(
-    member: Any,
+    member: WorkspaceMember,
     wiki_source_dir_base: Path,
     extraction_profile: ExtractionProfile,
     force: bool,
@@ -154,12 +154,9 @@ def _process_member(
             docx_direct=docx_direct,
             extract_media=extract_media,
         )
-        if result_path:
-            suffix = result_path.suffix.lstrip(".")
-            logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
-            return source_id, True, False, _read_page_count(wiki_source_dir)
-        logger.debug("No output for %s", source_id)
-        return source_id, False, False, 0
+        suffix = result_path.suffix.lstrip(".")
+        logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
+        return source_id, True, False, _read_page_count(wiki_source_dir)
     except (ConversionError, FileNotFoundError) as e:
         console.print(f"[red]  Failed {source_id}: {e}[/red]")
         logger.error("Failed to process %s: %s", source_id, e)

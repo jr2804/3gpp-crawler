@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import niquests as requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
@@ -79,7 +77,7 @@ def _validate_page_content(soup: BeautifulSoup, tdoc_id: str) -> None:
         raise PortalParsingError(msg)
 
 
-def _get_metadata_table(soup: BeautifulSoup, tdoc_id: str) -> Any:
+def _get_metadata_table(soup: BeautifulSoup, tdoc_id: str) -> Tag:
     """Get TDoc metadata table from portal HTML."""
     table = soup.find("table", {"class": "ultimate3gpp", "id": "tableTdocGeneralTabView"})
     if not table:
@@ -89,7 +87,7 @@ def _get_metadata_table(soup: BeautifulSoup, tdoc_id: str) -> Any:
     return table
 
 
-def _normalize_label(cells: list[Any]) -> str | None:
+def _normalize_label(cells: list[Tag]) -> str | None:
     """Extract normalized key from first column label."""
     label_cell = cells[0].get_text(strip=True)
     if not label_cell or not label_cell.endswith(":"):
@@ -98,7 +96,7 @@ def _normalize_label(cells: list[Any]) -> str | None:
     return label.lower().replace(" ", "_")
 
 
-def _normalize_value(cells: list[Any], label_key: str) -> str | None:
+def _normalize_value(cells: list[Tag], label_key: str) -> str | None:
     """Extract normalized value from second column with status cleanup."""
     value = cells[1].get_text(strip=True) if len(cells) > 1 else ""
     value = value.strip() if value else None
@@ -121,7 +119,7 @@ def _store_agenda_fields(metadata: dict[str, str | None], value: str) -> None:
     metadata["agenda_item_nbr"] = value
 
 
-def _parse_metadata_table(table: Any) -> dict[str, str | None]:
+def _parse_metadata_table(table: Tag) -> dict[str, str | None]:
     """Parse metadata rows from portal table."""
     metadata: dict[str, str | None] = {}
     for row in table.find_all("tr"):

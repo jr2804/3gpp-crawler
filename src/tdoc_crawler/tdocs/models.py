@@ -9,13 +9,13 @@ from enum import StrEnum, auto
 from pydantic import BaseModel, Field, field_validator
 
 from tdoc_crawler.config.settings import HttpConfig
-from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
+from tdoc_crawler.meetings.utils import normalize_subgroup_alias
 from tdoc_crawler.models.base import (
     OutputFormat,
     SortOrder,
 )
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.utils.normalization import normalize_tdoc_ids
+from tdoc_crawler.utils.normalization import normalize_tdoc_ids, normalize_working_group_list
 
 
 class TDocStatus(StrEnum):
@@ -121,7 +121,7 @@ class TDocCrawlConfig(BaseModel):
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup]) -> list[WorkingGroup]:
         """Ensure the working groups list only contains valid enum members."""
-        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
+        return normalize_working_group_list(value)
 
     @field_validator("subgroups", mode="before")
     @classmethod
@@ -176,7 +176,7 @@ class TDocQueryConfig(BaseModel):
         """Ensure the working group list is comprised of enum members."""
         if value is None:
             return None
-        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
+        return normalize_working_group_list(value)
 
 
 __all__ = [

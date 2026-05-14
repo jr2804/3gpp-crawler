@@ -357,7 +357,7 @@ def convert_for_wiki(
     docling_config: DoclingConfig | None = None,
     docx_direct: bool = False,
     extract_media: bool = False,
-) -> Path | None:
+) -> Path:
     """Convert a document for wiki ingestion using the specified profile.
 
     For **markdown-only** the pipeline is:
@@ -384,8 +384,10 @@ def convert_for_wiki(
             markdown (markdown-only profile).
 
     Returns:
-        Path to the primary output file (PDF for pdf-only, MD for others),
-        or ``None`` if conversion fails.
+        Path to the primary output file (PDF for pdf-only, MD for others).
+
+    Raises:
+        ConversionError: If no document files are found for the given document_id.
     """
     if profile is None:
         profile = DEFAULT_EXTRACTION_PROFILE

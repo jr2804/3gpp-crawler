@@ -1,7 +1,7 @@
 """Normalization helpers for spec identifiers."""
 
 import re
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 
 from tdoc_crawler.models.subworking_groups import SubWorkingGroup
 from tdoc_crawler.models.working_groups import WorkingGroup
@@ -427,3 +427,15 @@ def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
         raise ValueError(msg)
 
     return SubWorkingGroup.from_wg_and_nbr(wg, match.group(1))  # e.g., S4, R1, C3
+
+
+def normalize_working_group_list(value: Iterable[str | WorkingGroup]) -> list[WorkingGroup]:
+    """Normalize an iterable of working group aliases/enum values to a list of WorkingGroup enums.
+
+    Args:
+        value: Iterable of strings or WorkingGroup enum values.
+
+    Returns:
+        List of normalized WorkingGroup enum members.
+    """
+    return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]

@@ -8,11 +8,12 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tdoc_crawler.config.settings import HttpConfig
-from tdoc_crawler.meetings.utils import normalize_subgroup_alias, normalize_working_group_alias
+from tdoc_crawler.meetings.utils import normalize_subgroup_alias
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.normalization import normalize_working_group_list
 
 
 class MeetingMetadata(BaseModel):
@@ -88,7 +89,7 @@ class MeetingCrawlConfig(BaseModel):
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup]) -> list[WorkingGroup]:
         """Ensure the working groups list only contains valid enum members."""
-        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
+        return normalize_working_group_list(value)
 
     @field_validator("subgroups", mode="before")
     @classmethod
@@ -109,7 +110,6 @@ class MeetingQueryConfig(BaseModel):
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.DESC, description="Sort order applied to start date")
     include_without_files: bool = Field(False, description="Include meetings without associated files URL")
-    # Date range filters
     start_date: date | None = Field(None, description="Filter meetings starting from this date")
     end_date: date | None = Field(None, description="Filter meetings ending before this date")
 
@@ -119,7 +119,7 @@ class MeetingQueryConfig(BaseModel):
         """Ensure the working group list is comprised of enum members."""
         if value is None:
             return None
-        return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
+        return normalize_working_group_list(value)
 
     @field_validator("subgroups", mode="before")
     @classmethod

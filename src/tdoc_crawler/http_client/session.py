@@ -161,20 +161,18 @@ def download_to_file(
     url: str,
     target_file: Path,
     session: requests.Session | None = None,
-    close_session: bool = True,
     http_cache_file: Path | None = None,
     http_cache_enabled: bool | None = None,
     pool_config: PoolConfig | None = None,
     verify: bool | str | None = None,
     http_config: HttpConfig | None = None,
-) -> requests.Session | None:
+) -> None:
     """Download a file from URL to destination path.
 
     Args:
         url: Source URL
         target_file: Destination file path
-        session: Optional requests.Session to reuse. If None, a temporary cached session is created.
-        close_session: Whether to close the session after download. Only applicable if a temporary session is created.
+        session: Optional requests.Session to reuse. If None, a temporary cached session is created and closed.
         http_cache_file: Optional explicit path to the HTTP cache database. Falls back to PathConfig default.
         http_cache_enabled: Whether to enable HTTP caching. If None, defaults to http_config.cache_enabled or True.
         pool_config: Optional connection pool configuration.
@@ -215,13 +213,8 @@ def download_to_file(
                 if chunk:
                     target.write(chunk)
 
-        # return session or None if we created a temporary session and are closing it
-        if close_session:
-            active_session = None
-        return active_session
-
     finally:
-        if temp_session and close_session:
+        if temp_session:
             temp_session.close()
 
 
