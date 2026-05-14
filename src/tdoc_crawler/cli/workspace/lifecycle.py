@@ -33,7 +33,11 @@ def workspace_list() -> None:
 def workspace_activate(workspace_name: str = typer.Argument(..., help="Workspace name")) -> None:
     """Activate workspace for default command targets."""
     normalized = normalize_workspace_name(workspace_name)
-    set_active_workspace(normalized)
+    try:
+        set_active_workspace(normalized)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
     console.print(f"[green]Workspace '{normalized}' is now active.[/green]")
 
 
