@@ -348,12 +348,13 @@ def _parse_date(date_value: str | None) -> datetime | None:
         return None
 
     try:
-        # Handle different date formats
         if isinstance(date_value, datetime):
             return date_value
         if isinstance(date_value, str):
-            # Try common date formats
+            # Try common date formats (with and without time)
             formats = [
+                "%d/%m/%Y %H:%M:%S",
+                "%Y-%m-%d %H:%M:%S",
                 "%Y-%m-%d",
                 "%d/%m/%Y",
                 "%m/%d/%Y",

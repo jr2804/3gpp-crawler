@@ -181,7 +181,7 @@ class TDocDatabase(MeetingDatabase):
         descending = config.order.value.lower() == "desc"
         records.sort(
             key=lambda record: (
-                record.date_retrieved or datetime.min.replace(tzinfo=UTC),
+                record.date_created or datetime.min.replace(tzinfo=UTC),
                 record.tdoc_id,
             ),
             reverse=descending,
