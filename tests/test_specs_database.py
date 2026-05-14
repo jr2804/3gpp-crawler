@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from tdoc_crawler.database.oxyde_models import Specification
+from tdoc_crawler.database.oxyde_models import Specification, SpecificationSourceRecord, SpecificationVersion
 from tdoc_crawler.database.specs import SpecDatabase
-from tdoc_crawler.specs.models import SpecificationSourceRecord, SpecificationVersion, SpecQueryFilters
+from tdoc_crawler.specs.models import SpecQueryFilters
 
 
 @pytest.mark.asyncio
@@ -103,6 +103,7 @@ async def test_query_specs_discrepancies(tmp_path: Path) -> None:
         latest_version="17.3.0",
     )
     record_a = SpecificationSourceRecord(
+        record_id="23.501:3gpp",
         spec_number="23.501",
         source_name="3gpp",
         source_identifier="1111",
@@ -111,6 +112,7 @@ async def test_query_specs_discrepancies(tmp_path: Path) -> None:
         fetched_at=None,
     )
     record_b = SpecificationSourceRecord(
+        record_id="23.501:whatthespec",
         spec_number="23.501",
         source_name="whatthespec",
         source_identifier="2222",
@@ -138,6 +140,7 @@ async def test_query_specs_discrepancies(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_upsert_spec_source_and_version(tmp_path: Path) -> None:
     source_record = SpecificationSourceRecord(
+        record_id="26.132:3gpp",
         spec_number="26.132",
         source_name="3gpp",
         source_identifier="12345",
@@ -146,6 +149,7 @@ async def test_upsert_spec_source_and_version(tmp_path: Path) -> None:
         fetched_at=None,
     )
     version = SpecificationVersion(
+        record_id="26.132:19.0.0:3gpp",
         spec_number="26.132",
         version="19.0.0",
         file_name="26132-j00.zip",

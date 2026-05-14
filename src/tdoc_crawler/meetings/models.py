@@ -3,59 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias
 from tdoc_crawler.models.base import SortOrder
-from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_working_group_list
-
-
-class MeetingMetadata(BaseModel):
-    """Persistent representation for a 3GPP meeting."""
-
-    # parsed from the portal
-    meeting_id: int = Field(..., description="Unique meeting identifier from the 3GPP portal")
-    tbid: int = Field(
-        ...,
-        description="Technical body identifier of the parent working group (FK to working_groups.tbid)",
-    )
-    subtb: int | None = Field(
-        ...,
-        description="Sub-technical body identifier (FK to subworking_groups.subtb)",
-    )
-    short_name: str = Field(..., description="Short meeting name (e.g., SA4#134)")
-    title: str | None = Field(None, description="Descriptive meeting title")
-    start_date: date | None = Field(None, description="Meeting start date")
-    end_date: date | None = Field(None, description="Meeting end date")
-    location: str | None = Field(None, description="Meeting location")
-    files_url: str | None = Field(None, description="HTTP directory containing meeting documents")
-    portal_url: str | None = Field(None, description="Link to the portal meeting overview")
-
-    # Crawling statistics
-    tdoc_count: int = Field(0, ge=0, description="Number of TDocs associated with this meeting")
-
-    # Database management fields
-    last_synced: datetime = Field(default_factory=utc_now, description="Timestamp when the meeting was last refreshed")
-    created_at: datetime = Field(default_factory=utc_now, description="Timestamp when the record was first stored")
-    updated_at: datetime = Field(default_factory=utc_now, description="Timestamp when the record was last updated")
-
-    @model_validator(mode="after")
-    def _sync_relationships(self) -> MeetingMetadata:
-        if self.subtb is None:
-            return self
-        record = SUBTB_INDEX.get(self.subtb)
-        if record is None:
-            return self
-        if record.tbid != self.tbid:
-            msg = "tbid does not match subworking group"
-            raise ValueError(msg)
-        return self
 
 
 class MeetingCrawlConfig(BaseModel):
@@ -132,6 +88,5 @@ class MeetingQueryConfig(BaseModel):
 
 __all__ = [
     "MeetingCrawlConfig",
-    "MeetingMetadata",
     "MeetingQueryConfig",
 ]

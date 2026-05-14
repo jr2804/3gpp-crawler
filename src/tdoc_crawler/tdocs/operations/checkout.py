@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.tdocs.models import TDocStatus
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
 from tdoc_crawler.utils.security import safe_extract_zip

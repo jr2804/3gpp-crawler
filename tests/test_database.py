@@ -9,8 +9,8 @@ from typing import Any
 import pytest
 
 from tdoc_crawler.database import DatabaseError, TDocDatabase
-from tdoc_crawler.database.oxyde_models import TDocMetadata
-from tdoc_crawler.meetings.models import MeetingMetadata, MeetingQueryConfig
+from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models import SortOrder, WorkingGroup
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 

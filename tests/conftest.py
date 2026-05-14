@@ -11,8 +11,7 @@ import pytest
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
-from tdoc_crawler.database.oxyde_models import TDocMetadata
-from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 
 
 @pytest.fixture(autouse=True)

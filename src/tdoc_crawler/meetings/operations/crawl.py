@@ -7,8 +7,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from tdoc_crawler.database.meetings import MeetingDatabase
+from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata
+from tdoc_crawler.meetings.models import MeetingCrawlConfig
 from tdoc_crawler.meetings.sources.portal import fetch_meetings
 from tdoc_crawler.models.working_groups import WorkingGroup
 

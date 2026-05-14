@@ -48,11 +48,12 @@ from tdoc_crawler.cli.printing import print_spec_crawl_table, spec_crawl_to_dict
 from tdoc_crawler.config import TDocCrawlerConfig
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.database.specs import SpecCrawlResult, SpecDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingMetadata, MeetingQueryConfig
+from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawler, MeetingCrawlResult
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from tdoc_crawler.cli._shared import console
-from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawlResult
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup

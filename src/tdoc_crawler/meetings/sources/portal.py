@@ -14,7 +14,7 @@ from typing import Any
 import niquests
 
 from tdoc_crawler.constants.urls import MEETING_PORTAL_URL_TEMPLATE, MEETINGS_REST_URL, PORTAL_BASE_URL
-from tdoc_crawler.meetings.models import MeetingMetadata
+from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 
 logger = logging.getLogger(__name__)

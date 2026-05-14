@@ -10,9 +10,10 @@ import niquests as requests
 import pytest
 
 from tdoc_crawler.config.settings import HttpConfig
+from tdoc_crawler.constants.urls import WHATSPEC_TDOC_URL_TEMPLATE
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
-from tdoc_crawler.tdocs.sources.whatthespec import WHATSPEC_BASE_URL, WhatTheSpecResolutionError, resolve_via_whatthespec
+from tdoc_crawler.tdocs.sources.whatthespec import WhatTheSpecResolutionError, resolve_via_whatthespec
 from tdoc_crawler.utils.version_types import AgendaItem
 
 from .conftest import insert_sample_meetings_async
@@ -428,12 +429,9 @@ class TestWhatTheSpecResolution:
             mock_session.close.assert_called_once()
 
     def test_whatspec_base_url_format(self) -> None:
-        """Test that WHATSPEC_BASE_URL has correct format placeholder.
-
-        Verifies that WHATSPEC_BASE_URL contains {tdoc} placeholder for formatting.
-        """
-        assert "{tdoc}" in WHATSPEC_BASE_URL
-        assert WHATSPEC_BASE_URL == "https://whatthespec.net/3gpp/tdoc.php?name={tdoc}&api=1"
+        """Test that WHATSPEC_TDOC_URL_TEMPLATE has correct format."""
+        url = WHATSPEC_TDOC_URL_TEMPLATE.format(base="https://whatthespec.net", tdoc_id="S4-123")
+        assert url == "https://whatthespec.net/3gpp/tdoc.php?name=S4-123&api=1"
 
 
 class TestWhatTheSpecResolutionError:

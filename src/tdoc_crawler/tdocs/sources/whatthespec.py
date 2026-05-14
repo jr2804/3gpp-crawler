@@ -11,7 +11,7 @@ from pathlib import Path
 import niquests as requests
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
-from tdoc_crawler.constants.urls import WHATSPEC_TDOC_URL_TEMPLATE
+from tdoc_crawler.constants.urls import WHATSPEC_BASE_URL, WHATSPEC_TDOC_URL_TEMPLATE
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
@@ -56,7 +56,7 @@ def resolve_via_whatthespec(
     else:
         active_session = session
 
-    url = WHATSPEC_TDOC_URL_TEMPLATE.format(tdoc_id=tdoc_id)
+    url = WHATSPEC_TDOC_URL_TEMPLATE.format(base=WHATSPEC_BASE_URL, tdoc_id=tdoc_id)
     try:
         response = active_session.get(url, timeout=timeout)
         response.raise_for_status()
