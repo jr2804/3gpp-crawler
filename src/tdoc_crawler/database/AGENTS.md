@@ -59,6 +59,7 @@ class AgendaItem(Version):
 ```
 
 This gives you:
+
 - Full `Version` comparison/sorting in Python
 - Automatic `str` serialization for DB storage
 - Pydantic validation from `str`/`int`/`Version` input
