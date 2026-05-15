@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import requests
+import niquests as requests
 
 
 class DefaultHttpClientProvider:
