@@ -302,7 +302,7 @@ def _run_markdown_only(
     primary: Path,
     output_dir: Path,
     *,
-    figures_mode: FiguresMode | str = FiguresMode.EMBED,
+    figures_mode: FiguresMode = FiguresMode.EMBED,
     use_layout_mode: bool = False,
 ) -> Path:
     """Convert a PDF document to Markdown using pymupdf4llm."""
@@ -324,7 +324,7 @@ def _run_markdown_only(
     media_prefix = str(media_dir).replace("\\", "/")
     md_text = md_text.replace(media_prefix + "/", "media/")
 
-    if figures_mode == "embed":
+    if figures_mode == FiguresMode.EMBED:
         md_text = _embed_media_as_base64(md_text, output_dir)
 
     md_path = output_dir / f"{primary.stem}.md"
