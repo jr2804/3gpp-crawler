@@ -210,7 +210,11 @@ ProcessLimitOption = Annotated[
 ]
 SkipExistingOption = Annotated[
     bool,
-    typer.Option("--skip-existing/--process-existing", help="Skip members that already have artifacts", envvar=ConfigEnvVar.TDC_SKIP_EXISTING.name),
+    typer.Option(
+        "--skip-existing/--no-skip-existing",
+        help="Skip members that already have artifacts (default: True)",
+        envvar=ConfigEnvVar.TDC_SKIP_EXISTING.name,
+    ),
 ]
 ProfileOption = Annotated[
     str,

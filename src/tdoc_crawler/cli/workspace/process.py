@@ -197,7 +197,7 @@ def workspace_process(
     workspace_name: str = typer.Argument(None, help="Workspace name (default: active workspace)"),
     force: WorkspaceProcessForceOption = False,
     limit: ProcessLimitOption = None,
-    skip_existing: SkipExistingOption = False,
+    skip_existing: SkipExistingOption = True,
     profile: ProfileOption = DEFAULT_EXTRACTION_PROFILE.value,
     figures: FiguresModeOption = "embed",
     tables: TablesModeOption = "embed",
