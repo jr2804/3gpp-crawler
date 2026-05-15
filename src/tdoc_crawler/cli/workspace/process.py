@@ -69,7 +69,7 @@ def _resolve_spec_source_id(source_id: str) -> str:
     if "-REL" in source_id.upper():
         return source_id
     try:
-        resolved, _ = run_async(resolve_spec_release_from_db(source_id, "latest"))
+        resolved, _ = run_async(resolve_spec_release_from_db(source_id, "latest", auto_crawl=True))
         # Only use resolved version if it's an actual version, not "latest"
         if resolved and resolved.lower() != "latest" and resolved[0].isdigit():
             return f"{source_id}-REL{resolved}"
