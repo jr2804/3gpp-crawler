@@ -279,18 +279,23 @@ def _add_yaml_frontmatter(
     document_id: str,
     source_kind: SourceKind,
     profile: ExtractionProfile,
+    db_metadata: dict[str, object] | None = None,
 ) -> None:
     """Prepend YAML frontmatter to a Markdown file."""
-    frontmatter = (
-        "---\n"
-        f"document_id: {document_id}\n"
-        f"source_kind: {source_kind.value}\n"
-        f"profile: {profile.value}\n"
-        f"extraction_date: \"{datetime.now(UTC).isoformat()}\"\n"
-        "---\n\n"
-    )
+    import yaml  # noqa: PLC0415
+
+    frontmatter_data: dict[str, object] = {
+        "document_id": document_id,
+        "source_kind": source_kind.value,
+        "profile": profile.value,
+        "extraction_date": datetime.now(UTC).isoformat(),
+    }
+    if db_metadata:
+        frontmatter_data["metadata"] = db_metadata
+
+    header = f"---\n{yaml.dump(frontmatter_data, default_flow_style=False, allow_unicode=True).strip()}\n---\n\n"
     content = md_path.read_text(encoding="utf-8")
-    md_path.write_text(frontmatter + content, encoding="utf-8")
+    md_path.write_text(header + content, encoding="utf-8")
 
 
 def _run_markdown_only(
@@ -391,6 +396,7 @@ def convert_for_wiki(
     docling_config: DoclingConfig | None = None,
     docx_direct: bool = False,
     md_yaml_frontmatter: bool = True,
+    db_metadata: dict[str, object] | None = None,
 ) -> Path:
     """Convert a document for wiki ingestion using the specified profile.
 
@@ -415,6 +421,7 @@ def convert_for_wiki(
         docling_config: Optional Docling-specific configuration (figure/table modes).
         docx_direct: Feed .docx directly to backend, skip LibreOffice PDF step.
         md_yaml_frontmatter: Prepend YAML frontmatter to generated Markdown.
+        db_metadata: Optional DB metadata dict to embed in YAML frontmatter.
 
     Returns:
         Path to the primary output file (PDF for pdf-only, MD for others).
@@ -451,7 +458,7 @@ def convert_for_wiki(
         with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
             result = _run_markdown_only(input_for_md, wiki_source_dir, figures_mode=figures_mode)
         if md_yaml_frontmatter:
-            _add_yaml_frontmatter(result, document_id=document_id, source_kind=source_kind, profile=profile)
+            _add_yaml_frontmatter(result, document_id=document_id, source_kind=source_kind, profile=profile, db_metadata=db_metadata)
         return result
 
     # Step 2c: default/advanced → check existing output before running Docling
@@ -475,7 +482,7 @@ def convert_for_wiki(
         )
 
     if md_yaml_frontmatter:
-        _add_yaml_frontmatter(md_file, document_id=document_id, source_kind=source_kind, profile=profile)
+        _add_yaml_frontmatter(md_file, document_id=document_id, source_kind=source_kind, profile=profile, db_metadata=db_metadata)
     return md_file
 
 
