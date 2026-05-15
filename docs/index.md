@@ -8,6 +8,7 @@ Welcome to the documentation for **3gpp-crawler**, a command-line tool for query
 
 - [**Crawl Documentation**](crawl.md) – How to fetch metadata from 3GPP servers and portal.
 - [**Query Documentation**](query.md) – How to search and display stored metadata.
+- [**Workspace Documentation**](workspace.md) – Workspace management, extraction profiles, and engine architecture.
 - [**Utility Documentation**](utils.md) – File access, spec handling, and database inspection.
 - [**WhatIsWhatTheSpec**](whatthespec.md) – Understanding the primary WhatTheSpec data source and 3GPP fallback.
 - [**Development Guide**](development.md) – Setup, testing, and contribution guidelines.
@@ -22,6 +23,7 @@ Welcome to the documentation for **3gpp-crawler**, a command-line tool for query
 - [**Query-TDocs**](query.md#query-tdocs-alias-qt) (`qt`)
 - [**Query-Meetings**](query.md#query-meetings-alias-qm) (`qm`)
 - [**Query-Specs**](query.md#query-specs) (`qs`)
+- [**Workspace**](workspace.md#extraction-engine-by-profile)
 - [**Open TDoc**](utils.md#open)
 - [**Checkout Specs**](utils.md#checkout-spec)
 

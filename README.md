@@ -103,7 +103,7 @@ NOTE:    If no credentials are provided, the tool will prompt you interactively 
 | `checkout` | | Batch download technical specifications |
 | **3gpp-crawler** | | |
 | `config {init,show,validate,docs}` | | Manage configuration |
-| `workspace {create,list,...}` | | Manage workspaces and processing |
+| `workspace {create,list,...}` | | Manage workspaces and processing (see [Workspace Docs](docs/workspace.md)) |
 
 ### 1. Crawl Metadata
 
