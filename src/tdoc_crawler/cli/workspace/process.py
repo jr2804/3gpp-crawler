@@ -27,12 +27,15 @@ from tdoc_crawler.extraction.convert import ConversionError, DoclingConfig, conv
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
+from tdoc_crawler.models.workspaces import SourceKind
+from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.workspaces import (
     get_active_workspace,
     get_workspace,
     list_workspace_members,
     normalize_workspace_name,
 )
+from tdoc_crawler.workspaces.utils import resolve_spec_release_from_db
 
 logger = get_logger(__name__)
 
@@ -59,6 +62,31 @@ def _coerce_profile(value: str) -> ExtractionProfile | None:
         return ExtractionProfile(value)
     except ValueError:
         return None
+
+
+def _resolve_spec_source_id(source_id: str) -> str:
+    """For spec members without -REL suffix, resolve the full ID."""
+    if "-REL" in source_id.upper():
+        return source_id
+    try:
+        resolved, _ = run_async(resolve_spec_release_from_db(source_id, "latest"))
+        # Only use resolved version if it's an actual version, not "latest"
+        if resolved and resolved.lower() != "latest" and resolved[0].isdigit():
+            return f"{source_id}-REL{resolved}"
+    except Exception:
+        logger.debug("Could not resolve release for spec %s", source_id)
+    return source_id
+
+
+def _effective_source_id(member: WorkspaceMember) -> str:
+    """Return the effective source ID for directory naming.
+
+    For specs without a release suffix, resolves to SPEC-REL<version>.
+    For TDocs and other kinds, returns the original ID.
+    """
+    if member.source_kind == SourceKind.SPEC:
+        return _resolve_spec_source_id(member.source_item_id)
+    return member.source_item_id
 
 
 def _should_skip_member(
@@ -137,7 +165,7 @@ def _process_member(
     Returns:
         Tuple of ``(source_id, succeeded, failed, page_count)``.
     """
-    source_id = member.source_item_id
+    source_id = _effective_source_id(member)
     wiki_source_dir = wiki_source_dir_base / source_id
     wiki_source_dir.mkdir(parents=True, exist_ok=True)
 
@@ -240,7 +268,7 @@ def workspace_process(
 
     with progress:
         for member in members:
-            source_id = member.source_item_id
+            source_id = _effective_source_id(member)
 
             if _should_skip_member(source_id, wiki_source_dir_base, extraction_profile, force, skip_existing):
                 skipped += 1
