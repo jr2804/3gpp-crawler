@@ -93,6 +93,20 @@ class _NiquetsCacheAdapter(CacheAdapter):
     so hishel's isinstance checks would fail without this bridge.
     """
 
+    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
+        """Disable HTTP/3 to prevent MustDowngradeError from 3GPP servers."""
+        try:
+            from urllib3.connection import HttpVersion
+
+            disabled: set[HttpVersion] = pool_kwargs.get("disabled_svn", set())  # type: ignore[assignment]
+            if not isinstance(disabled, set):
+                disabled = set()
+            disabled.add(HttpVersion.h3)
+            pool_kwargs["disabled_svn"] = disabled  # type: ignore[assignment]
+        except ImportError:
+            pass
+        super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
+
     def send(
         self,
         request: requests.models.PreparedRequest,

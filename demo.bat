@@ -39,6 +39,6 @@ call .venv\scripts\activate.bat
 3gpp-crawler workspace members
 
 :: convert tdocs/specs to PDF/artefacts for AI processing (portable fallback profile)
-:: 3gpp-crawler workspace process --profile pdf-only
-3gpp-crawler workspace process --profile markdown-only --docx-direct --device cuda
-:: 3gpp-crawler workspace process --profile default
+:: 3gpp-crawler workspace process atias --profile pdf-only
+3gpp-crawler workspace process atias --profile markdown-only --docx-direct --device cuda
+:: 3gpp-crawler workspace process atias --profile default

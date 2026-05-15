@@ -34,30 +34,36 @@ with create_cached_session() as session:
 
 ## HTTP/3 MustDowngradeError (CRITICAL)
 
-When creating a **raw** `requests.Session()` or `niquests.Session()` (not via `create_cached_session`), **ALWAYS** pass `disable_http3=True`:
+`www.3gpp.org` and `portal.3gpp.org` advertise HTTP/3 via `Alt-Svc` header but cannot handle it. This triggers `MustDowngradeError` from `urllib3-future` (bundled with niquests), wasting ~10 seconds per request in retries.
+
+**Two fixes required:**
+
+### 1. `niquests.Session(disable_http3=True)` — for raw sessions
+
+Applies to ALL naked `Session()` calls outside `create_cached_session()`:
 
 ```python
-# CORRECT — disables HTTP/3 to avoid MustDowngradeError from 3GPP servers
+# CORRECT
 session = requests.Session(disable_http3=True)
-# or
 with requests.Session(disable_http3=True) as session:
     ...
 
-# WRONG — will crash with MustDowngradeError on 3GPP portal
-session = requests.Session()  # NEVER this
+# WRONG — will crash with MustDowngradeError
+session = requests.Session()
 ```
 
-**Why:** `portal.3gpp.org` and `www.3gpp.org` advertise HTTP/3 via Alt-Svc header but cannot actually handle it. niquests tries to upgrade, fails with `MustDowngradeError`, and wastes up to 10 seconds retrying per request.
+| Location | Fixed? |
+|----------|--------|
+| `meetings/sources/portal.py` | ✅ |
+| `tdocs/operations/checkout.py` (3 locations) | ✅ |
 
-**Scope:** Applies to ALL naked `Session()` calls outside `create_cached_session()`:
+### 2. `_NiquetsCacheAdapter.init_poolmanager()` — for hishel cached sessions
 
-| Location | File | Fixed? |
-|----------|------|--------|
-| `meetings/sources/portal.py` | `niquests.Session(...)` | ✅ |
-| `http_client/session.py` | `requests.Session(...)` (via `create_cached_session`) | ✅ |
-| `tdocs/operations/checkout.py` | `requests.Session(...)` (3 locations) | ✅ |
+`create_cached_session()` mounts a `_NiquetsCacheAdapter` (hishel `CacheAdapter` subclass). On cache misses, hishel delegates to `requests.adapters.HTTPAdapter.send()` → `urllib3` transport. Since niquests installs `urllib3-future` (which supports HTTP/3), the `disable_http3=True` on the `Session` has **no effect** — the hishel adapter creates its own connection pool.
 
-**Enforcement:** If you ever create a raw `niquests.Session()` or `requests.Session()` (aliased from niquests), add `disable_http3=True` without exception. The `create_cached_session()` factory already handles this correctly.
+The fix: `_NiquetsCacheAdapter.init_poolmanager()` injects `disabled_svn={HttpVersion.h3}` into the pool manager kwargs, disabling HTTP/3 at the `urllib3-future` connection level.
+
+**Enforcement:** If you ever create a raw `niquests.Session()` or `requests.Session()` (aliased from niquests), add `disable_http3=True` without exception. If you create a custom adapter mounted on a cached session, ensure `init_poolmanager` disables HTTP/3.
 
 ## Anti-Duplication (DRY)
 
