@@ -32,6 +32,33 @@ with create_cached_session() as session:
     response = session.get(url)
 ```
 
+## HTTP/3 MustDowngradeError (CRITICAL)
+
+When creating a **raw** `requests.Session()` or `niquests.Session()` (not via `create_cached_session`), **ALWAYS** pass `disable_http3=True`:
+
+```python
+# CORRECT — disables HTTP/3 to avoid MustDowngradeError from 3GPP servers
+session = requests.Session(disable_http3=True)
+# or
+with requests.Session(disable_http3=True) as session:
+    ...
+
+# WRONG — will crash with MustDowngradeError on 3GPP portal
+session = requests.Session()  # NEVER this
+```
+
+**Why:** `portal.3gpp.org` and `www.3gpp.org` advertise HTTP/3 via Alt-Svc header but cannot actually handle it. niquests tries to upgrade, fails with `MustDowngradeError`, and wastes up to 10 seconds retrying per request.
+
+**Scope:** Applies to ALL naked `Session()` calls outside `create_cached_session()`:
+
+| Location | File | Fixed? |
+|----------|------|--------|
+| `meetings/sources/portal.py` | `niquests.Session(...)` | ✅ |
+| `http_client/session.py` | `requests.Session(...)` (via `create_cached_session`) | ✅ |
+| `tdocs/operations/checkout.py` | `requests.Session(...)` (3 locations) | ✅ |
+
+**Enforcement:** If you ever create a raw `niquests.Session()` or `requests.Session()` (aliased from niquests), add `disable_http3=True` without exception. The `create_cached_session()` factory already handles this correctly.
+
 ## Anti-Duplication (DRY)
 
 Search before implementing. Check relevant domain package (`tdocs/`, `meetings/`, `specs/`). Refactor rather than duplicate.

@@ -114,7 +114,7 @@ def fetch_meetings(
 
     # Use a plain session — the cached session (hishel) doesn't handle
     # POST endpoints with JSON bodies correctly.
-    session = niquests.Session()
+    session = niquests.Session(disable_http3=True)
     try:
         while True:
             payload = {

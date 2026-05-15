@@ -186,7 +186,7 @@ def checkout_tdoc(
             corrected_url = _resolve_corrected_url(metadata)
             if corrected_url and corrected_url != metadata.url:
                 logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
-                with requests.Session() as plain_session:
+                with requests.Session(disable_http3=True) as plain_session:
                     download_to_file(corrected_url, temp_zip_file, session=plain_session)
             else:
                 raise
@@ -197,7 +197,7 @@ def checkout_tdoc(
             corrected_url = _resolve_corrected_url(metadata)
             if corrected_url and corrected_url != metadata.url:
                 logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
-                with requests.Session() as plain_session:
+                with requests.Session(disable_http3=True) as plain_session:
                     download_to_file(corrected_url, temp_zip_file, session=plain_session)
             else:
                 raise
