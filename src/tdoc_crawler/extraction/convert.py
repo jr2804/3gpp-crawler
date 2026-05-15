@@ -298,10 +298,15 @@ def _run_markdown_only(
     output_dir: Path,
     *,
     figures_mode: FiguresMode | str = FiguresMode.EMBED,
+    use_layout_mode: bool = False,
 ) -> Path:
     """Convert a PDF document to Markdown using pymupdf4llm."""
     media_dir = output_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
+
+    # by default, pymupdf4llm's layout mode is enabled for better text flow in multi-column documents.
+    # For LLM-based extraction, the page layout does not need to be preserved, so layout mode can be disabled by default for simpler output.
+    pymupdf4llm.use_layout(use_layout_mode)
 
     md_text = pymupdf4llm.to_markdown(
         str(primary),
