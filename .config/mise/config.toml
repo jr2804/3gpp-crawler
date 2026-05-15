@@ -8,7 +8,7 @@
 
 "ruff" = "latest"
 "ty" = "latest"
-"pipx:mdformat" = "latest"
+"pipx:mdformat" = {version = "latest", uvx = "true", uvx_args = "--with mdformat-front-matters"}
 "pipx:undersort" = "latest"
 
 ripgrep = "latest"
@@ -45,7 +45,7 @@ run = [
 
 [tasks.format-md]
 description = "Format Markdown files"
-run = "mdformat src/ docs/ tests/ packages/ --exclude .config/"
+run = "uv tool run --with mdformat-front-matters mdformat src/ docs/ tests/ packages/ "
 
 [tasks.lint]
 description = "Lint source code and tests"
