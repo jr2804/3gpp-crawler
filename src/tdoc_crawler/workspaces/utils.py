@@ -19,8 +19,7 @@ from tdoc_crawler.specs.operations.checkout import (
     build_default_spec_sources,
     checkout_specs_async,
 )
-from tdoc_crawler.specs.sources.base import FunctionSpecSource
-from tdoc_crawler.specs.sources.threegpp import fetch_threegpp_metadata
+
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.normalization import (
@@ -106,7 +105,7 @@ async def resolve_spec_release_from_db(
                             return tuple(int(p) if p.isdigit() else 0 for p in parts)
 
                         latest = max(versions, key=version_sort_key)
-                        resolved = latest.version
+                        resolved = str(latest.version)
                         if "-" in resolved:
                             version_codes.append(resolved.split("-", 1)[1])
                         return resolved, version_codes
@@ -143,11 +142,11 @@ async def resolve_spec_release_from_db(
             if versions:
                 requested_normalized = normalize_release_version(requested_release)
                 requested_major = requested_normalized.split(".")[0] if "." in requested_normalized else requested_release
-                matching = [v for v in versions if v.version and v.version.split(".")[0] == requested_major]
+                matching = [v for v in versions if v.version and str(v.version).split(".")[0] == requested_major]
 
                 if matching:
-                    resolved = matching[0].version
-                    version_codes.extend(v.version.split("-", 1)[1] for v in matching if "-" in v.version)
+                    resolved = str(matching[0].version)
+                    version_codes.extend(str(v.version).split("-", 1)[1] for v in matching if "-" in str(v.version))
             elif auto_crawl:
                 return await _auto_crawl_and_resolve(
                     normalized_spec,
@@ -176,7 +175,7 @@ async def _auto_crawl_and_resolve(
 ) -> tuple[str, list[str]]:
     """Crawl spec metadata from 3GPP, store versions, then retry resolution."""
     try:
-        sources = [FunctionSpecSource("3gpp", fetch_threegpp_metadata)]
+        sources = build_default_spec_sources()
         effective_db = db_path if db_path is not None else PathConfig().db_file
         if effective_db is None:
             return requested_release, []

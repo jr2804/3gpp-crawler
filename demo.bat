@@ -2,6 +2,8 @@
 cls
 call .venv\scripts\activate.bat
 
+SET TDC_WORKSPACE=atias
+
 :: Crawl *all* meetings from SA4
 :: tdoc-crawler crawl-meetings -s S4
 
