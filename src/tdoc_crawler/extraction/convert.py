@@ -36,7 +36,7 @@ from tdoc_crawler.extraction.errors import ConversionError
 from tdoc_crawler.extraction.fetch_tdoc import fetch_spec_files as fetch_spec_files_from_tdoc
 from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
-from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
+from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile, FiguresMode
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
@@ -297,7 +297,7 @@ def _run_markdown_only(
     primary: Path,
     output_dir: Path,
     *,
-    figures_mode: str = "embed",
+    figures_mode: FiguresMode | str = FiguresMode.EMBED,
 ) -> Path:
     """Convert a PDF document to Markdown using pymupdf4llm."""
     media_dir = output_dir / "media"
@@ -442,7 +442,7 @@ def convert_for_wiki(
             return md_file
         # Office formats → LibreOffice PDF first; native PDFs pass through.
         input_for_md = ensure_pdf(primary, wiki_source_dir, force=force)
-        figures_mode = docling_config.figures_mode if docling_config else "embed"
+        figures_mode = docling_config.figures_mode if docling_config else FiguresMode.EMBED
         with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
             result = _run_markdown_only(input_for_md, wiki_source_dir, figures_mode=figures_mode)
         if md_yaml_frontmatter:

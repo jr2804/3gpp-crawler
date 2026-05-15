@@ -24,7 +24,7 @@ from tdoc_crawler.cli.args import (
 from tdoc_crawler.config import resolve_cache_manager
 from tdoc_crawler.config.workspace_registry import WorkspaceMember
 from tdoc_crawler.extraction.convert import ConversionError, DoclingConfig, convert_for_wiki
-from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile
+from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, DeviceType, ExtractionProfile, FiguresMode, TablesMode
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
 from tdoc_crawler.models.workspaces import SourceKind
@@ -198,10 +198,10 @@ def workspace_process(
     force: WorkspaceProcessForceOption = False,
     limit: ProcessLimitOption = None,
     skip_existing: SkipExistingOption = True,
-    profile: ProfileOption = DEFAULT_EXTRACTION_PROFILE.value,
-    figures: FiguresModeOption = "embed",
-    tables: TablesModeOption = "embed",
-    device: DeviceOption = "auto",
+    profile: ProfileOption = DEFAULT_EXTRACTION_PROFILE,
+    figures: FiguresModeOption = FiguresMode.EMBED,
+    tables: TablesModeOption = TablesMode.EMBED,
+    device: DeviceOption = DeviceType.AUTO,
     docx_direct: DocxDirectOption = False,
     md_yaml_frontmatter: MdYamlFrontmatterOption = True,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
@@ -213,23 +213,7 @@ def workspace_process(
         workspace_name = get_active_workspace()
 
     normalized = normalize_workspace_name(workspace_name)
-
-    try:
-        extraction_profile = ExtractionProfile(profile)
-    except ValueError:
-        console.print(f"[red]Invalid profile '{profile}'. Use: pdf-only, markdown-only, default, advanced[/red]")
-        raise typer.Exit(1)
-
-    # Validate figure/table mode options
-    if figures not in ("embed", "reference"):
-        console.print(f"[red]Invalid figures mode '{figures}'. Use: embed, reference[/red]")
-        raise typer.Exit(1)
-    if tables not in ("embed", "csv"):
-        console.print(f"[red]Invalid tables mode '{tables}'. Use: embed, csv[/red]")
-        raise typer.Exit(1)
-    if device not in ("auto", "cpu", "cuda", "mps"):
-        console.print(f"[red]Invalid device '{device}'. Use: auto, cpu, cuda, mps[/red]")
-        raise typer.Exit(1)
+    extraction_profile = profile
 
     docling_config = DoclingConfig(figures_mode=figures, tables_mode=tables, device=device)
 

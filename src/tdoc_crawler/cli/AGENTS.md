@@ -82,3 +82,31 @@ The `--force` flag is the ONLY way to overwrite existing output. It defaults to 
 - CLI (`cli/`) → Core (`tdoc_crawler/`)
 - Core submodules → Common layer (`models/`)
 - **Never:** Core importing from CLI
+
+## CRITICAL: Multi-Value CLI Options Must Use StrEnum
+
+CLI options accepting two or more fixed string values **MUST** be backed by `StrEnum` classes — never bare `str` with manual validation.
+
+```python
+# CORRECT — StrEnum defined alongside ExtractionProfile in profiles.py
+class FiguresMode(StrEnum):
+    EMBED = "embed"
+    REFERENCE = "reference"
+
+# CLI option uses the enum type directly
+FiguresModeOption = Annotated[
+    FiguresMode,
+    typer.Option("--figures", ...),
+]
+
+# WRONG — bare str with manual if/else validation
+FiguresModeOption = Annotated[str, typer.Option("--figures", ...)]
+# ... then later:
+if figures not in ("embed", "reference"):  # ← NEVER do this
+```
+
+**Why:** Typer validates enum values automatically. No manual string checks, no typos, no forgotten cases. The enum is the single source of truth for valid values.
+
+**Where to define:** Extraction-related enums go in `extraction/profiles.py` alongside `ExtractionProfile`. Domain-agnostic enums go in `models/base.py`.
+
+**Current enums:** `ExtractionProfile`, `FiguresMode`, `TablesMode`, `DeviceType`, `SourceKind`, `TDocStatus`, `OutputFormat`, `SortOrder`.

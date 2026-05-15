@@ -21,11 +21,37 @@ class ExtractionProfile(StrEnum):
     ADVANCED = "advanced"  # Docling + picture descriptions, code/formula enrichment
 
 
+class FiguresMode(StrEnum):
+    """How to handle figures/images in extraction output."""
+
+    EMBED = "embed"  # images embedded as base64 / placeholder in markdown
+    REFERENCE = "reference"  # images extracted as separate files
+
+
+class TablesMode(StrEnum):
+    """How to handle tables in extraction output."""
+
+    EMBED = "embed"  # tables embedded in markdown
+    CSV = "csv"  # tables exported as separate CSV files
+
+
+class DeviceType(StrEnum):
+    """Accelerator device for ML-based extraction backends."""
+
+    AUTO = "auto"  # auto-detect (CUDA if available, else CPU)
+    CPU = "cpu"  # force CPU-only
+    CUDA = "cuda"  # force NVIDIA CUDA GPU
+    MPS = "mps"  # force Apple Metal Performance Shaders
+
+
 # Default profile used when none is specified
 DEFAULT_EXTRACTION_PROFILE = ExtractionProfile.DEFAULT
 
 
 __all__ = [
     "DEFAULT_EXTRACTION_PROFILE",
+    "DeviceType",
     "ExtractionProfile",
+    "FiguresMode",
+    "TablesMode",
 ]

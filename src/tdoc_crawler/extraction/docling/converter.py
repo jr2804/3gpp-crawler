@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import DocumentConverter, PdfFormatOption, WordFormatOption
@@ -16,7 +16,7 @@ from docling_core.types.doc.base import ImageRefMode
 from tdoc_crawler.extraction.docling.filter import _DOCLING_PIPELINE_LOGGER, _DoclingBadAllocFilter
 from tdoc_crawler.extraction.docling.pipeline import _build_pipeline_options
 from tdoc_crawler.extraction.errors import ConversionError
-from tdoc_crawler.extraction.profiles import ExtractionProfile
+from tdoc_crawler.extraction.profiles import DeviceType, ExtractionProfile, FiguresMode, TablesMode
 
 logger = logging.getLogger(__name__)
 
@@ -31,23 +31,23 @@ class DoclingConfig:
 
     Args:
         figures_mode: How to handle figures in output.
-            - ``"embed"``: Placeholder in markdown, data in JSON (default).
-            - ``"reference"``: Extract figure images, reference via URI in markdown.
+            - :attr:`FiguresMode.EMBED`: Placeholder in markdown, data in JSON (default).
+            - :attr:`FiguresMode.REFERENCE`: Extract figure images, reference via URI.
         tables_mode: How to handle tables in output.
-            - ``"embed"``: Tables embedded in markdown (default).
-            - ``"csv"``: Tables exported as separate CSV files alongside the JSON.
+            - :attr:`TablesMode.EMBED`: Tables embedded in markdown (default).
+            - :attr:`TablesMode.CSV`: Tables exported as separate CSV files.
         device: Accelerator device for Docling models.
-            - ``"auto"``: Auto-detect (CUDA if available, else CPU).
-            - ``"cpu"``: Force CPU-only (avoids CUDA warnings).
-            - ``"cuda"``: Force NVIDIA CUDA GPU.
-            - ``"mps"``: Force Apple Metal Performance Shaders.
+            - :attr:`DeviceType.AUTO`: Auto-detect (CUDA if available, else CPU).
+            - :attr:`DeviceType.CPU`: Force CPU-only.
+            - :attr:`DeviceType.CUDA`: Force NVIDIA CUDA GPU.
+            - :attr:`DeviceType.MPS`: Force Apple Metal Performance Shaders.
     """
 
     def __init__(
         self,
-        figures_mode: Literal["embed", "reference"] = "embed",
-        tables_mode: Literal["embed", "csv"] = "embed",
-        device: Literal["auto", "cpu", "cuda", "mps"] = "auto",
+        figures_mode: FiguresMode | str = FiguresMode.EMBED,
+        tables_mode: TablesMode | str = TablesMode.EMBED,
+        device: DeviceType | str = DeviceType.AUTO,
     ) -> None:
         self.figures_mode = figures_mode
         self.tables_mode = tables_mode
@@ -57,7 +57,7 @@ class DoclingConfig:
 def _get_or_create_converter(
     profile: ExtractionProfile,
     *,
-    device: Literal["auto", "cpu", "cuda", "mps"] = "auto",
+    device: DeviceType | str = DeviceType.AUTO,
     docx_direct: bool = False,
 ) -> DocumentConverter:
     """Return a cached ``DocumentConverter`` matching *profile*, *device*, and *docx_direct*.

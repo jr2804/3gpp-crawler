@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from tdoc_crawler.config import ConfigEnvVar
+from tdoc_crawler.extraction.profiles import DeviceType, ExtractionProfile, FiguresMode, TablesMode
 
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
@@ -217,11 +218,11 @@ SkipExistingOption = Annotated[
     ),
 ]
 ProfileOption = Annotated[
-    str,
-    typer.Option("--profile", help="Extraction profile: pdf-only, default, or advanced", envvar=ConfigEnvVar.TDC_PROFILE.name),
+    ExtractionProfile,
+    typer.Option("--profile", help="Extraction profile: pdf-only, markdown-only, default, or advanced", envvar=ConfigEnvVar.TDC_PROFILE.name),
 ]
 FiguresModeOption = Annotated[
-    str,
+    FiguresMode,
     typer.Option(
         "--figures",
         help=(
@@ -232,7 +233,7 @@ FiguresModeOption = Annotated[
     ),
 ]
 TablesModeOption = Annotated[
-    str,
+    TablesMode,
     typer.Option(
         "--tables",
         help="Table handling: embed (in markdown) or csv (separate CSV files)",
@@ -240,7 +241,7 @@ TablesModeOption = Annotated[
     ),
 ]
 DeviceOption = Annotated[
-    str,
+    DeviceType,
     typer.Option(
         "--device",
         help="Accelerator device: auto (detect), cpu, cuda, or mps",
