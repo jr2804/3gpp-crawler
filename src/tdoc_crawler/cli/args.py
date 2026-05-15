@@ -258,7 +258,8 @@ DocxDirectOption = Annotated[
 ]
 WorkspaceNameOption = Annotated[
     str | None,
-    typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)"),
+    typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)",
+                envvar=ConfigEnvVar.TDC_WORKSPACE.name),
 ]
 SourceKindOption = Annotated[
     str,

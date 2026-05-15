@@ -81,6 +81,7 @@ class ConfigEnvVar(StrEnum):
     TDC_FIGURES = "workspace.figures"
     TDC_TABLES = "workspace.tables"
     TDC_DEVICE = "workspace.device"
+    TDC_WORKSPACE = "workspace.name"
 
 
 TOML_PATH_TO_ENV_VAR: dict[str, str] = {e.value: e.name for e in ConfigEnvVar}
