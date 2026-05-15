@@ -225,10 +225,7 @@ FiguresModeOption = Annotated[
     FiguresMode,
     typer.Option(
         "--figures",
-        help=(
-            "Figure handling for all profiles: "
-            "embed (images embedded/self-contained) or reference (extract image files)"
-        ),
+        help=("Figure handling for all profiles: embed (images embedded/self-contained) or reference (extract image files)"),
         envvar=ConfigEnvVar.TDC_FIGURES.name,
     ),
 ]
@@ -258,8 +255,7 @@ DocxDirectOption = Annotated[
 ]
 WorkspaceNameOption = Annotated[
     str | None,
-    typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)",
-                envvar=ConfigEnvVar.TDC_WORKSPACE.name),
+    typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)", envvar=ConfigEnvVar.TDC_WORKSPACE.name),
 ]
 SourceKindOption = Annotated[
     str,
