@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
+from tdoc_crawler.cli.workspace.process import _effective_source_id, _resolve_spec_source_id
 from tdoc_crawler.config import CacheManager
-from tdoc_crawler.config.workspace_registry import WorkspaceRegistry
+from tdoc_crawler.config.workspace_registry import WorkspaceMember, WorkspaceRegistry
 from tdoc_crawler.models.workspaces import (
     DEFAULT_WORKSPACE,
     DocumentClassification,
@@ -237,30 +239,16 @@ class TestSpecSourceDirNaming:
 
     def test_spec_with_rel_suffix_unchanged(self) -> None:
         """Spec IDs that already have -REL must pass through unchanged."""
-        from tdoc_crawler.cli.workspace.process import _resolve_spec_source_id
-
         assert _resolve_spec_source_id("26260-REL18.0.0") == "26260-REL18.0.0"
         assert _resolve_spec_source_id("26131-REL17.0.0") == "26131-REL17.0.0"
 
     def test_tdoc_id_unchanged(self) -> None:
         """TDoc IDs are never modified."""
-        from unittest.mock import patch
-
-        from tdoc_crawler.cli.workspace.process import _effective_source_id
-        from tdoc_crawler.config.workspace_registry import WorkspaceMember
-        from tdoc_crawler.models.workspaces import SourceKind
-
         member = WorkspaceMember(source_item_id="S4-201115", source_kind=SourceKind.TDOC, source_path="")
         assert _effective_source_id(member) == "S4-201115"
 
     def test_spec_without_suffix_resolves(self) -> None:
         """Spec without -REL must resolve to full ID via DB."""
-        from unittest.mock import patch
-
-        from tdoc_crawler.cli.workspace.process import _effective_source_id
-        from tdoc_crawler.config.workspace_registry import WorkspaceMember
-        from tdoc_crawler.models.workspaces import SourceKind
-
         member = WorkspaceMember(source_item_id="26131", source_kind=SourceKind.SPEC, source_path="")
 
         # Mock resolve_spec_release_from_db to return a known version
@@ -275,12 +263,6 @@ class TestSpecSourceDirNaming:
 
     def test_spec_unknown_release_falls_back(self) -> None:
         """Spec with unresolvable release falls back to bare ID."""
-        from unittest.mock import patch
-
-        from tdoc_crawler.cli.workspace.process import _effective_source_id
-        from tdoc_crawler.config.workspace_registry import WorkspaceMember
-        from tdoc_crawler.models.workspaces import SourceKind
-
         member = WorkspaceMember(source_item_id="99999", source_kind=SourceKind.SPEC, source_path="")
 
         # resolve returns "latest" when spec not in DB
@@ -295,12 +277,6 @@ class TestSpecSourceDirNaming:
 
     def test_spec_resolve_exception_falls_back(self) -> None:
         """Spec resolve failure falls back to bare ID without -REL."""
-        from unittest.mock import patch
-
-        from tdoc_crawler.cli.workspace.process import _effective_source_id
-        from tdoc_crawler.config.workspace_registry import WorkspaceMember
-        from tdoc_crawler.models.workspaces import SourceKind
-
         member = WorkspaceMember(source_item_id="26131", source_kind=SourceKind.SPEC, source_path="")
 
         with patch(

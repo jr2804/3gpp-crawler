@@ -198,16 +198,6 @@ class TDocDatabase(MeetingDatabase):
 
         return records
 
-    @staticmethod
-    def _meeting_start_date(record: TDocMetadata, meeting_map: dict[int, MeetingMetadata], fallback: date) -> date:
-        """Return the meeting start_date for sorting, or fallback if unavailable."""
-        if not record.meeting_id:
-            return fallback
-        meeting = meeting_map.get(record.meeting_id)
-        if meeting is None or meeting.start_date is None:
-            return fallback
-        return meeting.start_date
-
     async def get_existing_tdoc_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[str]:
         """Get set of existing TDoc IDs, optionally filtered by working group.
 
@@ -250,6 +240,16 @@ class TDocDatabase(MeetingDatabase):
         if meeting is None or meeting.tbid is None:
             return record
         return self._clone_tdoc(record, {"tbid": meeting.tbid})
+
+    @staticmethod
+    def _meeting_start_date(record: TDocMetadata, meeting_map: dict[int, MeetingMetadata], fallback: date) -> date:
+        """Return the meeting start_date for sorting, or fallback if unavailable."""
+        if not record.meeting_id:
+            return fallback
+        meeting = meeting_map.get(record.meeting_id)
+        if meeting is None or meeting.start_date is None:
+            return fallback
+        return meeting.start_date
 
     @staticmethod
     def _filter_by_retrieved_dates(

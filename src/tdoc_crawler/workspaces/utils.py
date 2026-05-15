@@ -19,7 +19,6 @@ from tdoc_crawler.specs.operations.checkout import (
     build_default_spec_sources,
     checkout_specs_async,
 )
-
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.normalization import (

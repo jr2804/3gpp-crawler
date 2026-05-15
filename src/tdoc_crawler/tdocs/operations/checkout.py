@@ -50,9 +50,7 @@ def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> 
         tdoc_dir = get_checkout_path(record, checkout_dir)
         if not tdoc_dir.exists():
             continue
-        total = sum(
-            f.stat().st_size for f in tdoc_dir.iterdir() if f.is_file()
-        )
+        total = sum(f.stat().st_size for f in tdoc_dir.iterdir() if f.is_file())
         if total:
             record.file_size = total
 

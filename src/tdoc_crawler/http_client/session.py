@@ -18,6 +18,11 @@ from niquests.adapters import HTTPAdapter
 from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
 
+try:
+    from urllib3.connection import HttpVersion
+except ImportError:
+    HttpVersion = None  # type: ignore[assignment,misc]
+
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.constants.urls import BROWSER_HEADERS
 from tdoc_crawler.logging import get_logger
@@ -95,16 +100,12 @@ class _NiquetsCacheAdapter(CacheAdapter):
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
         """Disable HTTP/3 to prevent MustDowngradeError from 3GPP servers."""
-        try:
-            from urllib3.connection import HttpVersion
-
+        if HttpVersion is not None:
             disabled: set[HttpVersion] = pool_kwargs.get("disabled_svn", set())  # type: ignore[assignment]
             if not isinstance(disabled, set):
                 disabled = set()
             disabled.add(HttpVersion.h3)
             pool_kwargs["disabled_svn"] = disabled  # type: ignore[assignment]
-        except ImportError:
-            pass
         super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
 
     def send(

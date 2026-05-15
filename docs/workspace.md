@@ -145,8 +145,8 @@ Members added with `--release 18.0` use the explicit release. Members added with
 `workspace process` is idempotent by default (`--skip-existing`):
 
 1. **Fast-path skip**: Before entering `convert_for_wiki`, `_should_skip_member()` checks if output artifacts already exist on disk.
-2. **Per-profile guard**: Inside `convert_for_wiki`, each profile checks for existing output (`.md` for markdown-only, `.md` + `.json` for Docling) and returns early.
-3. **Override**: `--force` re-extracts regardless of existing output.
+1. **Per-profile guard**: Inside `convert_for_wiki`, each profile checks for existing output (`.md` for markdown-only, `.md` + `.json` for Docling) and returns early.
+1. **Override**: `--force` re-extracts regardless of existing output.
 
 ---
 
