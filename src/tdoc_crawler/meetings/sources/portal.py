@@ -106,6 +106,11 @@ def fetch_meetings(
         List of parsed MeetingMetadata objects.
     """
     tbs = _build_subtb_filter(subgroups)
+    # When specific subgroups are given, do NOT expand to child TBs —
+    # otherwise plenary codes like SP (subtb=375 == SA tbid) pull in all
+    # SA subgroup meetings when IncludeChildTbs=True.
+    include_children = not subgroups
+
     sd = (start_date or DEFAULT_START_DATE).strftime("%Y-%m-%d 00:00:00")
     ed = (end_date or DEFAULT_END_DATE).strftime("%Y-%m-%d 23:59:59")
 
@@ -121,7 +126,7 @@ def fetch_meetings(
                 "getMeetingsInput": {
                     "StartRow": start_row,
                     "ResultsPerPage": _PAGE_SIZE,
-                    "IncludeChildTbs": True,
+                    "IncludeChildTbs": include_children,
                     "IncludeNonTBMeetings": False,
                     "Tbs": tbs,
                     "StartDate": sd,
