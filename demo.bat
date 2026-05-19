@@ -3,15 +3,17 @@ cls
 call .venv\scripts\activate.bat
 
 SET TDC_WORKSPACE=atias
+SET TDC_FIGURES=reference
 
 :: Crawl *all* meetings from SA4
-:: tdoc-crawler crawl-meetings -s S4
+tdoc-crawler crawl-meetings -s S4
+tdoc-crawler crawl-meetings -s SP
 
 :: crawl all tdocs metadata from 2016 on onwards
-:: tdoc-crawler crawl --start-date 2016
+tdoc-crawler crawl --start-date 2016
 
 :: query tdocs from atias agenda items from 2018 on onwards
-:: tdoc-crawler query --agenda "*atias*" --start-date 2018
+tdoc-crawler query --agenda "*atias*" --start-date 2018
 
 :: remove and re-create workspace 'atias'
 3gpp-crawler workspace deactivate
@@ -20,7 +22,7 @@ SET TDC_WORKSPACE=atias
 3gpp-crawler workspace activate atias
 
 :: add single tdoc to workspace ('-w atias' is optional if workspace is active)
-3gpp-crawler workspace add S4-260109 --kind tdoc -w atias
+3gpp-crawler workspace add SP-251352 SP-241314 SP-190040 --kind tdoc -w atias
 
 :: add all tdocs from agenda items matching '*atias*' (from all meetings)
 3gpp-crawler workspace add --agenda "*atias*"
