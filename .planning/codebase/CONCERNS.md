@@ -1,277 +1,209 @@
-<!-- refreshed: 2026-04-30 -->
 # Codebase Concerns
 
-**Analysis Date:** 2026-04-30
-**Source files:** 101 Python files in `src/tdoc_crawler/`
-**Latest ruff:** 462 errors fixed, 306 remaining across 6 rule categories
+**Analysis Date:** 2026-05-22
+
+## Tech Debt
+
+### Dual Path Resolution System (CacheManager vs PathConfig)
+
+- Issue: Two parallel systems resolve file paths. `CacheManager` (`config/cache_manager.py`) is a singleton registered once at startup. `PathConfig` (`config/settings.py`) is a pydantic-settings model that creates a new instance on every `PathConfig()` call. Both define the same defaults (`DEFAULT_DATABASE_FILENAME`, `DEFAULT_HTTP_CACHE_FILENAME`, `DEFAULT_CHECKOUT_DIRNAME`) in separate files.
+- Files: `src/tdoc_crawler/config/cache_manager.py`, `src/tdoc_crawler/config/settings.py`
+- Impact: Defaults can drift between the two systems. Call sites must choose which system to use, creating inconsistency. `PathConfig()` instantiates a full pydantic-settings model (including env var parsing) just to get a path.
+- Fix approach: Migrate all 27+ `PathConfig()` call sites to `resolve_cache_manager()`. Remove duplicated defaults from `settings.py`. Keep `PathConfig` only for config discovery/CLI display, not runtime path resolution.
+
+**Affected call sites (non-exhaustive):**
+- `src/tdoc_crawler/http_client/session.py:299` — `PathConfig().http_cache_file`
+- `src/tdoc_crawler/config/workspace_registry.py:311,462` — `PathConfig().cache_dir`
+- `src/tdoc_crawler/workspaces/utils.py:61,78` — `PathConfig().checkout_dir`, `PathConfig().db_file`
+- `src/tdoc_crawler/workspaces/members.py:93,127,178,237,293` — `PathConfig().db_file`
+- `src/tdoc_crawler/workspaces/crud.py:43,75,51,50,69` — `PathConfig()` instances
+- `src/tdoc_crawler/cli/workspace/process.py:121,223,295` — `PathConfig()`
+
+### Deprecated `TDocCrawlerConfig` Alias Still in Use
+
+- Issue: `TDocCrawlerConfig = ThreeGPPConfig` alias in `config/settings.py:300` with comment "remove after all consumers are updated" is still actively used.
+- Files: `src/tdoc_crawler/config/settings.py:300`, `src/tdoc_crawler/cli/crawl.py:48,131,290,399`
+- Impact: Code smell — two names for the same class. New contributors may use the wrong name.
+- Fix approach: Replace all `TDocCrawlerConfig` imports/usages in `cli/crawl.py` with `ThreeGPPConfig`, then remove the alias from `settings.py`.
+
+### Repeated Full-Table Loads in Database Queries
+
+- Issue: Multiple database query methods load entire tables into Python memory, then filter in-memory instead of using SQL WHERE clauses. This scales linearly with data size and will degrade as the database grows.
+- Files: `src/tdoc_crawler/database/tdocs.py`, `src/tdoc_crawler/database/meetings.py`, `src/tdoc_crawler/database/specs.py`
+- Impact: With thousands of TDocs and hundreds of meetings, `query_tdocs()` materializes all records into Python lists, applies filters sequentially, then sorts. `get_statistics()` loads three full tables.
+- Fix approach: Push filters (working_group, date ranges, patterns that can be expressed as LIKE) to SQL via Oxyde ORM. Add pagination support. Cache meeting map per database session.
+
+**Specific hot spots:**
+- `tdocs.py:169` — `query_tdocs()` fetches all TDocMetadata records via ORM `.all()`
+- `tdocs.py:177+185` — MeetingMetadata table loaded **twice** in a single `query_tdocs()` call (once for date filtering, once for sorting)
+- `meetings.py:144` — `query_meetings()` fetches all meetings then filters in-memory
+- `meetings.py:170` — `get_existing_meeting_ids()` loads all meetings
+- `meetings.py:238-240` — `get_statistics()` loads TDocMetadata, MeetingMetadata, and CrawlLogEntry fully
+- `specs.py:344-345` — `query_specs()` loads all Specification AND all SpecificationSourceRecord records
+
+### Broad `except Exception` Handlers
+
+- Issue: 39 `except Exception` handlers throughout the codebase. Some are appropriate (top-level CLI error boundaries) but many in the database and extraction layers silently swallow specific errors.
+- Files: `src/tdoc_crawler/database/base.py`, `src/tdoc_crawler/database/tdocs.py`, `src/tdoc_crawler/database/specs.py`, `src/tdoc_crawler/extraction/convert.py`, `src/tdoc_crawler/workspaces/utils.py`
+- Impact: Hard to debug failures — specific error types are lost. For example, `database/base.py:106` catches all exceptions during database init, making schema errors invisible.
+- Fix approach: Replace broad handlers with specific exception types (`OSError`, `ValueError`, `sqlite3.OperationalError`). Keep `except Exception` only at CLI boundary layers.
+
+### f-string in Logger Calls
+
+- Issue: 16 logger calls use f-string formatting (`logger.debug(f"..."`) instead of lazy `%s` formatting. Python loggers only format the string when the log level is enabled — f-strings force immediate formatting.
+- Files: `src/tdoc_crawler/http_client/session.py:289,335`, `src/tdoc_crawler/tdocs/operations/checkout.py:160,169,171,233,361`, `src/tdoc_crawler/tdocs/sources/doclist.py:122,145,147,150,441`, `src/tdoc_crawler/config/workspace_registry.py:480`
+- Impact: Minor performance waste in hot paths (checkout operations, doclist parsing). More importantly, it violates the logging convention used elsewhere in the codebase.
+- Fix approach: Replace `logger.debug(f"text {var}")` with `logger.debug("text %s", var)`.
+
+## Known Bugs
+
+### Missing `disable_http3=True` in TDoc Checkout Session
+
+- Symptoms: `MustDowngradeError` from `urllib3-future` when fetching TDoc files from `www.3gpp.org`. ~10 second delay per request as HTTP/3 is advertised but fails.
+- Files: `src/tdoc_crawler/tdocs/operations/checkout.py:115`
+- Trigger: Any TDoc checkout operation that needs directory listing from 3GPP FTP/HTTP servers.
+- Workaround: None. The error is caught and retried, but each retry wastes ~10 seconds.
+- Fix: Change `requests.Session()` to `requests.Session(disable_http3=True)`.
+
+## Security Considerations
+
+### Credentials in Environment Variables
+
+- Risk: EOL portal credentials (`TDC_EOL_USERNAME`, `TDC_EOL_PASSWORD`) are stored as plain environment variables or in `.env` files. The `credentials.py` module also sets them directly into `os.environ`.
+- Files: `src/tdoc_crawler/credentials.py:23-25`
+- Current mitigation: `.env` is in `.gitignore`. `.env.example` documents the variables without values.
+- Recommendations: Consider using system keyring or encrypted credential store for long-lived credentials.
+
+### Workspace Registry Not Thread-Safe
+
+- Risk: `WorkspaceRegistry` reads and writes a JSON file without file locking. Concurrent CLI processes (e.g., two terminals running workspace commands) could corrupt `workspaces.json`.
+- Files: `src/tdoc_crawler/config/workspace_registry.py:309-322`
+- Current mitigation: None.
+- Recommendations: Add file-based locking (e.g., `filelock` package) to `save()` and `load()` methods.
+
+### URL Validation Scope
+
+- Risk: SSRF protection (`validate_api_url()`) only validates user-supplied API URLs. Download URLs from 3GPP FTP/HTTP servers are not validated.
+- Files: `src/tdoc_crawler/utils/security.py`
+- Current mitigation: Download URLs are constructed from constants in `constants/urls.py`, not from user input.
+- Recommendations: Current mitigation is sufficient for known use cases. If user-supplied URLs are ever accepted for download, extend validation.
+
+## Performance Bottlenecks
+
+### TDoc Checkout Path Resolution via `rglob`
+
+- Problem: `resolve_tdoc_checkout_path()` uses `checkout_base.rglob("Docs")` to find TDoc directories. This walks the entire checkout tree for every single TDoc lookup.
+- Files: `src/tdoc_crawler/workspaces/utils.py:53`
+- Cause: The checkout directory structure is `<checkout_base>/<group>/<meeting>/Docs/<tdoc_id>/`. The function doesn't know which meeting a TDoc belongs to, so it searches exhaustively.
+- Improvement path: Query the database for the meeting associated with the TDoc, then construct the path directly: `checkout_base / meeting_path / "Docs" / tdoc_id`. Only fall back to `rglob` for TDocs not in the database.
+
+### Bulk Upsert Queries Existing Records One-by-One
+
+- Problem: `bulk_upsert_tdocs()` queries each TDoc individually to check if it exists (`_get_tdoc` per record), then does bulk create/update.
+- Files: `src/tdoc_crawler/database/tdocs.py:109-113`
+- Cause: Oxyde ORM doesn't have a built-in `bulk_upsert` or `INSERT OR REPLACE`.
+- Improvement path: Query all existing TDoc IDs in a single `SELECT tdoc_id FROM tdocs WHERE tdoc_id IN (...)` call, then partition into create/update sets.
+
+### Spec Crawling is Sequential
+
+- Problem: `crawl_specs()` iterates spec numbers sequentially. Each spec fetch involves HTTP requests to multiple sources.
+- Files: `src/tdoc_crawler/database/specs.py:391-405`
+- Cause: The outer loop over spec numbers is synchronous.
+- Improvement path: Use `asyncio.gather` with a semaphore to crawl multiple specs concurrently (like `_crawl_single_spec` already does for sources within a spec).
+
+## Fragile Areas
+
+### Extraction Pipeline
+
+- Files: `src/tdoc_crawler/extraction/convert.py` (499 lines), `src/tdoc_crawler/extraction/docling/pipeline.py`
+- Why fragile: Complex multi-step pipeline with external dependencies (LibreOffice for PDF conversion, Docling for structured extraction, pymupdf4llm for markdown). Any external tool failure cascades. The `convert_for_wiki()` function has 5 different code paths based on profile type.
+- Safe modification: Test changes with all four extraction profiles (`pdf-only`, `markdown-only`, `default`, `advanced`). Verify `--force` flag behavior.
+- Test coverage: None. No tests exist for `extraction/convert.py`, `extraction/docling/pipeline.py`, or `cli/workspace/process.py`.
+
+### Database Migration System
+
+- Files: `src/tdoc_crawler/database/base.py:216-239`
+- Why fragile: Migrations are defined as a hardcoded list of `ALTER TABLE ADD COLUMN` statements. Each migration silently catches all exceptions. There's no migration version tracking — migrations re-run on every startup and rely on `PRAGMA table_info` to skip already-applied changes.
+- Safe modification: Add new migrations to the end of the list. Always include the `PRAGMA table_info` guard pattern.
+- Test coverage: No dedicated migration tests.
+
+### Oxyde ORM Model Coupling
+
+- Files: `src/tdoc_crawler/database/oxyde_models.py`
+- Why fragile: All database operations depend on Oxyde ORM, which is a relatively new/uncommon ORM. The `_clone_tdoc()` method at `database/tdocs.py:361-365` manually reconstructs model instances by iterating `__annotations__`, bypassing model validators. If a field is added to the Oxyde model, `_clone_tdoc` must still work.
+- Safe modification: When adding fields to Oxyde models, verify `_clone_tdoc` and `_prepare_tdoc` still include the new field in their reconstruction logic.
+- Test coverage: Partial — `test_database.py` covers basic operations.
+
+## Scaling Limits
+
+### SQLite Variable Limit (999)
+
+- Current capacity: `SQLITE_MAX_VARS = 999` at `database/tdocs.py:18`. With ~30 columns per TDoc, max batch size is ~33 records.
+- Limit: Bulk operations are artificially capped. The code already auto-reduces batch size but logs a warning.
+- Scaling path: For large crawls (1000+ TDocs), consider batched INSERT with temporary tables or switch to PostgreSQL.
+
+### In-Memory Filtering
+
+- Current capacity: All query operations load full tables into Python memory before filtering.
+- Limit: With 10K+ TDocs and 500+ meetings, memory usage grows significantly. `query_tdocs()` with meeting date filters materializes 3 full table loads.
+- Scaling path: Push filtering to SQL. Add LIMIT/OFFSET at the ORM level.
+
+## Dependencies at Risk
+
+### Oxyde ORM
+
+- Risk: Relatively new/uncommon ORM. Version pinned at `>=0.4.0`. Breaking changes in minor versions could affect model definitions, query API, or migration behavior.
+- Impact: All database operations would break. No easy migration path to another ORM without rewriting all model definitions.
+- Migration plan: If Oxyde becomes unmaintained, consider migrating to SQLAlchemy 2.0 with Pydantic integration, or direct SQLite via `aiosqlite`.
+
+### niquests
+
+- Risk: `niquests` (used as `requests` replacement) is a relatively new HTTP library. Its `urllib3-future` dependency has HTTP/3 issues with 3GPP servers, requiring `disable_http3=True` workarounds.
+- Impact: If the `disable_http3` parameter is removed or the Hishel adapter integration breaks, all HTTP operations fail.
+- Migration plan: Monitor `niquests` releases. Consider standard `requests` + `urllib3` if HTTP/3 issues persist.
+
+## Missing Critical Features
+
+### No Concurrent Download Protection
+
+- Problem: Multiple CLI processes can run simultaneously, potentially corrupting the SQLite database or HTTP cache.
+- Blocks: Parallel crawls of different working groups.
+
+### No Database Backup Before Destructive Operations
+
+- Problem: `clear_tdocs`, `clear_specs`, and `clear_db` delete data permanently without backup.
+- Blocks: Safe experimentation with crawl operations.
+
+## Test Coverage Gaps
+
+### Extraction Pipeline
+
+- What's not tested: `extraction/convert.py`, `extraction/docling/pipeline.py`, `extraction/docling/converter.py`, `extraction/docling/filter.py`
+- Files: `src/tdoc_crawler/extraction/convert.py`, `src/tdoc_crawler/extraction/docling/`
+- Risk: Any regression in document conversion (PDF generation, Docling extraction, markdown output) will only be caught at runtime.
+- Priority: High — this is the most complex and least-tested part of the codebase.
+
+### Workspace Processing
+
+- What's not tested: `cli/workspace/process.py` — the `workspace process` command that orchestrates checkout + conversion for all workspace members.
+- Files: `src/tdoc_crawler/cli/workspace/process.py`
+- Risk: Regressions in member processing, progress tracking, error handling, or skip-existing logic.
+- Priority: High — primary user-facing workflow.
+
+### Database Migration Logic
+
+- What's not tested: `_run_migrations()` in `database/base.py` — no tests verify that migrations apply correctly or that already-applied migrations are skipped.
+- Files: `src/tdoc_crawler/database/base.py:216-239`
+- Risk: Schema changes may silently fail or apply incorrectly on existing databases.
+- Priority: Medium — migrations are simple but fragile.
+
+### HTTP/3 Downgrade Handling
+
+- What's not tested: The `_NiquetsCacheAdapter.init_poolmanager()` HTTP/3 disabling logic and the bare `Session()` calls are not tested for correct HTTP/3 behavior.
+- Files: `src/tdoc_crawler/http_client/session.py:101-109`, `src/tdoc_crawler/tdocs/operations/checkout.py:115`
+- Risk: New Session() calls may be added without `disable_http3=True`.
+- Priority: Medium — the AGENTS.md documents this but automated enforcement is missing.
 
 ---
 
-## 1. Performance Concerns
-
-### 1.1 Row-by-Row Bulk Upsert (No Transaction Wrapping)
-
-Both `bulk_upsert_tdocs` and `bulk_upsert_meetings` iterate records
-sequentially with individual `await` calls, each issuing a separate
-DB transaction.
-
-**Evidence:**
-- `src/tdoc_crawler/database/tdocs.py:86-93` - for loop with individual upsert calls
-- `src/tdoc_crawler/database/meetings.py:128-135` - same pattern for meetings
-
-**Impact:** For 1000+ TDocs, this issues 1000+ individual SQL transactions.
-No `atomic()` wrapper. No `bulk_create()` or `INSERT ... ON CONFLICT`.
-
-**Severity:** Medium.
-
-### 1.2 In-Memory Filtering (No SQL Push-Down)
-
-`query_tdocs` loads ALL records into Python memory, then applies
-6+ filter passes sequentially on the full list.
-
-**Evidence:**
-- `src/tdoc_crawler/database/tdocs.py:105` - `_table_rows(TDocMetadata)` loads everything
-- `src/tdoc_crawler/database/tdocs.py:116-145` - 6+ sequential filter passes
-- `src/tdoc_crawler/database/meetings.py:147-148` - same pattern
-
-**Impact:** For 10K+ records, 6 passes x 10K = 60K comparisons.
-No database indices used for filtering.
-
-**Severity:** Medium.
-
-### 1.3 SQLite Without WAL Mode
-
-No `PRAGMA journal_mode=WAL` in any database init code.
-`src/tdoc_crawler/database/base.py:103-104` creates `AsyncDatabase()` with no pragma config.
-
-**Impact:** Read operations block during writes. Contention increases with concurrent access.
-
-**Severity:** Low for single-user CLI.
-
-### 1.4 Serial Spec Source Iteration (FIXED)
-
-`src/tdoc_crawler/database/specs.py:427` now uses
-`asyncio.gather(*fetch_tasks)` with `asyncio.to_thread`.
-
----
-
-## 2. Error Handling Gaps
-
-### 2.1 Broad `except Exception` Blocks (32 instances, 19 files)
-
-**Intentional Wrapping (acceptable):**
-- database/base.py:106, database/specs.py:341 -> DatabaseError
-- specs/downloads.py:131 -> returns None
-- extraction/conversion.py:207, extraction/convert.py:457 -> ConversionError
-- clients/portal.py:231 -> PortalParsingError
-
-**Should Be Narrowed:**
-- cli/_workspace_commands.py:88,114,180,252,294
-- cli/specs.py:94, cli/config.py:50, cli/config_app.py:150,220
-- clients/portal.py:248, workspaces/crud.py:63
-
-**Defensive Network (acceptable):**
-- tdocs/operations/crawl.py:275, workers/tdoc_worker.py:54
-
-**Swallow-and-Continue (risky):**
-- tdocs/sources/portal.py:77,87
-- specs/downloads.py:261,273
-
-**Missing `raise ... from` Chain (Ruff B904 - 12 instances):**
-- cli/_workspace_commands.py:246,256,324,330
-- cli/config_app.py:69,149,152,161,219,222
-- cli/specs.py:96, utils/security.py:77
-
-### 2.2 Ruff TRY300 (5 instances)
-cli/_workspace_commands.py:87, cli/config.py:48, cli/config_app.py:86,
-config/workspace_registry.py:430, extraction/conversion.py:203,245
-
-### 2.3 Ruff TRY401 (~10 instances)
-cli/_workspace_commands.py:298, cli/utils.py:40
-database/base.py:240,281, database/specs.py:341,514
-config/workspace_registry.py:433, specs/downloads.py:131,274
-tdocs/sources/doclist.py:450, tdocs/sources/portal.py:87
-
----
-
-## 3. Architecture Concerns
-
-### 3.1 Raw SQL Mixed with ORM
-
-`src/tdoc_crawler/database/base.py:278` - `execute_raw(f"DELETE FROM {table_name}")`
-flagged S608. Table names from hardcoded dict (safe) but pattern is fragile.
-
-### 3.2 Async/Sync Boundary
-
-`run_async()` helper at utils/async_helpers.py:17-37 handles both `asyncio.run()`
-and running-loop fallback. Used 15+ times in CLI layer, 3 times in extraction.
-
-**Risk:** Library functions using `run_async()` become uncallable from async context.
-
-### 3.3 Configuration Complexity (17 functions with 8-25 args)
-
-Ruff PLR0913 = 17 functions with >5 args:
-- cli/crawl.py:100 = 25 args, cli/query.py:99 = 19 args
-- cli/crawl.py:267 = 19 args, cli/_workspace_commands.py:335 = 10, :443 = 13
-- Plus 7 more in extraction, specs, database modules
-
-### 3.4 Singleton CacheManager with Global State
-
-`CacheManager._instance` at config/cache_manager.py:131,134.
-Test conftest.py must reset via autouse fixture.
-workspaces/crud.py:63 has defensive fallback despite AGENTS.md prohibition.
-
-### 3.5 Boolean Positional Arguments (~40 FBT violations)
-
-Examples: cli/_shared.py:25-27 (3 bool positional defaults),
-cli/crawl.py:107-115 (6 bool positional defaults).
-
----
-
-## 4. Technical Debt
-
-### 4.1 Ruff Lint Profile - 306 Remaining Errors
-
-| Rule | Count | Description |
-|------|-------|-------------|
-| PLR0913 | ~17 | Too many function arguments |
-| FBT001/2 | ~40 | Boolean positional arguments |
-| BLE001 | ~12 | Blind except Exception |
-| B904 | ~12 | Missing raise ... from |
-| TRY300 | ~5 | Statement in else block |
-| TRY401 | ~10 | Redundant exc in logging |
-| G004 | ~6 | Logging f-string |
-| SLF001 | ~6 | Private member access |
-| DTZ005/7 | ~5 | Naive datetime |
-| PLR2004 | ~12 | Magic value comparison |
-| ARG001/2 | ~5 | Unused args |
-| S608 | 1 | Possible SQL injection |
-| ERA001 | ~3 | Commented-out code |
-| C901 | ~3 | Function too complex |
-| D100-D107 | ~15 | Missing docstrings |
-
-Critical: BLE001 (blind exceptions), B904 (missing chain), S608 (injection).
-
-### 4.2 Unused Function Arguments (9)
-
-- cli/query.py:118 (graph_rag), extraction/checkout.py:37 (workspace)
-- extraction/convert.py:314 (output_file)
-- tdocs/sources/portal.py:57-58 (db_file, timeout)
-- tdocs/sources/whatthespec.py:138 (db_file)
-- tdocs/operations/fetch.py:101 (session)
-- specs/operations/checkout.py:39 (cache_manager_name)
-- tdocs/operations/checkout.py:239 (cache_manager_name)
-- utils/normalization.py:62 (spec_input)
-
-### 4.3 Commented-Out Code (3)
-
-- config/env_vars.py:39, logging/__init__.py:31-32, tdocs/sources/doclist.py:195
-
-### 4.4 Missing Docstrings (~15)
-
-utils/__init__.py, utils/date_parser.py, utils/parse.py (public modules)
-database/base.py:81,100,113, config/sources.py:47
-config/workspace_registry.py:121,132,157,222, database/errors.py:9,14
-extraction/convert.py:54, meetings/operations/crawl.py:43
-tdocs/operations/crawl.py:41, specs/downloads.py:29,34
-
-### 4.5 Test Suite - 71 Failed + 25 Errors
-
-Current: 386 passed, 71 failed, 12 skipped, 25 errors (40.46s).
-
-Categories:
-- pydantic-sqlite API changes (~50 failures)
-- CLI command tests (~15 from refactoring)
-- WhatTheSpec live API (~10)
-- pydantic init errors (~25 ERRORs)
-
-### 4.6 SpecQueryFilters Validation
-
-SpecQueryFilters accepts arbitrary strings without Pydantic validators.
-
-### 4.7 Function Complexity (C901 - 3 functions)
-
-- cli/_workspace_commands.py:228 - workspace_process (11)
-- workspaces/utils.py:64 - resolve_spec_release_from_db (11)
-- workspaces/utils.py:154 - checkout_tdoc_to_workspace (12)
-
----
-
-## 5. Security Considerations
-
-### 5.1 Input Validation - normalize_tdoc_id
-
-Used in 12 files. Regex + .upper() only. No length checks or char whitelisting.
-
-### 5.2 Credential Handling - resolve_credentials
-
-Resolves from CLI, config, env vars, prompt. Credentials visible in process output.
-Guard: sys.stdin.isatty() at credentials.py:49.
-
-### 5.3 SQL Injection - Raw Table Name
-
-database/base.py:278 flagged S608. Safe (hardcoded dict) but fragile pattern.
-
-### 5.4 SSRF Protection (ADEQUATE)
-
-validate_api_url() at utils/security.py:39-84 validates scheme, resolves DNS,
-blocks private/loopback/reserved/multicast IPs.
-
-### 5.5 No TLS Pinning
-
-Standard HTTPS trust only. No certificate pinning for 3GPP endpoints.
-Acceptable for CLI tool.
-
----
-
-## 6. Already Fixed (Reference)
-
-### 6.1 Spec Source Crawl Parallelization (FIXED)
-specs.py:427 asyncio.gather + asyncio.to_thread
-
-### 6.2 SQL LIKE Injection (CONFIRMED SAFE)
-Uses fnmatch, not SQL LIKE
-
-### 6.3 --cache-dir (REMOVED)
-
-### 6.4 Event Loop Guards (IN PLACE)
-run_async() handles both scenarios
-
-### 6.5 Exception Narrowing (PARTIAL)
-10+ blocks narrowed, 32 remain
-
-### 6.6 Dead Code Removal (PARTIAL)
-Unused funcs/enums/tests removed. 9 unused args remain
-
-### 6.7 Complexity Reduction (PARTIAL)
-_apply_meeting_filters decomposed. 3 funcs still too complex
-
----
-
-## 7. Summary
-
-### Critical (fix immediately):
-None. No code-execution or data-exfiltration vulnerabilities.
-
-### High Priority (next sprint):
-- Test suite: 71 failures + 25 errors (pydantic-sqlite API changes)
-- except Exception narrowing: 12 BLE001 instances in CLI layer
-
-### Medium Priority:
-- Missing raise ... from: 12 B904 violations
-- WAL mode: one-line change for concurrent reads during writes
-- Commented-out code: 3 blocks
-- Boolean positional args: ~40 FBT violations
-- Unused args: 9 ARG001/ARG002 violations
-
-### Low Priority:
-- Magic values: ~12 PLR2004 violations
-- Naive datetime: 5 DTZ005/DTZ007 violations
-- Logging f-strings: 6 G004 violations
-- Docstrings: ~15 missing on public API surface
-
----
-
-Concerns analysis: 2026-04-30 - Fresh ruff lint run, exception audit,
-async/sync boundary analysis, test status, and security review.
-306 ruff issues remain post-refactoring.
+*Concerns audit: 2026-05-22*

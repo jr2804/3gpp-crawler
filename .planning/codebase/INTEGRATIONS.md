@@ -1,386 +1,147 @@
 # External Integrations
 
-**Analysis Date:** 2026-04-30
+**Analysis Date:** 2026-05-22
 
-> Documented external services, storage layers, auth mechanisms, and integration points
-> for the 3GPP Crawler CLI application.
+## APIs & External Services
 
----
+**3GPP Portal (ETSI Online):**
+- Portal REST API — Meeting metadata, TDoc metadata, document downloads
+  - Base URL: `https://portal.3gpp.org`
+  - REST endpoint: `/webservices/Rest/Meetings.svc/GetMeetings` (`src/tdoc_crawler/constants/urls.py`)
+  - DocList: `/ngppapp/GenerateDocumentList.aspx?meetingId={id}` — batch TDoc metadata
+  - TDoc view: `/ngppapp/CreateTdoc.Aspx?mode=view&contributionUid={id}` — single TDoc metadata
+  - TDoc download: `/ngppapp/DownloadTDoc.aspx?contributionUid={id}` — URL extraction
+  - Login: `/login.aspx` + AJAX `/ETSIPages/LoginEOL.ashx` — EOL authentication
+  - SDK/Client: `niquests` (via `PortalClient` in `src/tdoc_crawler/clients/portal.py`)
+  - Auth: `TDC_EOL_USERNAME`, `TDC_EOL_PASSWORD` env vars
+  - HTTP/3 issue: Portal advertises HTTP/3 via `Alt-Svc` but cannot handle it; all sessions must use `disable_http3=True`
+  - Browser headers required (defined in `src/tdoc_crawler/constants/urls.py` as `BROWSER_HEADERS`)
 
-## External Services
+**WhatTheSpec (Community API):**
+- External metadata lookup for TDocs and Specs
+  - Base URL: `https://whatthespec.net`
+  - TDoc lookup: `/3gpp/tdoc.php?name={tdoc_id}&api=1`
+  - Spec lookup: `/3gpp/spec.php?q={compact}&api=1`
+  - SDK/Client: `niquests` (via `create_cached_session()`)
+  - Auth: None (public API)
+  - Implementation: `src/tdoc_crawler/tdocs/sources/whatthespec.py`, `src/tdoc_crawler/specs/sources/whatthespec.py`
 
-### 3GPP Portal (portal.3gpp.org)
-*Authenticated HTTP access to TDoc metadata.*
+**3GPP FTP Server:**
+- Spec archive downloads
+  - URL template: `https://www.3gpp.org/ftp/Specs/archive/{series}/{normalized}/{file_name}`
+  - Dynareport: `https://www.3gpp.org/dynareport/{compact}.htm` — spec version metadata
+  - SDK/Client: `niquests` (via `create_cached_session()`)
+  - Auth: None (public FTP/HTTPS)
+  - Implementation: `src/tdoc_crawler/specs/sources/threegpp.py`
 
-| Detail | Value |
-|--------|-------|
-| Base URL | `https://portal.3gpp.org` |
-| Login URL | `https://portal.3gpp.org/login.aspx` |
-| TDoc View | `https://portal.3gpp.org/ngppapp/CreateTdoc.Aspx` |
-| TDoc Download | `https://portal.3gpp.org/ngppapp/DownloadTDoc.aspx` |
-| Client class | `PortalClient` in `src/tdoc_crawler/clients/portal.py` |
-| Auth | HTTP POST with `TDC_EOL_USERNAME`/`TDC_EOL_PASSWORD`, session cookies retained |
-| Cache | Login requests explicitly skip cache (`http_cache_enabled=False`) |
-| User-Agent | Browser-like headers to avoid 403 Forbidden |
+**Hugging Face Hub:**
+- Model downloads for Docling ML pipeline
+  - SDK/Client: Docling internal (uses `HF_TOKEN` if set)
+  - Auth: `HF_TOKEN` env var (optional, avoids rate limits)
+  - Used by: `src/tdoc_crawler/extraction/docling/` pipeline
 
-**Key methods:**
-- `PortalClient.fetch_tdoc_metadata()` — Crawl TDoc URLs from portal search pages
-- `PortalClient.download_tdoc()` — Stream TDoc file download
-- Error: `PortalAuthenticationError` on 401/403
+## Data Storage
 
-### 3GPP Public Website (www.3gpp.org)
-*Public HTML/excel sources for meetings and spec archives.*
+**Databases:**
+- SQLite — Primary metadata store
+  - Location: `{cache_dir}/3gpp_crawler.db` (default `~/.3gpp-crawler/`)
+  - ORM: oxyde (`src/tdoc_crawler/database/base.py`)
+  - Models: `src/tdoc_crawler/database/oxyde_models.py`
+  - Tables: `WorkingGroupRecord`, `SubWorkingGroupRecord`, `CrawlLogEntry`, `TDocMetadata`, `MeetingMetadata`, `Specification`, `SpecificationVersion`, `SpecificationDownload`, `SpecificationSourceRecord`
 
-| Detail | Value |
-|--------|-------|
-| Meetings URL | `https://www.3gpp.org/dynareport?code=Meetings-{code}.htm` |
-| Spec Archive | `https://www.3gpp.org/ftp/Specs/archive/{series}/{normalized}/{file_name}` |
-| Auth | None (public, browser User-Agent required) |
-| Parsing | `BeautifulSoup` (HTML), `python-calamine` (Excel .xlsx) |
+- SQLite — HTTP response cache
+  - Location: `{cache_dir}/http-cache.sqlite3`
+  - Managed by: hishel `SyncSqliteStorage`
+  - Config: TTL 7200s (2 hours) default, configurable via `HTTP_CACHE_TTL`
 
-**TDoc Document List (Excel):**
-- URL pattern: `{portal_base}/ngppapp/DownloadTDocFile.aspx?filename={meeting_doclist}.xlsx`
-- Module: `tdocs/sources/doclist.py` — `fetch_meeting_document_list()`
-- Parsing: `calamine` (Rust-backed Excel reader) → `TDocMetadata` models
-- Can be called from subinterpreters via `workers/tdoc_worker.py`
+**File Storage:**
+- Local filesystem only
+  - Cache dir: `~/.3gpp-crawler/` (configurable via `TDC_CACHE_DIR`)
+  - Checkout dir: `{cache_dir}/checkout/` — downloaded spec files
+  - Workspaces dir: `{cache_dir}/workspaces/` — extraction workspaces
+  - Path management: `CacheManager` singleton (`src/tdoc_crawler/config/cache_manager.py`)
 
-### WhatTheSpec (whatthespec.3gpp.org)
-*Community-maintained API for TDoc and spec lookups.*
-
-| Detail | Value |
-|--------|-------|
-| Module | `src/tdoc_crawler/tdocs/sources/whatthespec.py` |
-| Module (specs) | `src/tdoc_crawler/specs/sources/whatthespec.py` |
-| Auth | None (public API) |
-| Purpose | Primary source for single TDoc/spec lookups (faster than portal) |
-| Fallback | 3GPP Portal when WhatTheSpec unavailable |
-
-**Call pattern:**
-```python
-from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-metadata = resolve_via_whatthespec(tdoc_id, session)
-```
-
-### PDF Remote Conversion API (pdf-convert.3gpp.org)
-*Remote Office-to-PDF conversion fallback.*
-
-| Detail | Value |
-|--------|-------|
-| Base URL | `https://pdf-convert.3gpp.org` (env: `PDF_REMOTE_API_BASE`) |
-| Auth | API key (env: `PDF_REMOTE_API_KEY`) |
-| Trigger | Automatic fallback when `ConverterBackend.AUTO` selected |
-| Formats | DOCX, PPTX, XLSX, DOC, PPT, XLS |
-| Local equivalent | `convert-lo` workspace package (LibreOffice CLI) |
-
----
-
-## Storage Layer
-
-### SQLite Database (Oxyde ORM)
-
-| Property | Value |
-|----------|-------|
-| File | `{cache_dir}/3gpp_crawler.db` (default: `~/.3gpp-crawler/3gpp_crawler.db`) |
-| ORM | `oxyde>=0.4.0` → `AsyncDatabase`, `Model` subclasses |
-| Mode | WAL (write-ahead logging) for concurrent read performance |
-| Connection | Async context manager: `async with DocDatabase(db_file) as db:` |
-| Schema | Auto-created at startup via `extract_current_schema(dialect="sqlite")` |
-| Migration | Schema diff on startup (not formal migrations — table create-if-not-exists) |
-| URL format | `sqlite:///{db_file.as_posix()}` |
-
-**Oxyde ORM Models** (in `src/tdoc_crawler/database/oxyde_models.py`):
-
-| Model | Table | Key Fields | Purpose |
-|-------|-------|------------|---------|
-| `WorkingGroupRecord` | `working_groups` | `tbid` (PK), `code`, `name` | WG reference data |
-| `SubWorkingGroupRecord` | `subworking_groups` | `subtb` (PK), `tbid`, `code`, `name` | SWG reference data |
-| `CrawlLogEntry` | `crawl_log` | `log_id` (PK), `crawl_type`, `status`, timestamps | Crawl operation tracking |
-| `MeetingMetadata` | `meetings` | `meeting_id` (PK), `tbid`, `subtb`, dates, location | Meeting records |
-| `TDocMetadata` | `tdocs` | `tdoc_id` (PK), `meeting_id`, `title`, `source`, etc. | TDoc records |
-| `Specification` | `specs` | `spec_number` (PK), `spec_type`, `title`, `status` | Spec identity |
-| `SpecificationSourceRecord` | `spec_source_records` | `record_id` (PK), `spec_number`, `source_name`, `versions` | Source-specific snapshots |
-| `SpecificationVersion` | `spec_versions` | `record_id` (PK), `spec_number`, `version`, `file_name` | Per-version metadata |
-| `SpecificationDownload` | `spec_downloads` | `record_id` (PK), download info, checkout path | Download outcomes |
-
-**Database facade:** `DocDatabase` in `src/tdoc_crawler/database/base.py`:
-- Context manager lifecycle: `__aenter__` → connect, ensure tables, ensure reference data → `__aexit__` → disconnect
-- `clear_tdocs()`, `clear_specs()` — truncate tables
-- `log_crawl_start()` / `log_crawl_end()` — operational audit trail
-
-**Subclass databases** (each adds domain-specific query methods):
-- `MeetingDatabase` — meeting queries, statistics
-- `TDocDatabase` — TDoc queries
-- `SpecDatabase` — spec queries
-
-### HTTP Cache Database
-
-| Property | Value |
-|----------|-------|
-| File | `{cache_dir}/http-cache.sqlite3` (default: `~/.3gpp-crawler/http-cache.sqlite3`) |
-| Backend | Hishel `SyncSqliteStorage` |
-| Storage | Full HTTP responses (headers + body), keyed by request URL |
-| Default TTL | 7200 seconds (2 hours), configurable via `HTTP_CACHE_TTL` or `HttpConfig.cache_ttl` |
-| ETags/Cache-Control | Honored by hishel automatically |
-| Fallback | Stale cache returned on 5xx errors (conditional) |
-
-**Bridge adapter:** `_NiquetsCacheAdapter` in `http_client/session.py` — wraps hishel `CacheAdapter` to accept `niquests.PreparedRequest` objects.
-
-**Session factory:**
-```python
-from tdoc_crawler.http_client import create_cached_session
-
-# With caching (default)
-session = create_cached_session()
-
-# Without caching (portal login)
-session = create_cached_session(http_cache_enabled=False)
-
-# With explicit config
-session = create_cached_session(http_config=config.http, pool_config=PoolConfig(max_connections=10))
-```
-
-### File Storage (Checkout)
-
-| Path | Pattern | Purpose |
-|------|---------|---------|
-| `{checkout_dir}/{meeting}_{tdoc_id}/` | `checkout/SP-240000/SP-240000.docx` | Extracted TDoc files |
-| `{checkout_dir}/Specs/{series}/{normalized}/` | `checkout/Specs/26_series/26444/` | Spec files |
-| `{wiki_dir}/{workspace_id}/members/{member_id}/` | `wiki/default/members/SA-260638/` | Wiki extraction artifacts |
-
-Checkout dir default: `~/.3gpp-crawler/checkout/`
-
-### Workspace Registry
-
-| Property | Value |
-|----------|-------|
-| File | `{cache_dir}/workspaces.json` (default: `~/.3gpp-crawler/workspaces.json`) |
-| Format | JSON with version field |
-| Storage | `WorkspaceRegistry` dataclass, serialized to/from JSON |
-| Location | `src/tdoc_crawler/config/workspace_registry.py` |
-
-Structure:
-```json
-{
-  "version": 1,
-  "workspaces": {
-    "default": {
-      "created_at": "...", "description": "",
-      "members": [{"source_item_id": "...", "source_kind": "tdoc", ...}]
-    }
-  },
-  "active": "default"
-}
-```
-
----
+**Caching:**
+- hishel HTTP cache (SQLite-backed) — `src/tdoc_crawler/http_client/session.py`
+- All HTTP requests MUST use `create_cached_session()` from `src/tdoc_crawler/http_client/`
 
 ## Authentication & Identity
 
-### Credentials Flow
+**Auth Provider:**
+- ETSI Online (EOL) — Custom form-based authentication
+  - Implementation: `src/tdoc_crawler/clients/portal.py` → `PortalClient.authenticate()`
+  - Login flow: Visit login page → POST AJAX endpoint with JSON credentials → Session cookies
+  - Credentials: `src/tdoc_crawler/credentials.py` → `resolve_credentials()`
+  - Interactive prompting: Supported via `TDC_EOL_PROMPT` or `--prompt-credentials` CLI flag
+  - Non-cached session used for authentication to avoid hishel cache interfering with cookies
 
-| Step | Mechanism | Location |
-|------|-----------|----------|
-| 1. CLI input | `--eol-username`/`--eol-password` flags | `cli/args.py` |
-| 2. Env vars | `TDC_EOL_USERNAME` / `TDC_EOL_PASSWORD` | `credentials.py` → `os.environ` |
-| 3. Config file | `credentials.username` / `credentials.password` in TOML | `config/settings.py` → `CredentialsConfig` |
-| 4. Interactive | `typer.prompt()` fallback | `credentials.py:resolve_credentials()` |
-| 5. Global store | `set_credentials()` → writes to env | `credentials.py:set_credentials()` |
+## Monitoring & Observability
 
-**Resolution order:** CLI > Config file > Env vars > Interactive prompt.
+**Error Tracking:**
+- None (local CLI tool)
 
-**Credential model:** `PortalCredentials` dataclass (`username: str`, `password: str`) in `models/base.py`.
-
-**Session authentication:**
-- `PortalClient` calls `create_cached_session(http_cache_enabled=False)` for login
-- HTTP POST to `LOGIN_URL` with form data
-- Response cookies stored in session for subsequent requests
-- Validation: attempted on first portal request, `PortalAuthenticationError` on failure
-
-### Secrets Storage
-- `.env` file (auto-loaded by `python-dotenv` at module import time)
-- Environment variables (direct export)
-- `~/.3gpp-crawler/config.toml` (optional, credentials section)
-- No encrypted credential store (plaintext in env/config)
-
----
-
-## Configuration System
-
-### ThreeGPPConfig (pydantic-settings)
-`src/tdoc_crawler/config/settings.py`
-
-```python
-config = ThreeGPPConfig.from_settings()           # auto-discover
-config = ThreeGPPConfig.from_settings(config_file=...)  # explicit
-```
-
-**Nested config models:**
-
-| Sub-model | Env Prefix | Key Fields |
-|-----------|-----------|------------|
-| `PathConfig` | `TDC_` | `cache_dir`, `db_filename`, `checkout_dirname` |
-| `HttpConfig` | (none, +HTTP_CACHE_*) | `cache_ttl`, `cache_enabled`, `verify_ssl`, `max_retries`, `timeout` |
-| `CredentialsConfig` | `TDC_EOL_` | `username`, `password`, `prompt` |
-| `CrawlConfig` | `TDC_CRAWL_` | `working_group`, `sub_group`, `date_start`, `date_end`, `limit`, `workers` |
-
-**Config file discovery** (lowest to highest precedence):
-1. Global: `~/.config/3gpp-crawler/config.toml`
-2. Global `conf.d/`: `~/.config/3gpp-crawler/conf.d/*.toml`
-3. Project-level (CWD-relative):
-   - `.config/.3gpp-crawler/conf.d/*.toml`
-   - `.config/.3gpp-crawler/config.toml`
-   - `.config/3gpp-crawler.toml`
-   - `.3gpp-crawler/config.toml`
-   - `.3gpp-crawler.toml`
-   - `3gpp-crawler.toml` (highest precedence)
-
-**Format support:** TOML, YAML, JSON. Environment variable interpolation in values (`${VAR}`).
-
-**ConfigEnvVar StrEnum** (`config/env_vars.py`): Maps env var names → TOML config paths for use in `pydantic.AliasChoices` and `typer.Option(envvar=...)`.
-
-### CacheManager (Runtime Paths)
-`src/tdoc_crawler/config/cache_manager.py`
-
-Singleton pattern — registered once at CLI startup, resolved everywhere:
-
-```python
-# Startup (CLI callback)
-CacheManager(config.path.cache_dir).register()
-
-# Anywhere else
-manager = resolve_cache_manager()
-manager.root              # ~/.3gpp-crawler
-manager.db_file           # ~/.3gpp-crawler/3gpp_crawler.db
-manager.http_cache_file   # ~/.3gpp-crawler/http-cache.sqlite3
-manager.checkout_dir      # ~/.3gpp-crawler/checkout
-manager.workspace_registry_file  # ~/.3gpp-crawler/workspaces.json
-manager.llm_wiki_dir      # ~/.3gpp-crawler/wiki
-```
-
-**Rule:** Never hardcode `~/.3gpp-crawler`. Always use `resolve_cache_manager()`.
-
----
-
-## HTTP Client Patterns
-
-### Module: `src/tdoc_crawler/http_client/`
-- `session.py` — Core implementation
-- `__init__.py` — Re-exports: `create_cached_session`, `download_to_file`, `PoolConfig`, `resolve_ssl_verify`
-
-### `create_cached_session()` (the MANDATORY pattern)
-```python
-from tdoc_crawler.http_client import create_cached_session
-
-# Standard usage — caching enabled, retries, browser headers
-session = create_cached_session()
-
-# With explicit config
-session = create_cached_session(
-    http_cache_file=custom_path,
-    http_cache_enabled=True,
-    pool_config=PoolConfig(max_connections=10, max_per_host=5),
-    http_config=config.http,  # ThreeGPPConfig.http
-)
-```
-
-**Internals:**
-1. Creates `niquests.Session` with browser-like headers
-2. Configures SSL verification (from `HttpConfig.verify_ssl` or explicit arg)
-3. If caching enabled: creates `SyncSqliteStorage` → wraps in `_NiquetsCacheAdapter` with retry config
-4. If caching disabled: configures plain `HTTPAdapter` with retries
-5. Mounts adapter on `http://` and `https://`
-
-### `download_to_file()` — Stream download helper
-```python
-from tdoc_crawler.http_client import download_to_file
-
-session = download_to_file(
-    url="https://...",
-    target_file=Path("output.docx"),
-    session=existing_session,  # optional, creates one if None
-)
-```
-Streams in 8KB chunks, creates parent directories, returns session (or None if closing).
-
-### PoolConfig
-```python
-@dataclass
-class PoolConfig:
-    max_connections: int = 10
-    max_per_host: int = 5
-    connection_timeout: float = 30.0
-    enable_retry: bool = True
-    retry_attempts: int = 3
-```
-
-### Retry Strategy
-```
-urllib3.Retry(
-    total=retry_attempts,     # default 3
-    backoff_factor=1,          # 1s, 2s, 4s
-    status_forcelist=[429, 500, 502, 503, 504],
-    allowed_methods=["HEAD", "GET", "OPTIONS"],
-)
-```
-
----
-
-## Logging & Observability
-
-| Aspect | Implementation |
-|--------|---------------|
-| **Framework** | Python `logging` + `RichHandler` |
-| **Factory** | `get_logger(__name__)` in `src/tdoc_crawler/logging/__init__.py` |
-| **Console** | `get_console()` — `Console(no_color=not sys.stdout.isatty(), width=120)` |
-| **Verbosity** | `set_verbosity(level)` — sets root logger level, accepts str or int |
-| **Default level** | `WARNING` |
-| **Error tracking** | None (no Sentry/Rollbar) |
-| **File logging** | Optional — not configured by default |
-| **Rich features** | Colored output, tracebacks, markup, progress bars |
-
----
-
-## Concurrency & Parallelism
-
-| Technique | Library | Use Case |
-|-----------|---------|----------|
-| **Async I/O** | `asyncio` + `aiohttp`-style | Database operations, multiple HTTP requests |
-| **Subinterpreters** | `aiointerpreters>=0.4.0` | Parallel TDoc crawling (isolated per meeting) |
-| **Executor pools** | `pool-executors` (workspace) | Serial/thread/multiprocess/subinterpreter abstraction |
-| **Sync-to-async bridge** | `run_async()` in `utils/async_helpers.py` | Calling coroutines from sync code (4+ call sites) |
-
-**Worker module:** `src/tdoc_crawler/workers/tdoc_worker.py`
-- `fetch_meeting_document_list_subinterpreter()` designed for `aiointerpreters`
-- Serializes results as JSON for IPC between interpreters
-
----
+**Logs:**
+- Python `logging` module with `rich.logging.RichHandler`
+  - Factory: `src/tdoc_crawler/logging/__init__.py` → `get_logger()`
+  - Console output with timestamps, tracebacks, markup support
+  - Verbosity: Controlled via `TDC_VERBOSITY` or `--verbose`/`--quiet` CLI flags
+  - Default level: `logging.WARNING`
 
 ## CI/CD & Deployment
 
-| Aspect | Details |
-|--------|---------|
-| **CI** | Not checked into repo (no `.github/workflows/`) |
-| **Pre-commit** | Ruff, pytest, deptry — config in `.pre-commit-config.yaml` |
-| **Docker** | No Dockerfile checked in (user-managed deployment) |
-| **Install** | `uv tool install` or `pip install 3gpp-crawler` |
-| **Python req** | 3.14+ runtime |
+**Hosting:**
+- Local CLI tool (no server deployment)
+- Repository: `https://forge.3gpp.org/rep/reimes/3gpp-crawler`
 
-### Data Flow Summary
+**CI Pipeline:**
+- tox + tox-uv — Multi-Python test matrix
+- Coverage target: 90% (configured in `codecov.yaml`)
+- Pre-commit hooks: ruff check + format, undersort, standard checks (`.pre-commit-config.yaml`)
 
-```
-3GPP FTP/HTTP ──→ niquests+hishel ──→ parsers (BeautifulSoup/calamine) ──→ Oxyde Models ──→ SQLite
-                                                                                        │
-WhatTheSpec API ──→ niquests ──→ TDocMetadata Pydantic model ──────────────────────────┤
-                                                                                        │
-Portal (auth) ──→ PortalClient ──→ Portal HTML parser ────────────────────────────────┤
-                                                                                        │
-                                                                                        ▼
-                                                                              CLI Output (table/json/yaml/ison/toon)
-                                                                                        │
-                                                                                        ▼
-                                                                              File checkout (DOCX/ZIP extraction)
-```
+## Environment Configuration
+
+**Required env vars:**
+- `TDC_EOL_USERNAME` — EOL portal username (for authenticated access)
+- `TDC_EOL_PASSWORD` — EOL portal password (for authenticated access)
+
+**Optional env vars:**
+- `TDC_CACHE_DIR` — Override default cache directory
+- `TDC_TIMEOUT` — HTTP request timeout (default: 30s)
+- `TDC_MAX_RETRIES` — Retry attempts (default: 3)
+- `TDC_VERIFY_SSL` — SSL verification (default: true)
+- `HTTP_CACHE_ENABLED` — Enable HTTP caching (default: true)
+- `HTTP_CACHE_TTL` — Cache TTL in seconds (default: 7200)
+- `TDC_WORKERS` — Parallel worker count (default: 4)
+- `TDC_WORKING_GROUP` — Default WG filter (e.g., `SA4`)
+- `TDC_START_DATE` / `TDC_END_DATE` — Date range filters
+- `TDC_LIMIT_TDOCS` — Max TDocs per run (default: 1000)
+- `TDC_PROFILE` — Extraction profile (pdf-only, markdown-only, default, advanced)
+- `TDC_DEVICE` — Accelerator device (auto, cpu, cuda, mps)
+- `HF_TOKEN` — Hugging Face API token (for Docling model downloads)
+- `LIBREOFFICE_PATH` — Override LibreOffice executable path (for convert-lo)
+
+**Secrets location:**
+- `.env` file at project root (gitignored, documented in `.env.example`)
+- Or environment variables
+- Or TOML config files with `${ENV_VAR}` interpolation support
+
+## Webhooks & Callbacks
+
+**Incoming:**
+- None (CLI tool, no server component)
+
+**Outgoing:**
+- None (fetch-only architecture)
+
+## External Tool Dependencies
+
+**LibreOffice:**
+- Used by: `packages/convert-lo/` for headless document conversion
+- Required for: DOC, DOCX, ODT, RTF, PPT, PPTX → PDF conversion
+- Auto-detection: Searches standard install paths, overridable via `LIBREOFFICE_PATH`
+- Thread safety: Sequential only (LibreOffice is not thread-safe)
+- Timeout: 300 seconds per file default
 
 ---
 
-*Integration audit: 2026-04-30*
+*Integration audit: 2026-05-22*

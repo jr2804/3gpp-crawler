@@ -1,226 +1,294 @@
-# TESTING
+# Testing Patterns
 
-Test framework, fixtures, mocking patterns, naming conventions, coverage requirements,
-and execution commands for the 3gpp-crawler project.
+**Analysis Date:** 2026-05-22
 
 ## Test Framework
 
-- **pytest 7.2+** -- single test framework for all testing.
-- **pytest-asyncio** for async test support (@pytest.mark.asyncio).
-- **pytest-cov** for coverage reporting.
-- **Run with** `uv run pytest -v`.
-- Configuration in pyproject.toml:
-  - testpaths = ["tests"]
-  - pythonpath = ["src"]
-  - markers: integration (slower, requires network)
+**Runner:**
+- pytest (dev dependency, `pytest>=7.2.0`)
+- Config: `pyproject.toml` `[tool.pytest.ini_options]`
+- pythonpath: `["src"]`
+- testpaths: `["tests"]`
+- Custom markers: `integration` — marks slower tests requiring network
 
-## Test Directory Structure
+**Assertion Library:**
+- Plain `assert` statements (pytest style)
+- `pytest.raises()` for exception testing
 
+**Async Support:**
+- `pytest-asyncio>=1.2.0` (dev dependency)
+- Mark async test classes with `@pytest.mark.asyncio`
+- Async test methods: `async def test_...()`
+
+**Run Commands:**
+```bash
+uv run pytest -v                        # Run all tests
+uv run pytest tests/test_file.py -v     # Run single file
+uv run pytest --cov=src --cov-report=term-missing  # Coverage
+uv run pytest tests/pool_executor/ --cov=pool_executors --cov-report=term-missing  # Subpackage coverage
+```
+
+## Test File Organization
+
+**Location:**
+- All tests in `tests/` directory (not co-located with source)
+- Subdirectory mirrors for subpackages: `tests/convert_lo/`, `tests/pool_executor/`, `tests/config/`
+
+**Naming:**
+- Test files: `test_<module>.py` (e.g., `test_database.py`, `test_models.py`, `test_cache_manager.py`)
+- Test classes: `Test<Feature>` (e.g., `TestTDocDatabase`, `TestWorkspaceModels`)
+- Test methods: `test_<behavior_description>` (e.g., `test_case_insensitive_query`)
+
+**Structure:**
 ```
 tests/
-+-- conftest.py                    # Root fixtures
-+-- test_cache_manager.py
-+-- test_cli.py                    # CLI command tests (Typer CliRunner)
-+-- test_database.py               # Database CRUD tests
-+-- test_http_client.py            # HTTP session tests
-+-- test_models.py                 # Model validation tests
-+-- test_normalization.py          # Normalization function tests
-+-- test_specs_database.py
-+-- (18 more test_*.py files)
-+-- convert_lo/
-|   +-- conftest.py                # Subpackage fixtures
-|   +-- test_converter.py
-|   +-- test_integration.py
-+-- config/
-|   +-- test_export.py
-|   +-- test_sources.py
-+-- pool_executor/
-    +-- test_executor_adapter.py
-    +-- test_serial_executor.py
+├── conftest.py                    # Global fixtures
+├── config/                        # Config subpackage tests
+│   └── test_export.py
+├── convert_lo/                    # convert-lo subpackage tests
+│   ├── conftest.py                # Package-local fixtures
+│   ├── test_converter.py
+│   ├── test_hybrid_converter.py
+│   ├── test_integration.py
+│   ├── test_formats.py
+│   └── test_locator.py
+├── data/                          # Test data files
+├── pool_executor/                 # Pool executor subpackage tests
+│   ├── test_executor_adapter.py
+│   └── test_serial_executor.py
+├── test_cache_manager.py
+├── test_database.py
+├── test_models.py
+├── test_workspaces.py
+└── ... (other test modules)
 ```
 
-## Key Fixtures (tests/conftest.py)
+## Test Structure
 
-All defined in tests/conftest.py. Import by name in test function signatures.
+**Suite Organization:**
+```python
+@pytest.mark.asyncio
+class TestTDocDatabase:
+    """Tests for TDocDatabase class."""
 
-### test_cache_dir
+    async def test_database_initialization(self, test_db_path: Path) -> None:
+        """Initialize database and create schema."""
+        db = TDocDatabase(test_db_path)
+        async with db:
+            assert test_db_path.parent.exists()
+        assert test_db_path.exists()
 
+    async def test_upsert_tdoc(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """Insert a TDoc record and validate persistence."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            created, changed = await db.upsert_tdoc(sample_tdocs[0])
+            assert created is True
+            assert changed is False
+```
+
+**Patterns:**
+- Setup: Use pytest fixtures (injected via parameters), not `setUp()` methods
+- Rare `setup_method()` only for singleton resets: `CacheManager._instance = None`
+- Teardown: Handled by fixture cleanup and `tmp_path` auto-cleanup
+- Assertions: Plain `assert` with descriptive failure messages via pytest rewriting
+
+## Fixtures
+
+**Global Fixtures** (`tests/conftest.py`):
+
+| Fixture | Purpose | Scope |
+|---------|---------|-------|
+| `_reset_cache_manager` | Reset `CacheManager` singleton before each test (autouse) | function |
+| `test_cache_dir` | Temporary cache directory + sets `TDC_CACHE_DIR` env var | function |
+| `test_db_path` | Path to test database within `test_cache_dir` | function |
+| `sample_tdocs` | Three sample `TDocMetadata` instances (RAN1, RAN2, SA4) | function |
+| `sample_meetings` | Three sample meeting dictionaries (RAN1, RAN2, SA4) | function |
+| `populated_db` | Pre-populated `TDocDatabase` instance | function |
+
+**Package-Local Fixtures** (`tests/convert_lo/conftest.py`):
+
+| Fixture | Purpose |
+|---------|---------|
+| `example_doc_path` | Path to legacy `.doc` example file |
+| `example_docx_path` | Path to `.docx` example file |
+| `output_dir` | Temporary output directory for conversions |
+
+**Fixture Patterns:**
 ```python
 @pytest.fixture
 def test_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Create a temporary cache directory for tests."""
+    cache_dir = tmp_path / "test-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("TDC_CACHE_DIR", str(cache_dir))
+    return cache_dir
 ```
-- Creates tmp_path / "test-cache" directory.
-- Sets TDC_CACHE_DIR env var for CLI tests.
-- Isolates filesystem access.
 
-### test_db_path
+- Use `tmp_path` for file system isolation
+- Use `monkeypatch.setenv()` for environment variable overrides
+- Use named fixtures with `@pytest.fixture(name="...")` for clarity in sub-conftests
+- Reset singletons in `setup_method()` or autouse fixtures
 
+## Mocking
+
+**Framework:** `unittest.mock` (stdlib)
+
+**Patterns:**
 ```python
-@pytest.fixture
-def test_db_path(test_cache_dir: Path) -> Path:
+from unittest.mock import patch
+
+# Patch external dependencies
+with patch(
+    "tdoc_crawler.cli.workspace.process.resolve_spec_release_from_db",
+    return_value=("19.0.0", []),
+):
+    result = _effective_source_id(member)
+
+# Patch to raise exceptions
+with patch(
+    "tdoc_crawler.cli.workspace.process.resolve_spec_release_from_db",
+    side_effect=RuntimeError("DB connection failed"),
+):
+    result = _effective_source_id(member)
 ```
-- Returns PathConfig(cache_dir=test_cache_dir).db_file within test cache.
 
-### sample_tdocs
+**What to Mock:**
+- Database lookups for unit tests: `resolve_spec_release_from_db`
+- External HTTP services
+- File system dependencies where slow or non-deterministic
 
+**What NOT to Mock:**
+- Database operations in integration tests (use in-memory SQLite with `test_db_path`)
+- Model construction and validation
+- Pure logic functions (normalization, parsing)
+
+## Fixtures and Factories
+
+**Test Data:**
 ```python
-@pytest.fixture
-def sample_tdocs() -> list[TDocMetadata]:
-```
-- Returns 3 TDocMetadata instances (R1-2301234, R2-2301567, S4-2301890).
-- Used for database CRUD, query, and stats tests.
-
-### sample_meetings
-
-```python
-@pytest.fixture
-def sample_meetings() -> list[dict[str, object]]:
-```
-- Returns 3 meeting dicts (RAN1#98, RAN2#98, SA4#134).
-- Keys: meeting_id, tbid, subtb, short_name, start_date, end_date, location, files_url.
-
-### populated_db
-
-```python
-@pytest.fixture
-def populated_db(...) -> TDocDatabase:
-```
-- Creates and populates a test database with sample meetings and TDocs.
-- Returns TDocDatabase instance (not opened; caller uses async with).
-
-### _reset_cache_manager (autouse)
-
-```python
-@pytest.fixture(autouse=True)
-def _reset_cache_manager() -> None:
-```
-- Resets CacheManager._instance = None before each test.
-- Prevents "CacheManager already registered" errors.
-
-## Mocking Patterns
-
-### unittest.mock (primary)
-
-- from unittest.mock import MagicMock, AsyncMock, patch
-- MagicMock for synchronous mocks, AsyncMock for async methods.
-- @patch("module.path.ClassName") decorator for replacing implementations.
-- Patch paths use import paths (where looked up), not definition paths.
-
-### CLI Tests (Typer CliRunner)
-
-```python
-runner = CliRunner()
-
-@patch("tdoc_crawler.cli.crawl.TDocCrawler")
-@patch("tdoc_crawler.cli.crawl.TDocDatabase")
-def test_crawl_basic(self, mock_db_class, mock_crawler_class, test_cache_dir):
-    mock_db = MagicMock(spec=TDocDatabase)
-    mock_db_class.return_value.__enter__.return_value = mock_db
-    mock_crawler = MagicMock()
-    mock_crawler_class.return_value = mock_crawler
-    mock_crawler.crawl = AsyncMock(...)
-
-    result = runner.invoke(tdoc_app, ["crawl", "--limit-tdocs", "10"])
-    assert result.exit_code == 0
+# TDocMetadata construction (direct model instantiation)
+TDocMetadata(
+    tdoc_id="R1-2301234",
+    tbid=373,
+    url="https://www.3gpp.org/ftp/tsg_ran/RAN1/r1-2301234.zip",
+    meeting_id=12345,
+    file_size=256000,
+    title="Sample RAN1 TDoc",
+    source="Test Source",
+    contact="Test Contact",
+    tdoc_type="Discussion",
+    for_purpose="Discussion",
+    agenda_item_nbr="7.1",
+    agenda_item_text="Test agenda item",
+    status="approved",
+    is_revision_of="",
+    date_created=datetime(2023, 1, 15, tzinfo=UTC),
+    date_retrieved=datetime(2023, 1, 16, tzinfo=UTC),
+    validated=False,
+    validation_failed=False,
+)
 ```
 
-Key patterns:
-- mock_db_class.return_value.__enter__.return_value = mock_db (sync ctx mgr)
-- mock_db_class.return_value.__aenter__.return_value = mock_db (async ctx mgr)
-- assert exit_code == 0 for success, == 1 for expected failures.
+**Location:**
+- Shared fixtures in `tests/conftest.py`
+- Subpackage fixtures in `tests/<package>/conftest.py`
+- Test data files in `tests/data/`
+- Example documents in `tests/convert_lo/examples/`
 
-### Database Tests
+## Coverage
 
-Use real SQLite files (not mocks) for CRUD validation:
+**Requirements:** 90% target (configured in `codecov.yaml`)
 
+**Configuration:**
+- `pyproject.toml` `[tool.coverage.run]`: branch coverage enabled, source `["src"]`
+- `pyproject.toml` `[tool.coverage.report]`: skip empty files
+- `codecov.yaml`: range 70-100%, target 90%, threshold 0.5%
+
+**View Coverage:**
+```bash
+uv run pytest --cov=src --cov-report=term-missing
+```
+
+**CI:**
+- tox configured with coverage + XML report: `uv run python -m pytest --doctest-modules tests --cov --cov-config=pyproject.toml --cov-report=xml`
+- ty type checking also runs in tox: `ty check`
+
+## Test Types
+
+**Unit Tests:**
+- Scope: Individual functions, methods, model construction, normalization
+- Examples: `test_models.py` (WorkingGroup, SubWorkingGroup, config models), `test_normalization.py`, `test_cache_manager.py`
+- Approach: Direct function calls, model instantiation, enum validation
+
+**Integration Tests:**
+- Scope: Database CRUD operations, workspace lifecycle, HTTP client
+- Mark with `@pytest.mark.integration` (requires network)
+- Examples: `test_database.py` (async DB operations), `test_workspaces.py` (workspace CRUD with registry)
+- Approach: In-memory/temporary SQLite via `test_db_path` fixture, async context managers
+
+**E2E Tests:**
+- Not formally structured
+- `demo.bat` serves as a smoke test script for CLI commands
+- Integration tests with `@pytest.mark.integration` cover network-dependent scenarios
+
+## Common Patterns
+
+**Async Testing:**
 ```python
 @pytest.mark.asyncio
-async def test_upsert_tdoc(self, test_db_path, sample_tdocs, sample_meetings):
-    async with TDocDatabase(test_db_path) as db:
-        created, changed = await db.upsert_tdoc(sample_tdocs[0])
-        assert created is True
+class TestTDocDatabase:
+    async def test_database_initialization(self, test_db_path: Path) -> None:
+        async with TDocDatabase(test_db_path) as db:
+            assert db.connection is not None
 ```
 
-### HTTP Client Tests
-
-Use unittest.mock.patch to mock network requests:
+**Error Testing:**
 ```python
-with patch.object(session, "get") as mock_get:
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_get.return_value = mock_response
+# Expected exceptions
+with pytest.raises(ValueError, match="workspace_name must not be empty"):
+    Workspace(workspace_name="")
+
+with pytest.raises(DatabaseError):
+    _ = db.connection  # outside context manager
 ```
 
-### respx
-
-Respx is NOT used. All HTTP mocking uses unittest.mock.patch.
-
-## Test Naming Conventions
-
-- **Files:** test_<module_name>.py (e.g., test_database.py, test_http_client.py).
-- **Classes:** Test<ClassName> or Test<Feature> for grouping.
-  - class TestTDocDatabase:
-  - class TestCrawlCommand:
-  - class TestNormalizeTdocId:
-- **Methods:** test_<scenario> -- describes behavior being tested.
-  - test_case_insensitive_query
-  - test_upsert_tdoc
-  - test_open_missing_tdoc
-- **Free functions** (outside classes): def test_upsert_specification_roundtrip():
-
-## Coverage Requirements
-
-- **Target:** 70%+ overall coverage (docs/development.md).
-- **Run:** `uv run pytest --cov=src --cov-report=term-missing`
-- Coverage config in pyproject.toml:
-  - branch = true
-  - source = ["src"]
-  - skip_empty = true
-- No minimum enforcement in CI; coverage is a development guideline.
-
-## Integration Tests
-
-- Marked with @pytest.mark.integration.
-- Slower tests requiring network access.
-- Included in full run; or run only with `pytest -m integration`.
-
-## Unit vs Integration Test Patterns
-
-### Unit Tests
-- Test a single function/class in isolation.
-- Mock external dependencies (database, network, filesystem).
-- Use test_cache_dir and tmp_path for filesystem isolation.
-- Fast -- no network calls.
-
-### Integration Tests
-- Marked with @pytest.mark.integration.
-- Test real HTTP requests (test_http_client.py).
-- Real database CRUD with SQLite files.
-- Test CLI commands end-to-end with mocked internals.
-
-### Anti-Duplication
-
-Do not re-implement src/ logic in tests/. Import production code directly:
+**Regression Testing:**
 ```python
-from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.tdocs.models import TDocMetadata
+class TestSpecSourceDirNaming:
+    """Regression: spec source dirs MUST include -REL suffix."""
+
+    def test_spec_with_rel_suffix_unchanged(self) -> None:
+        """Spec IDs that already have -REL must pass through unchanged."""
+        assert _resolve_spec_source_id("26260-REL18.0.0") == "26260-REL18.0.0"
 ```
 
-If code is hard to test, refactor it in src/ rather than writing complex harnesses.
+**Singleton Reset Pattern:**
+```python
+# In conftest.py (autouse)
+@pytest.fixture(autouse=True)
+def _reset_cache_manager() -> None:
+    CacheManager._instance = None
 
-## Test Database Isolation
+# Or in setup_method
+def setup_method(self) -> None:
+    CacheManager._instance = None
+```
 
-- Each test that needs a database uses test_cache_dir or tmp_path.
-- populated_db fixture returns populated but unopened database.
-- No shared state between tests.
-- _reset_cache_manager autouse ensures clean singleton per test.
+**Private Helper Pattern in Tests:**
+```python
+class TestTDocDatabase:
+    @staticmethod
+    async def _insert_sample_meetings(database: TDocDatabase, meetings: list[dict]) -> None:
+        """Helper to insert sample meetings for test setup."""
+        ...
+```
 
-## Running Tests
+---
 
-| Action | Command |
-|--------|---------|
-| All tests | uv run pytest -v |
-| Single file | uv run pytest tests/test_database.py -v |
-| Coverage | uv run pytest --cov=src --cov-report=term-missing |
-| Integration only | uv run pytest -m integration |
-| Lint | ruff check src/ tests/ |
+*Testing analysis: 2026-05-22*
