@@ -112,7 +112,7 @@ def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | N
         candidate = f"{parsed.scheme}://{parsed.netloc}{shorter}"
         candidate_dirs.append(candidate)
 
-    with requests.Session() as plain_session:
+    with requests.Session(disable_http3=True) as plain_session:
         for dir_url in candidate_dirs:
             try:
                 response = plain_session.get(dir_url, timeout=60)
