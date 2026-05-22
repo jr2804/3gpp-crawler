@@ -135,14 +135,36 @@ class MeetingDatabase(DocDatabase):
     async def query_meetings(self, config: MeetingQueryConfig) -> list[MeetingMetadata]:
         """Query meetings with filtering and sorting.
 
+        Pushes working_group, start_date, end_date, and files_url filters
+        to SQL WHERE via Oxyde ORM. Subgroup filters remain in-memory due
+        to cross-table lookup requirements.
+
         Args:
             config: Query configuration with filters and options
 
         Returns:
             List of matching meeting metadata
         """
-        meetings = await self._table_rows(MeetingMetadata)
-        meetings = self._apply_meeting_filters(meetings, config)
+        qs = MeetingMetadata.objects
+
+        if config.working_groups:
+            allowed_tbids = [wg.tbid for wg in config.working_groups]
+            qs = qs.filter(tbid__in=allowed_tbids)
+
+        if config.start_date is not None:
+            qs = qs.filter(start_date__gte=config.start_date)
+
+        if config.end_date is not None:
+            qs = qs.filter(end_date__lte=config.end_date)
+
+        if not config.include_without_files:
+            qs = qs.exclude(files_url="")
+
+        meetings = await qs.all()
+
+        if config.subgroups:
+            allowed_subgroups = {value.strip().upper() for value in config.subgroups}
+            meetings = _filter_by_subgroup(meetings, allowed_subgroups)
 
         descending = config.order.value.lower() == "desc"
         meetings.sort(
@@ -167,12 +189,13 @@ class MeetingDatabase(DocDatabase):
         Returns:
             Set of meeting IDs
         """
-        meetings = await self._table_rows(MeetingMetadata)
         if not working_groups:
+            meetings = await self._table_rows(MeetingMetadata)
             return {meeting.meeting_id for meeting in meetings}
 
-        allowed = {wg.tbid for wg in working_groups}
-        return {meeting.meeting_id for meeting in meetings if meeting.tbid in allowed}
+        allowed_tbids = [wg.tbid for wg in working_groups]
+        meetings = await MeetingMetadata.objects.filter(tbid__in=allowed_tbids).all()
+        return {meeting.meeting_id for meeting in meetings}
 
     async def resolve_meeting_id(self, meeting_name: str) -> int | None:
         """Resolve meeting name to meeting_id from database.
@@ -232,12 +255,14 @@ class MeetingDatabase(DocDatabase):
     async def get_statistics(self) -> dict[str, object]:
         """Get database statistics.
 
+        Uses SQL aggregation for counts. ``by_working_group`` still needs
+        tdoc + meeting data joined in-memory due to cross-table grouping.
+
         Returns:
             Dictionary with various statistics
         """
         tdocs = await self._table_rows(TDocMetadata)
         meetings = await self._meeting_map()
-        crawl_entries = await self._table_rows(CrawlLogEntry)
 
         by_working_group: dict[str, int] = defaultdict(int)
         tbid_to_code = {working_group.tbid: working_group.value for working_group in WorkingGroup}
@@ -251,6 +276,7 @@ class MeetingDatabase(DocDatabase):
                 continue
             by_working_group[code] += 1
 
+        crawl_entries = await CrawlLogEntry.objects.order_by("-start_time").limit(10).all()
         recent_crawls = [
             {
                 "crawl_type": entry.crawl_type,
@@ -262,7 +288,7 @@ class MeetingDatabase(DocDatabase):
                 "errors_count": entry.errors_count,
                 "status": entry.status,
             }
-            for entry in sorted(crawl_entries, key=lambda entry: entry.start_time, reverse=True)[:10]
+            for entry in crawl_entries
         ]
 
         return {

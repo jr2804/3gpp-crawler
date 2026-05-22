@@ -340,14 +340,43 @@ class SpecDatabase(DocDatabase):
             raise DatabaseError(msg, detail=str(exc)) from exc
 
     async def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
-        """Query stored spec metadata."""
-        specs = await self._spec_table_rows()
-        source_records = await self._table_rows(SpecificationSourceRecord)
+        """Query stored spec metadata.
+
+        Pushes spec_number, title, working_group, and status filters to
+        SQL WHERE via Oxyde ORM. Source records are loaded only for matching
+        specs.
+
+        Args:
+            filters: Filter criteria
+
+        Returns:
+            List of spec query results
+        """
+        qs = Specification.objects
+
+        if filters.spec_numbers:
+            allowed = [normalize_spec_number(value) for value in filters.spec_numbers]
+            qs = qs.filter(spec_number__in=allowed)
+
+        if filters.title:
+            qs = qs.filter(title__icontains=filters.title.strip())
+
+        if filters.working_group:
+            qs = qs.filter(working_group__iexact=filters.working_group.strip())
+
+        if filters.status:
+            qs = qs.filter(status__iexact=filters.status.strip())
+
+        specs = await qs.all()
+
+        if not specs:
+            return []
+
+        spec_numbers = [spec.spec_number for spec in specs]
+        source_records = await SpecificationSourceRecord.objects.filter(spec_number__in=spec_numbers).all()
         records_by_spec: dict[str, list[SpecificationSourceRecord]] = defaultdict(list)
         for record in source_records:
             records_by_spec[record.spec_number].append(record)
-
-        specs = _apply_spec_filters(specs, filters)
 
         return [
             SpecQueryResult(

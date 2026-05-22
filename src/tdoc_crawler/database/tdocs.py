@@ -106,11 +106,8 @@ class TDocDatabase(MeetingDatabase):
                 record = await self._resolve_tbid(record)
             prepared.append(record)
 
-        existing_ids = set()
-        for record in prepared:
-            existing = await self._get_tdoc(record.tdoc_id)
-            if existing is not None:
-                existing_ids.add(record.tdoc_id)
+        all_ids = [record.tdoc_id for record in prepared]
+        existing_ids = {record.tdoc_id for record in await TDocMetadata.objects.filter(tdoc_id__in=all_ids).all()}
 
         now = utc_now()
         to_create: list[TDocMetadata] = []
@@ -173,16 +170,17 @@ class TDocDatabase(MeetingDatabase):
 
         need_meeting_map = config.meeting_start_date is not None or config.meeting_end_date is not None
 
+        meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)} if need_meeting_map else {}
+
         if need_meeting_map:
-            meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
             records = self._filter_by_meeting_dates(records, meeting_map, config.meeting_start_date, config.meeting_end_date)
 
         records = self._filter_by_retrieved_dates(records, config.start_date, config.end_date)
 
         records = self._apply_pattern_filters(records, config)
 
-        # Build meeting map for sort (need start_date from meetings)
-        meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
+        if not meeting_map:
+            meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
         descending = config.order.value.lower() == "desc"
         fallback = date.max if descending else date.min
         records.sort(
