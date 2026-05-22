@@ -118,8 +118,12 @@ class SpecDownloads:
                 doc_only_success = await self._attempt_doc_only_async(url, normalized, target_dir)
 
             if not doc_only_success:
-                self._download_full_zip(url, target_dir / filename)
                 extract_subdir = target_dir / Path(filename).stem
+                # Skip download if the extract directory already has files
+                if extract_subdir.is_dir() and any(extract_subdir.rglob("*")):
+                    _logger.debug("Spec %s already extracted at %s", spec, extract_subdir)
+                    return extract_subdir
+                self._download_full_zip(url, target_dir / filename)
                 self._extract_zip(target_dir / filename, extract_subdir)
                 return extract_subdir
 
