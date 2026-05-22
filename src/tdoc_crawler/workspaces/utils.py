@@ -288,39 +288,19 @@ async def checkout_spec_to_workspace(
         Path to the checked out spec folder, or None if checkout failed.
     """
     normalized = normalize_spec_number(spec_number)
-    undotted = normalized.replace(".", "")  # e.g., "26.260" -> "26260"
     requested_release = release.strip()
 
     db_path = db_file if db_file is not None else PathConfig().db_file
 
-    resolved_release, version_codes = await resolve_spec_release_from_db(
+    resolved_release, _ = await resolve_spec_release_from_db(
         normalized,
         requested_release,
         db_file=db_path,
     )
 
-    # First check if already checked out with the SAME release version
-    specs_dir = checkout_base / "Specs"
-    if specs_dir.exists():
-        for spec_dir in specs_dir.rglob("*"):
-            if not spec_dir.is_dir():
-                continue
-            dir_name = spec_dir.name
-            # Check if this directory matches our spec
-            if normalized not in dir_name and undotted not in dir_name:
-                continue
-            # Enforce release-aware cache reuse when version codes are known
-            if version_codes and not any(vc in dir_name for vc in version_codes):
-                continue
-            _logger.debug(
-                "Spec %s (release %s) already checked out at %s",
-                spec_number,
-                requested_release,
-                spec_dir,
-            )
-            return spec_dir
-
-    # Need to checkout — auto-crawl if not in database
+    # Checkout (or re-use existing) — SpecDownloads extracts to version-
+    # specific subdirectories (e.g. 26260-j10/ vs 26260-i10/) so different
+    # releases coexist under the same parent.  No heuristic cache scan.
     try:
         if db_path is not None and db_path.exists():
             async with SpecDatabase(db_path) as db:
