@@ -81,6 +81,7 @@ class ConfigEnvVar(StrEnum):
     TDC_FIGURES = "workspace.figures"
     TDC_TABLES = "workspace.tables"
     TDC_DEVICE = "workspace.device"
+    TDC_REMOTE_FALLBACK = "workspace.remote_fallback"
     TDC_WORKSPACE = "workspace.name"
 
 

@@ -21,9 +21,12 @@ from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
+import pdf_remote_converter.converter
+import pdf_remote_converter.router
 import pymupdf4llm
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
+from pdf_remote_converter.config import ProviderSettings
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.extraction.docling import (
@@ -63,6 +66,23 @@ class ConverterBackend(Enum):
     AUTO = "auto"
 
 
+def _is_remote_converter_available() -> bool:
+    """Check if pdf-remote-converter has at least one provider configured."""
+    return bool(pdf_remote_converter.router.get_configured_providers(ProviderSettings()))
+
+
+def _convert_via_remote(source_file: Path, output_file: Path) -> Path:
+    """Convert Office document to PDF via pdf-remote-converter (online fallback)."""
+    converter = pdf_remote_converter.converter.Converter()
+    result = converter.convert(source_file, output_file)
+    logger.info(
+        "Converted %s to PDF via %s (remote fallback)",
+        source_file.name,
+        result.provider,
+    )
+    return output_file
+
+
 @dataclass
 class ConverterConfig:
     """PDF converter configuration."""
@@ -87,6 +107,7 @@ def ensure_pdf(
     force: bool = False,
     config: ConverterConfig | None = None,
     output_stem: str | None = None,
+    remote_fallback: bool = True,
 ) -> Path:
     """Ensure a PDF version of *source_file* exists in *output_dir*.
 
@@ -100,7 +121,7 @@ def ensure_pdf(
         return pdf_path
 
     if is_office_format(source_file):
-        return convert_to_pdf(source_file, output_dir, force=force, config=config, output_stem=stem)
+        return convert_to_pdf(source_file, output_dir, force=force, config=config, output_stem=stem, remote_fallback=remote_fallback)
 
     # Native PDF — copy to output.
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -115,11 +136,12 @@ def convert_to_pdf(
     force: bool = False,
     config: ConverterConfig | None = None,
     output_stem: str | None = None,
+    remote_fallback: bool = True,
 ) -> Path:
     """Convert an Office document to PDF.
 
     Selects the appropriate backend and falls back from local to remote
-    when using ``AUTO``.
+    when using ``AUTO`` and ``remote_fallback`` is enabled.
 
     Raises:
         ConversionError: If conversion fails with all available backends.
@@ -146,8 +168,17 @@ def convert_to_pdf(
     if config.backend == ConverterBackend.LIBREOFFICE:
         return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
 
-    # AUTO: LibreOffice only (no remote fallback).
-    return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
+    # AUTO: try LibreOffice, optionally fall back to remote converter.
+    try:
+        return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
+    except ConversionError:
+        if not remote_fallback or not _is_remote_converter_available():
+            raise
+        logger.warning(
+            "LibreOffice conversion failed for %s, falling back to remote converter",
+            source_file.name,
+        )
+        return _convert_via_remote(source_file, output_file)
 
 
 def _convert_via_libreoffice(source_file: Path, output_dir: Path, *, output_stem: str | None = None) -> Path:
@@ -348,6 +379,7 @@ def convert_for_wiki(
     docx_direct: bool = False,
     md_yaml_frontmatter: bool = True,
     db_metadata: dict[str, object] | None = None,
+    remote_fallback: bool = True,
 ) -> Path:
     """Convert a document for wiki ingestion using the specified profile.
 
@@ -373,6 +405,7 @@ def convert_for_wiki(
         docx_direct: Feed .docx directly to backend, skip LibreOffice PDF step.
         md_yaml_frontmatter: Prepend YAML frontmatter to generated Markdown.
         db_metadata: Optional DB metadata dict to embed in YAML frontmatter.
+        remote_fallback: Use online PDF service when LibreOffice fails.
 
     Returns:
         Path to the primary output file (PDF for pdf-only, MD for others).
@@ -396,7 +429,7 @@ def convert_for_wiki(
 
     # Step 2a: pdf-only → just ensure PDF
     if profile == ExtractionProfile.PDF_ONLY:
-        return ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem)
+        return ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem, remote_fallback=remote_fallback)
 
     # Step 2b: markdown-only → pymupdf4llm (fast, no ML, layout-aware)
     if profile == ExtractionProfile.MARKDOWN_ONLY:
@@ -405,7 +438,7 @@ def convert_for_wiki(
             logger.debug("Skipping %s — markdown already exists", document_id)
             return md_file
         # Office formats → LibreOffice PDF first; native PDFs pass through.
-        input_for_md = ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem)
+        input_for_md = ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem, remote_fallback=remote_fallback)
         figures_mode = docling_config.figures_mode if docling_config else FiguresMode.EMBED
         with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
             result = _run_markdown_only(input_for_md, wiki_source_dir, figures_mode=figures_mode, output_stem=safe_stem)
@@ -422,7 +455,7 @@ def convert_for_wiki(
 
     # Step 2d: ensure PDF first (unless docx-direct), then Docling
     is_docx_direct = docx_direct and primary.suffix.lower() in _DOCX_SUFFIXES
-    input_for_docling = primary if is_docx_direct else ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem)
+    input_for_docling = primary if is_docx_direct else ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem, remote_fallback=remote_fallback)
 
     with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
         _, _, _ = _run_docling(

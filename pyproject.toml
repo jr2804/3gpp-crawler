@@ -43,6 +43,7 @@ dependencies = [
     "opencv-python-headless>=4.13.0.92",
     "pymupdf>=1.27.2.3",
     "pymupdf4llm>=1.27.2.3",
+    "pdf-remote-converter",
 ]
 
 [project.urls]
@@ -120,3 +121,4 @@ convert-lo = { workspace = true }
 pool-executors = { workspace = true }
 toon-format = { git = "https://github.com/toon-format/toon-python.git" }
 doc2txt = { git = "https://github.com/Quantatirsk/doc2txt-pypi.git" }
+pdf-remote-converter = { git = "https://forge.3gpp.org/rep/reimes/pdf-remote-converter" }

@@ -93,6 +93,32 @@ Extract structured data from all workspace members. This is the core pipeline �
 
 By default (`--skip-existing`), existing output is preserved. Use `--force` to overwrite.
 
+### `--remote-fallback` / `--no-remote-fallback`
+
+Controls whether an online PDF conversion service is used when LibreOffice fails (e.g. for large or complex documents). Default: **enabled**.
+
+When enabled, the processing pipeline tries LibreOffice first. If that fails with a `ConversionError`, and at least one remote provider has API keys configured, the document is sent to the online service as a fallback. A warning is logged when the fallback triggers.
+
+Non-`ConversionError` failures (e.g. missing input file) propagate immediately without triggering the fallback.
+
+To use the fallback, configure at least one provider in your environment (see `.env.example`):
+
+| Provider | Env Vars | Free Quota | File Size Limit |
+|----------|----------|------------|-----------------|
+| CloudConvert | `CLOUDCONVERT_API_KEY` | 300/mo | None |
+| Adobe | `ADOBE_CLIENT_ID` + `ADOBE_CLIENT_SECRET` | 500/mo | None |
+| Zamzar | `ZAMZAR_API_KEY` | 100/mo | 1 MB |
+
+Providers are tried in failover order: CloudConvert → Adobe → Zamzar.
+
+```bash
+# Disable fallback (LibreOffice only)
+3gpp-crawler workspace process --no-remote-fallback
+
+# Or via environment variable
+TDC_REMOTE_FALLBACK=false 3gpp-crawler workspace process
+```
+
 ### `workspace clear-invalid`
 
 Remove members whose source path no longer exists on disk.

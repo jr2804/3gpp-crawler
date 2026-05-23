@@ -253,6 +253,14 @@ DocxDirectOption = Annotated[
         envvar=ConfigEnvVar.TDC_DOCX_DIRECT.name,
     ),
 ]
+RemoteFallbackOption = Annotated[
+    bool,
+    typer.Option(
+        "--remote-fallback/--no-remote-fallback",
+        help="Use online PDF service when LibreOffice fails (requires API keys, see .env.example)",
+        envvar=ConfigEnvVar.TDC_REMOTE_FALLBACK.name,
+    ),
+]
 WorkspaceNameOption = Annotated[
     str | None,
     typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)", envvar=ConfigEnvVar.TDC_WORKSPACE.name),

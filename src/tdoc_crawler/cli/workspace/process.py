@@ -18,6 +18,7 @@ from tdoc_crawler.cli.args import (
     MdYamlFrontmatterOption,
     ProcessLimitOption,
     ProfileOption,
+    RemoteFallbackOption,
     SkipExistingOption,
     TablesModeOption,
     VerbosityOption,
@@ -254,6 +255,7 @@ def _process_member(
     md_yaml_frontmatter: bool,
     docling_config: DoclingConfig,
     docx_direct: bool = False,
+    remote_fallback: bool = True,
 ) -> tuple[str, bool, bool, int]:
     """Process a single workspace member.
 
@@ -278,6 +280,7 @@ def _process_member(
             docx_direct=docx_direct,
             md_yaml_frontmatter=md_yaml_frontmatter,
             db_metadata=db_metadata,
+            remote_fallback=remote_fallback,
         )
         suffix = result_path.suffix.lstrip(".")
         logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
@@ -301,6 +304,7 @@ def _run_processing_loop(
     md_yaml_frontmatter: bool,
     docling_config: DoclingConfig,
     docx_direct: bool,
+    remote_fallback: bool,
 ) -> tuple[int, int, int, int]:
     """Run the processing loop over workspace members.
 
@@ -336,6 +340,7 @@ def _run_processing_loop(
                 md_yaml_frontmatter,
                 docling_config,
                 docx_direct,
+                remote_fallback,
             )
             if succeeded:
                 processed += 1
@@ -371,6 +376,7 @@ def workspace_process(
     tables: TablesModeOption = TablesMode.EMBED,
     device: DeviceOption = DeviceType.AUTO,
     docx_direct: DocxDirectOption = False,
+    remote_fallback: RemoteFallbackOption = True,
     md_yaml_frontmatter: MdYamlFrontmatterOption = True,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
@@ -416,6 +422,7 @@ def workspace_process(
         md_yaml_frontmatter,
         docling_config,
         docx_direct,
+        remote_fallback,
     )
 
     summary = f"Processing complete: {processed} succeeded, {failed} failed, {skipped} skipped"
