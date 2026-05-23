@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import base64
 import logging
-import os
 import re
 import shutil
 import tempfile
@@ -22,7 +21,6 @@ from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
-import niquests as requests
 import pymupdf4llm
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
@@ -40,7 +38,6 @@ from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, Extract
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id, sanitize_filename_stem
-from tdoc_crawler.utils.security import validate_api_url
 from tdoc_crawler.workspaces import checkout_spec_to_workspace
 
 logger = logging.getLogger(__name__)
@@ -63,7 +60,6 @@ class ConverterBackend(Enum):
     """PDF conversion backends."""
 
     LIBREOFFICE = "libreoffice"
-    REMOTE = "remote"
     AUTO = "auto"
 
 
@@ -72,21 +68,11 @@ class ConverterConfig:
     """PDF converter configuration."""
 
     backend: ConverterBackend = ConverterBackend.AUTO
-    api_key: str | None = None
-    api_base: str = "https://pdf-convert.3gpp.org"
 
     @classmethod
     def from_env(cls) -> ConverterConfig:
-        """Build converter config from environment variables.
-
-        Supported variables:
-        - ``PDF_REMOTE_API_KEY``: API key for remote converter
-        - ``PDF_REMOTE_API_BASE``: Base URL for remote converter API
-        """
-        return cls(
-            api_key=os.getenv("PDF_REMOTE_API_KEY"),
-            api_base=os.getenv("PDF_REMOTE_API_BASE", "https://pdf-convert.3gpp.org"),
-        )
+        """Build converter config from environment variables."""
+        return cls()
 
 
 def is_office_format(source_file: Path) -> bool:
@@ -157,18 +143,11 @@ def convert_to_pdf(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if config.backend == ConverterBackend.REMOTE:
-        return _convert_via_remote(source_file, output_dir, config, output_stem=stem)
     if config.backend == ConverterBackend.LIBREOFFICE:
         return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
 
-    # AUTO: try local, fall back to remote.
-    try:
-        return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
-    except ConversionError as e:
-        logger.warning("LibreOffice conversion failed for %s: %s", source_file.name, e)
-        logger.info("Falling back to remote converter for %s", source_file.name)
-        return _convert_via_remote(source_file, output_dir, config, output_stem=stem)
+    # AUTO: LibreOffice only (no remote fallback).
+    return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
 
 
 def _convert_via_libreoffice(source_file: Path, output_dir: Path, *, output_stem: str | None = None) -> Path:
@@ -192,44 +171,6 @@ def _convert_via_libreoffice(source_file: Path, output_dir: Path, *, output_stem
         raise
     except Exception as e:
         msg = f"LibreOffice conversion failed for {source_file.name}: {e}"
-        logger.exception(msg)
-        raise ConversionError(msg) from e
-
-
-def _convert_via_remote(
-    source_file: Path,
-    output_dir: Path,
-    config: ConverterConfig | None = None,
-    *,
-    output_stem: str | None = None,
-) -> Path:
-    """Convert Office document to PDF via remote API (fallback)."""
-    config = config or ConverterConfig.from_env()
-    validate_api_url(config.api_base)
-    stem = output_stem or source_file.stem
-    output_file = output_dir / f"{stem}.pdf"
-
-    try:
-        with source_file.open("rb") as f:
-            files = {"file": (source_file.name, f, "application/octet-stream")}
-            headers: dict[str, str] = {}
-            if config.api_key:
-                headers["X-API-Key"] = config.api_key
-
-            response = requests.post(
-                f"{config.api_base}/convert",
-                files=files,
-                headers=headers,
-                timeout=300,
-            )
-            response.raise_for_status()
-            output_file.write_bytes(response.content)
-
-        logger.info("Converted %s to PDF via remote API: %s", source_file.name, output_file)
-        return output_file
-
-    except requests.RequestException as e:
-        msg = f"Remote conversion failed for {source_file.name}: {e}"
         logger.exception(msg)
         raise ConversionError(msg) from e
 
