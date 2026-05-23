@@ -482,11 +482,16 @@ class WorkspaceRegistry:
 
         except (json.JSONDecodeError, KeyError) as e:
             logger.exception("Failed to load registry from %s: %s", registry_path, e)
-            return cls._create_default(registry_path)
+            # Return an empty in-memory registry — do NOT overwrite the file.
+            # The user can fix or restore the file manually.
+            return cls(registry_path=registry_path)
 
     @classmethod
     def _create_default(cls, registry_path: Path | None = None) -> WorkspaceRegistry:
         """Create a new registry with default workspace.
+
+        Only writes to disk if the registry file does not already exist,
+        to prevent accidental data loss.
 
         Args:
             registry_path: Optional explicit path to save to.
@@ -496,7 +501,8 @@ class WorkspaceRegistry:
         """
         registry = cls(registry_path=registry_path)
         registry.create_workspace(DEFAULT_WORKSPACE, description="Default workspace")
-        registry.save()
+        if registry_path is not None and not registry_path.exists():
+            registry.save()
         return registry
 
 
