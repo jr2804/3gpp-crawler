@@ -44,9 +44,29 @@ Add documents to a workspace. Accepts TDoc IDs and spec numbers.
 
 # Add multiple items
 3gpp-crawler workspace add 26260 26261 --kind spec --release 18.0
+
+# Add a range of specs (colon or dash separator)
+3gpp-crawler workspace add 26.260-26.266 --kind spec
+3gpp-crawler workspace add 26250:26258 --kind spec
+
+# Short-format right side (inherits series from left)
+3gpp-crawler workspace add 26.131-132 --kind spec
+3gpp-crawler workspace add 26.260-265 --kind spec
+
+# Offset syntax
+3gpp-crawler workspace add 26.260+6 --kind spec
 ```
 
-Spec members added without `--release` resolve to the latest available version from the database. If the database has no version information, the spec is auto-crawled from 3GPP.
+Spec members added without `--release` resolve to the latest available version from the database. If the database has no version information, the spec is auto-crawled from 3GPP. Specs that cannot be found are skipped with an error message.
+
+Range syntax (`--kind spec` only):
+
+| Syntax | Example | Result |
+|--------|---------|--------|
+| `X.YYY-X.ZZZ` | `26.260-26.266` | Full range, both dotted |
+| `XXXXX-XXXXX` | `26250-26258` | Full range, both undotted |
+| `X.YYY:ZZZ` | `26.131-132` | Short right side, inherits series from left |
+| `X.YYY+N` | `26.260+6` | Offset (26.260 through 26.266) |
 
 ### `workspace members`
 
@@ -160,6 +180,7 @@ Members added with `--release 18.0` use the explicit release. Members added with
 # 2. Add documents
 3gpp-crawler workspace add S4-250638
 3gpp-crawler workspace add 26260 --kind spec --release 18.0
+3gpp-crawler workspace add 26.131-132 --kind spec   # range: 26.131, 26.132
 
 # 3. Extract
 3gpp-crawler workspace process --profile markdown-only

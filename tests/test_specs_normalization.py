@@ -227,9 +227,10 @@ def test_expand_all_range_variants() -> None:
     result7 = list(expand_spec_ranges_batch(["TS 26.260:TR 26.266"]))
     assert result7 == ["26.260", "26.261", "26.262", "26.263", "26.264", "26.265", "26.266"]
 
-    # Test that 26.260-266 (ambiguous) is silently skipped
+    # 26.260-266: right side "266" parses as spec 26.006, same series,
+    # so it expands via short-suffix fallback to 260..266
     result = list(expand_spec_ranges_batch(["26.260-266"]))
-    assert result == []
+    assert result == ["26.260", "26.261", "26.262", "26.263", "26.264", "26.265", "26.266"]
 
     # Test dotted with one-digit suffix is allowed and normalized
     result8 = list(expand_spec_ranges_batch(["26.2-26.4"]))
@@ -265,6 +266,18 @@ def test_expand_edge_cases() -> None:
     # Cross hundred boundary
     result = list(expand_spec_ranges_batch(["23.498-23.502"]))
     assert result == ["23.498", "23.499", "23.500", "23.501", "23.502"]
+
+    # Short-format suffix: dotted left, numeric-only right
+    result = list(expand_spec_ranges_batch(["26.131-132"]))
+    assert result == ["26.131", "26.132"]
+
+    # Short-format suffix: undotted left, short right (colon)
+    result = list(expand_spec_ranges_batch(["26250:258"]))
+    assert result == ["26.250", "26.251", "26.252", "26.253", "26.254", "26.255", "26.256", "26.257", "26.258"]
+
+    # Full dotted left, short right (dash)
+    result = list(expand_spec_ranges_batch(["26.260-265"]))
+    assert result == ["26.260", "26.261", "26.262", "26.263", "26.264", "26.265"]
 
 
 def test_expand_invalid_ranges() -> None:

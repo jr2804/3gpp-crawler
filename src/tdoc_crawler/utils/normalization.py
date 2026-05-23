@@ -116,15 +116,35 @@ def _expand_offset_range(cleaned: str) -> Generator[str]:
 
 
 def _expand_dash_range(left: str, right: str, original: str) -> Generator[str]:
-    """Expand dash/colon range syntax like '26.260-26.266'."""
+    """Expand dash/colon range syntax like '26.260-26.266' or '26.131-132'.
+
+    The right side can be:
+    - A full spec number: ``26.260-26.266``
+    - A short suffix replacing the trailing digits: ``26.131-132``
+    - An undotted full number: ``26250-26258``
+    """
     series1, num1, format1, digits1 = _parse_spec_number(left)
-    series2, num2, format2, digits2 = _parse_spec_number(right)
-    if series1 != series2:
-        msg = f"Series numbers don't match: {series1} vs {series2}"
-        raise NormalizationError(msg)
-    if format1 != format2 and (digits1 == 1 or digits2 == 1):
-        msg = "Both range endpoints must use the same format"
-        raise NormalizationError(msg)
+
+    # Try right as a full spec number first; fall back to short suffix
+    try:
+        series2, num2, format2, digits2 = _parse_spec_number(right)
+        if series1 != series2:
+            # Series mismatch — maybe right is a short numeric suffix?
+            msg = f"Series numbers don't match: {series1} vs {series2}"
+            raise NormalizationError(msg)  # noqa: TRY301
+        if format1 != format2 and (digits1 == 1 or digits2 == 1):
+            # Format mismatch due to 1-digit increment — treat as short suffix
+            raise NormalizationError  # noqa: TRY301
+    except NormalizationError:
+        # Right side is a short numeric suffix (e.g. "132" in "26.131-132")
+        right_stripped = right.strip()
+        if not right_stripped.isdigit():
+            raise
+        # Reuse the series and format from the left side
+        series2 = series1
+        num2 = right_stripped.zfill(3)
+        format2 = format1
+        digits2 = len(right_stripped)
     start_num = int(num1)
     end_num = int(num2)
     _validate_range(start_num, end_num, original)

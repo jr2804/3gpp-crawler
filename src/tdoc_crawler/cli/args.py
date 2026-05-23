@@ -15,7 +15,7 @@ TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifi
 TDocIdArgument = Annotated[str, typer.Argument(help="TDoc identifier to download and open")]
 CheckoutTDocIdsArgument = Annotated[list[str], typer.Argument(help="TDoc identifier(s) to checkout")]
 SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) to query (dotted or undotted)")]
-WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(help="Items to add (TDoc IDs, spec numbers, etc.)")]
+WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(help="Items to add: TDoc IDs, spec numbers, or ranges like 26.260-26.266 / 26250:258")]
 
 # Options - TDocs/Meetings
 WorkingGroupOption = Annotated[

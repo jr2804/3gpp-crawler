@@ -33,6 +33,7 @@ from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.date_parser import parse_partial_date
+from tdoc_crawler.utils.normalization import expand_spec_ranges_batch
 from tdoc_crawler.workspaces import (
     add_workspace_members,
     get_active_workspace,
@@ -70,10 +71,11 @@ def _resolve_spec_release_for_add(
     release: str,
     source_kind: SourceKind,
     auto_crawl: bool,
-) -> str:
+) -> str | None:
     """Resolve a spec release selector to a concrete version for workspace add.
 
     For non-spec kinds or when resolution fails, returns *release* unchanged.
+    Returns None when the spec does not exist in the database.
     """
     if source_kind != SourceKind.SPEC:
         return release
@@ -81,6 +83,11 @@ def _resolve_spec_release_for_add(
         resolved, _ = asyncio.run(
             resolve_spec_release_from_db(item, release, auto_crawl=auto_crawl),
         )
+        # If auto-crawl was tried and resolved is still "latest", the spec
+        # doesn't exist anywhere.
+        if resolved.lower() == "latest" and release.lower() == "latest":
+            console.print(f"[red]  Spec {item} not found, skipping.[/red]")
+            return None
         console.print(f"[dim]  Resolved {item} release '{release}' -> {resolved}[/dim]")
         return resolved
     except ValueError as exc:
@@ -178,8 +185,17 @@ def workspace_add(
             )
 
     elif items:
+        if source_kind == SourceKind.SPEC:
+            original_count = len(list(items))
+            expanded = expand_spec_ranges_batch(list(items))
+            skipped = original_count - len(expanded)
+            if skipped > 0:
+                console.print(f"[yellow]Skipped {skipped} invalid spec input(s).[/yellow]")
+            items = expanded
         for item in items:
             resolved_release = _resolve_spec_release_for_add(item, release, source_kind, auto_crawl_specs)
+            if resolved_release is None:
+                continue
             members.append(
                 make_workspace_member(
                     source_item_id=item,
