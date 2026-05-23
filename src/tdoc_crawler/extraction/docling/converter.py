@@ -103,6 +103,7 @@ def _run_docling(
     profile: ExtractionProfile,
     config: DoclingConfig | None = None,
     docx_direct: bool = False,
+    output_stem: str | None = None,
 ) -> tuple[str, Path, int]:
     """Run Docling conversion on a document file.
 
@@ -112,6 +113,7 @@ def _run_docling(
         profile: Extraction profile to use.
         config: Optional Docling configuration.
         docx_direct: Feed .docx/.doc directly to Docling (skip PDF step).
+        output_stem: Sanitized stem for output filenames.
 
     Returns:
         Tuple of ``(markdown_content, json_path, page_count)``.
@@ -141,7 +143,7 @@ def _run_docling(
     finally:
         docling_pipeline_log.removeFilter(bad_alloc_filter)
 
-    stem = input_file.stem
+    stem = output_stem or input_file.stem
     md_path = output_dir / f"{stem}.md"
     json_path = output_dir / f"{stem}.json"
 

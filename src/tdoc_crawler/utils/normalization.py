@@ -439,3 +439,8 @@ def normalize_working_group_list(value: Iterable[str | WorkingGroup]) -> list[Wo
         List of normalized WorkingGroup enum members.
     """
     return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
+
+
+def sanitize_filename_stem(stem: str) -> str:
+    """Strip leading/trailing and collapsed internal whitespace from a filename stem."""
+    return re.sub(r"\s+", " ", stem).strip()

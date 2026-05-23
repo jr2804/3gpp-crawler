@@ -39,7 +39,7 @@ from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, tim
 from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile, FiguresMode
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.utils.async_helpers import run_async
-from tdoc_crawler.utils.normalization import normalize_tdoc_id
+from tdoc_crawler.utils.normalization import normalize_tdoc_id, sanitize_filename_stem
 from tdoc_crawler.utils.security import validate_api_url
 from tdoc_crawler.workspaces import checkout_spec_to_workspace
 
@@ -100,19 +100,21 @@ def ensure_pdf(
     *,
     force: bool = False,
     config: ConverterConfig | None = None,
+    output_stem: str | None = None,
 ) -> Path:
     """Ensure a PDF version of *source_file* exists in *output_dir*.
 
     For office documents, converts via LibreOffice (or remote fallback).
     For native PDFs, copies.  Uses cached conversion when available.
     """
-    pdf_path = output_dir / f"{source_file.stem}.pdf"
+    stem = output_stem or source_file.stem
+    pdf_path = output_dir / f"{stem}.pdf"
 
     if pdf_path.exists() and not force:
         return pdf_path
 
     if is_office_format(source_file):
-        return convert_to_pdf(source_file, output_dir, force=force, config=config)
+        return convert_to_pdf(source_file, output_dir, force=force, config=config, output_stem=stem)
 
     # Native PDF — copy to output.
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -126,6 +128,7 @@ def convert_to_pdf(
     *,
     force: bool = False,
     config: ConverterConfig | None = None,
+    output_stem: str | None = None,
 ) -> Path:
     """Convert an Office document to PDF.
 
@@ -145,7 +148,8 @@ def convert_to_pdf(
         raise ConversionError(msg)
 
     config = config or ConverterConfig.from_env()
-    output_file = output_dir / f"{source_file.stem}.pdf"
+    stem = output_stem or source_file.stem
+    output_file = output_dir / f"{stem}.pdf"
 
     if not force and output_file.exists():
         logger.debug("Using cached PDF: %s", output_file)
@@ -154,22 +158,23 @@ def convert_to_pdf(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if config.backend == ConverterBackend.REMOTE:
-        return _convert_via_remote(source_file, output_dir, config)
+        return _convert_via_remote(source_file, output_dir, config, output_stem=stem)
     if config.backend == ConverterBackend.LIBREOFFICE:
-        return _convert_via_libreoffice(source_file, output_dir)
+        return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
 
     # AUTO: try local, fall back to remote.
     try:
-        return _convert_via_libreoffice(source_file, output_dir)
+        return _convert_via_libreoffice(source_file, output_dir, output_stem=stem)
     except ConversionError as e:
         logger.warning("LibreOffice conversion failed for %s: %s", source_file.name, e)
         logger.info("Falling back to remote converter for %s", source_file.name)
-        return _convert_via_remote(source_file, output_dir, config)
+        return _convert_via_remote(source_file, output_dir, config, output_stem=stem)
 
 
-def _convert_via_libreoffice(source_file: Path, output_dir: Path) -> Path:
+def _convert_via_libreoffice(source_file: Path, output_dir: Path, *, output_stem: str | None = None) -> Path:
     """Convert Office document to PDF via local LibreOffice (headless mode)."""
-    output_file = output_dir / f"{source_file.stem}.pdf"
+    stem = output_stem or source_file.stem
+    output_file = output_dir / f"{stem}.pdf"
 
     try:
         converter = Converter()
@@ -195,11 +200,14 @@ def _convert_via_remote(
     source_file: Path,
     output_dir: Path,
     config: ConverterConfig | None = None,
+    *,
+    output_stem: str | None = None,
 ) -> Path:
     """Convert Office document to PDF via remote API (fallback)."""
     config = config or ConverterConfig.from_env()
     validate_api_url(config.api_base)
-    output_file = output_dir / f"{source_file.stem}.pdf"
+    stem = output_stem or source_file.stem
+    output_file = output_dir / f"{stem}.pdf"
 
     try:
         with source_file.open("rb") as f:
@@ -304,6 +312,7 @@ def _run_markdown_only(
     *,
     figures_mode: FiguresMode = FiguresMode.EMBED,
     use_layout_mode: bool = False,
+    output_stem: str | None = None,
 ) -> Path:
     """Convert a PDF document to Markdown using pymupdf4llm."""
     media_dir = output_dir / "media"
@@ -327,7 +336,8 @@ def _run_markdown_only(
     if figures_mode == FiguresMode.EMBED:
         md_text = _embed_media_as_base64(md_text, output_dir)
 
-    md_path = output_dir / f"{primary.stem}.md"
+    stem = output_stem or primary.stem
+    md_path = output_dir / f"{stem}.md"
     md_path.write_text(md_text, encoding="utf-8")
     return md_path
 
@@ -441,36 +451,37 @@ def convert_for_wiki(
         source_path=source_path,
         force=force,
     )
+    safe_stem = sanitize_filename_stem(primary.stem)
 
     # Step 2a: pdf-only → just ensure PDF
     if profile == ExtractionProfile.PDF_ONLY:
-        return ensure_pdf(primary, wiki_source_dir, force=force)
+        return ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem)
 
     # Step 2b: markdown-only → pymupdf4llm (fast, no ML, layout-aware)
     if profile == ExtractionProfile.MARKDOWN_ONLY:
-        md_file = wiki_source_dir / f"{primary.stem}.md"
+        md_file = wiki_source_dir / f"{safe_stem}.md"
         if not force and md_file.exists():
             logger.debug("Skipping %s — markdown already exists", document_id)
             return md_file
         # Office formats → LibreOffice PDF first; native PDFs pass through.
-        input_for_md = ensure_pdf(primary, wiki_source_dir, force=force)
+        input_for_md = ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem)
         figures_mode = docling_config.figures_mode if docling_config else FiguresMode.EMBED
         with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
-            result = _run_markdown_only(input_for_md, wiki_source_dir, figures_mode=figures_mode)
+            result = _run_markdown_only(input_for_md, wiki_source_dir, figures_mode=figures_mode, output_stem=safe_stem)
         if md_yaml_frontmatter:
             _add_yaml_frontmatter(result, document_id=document_id, source_kind=source_kind, profile=profile, db_metadata=db_metadata)
         return result
 
     # Step 2c: default/advanced → check existing output before running Docling
-    md_file = wiki_source_dir / f"{primary.stem}.md"
-    json_file = wiki_source_dir / f"{primary.stem}.json"
+    md_file = wiki_source_dir / f"{safe_stem}.md"
+    json_file = wiki_source_dir / f"{safe_stem}.json"
     if not force and md_file.exists() and json_file.exists():
         logger.debug("Skipping %s — output already exists", document_id)
         return md_file
 
     # Step 2d: ensure PDF first (unless docx-direct), then Docling
     is_docx_direct = docx_direct and primary.suffix.lower() in _DOCX_SUFFIXES
-    input_for_docling = primary if is_docx_direct else ensure_pdf(primary, wiki_source_dir, force=force)
+    input_for_docling = primary if is_docx_direct else ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem)
 
     with timed_operation(get_metrics_tracker(), document_id, MetricType.CONVERSION):
         _, _, _ = _run_docling(
@@ -479,6 +490,7 @@ def convert_for_wiki(
             profile=profile,
             config=docling_config,
             docx_direct=is_docx_direct,
+            output_stem=safe_stem,
         )
 
     if md_yaml_frontmatter:
