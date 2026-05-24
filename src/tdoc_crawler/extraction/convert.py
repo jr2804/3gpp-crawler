@@ -202,7 +202,7 @@ def _convert_via_libreoffice(source_file: Path, output_dir: Path, *, output_stem
         raise
     except Exception as e:
         msg = f"LibreOffice conversion failed for {source_file.name}: {e}"
-        logger.exception(msg)
+        logger.warning(msg)
         raise ConversionError(msg) from e
 
 
