@@ -43,6 +43,12 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 
 3gpp-crawler workspace add 26250:26258 --kind spec
 
+:: add other sources
+3gpp-crawler workspace add https://www.itu.int/dms_pubrec/itu-r/rec/bs/R-REC-BS.775-1-199407-S!!PDF-E.pdf --kind other
+3gpp-crawler workspace add https://www.itu.int/dms_pub/itu-r/opb/rep/r-rep-bs.2159-6-2013-pdf-e.pdf --kind other
+3gpp-crawler workspace add https://en.wikipedia.org/wiki/Ambisonics --kind other
+
+
 :: overview
 3gpp-crawler workspace members
 

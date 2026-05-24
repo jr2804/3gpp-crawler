@@ -20,6 +20,7 @@ from tdoc_crawler.cli.args import (
     ProfileOption,
     RemoteFallbackOption,
     SkipExistingOption,
+    SpreadsheetModeOption,
     TablesModeOption,
     VerbosityOption,
     WorkspaceProcessForceOption,
@@ -30,7 +31,7 @@ from tdoc_crawler.config.workspace_registry import WorkspaceMember
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.database.oxyde_models import Specification, TDocMetadata
 from tdoc_crawler.extraction.convert import ConversionError, DoclingConfig, convert_for_wiki
-from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, DeviceType, ExtractionProfile, FiguresMode, TablesMode
+from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, DeviceType, ExtractionProfile, FiguresMode, SpreadsheetMode, TablesMode
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
 from tdoc_crawler.models.workspaces import SourceKind
@@ -256,6 +257,7 @@ def _process_member(
     docling_config: DoclingConfig,
     docx_direct: bool = False,
     remote_fallback: bool = True,
+    spreadsheet_mode: SpreadsheetMode = SpreadsheetMode.DATA,
 ) -> tuple[str, bool, bool, int]:
     """Process a single workspace member.
 
@@ -274,6 +276,7 @@ def _process_member(
             document_id=source_id,
             wiki_source_dir=wiki_source_dir,
             source_kind=member.source_kind,
+            source_path=member.source_path,
             profile=extraction_profile,
             force=force,
             docling_config=docling_config,
@@ -281,6 +284,7 @@ def _process_member(
             md_yaml_frontmatter=md_yaml_frontmatter,
             db_metadata=db_metadata,
             remote_fallback=remote_fallback,
+            spreadsheet_mode=spreadsheet_mode,
         )
         suffix = result_path.suffix.lstrip(".")
         logger.debug("%s [%s] → %s", source_id, extraction_profile.value, suffix)
@@ -305,6 +309,7 @@ def _run_processing_loop(
     docling_config: DoclingConfig,
     docx_direct: bool,
     remote_fallback: bool,
+    spreadsheet_mode: SpreadsheetMode = SpreadsheetMode.DATA,
 ) -> tuple[int, int, int, int]:
     """Run the processing loop over workspace members.
 
@@ -341,6 +346,7 @@ def _run_processing_loop(
                 docling_config,
                 docx_direct,
                 remote_fallback,
+                spreadsheet_mode,
             )
             if succeeded:
                 processed += 1
@@ -374,6 +380,7 @@ def workspace_process(
     profile: ProfileOption = DEFAULT_EXTRACTION_PROFILE,
     figures: FiguresModeOption = FiguresMode.EMBED,
     tables: TablesModeOption = TablesMode.EMBED,
+    spreadsheet_mode: SpreadsheetModeOption = SpreadsheetMode.DATA,
     device: DeviceOption = DeviceType.AUTO,
     docx_direct: DocxDirectOption = False,
     remote_fallback: RemoteFallbackOption = True,
@@ -423,6 +430,7 @@ def workspace_process(
         docling_config,
         docx_direct,
         remote_fallback,
+        spreadsheet_mode,
     )
 
     summary = f"Processing complete: {processed} succeeded, {failed} failed, {skipped} skipped"

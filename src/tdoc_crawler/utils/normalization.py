@@ -1,7 +1,9 @@
 """Normalization helpers for spec identifiers."""
 
+import hashlib
 import re
 from collections.abc import Generator, Iterable
+from urllib.parse import urlparse
 
 from tdoc_crawler.models.subworking_groups import SubWorkingGroup
 from tdoc_crawler.models.working_groups import WorkingGroup
@@ -464,3 +466,20 @@ def normalize_working_group_list(value: Iterable[str | WorkingGroup]) -> list[Wo
 def sanitize_filename_stem(stem: str) -> str:
     """Strip leading/trailing and collapsed internal whitespace from a filename stem."""
     return re.sub(r"\s+", " ", stem).strip()
+
+
+def url_to_safe_stem(url: str, prefix: str = "OTHER_") -> str:
+    """Generate a collision-safe directory stem from a URL.
+
+    Uses ``netloc + '_' + sha256(path)[:8]`` and prepends an optional prefix.
+
+    Examples:
+        >>> url_to_safe_stem("https://mise.jdx.dev/guide/getting-started")
+        'OTHER_mise.jdx.dev_a3f7b2c1'
+    """
+    parsed = urlparse(url)
+    netloc = parsed.netloc or "unknown"
+    path = parsed.path or "/"
+    path_hash = hashlib.sha256(path.encode("utf-8")).hexdigest()[:8]
+    safe = re.sub(r"[^a-zA-Z0-9._-]", "_", f"{netloc}_{path_hash}")
+    return f"{prefix}{safe}"

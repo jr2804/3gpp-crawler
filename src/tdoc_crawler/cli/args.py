@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from tdoc_crawler.config import ConfigEnvVar
-from tdoc_crawler.extraction.profiles import DeviceType, ExtractionProfile, FiguresMode, TablesMode
+from tdoc_crawler.extraction.profiles import DeviceType, ExtractionProfile, FiguresMode, SpreadsheetMode, TablesMode
 
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
@@ -272,6 +272,32 @@ SourceKindOption = Annotated[
 DryRunOption = Annotated[
     bool,
     typer.Option("--dry-run", help="Show what would be removed without removing"),
+]
+
+SpreadsheetModeOption = Annotated[
+    SpreadsheetMode,
+    typer.Option(
+        "--spreadsheet-mode",
+        help="Spreadsheet handling: data (extract tables as markdown/CSV) or visual (convert to PDF via LibreOffice)",
+    ),
+]
+
+CheckoutPrefixOption = Annotated[
+    str,
+    typer.Option(
+        "--checkout-prefix",
+        help="Prefix for checkout directory names when adding OTHER sources (default: OTHER_)",
+    ),
+]
+
+DepthOption = Annotated[
+    int,
+    typer.Option(
+        "--depth",
+        help="Maximum crawl depth for URL-based OTHER sources (default: 1)",
+        min=1,
+        max=5,
+    ),
 ]
 
 WorkspaceDirOption = Annotated[

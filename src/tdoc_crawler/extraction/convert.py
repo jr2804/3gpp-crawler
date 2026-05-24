@@ -21,11 +21,13 @@ from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
+import pandas as pd
 import pdf_remote_converter.converter
 import pdf_remote_converter.router
 import pymupdf4llm
 from convert_lo import LibreOfficeFormat
 from convert_lo.converter import Converter
+from markdownify import markdownify as md
 from pdf_remote_converter.config import ProviderSettings
 
 from tdoc_crawler.config.settings import PathConfig
@@ -37,7 +39,7 @@ from tdoc_crawler.extraction.errors import ConversionError
 from tdoc_crawler.extraction.fetch_tdoc import fetch_spec_files as fetch_spec_files_from_tdoc
 from tdoc_crawler.extraction.fetch_tdoc import fetch_tdoc_files
 from tdoc_crawler.extraction.metrics import MetricType, get_metrics_tracker, timed_operation
-from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile, FiguresMode
+from tdoc_crawler.extraction.profiles import DEFAULT_EXTRACTION_PROFILE, ExtractionProfile, FiguresMode, SpreadsheetMode
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id, sanitize_filename_stem
@@ -47,6 +49,12 @@ logger = logging.getLogger(__name__)
 
 # File suffixes that can be fed directly to backends (no LibreOffice PDF step).
 _DOCX_SUFFIXES: frozenset[str] = frozenset({".docx"})
+
+# Formats treated as plain text/markdown that don't need LibreOffice conversion.
+_TEXT_FORMATS: frozenset[str] = frozenset({".txt", ".md", ".html", ".htm"})
+
+# Spreadsheet formats.
+_SPREADSHEET_FORMATS: frozenset[str] = frozenset({".xls", ".xlsx", ".ods", ".csv"})
 
 
 # ---------------------------------------------------------------------------
@@ -253,15 +261,14 @@ def _embed_media_as_base64(text: str, output_dir: Path) -> str:
     return result
 
 
-def _add_yaml_frontmatter(
-    md_path: Path,
+def _build_yaml_frontmatter(
     *,
     document_id: str,
     source_kind: SourceKind,
     profile: ExtractionProfile,
     db_metadata: dict[str, object] | None = None,
-) -> None:
-    """Prepend YAML frontmatter to a Markdown file."""
+) -> str:
+    """Build YAML frontmatter string for a Markdown file."""
     import yaml  # noqa: PLC0415
 
     frontmatter_data: dict[str, object] = {
@@ -273,7 +280,24 @@ def _add_yaml_frontmatter(
     if db_metadata:
         frontmatter_data["metadata"] = db_metadata
 
-    header = f"---\n{yaml.dump(frontmatter_data, default_flow_style=False, allow_unicode=True).strip()}\n---\n\n"
+    return f"---\n{yaml.dump(frontmatter_data, default_flow_style=False, allow_unicode=True).strip()}\n---\n\n"
+
+
+def _add_yaml_frontmatter(
+    md_path: Path,
+    *,
+    document_id: str,
+    source_kind: SourceKind,
+    profile: ExtractionProfile,
+    db_metadata: dict[str, object] | None = None,
+) -> None:
+    """Prepend YAML frontmatter to a Markdown file."""
+    header = _build_yaml_frontmatter(
+        document_id=document_id,
+        source_kind=source_kind,
+        profile=profile,
+        db_metadata=db_metadata,
+    )
     content = md_path.read_text(encoding="utf-8")
     md_path.write_text(header + content, encoding="utf-8")
 
@@ -314,6 +338,62 @@ def _run_markdown_only(
     return md_path
 
 
+def _is_text_format(source_file: Path) -> bool:
+    """Check if a file is a plain text/markdown/HTML format."""
+    return source_file.suffix.lower() in _TEXT_FORMATS
+
+
+def _is_spreadsheet_format(source_file: Path) -> bool:
+    """Check if a file is a spreadsheet format."""
+    return source_file.suffix.lower() in _SPREADSHEET_FORMATS
+
+
+def _convert_html_to_markdown(html_path: Path) -> str:
+    """Convert an HTML file to clean Markdown via markdownify."""
+    html_content = html_path.read_text(encoding="utf-8", errors="replace")
+    return md(html_content, heading_style="ATX")
+
+
+def _convert_text_to_markdown(text_path: Path) -> str:
+    """Wrap a plain text file in Markdown code block."""
+    text_content = text_path.read_text(encoding="utf-8", errors="replace")
+    return f"```text\n{text_content}\n```\n"
+
+
+def _convert_spreadsheet_to_markdown(
+    spreadsheet_path: Path,
+    mode: SpreadsheetMode = SpreadsheetMode.DATA,
+) -> str:
+    """Convert a spreadsheet to Markdown tables (data mode) or return empty for visual mode.
+
+    In **data** mode, each sheet is extracted as a Markdown table.
+    In **visual** mode, the caller should convert to PDF via LibreOffice instead.
+
+    """
+    if mode == SpreadsheetMode.VISUAL:
+        return ""
+
+    suffix = spreadsheet_path.suffix.lower()
+    if suffix == ".csv":
+        df = pd.read_csv(spreadsheet_path)
+        return df.to_markdown(index=False)
+
+    engine = "openpyxl" if suffix in (".xlsx", ".xls") else "odf"
+    try:
+        xl = pd.ExcelFile(spreadsheet_path, engine=engine)
+    except Exception:
+        logger.warning("Failed to read %s with engine %s", spreadsheet_path, engine)
+        return ""
+
+    parts: list[str] = []
+    for sheet_name in xl.sheet_names:
+        df = pd.read_excel(xl, sheet_name=sheet_name)
+        parts.append(f"## Sheet: {sheet_name}\n")
+        parts.append(df.to_markdown(index=False))
+        parts.append("")
+    return "\n".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Source file resolution (source-kind-specific, before generic conversion)
 # ---------------------------------------------------------------------------
@@ -331,6 +411,14 @@ def _resolve_source_files(
     Raises:
         ConversionError: If no document files can be found.
     """
+    if source_kind == SourceKind.OTHER:
+        if source_path:
+            actual_path = Path(str(source_path))
+            if actual_path.exists():
+                return actual_path
+        msg = f"OTHER source {document_id} not found on disk"
+        raise ConversionError(msg)
+
     if source_kind == SourceKind.SPEC:
         spec_rel_match = re.match(r"^(\d+(?:\.\d+)?)(?:-REL(.+))?$", document_id)
         spec_number = spec_rel_match.group(1) if spec_rel_match else document_id
@@ -380,6 +468,7 @@ def convert_for_wiki(
     md_yaml_frontmatter: bool = True,
     db_metadata: dict[str, object] | None = None,
     remote_fallback: bool = True,
+    spreadsheet_mode: SpreadsheetMode = SpreadsheetMode.DATA,
 ) -> Path:
     """Convert a document for wiki ingestion using the specified profile.
 
@@ -406,6 +495,7 @@ def convert_for_wiki(
         md_yaml_frontmatter: Prepend YAML frontmatter to generated Markdown.
         db_metadata: Optional DB metadata dict to embed in YAML frontmatter.
         remote_fallback: Use online PDF service when LibreOffice fails.
+        spreadsheet_mode: How to handle spreadsheet files (data vs visual).
 
     Returns:
         Path to the primary output file (PDF for pdf-only, MD for others).
@@ -426,6 +516,52 @@ def convert_for_wiki(
         force=force,
     )
     safe_stem = sanitize_filename_stem(primary.stem)
+
+    # --- OTHER source special handling (HTML / text / spreadsheets) ---
+    if source_kind == SourceKind.OTHER:
+        if _is_text_format(primary):
+            md_file = wiki_source_dir / f"{safe_stem}.md"
+            if not force and md_file.exists():
+                logger.debug("Skipping %s — markdown already exists", document_id)
+                return md_file
+
+            md_text = _convert_html_to_markdown(primary) if primary.suffix.lower() in (".html", ".htm") else _convert_text_to_markdown(primary)
+
+            if md_yaml_frontmatter:
+                fm = _build_yaml_frontmatter(
+                    document_id=document_id,
+                    source_kind=source_kind,
+                    profile=profile,
+                    db_metadata=db_metadata,
+                )
+                md_text = fm + "\n" + md_text
+
+            md_file.write_text(md_text, encoding="utf-8")
+
+            if profile == ExtractionProfile.PDF_ONLY:
+                # PDF-only on HTML/text: return Markdown (no direct Markdown→PDF pipeline yet)
+                logger.warning("PDF-only profile on HTML/text source %s — returning Markdown", document_id)
+            return md_file
+
+        if _is_spreadsheet_format(primary):
+            if spreadsheet_mode == SpreadsheetMode.DATA and profile != ExtractionProfile.PDF_ONLY:
+                md_file = wiki_source_dir / f"{safe_stem}.md"
+                if not force and md_file.exists():
+                    logger.debug("Skipping %s — markdown already exists", document_id)
+                    return md_file
+                md_text = _convert_spreadsheet_to_markdown(primary, mode=SpreadsheetMode.DATA)
+                if md_yaml_frontmatter:
+                    fm = _build_yaml_frontmatter(
+                        document_id=document_id,
+                        source_kind=source_kind,
+                        profile=profile,
+                        db_metadata=db_metadata,
+                    )
+                    md_text = fm + "\n" + md_text
+                md_file.write_text(md_text, encoding="utf-8")
+                return md_file
+            # visual mode or pdf-only → fall through to LibreOffice PDF conversion
+            return ensure_pdf(primary, wiki_source_dir, force=force, output_stem=safe_stem, remote_fallback=remote_fallback)
 
     # Step 2a: pdf-only → just ensure PDF
     if profile == ExtractionProfile.PDF_ONLY:
@@ -478,6 +614,7 @@ __all__ = [
     "ConverterBackend",
     "ConverterConfig",
     "DoclingConfig",
+    "SpreadsheetMode",
     "convert_for_wiki",
     "convert_to_pdf",
     "ensure_pdf",

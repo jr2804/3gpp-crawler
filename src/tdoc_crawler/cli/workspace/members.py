@@ -13,6 +13,7 @@ from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
     AutoCrawlSpecsOption,
+    CheckoutPrefixOption,
     DryRunOption,
     EndDateOption,
     IncludeInactiveOption,
@@ -29,6 +30,7 @@ from tdoc_crawler.cli.args import (
 )
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database.tdocs import TDocDatabase
+from tdoc_crawler.extraction.checkout import checkout_single_item
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.tdocs.models import TDocQueryConfig
@@ -113,6 +115,7 @@ def workspace_add(
     title: TitlePatternOption = None,
     title_ex: TitlePatternExcludeOption = None,
     auto_crawl_specs: AutoCrawlSpecsOption = True,
+    checkout_prefix: CheckoutPrefixOption = "OTHER_",
 ) -> None:
     """Add documents to a workspace.
 
@@ -193,6 +196,26 @@ def workspace_add(
                 console.print(f"[yellow]Skipped {skipped} invalid spec input(s).[/yellow]")
             items = expanded
         for item in items:
+            if source_kind == SourceKind.OTHER:
+                try:
+                    checked_out, skip_reason = asyncio.run(
+                        checkout_single_item(
+                            item=item,
+                            source_kind=source_kind,
+                            checkout_prefix=checkout_prefix,
+                            workspace=normalized,
+                            checkout=True,
+                            release=None,
+                            path_config=PathConfig(),
+                        )
+                    )
+                    if checked_out is None:
+                        console.print(f"[yellow]  Warning: failed to checkout OTHER item '{item}': {skip_reason}[/yellow]")
+                        continue
+                    members.append(checked_out)
+                except Exception as exc:
+                    console.print(f"[yellow]  Warning: failed to checkout OTHER item '{item}': {exc}[/yellow]")
+                continue
             resolved_release = _resolve_spec_release_for_add(item, release, source_kind, auto_crawl_specs)
             if resolved_release is None:
                 continue

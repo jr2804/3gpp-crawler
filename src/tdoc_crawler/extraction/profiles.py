@@ -44,6 +44,13 @@ class DeviceType(StrEnum):
     MPS = "mps"  # force Apple Metal Performance Shaders
 
 
+class SpreadsheetMode(StrEnum):
+    """How to handle spreadsheet documents in extraction output."""
+
+    DATA = "data"  # extract tables/data as markdown/CSV
+    VISUAL = "visual"  # convert to PDF via LibreOffice to preserve layout/charts
+
+
 # Default profile used when none is specified
 DEFAULT_EXTRACTION_PROFILE = ExtractionProfile.DEFAULT
 
@@ -53,5 +60,6 @@ __all__ = [
     "DeviceType",
     "ExtractionProfile",
     "FiguresMode",
+    "SpreadsheetMode",
     "TablesMode",
 ]

@@ -18,6 +18,7 @@ from tdoc_crawler.utils.normalization import (
     normalize_tdoc_id,
     normalize_tdoc_ids,
     normalize_working_group_alias,
+    url_to_safe_stem,
 )
 
 
@@ -241,3 +242,51 @@ class TestExpandSpecRangesBatch:
     def test_empty_list(self) -> None:
         result = expand_spec_ranges_batch([])
         assert result == []
+
+
+class TestUrlToSafeStem:
+    """Tests for url_to_safe_stem."""
+
+    def test_https_url_generates_prefix_netloc_hash(self) -> None:
+        result = url_to_safe_stem("https://mise.jdx.dev/guide/getting-started")
+        assert result.startswith("OTHER_")
+        assert "mise.jdx.dev" in result
+
+    def test_different_urls_produce_different_stems(self) -> None:
+        url1 = "https://example.com/path/one"
+        url2 = "https://example.com/path/two"
+        result1 = url_to_safe_stem(url1)
+        result2 = url_to_safe_stem(url2)
+        assert result1 != result2
+
+    def test_same_path_different_netloc_different_stems(self) -> None:
+        url1 = "https://site1.com/page"
+        url2 = "https://site2.com/page"
+        result1 = url_to_safe_stem(url1)
+        result2 = url_to_safe_stem(url2)
+        assert result1 != result2
+
+    def test_custom_prefix(self) -> None:
+        result = url_to_safe_stem("https://example.com/doc", prefix="DOC_")
+        assert result.startswith("DOC_")
+
+    def test_empty_netloc_uses_unknown(self) -> None:
+        # urlparse treats "file:///path" as having no netloc
+        result = url_to_safe_stem("file:///local/file.txt")
+        assert "unknown" in result
+
+    def test_path_only_url(self) -> None:
+        # urlparse for just a path-like string
+        result = url_to_safe_stem("/home/user/docs/report.pdf")
+        # Should handle gracefully (netloc empty)
+        assert "OTHER_" in result
+
+    def test_url_with_port(self) -> None:
+        result = url_to_safe_stem("https://example.com:8080/path")
+        assert "example.com" in result
+
+    def test_url_with_query_params(self) -> None:
+        url = "https://example.com/search?q=test&page=1"
+        result = url_to_safe_stem(url)
+        # Only path is hashed, not query params
+        assert "example.com" in result

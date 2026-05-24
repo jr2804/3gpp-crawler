@@ -51,6 +51,8 @@ class WorkspaceMemberDict(TypedDict):
     is_active: bool
     added_at: str
     release: NotRequired[str]
+    content_type: NotRequired[str]
+    original_url: NotRequired[str]
 
 
 class WorkspaceMetadataDict(TypedDict, total=False):
@@ -119,6 +121,8 @@ class WorkspaceMember:
     is_active: bool = True
     added_at: str = field(default_factory=lambda: utc_now().isoformat())
     release: str | None = None
+    content_type: str = ""
+    original_url: str = ""
 
     def to_dict(self) -> WorkspaceMemberDict:
         result: WorkspaceMemberDict = {
@@ -131,6 +135,10 @@ class WorkspaceMember:
         }
         if self.release:
             result["release"] = self.release
+        if self.content_type:
+            result["content_type"] = self.content_type
+        if self.original_url:
+            result["original_url"] = self.original_url
         return result
 
     @classmethod
@@ -143,6 +151,8 @@ class WorkspaceMember:
             is_active=data.get("is_active", True),
             added_at=data.get("added_at", utc_now().isoformat()),
             release=data.get("release"),
+            content_type=data.get("content_type", ""),
+            original_url=data.get("original_url", ""),
         )
 
 
