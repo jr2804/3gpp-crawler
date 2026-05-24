@@ -107,9 +107,10 @@ To use the fallback, configure at least one provider in your environment (see `.
 |----------|----------|------------|-----------------|
 | CloudConvert | `CLOUDCONVERT_API_KEY` | 300/mo | None |
 | Adobe | `ADOBE_CLIENT_ID` + `ADOBE_CLIENT_SECRET` | 500/mo | None |
+| ApyHub | `APYHUB_API_KEY` | 150/mo | None |
 | Zamzar | `ZAMZAR_API_KEY` | 100/mo | 1 MB |
 
-Providers are tried in failover order: CloudConvert → Adobe → Zamzar.
+Providers are tried in failover order: CloudConvert → Adobe → ApyHub → Zamzar.
 
 ```bash
 # Disable fallback (LibreOffice only)
