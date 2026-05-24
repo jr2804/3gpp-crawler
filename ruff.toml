@@ -54,8 +54,10 @@ ignore = [
     "ANN003",
     "ANN204",  # dynamically typed typed expressions
     "ANN401",
+    "PLR0911",  # too-many-return-statements
     "PLR0912",  # too-many-branches
     "PLR0913",
+    "PLR0915",  # too-many-statements
     "PLR2004", # magic value used in comparison
     "PT028",   # test function parameter has default argument
 ]
