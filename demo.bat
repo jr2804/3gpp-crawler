@@ -26,6 +26,8 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 
 :: add all tdocs from agenda items matching '*atias*' (from all meetings)
 3gpp-crawler workspace add --agenda "*atias*"
+3gpp-crawler workspace add --title "*split render*"
+3gpp-crawler workspace add --source "*audio swg*"
 
 :: add specs in different versions/releases
 :: ... latest (default; currently 19.1.0)
@@ -39,6 +41,8 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 :: duplicates should give a warning
 3gpp-crawler workspace add 26260 --kind spec --release 18.1
 
+3gpp-crawler workspace add 26250:26258 --kind spec
+
 :: overview
 3gpp-crawler workspace members
 
@@ -46,3 +50,4 @@ tdoc-crawler query --agenda "*atias*" --start-date 2018
 :: 3gpp-crawler workspace process atias --profile pdf-only
 3gpp-crawler workspace process atias --profile markdown-only --docx-direct --device cuda
 :: 3gpp-crawler workspace process atias --profile default
+:: 3gpp-crawler workspace process atias --profile advanced --device cuda
