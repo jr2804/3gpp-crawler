@@ -18,89 +18,6 @@ from tdoc_crawler.specs.models import SpecQueryResult
 console = get_console()
 
 
-def extract_agenda_item_short(text: str | None) -> str | None:
-    """Extract short form of agenda item text.
-
-    If the text is of the form "<text> (<anything>)",
-    extracts the part before the opening parenthesis. Otherwise returns the original text.
-
-    Args:
-        text: The full agenda item text
-
-    Returns:
-        Shortened text before parentheses, or original if no match
-    """
-    if not text:
-        return None
-    # Match everything before the first opening parenthesis
-    match = re.match(r"^([^()]+)\s*\(", text)
-    if match:
-        return match.group(1).strip()
-    return text
-
-
-def format_meeting_date_range(start_date: date | None, end_date: date | None) -> str | None:
-    """Format meeting date range as "DD-DD Mon YYYY" or "DD Mon - DD Mon YYYY".
-
-    Args:
-        start_date: Meeting start date
-        end_date: Meeting end date
-
-    Returns:
-        Formatted date range string, or None if dates not available
-    """
-    if not start_date or not end_date:
-        return None
-
-    months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-    ]
-
-    start_day = start_date.day
-    end_day = end_date.day
-    start_month = months[start_date.month - 1]
-    end_month = months[end_date.month - 1]
-    year = start_date.year
-
-    # Same month: "01-05 Feb 2026"
-    if start_date.month == end_date.month:
-        return f"{start_day:02d}-{end_day:02d} {start_month} {year}"
-
-    # Different months: "30 Jan - 02 Feb 2024"
-    return f"{start_day:02d} {start_month} - {end_day:02d} {end_month} {year}"
-
-
-def format_meeting_location_and_dates(meeting: MeetingMetadata | None) -> str:
-    """Format meeting location and date range for TDoc output.
-
-    Args:
-        meeting: Meeting metadata, or None if not available
-
-    Returns:
-        Formatted string with location and dates, or "n/a" if unavailable
-    """
-    if meeting is None:
-        return "n/a"
-
-    location = meeting.location or "n/a"
-    date_range = format_meeting_date_range(meeting.start_date, meeting.end_date)
-
-    if date_range:
-        return f"{location}, {date_range}"
-    return location
-
-
 def tdoc_to_dict(
     result: TDocMetadata,
     meeting_map: dict[int, MeetingMetadata] | None = None,
@@ -179,6 +96,89 @@ def print_tdoc_table(
         ],
         console=console,
     )
+
+
+def extract_agenda_item_short(text: str | None) -> str | None:
+    """Extract short form of agenda item text.
+
+    If the text is of the form "<text> (<anything>)",
+    extracts the part before the opening parenthesis. Otherwise returns the original text.
+
+    Args:
+        text: The full agenda item text
+
+    Returns:
+        Shortened text before parentheses, or original if no match
+    """
+    if not text:
+        return None
+    # Match everything before the first opening parenthesis
+    match = re.match(r"^([^()]+)\s*\(", text)
+    if match:
+        return match.group(1).strip()
+    return text
+
+
+def format_meeting_location_and_dates(meeting: MeetingMetadata | None) -> str:
+    """Format meeting location and date range for TDoc output.
+
+    Args:
+        meeting: Meeting metadata, or None if not available
+
+    Returns:
+        Formatted string with location and dates, or "n/a" if unavailable
+    """
+    if meeting is None:
+        return "n/a"
+
+    location = meeting.location or "n/a"
+    date_range = format_meeting_date_range(meeting.start_date, meeting.end_date)
+
+    if date_range:
+        return f"{location}, {date_range}"
+    return location
+
+
+def format_meeting_date_range(start_date: date | None, end_date: date | None) -> str | None:
+    """Format meeting date range as "DD-DD Mon YYYY" or "DD Mon - DD Mon YYYY".
+
+    Args:
+        start_date: Meeting start date
+        end_date: Meeting end date
+
+    Returns:
+        Formatted date range string, or None if dates not available
+    """
+    if not start_date or not end_date:
+        return None
+
+    months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
+
+    start_day = start_date.day
+    end_day = end_date.day
+    start_month = months[start_date.month - 1]
+    end_month = months[end_date.month - 1]
+    year = start_date.year
+
+    # Same month: "01-05 Feb 2026"
+    if start_date.month == end_date.month:
+        return f"{start_day:02d}-{end_day:02d} {start_month} {year}"
+
+    # Different months: "30 Jan - 02 Feb 2024"
+    return f"{start_day:02d} {start_month} - {end_day:02d} {end_month} {year}"
 
 
 def print_meeting_table(results: list[MeetingMetadata]) -> None:

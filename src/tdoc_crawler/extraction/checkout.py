@@ -30,93 +30,6 @@ from tdoc_crawler.workspaces import (
 _logger = get_logger(__name__)
 
 
-def _is_url(value: str) -> bool:
-    """Return True if value looks like an HTTP(S) URL."""
-    try:
-        parsed = urlparse(value)
-        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
-    except Exception:
-        return False
-
-
-async def _sniff_content_type(url: str) -> str:
-    """Sniff Content-Type via HEAD request."""
-    try:
-        with create_cached_session() as session:
-            response = session.head(url, allow_redirects=True, timeout=30)
-            response.raise_for_status()
-            content_type = response.headers.get("content-type", "application/octet-stream")
-            return content_type.split(";")[0].strip()
-    except Exception:
-        _logger.warning("HEAD request failed for %s; falling back to generic type", url)
-        return "application/octet-stream"
-
-
-def _guess_extension(content_type: str) -> str:
-    """Guess a file extension from a MIME content type."""
-    mapping = {
-        "text/html": ".html",
-        "text/plain": ".txt",
-        "text/markdown": ".md",
-        "application/pdf": ".pdf",
-        "application/msword": ".doc",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-        "application/vnd.ms-powerpoint": ".ppt",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-        "application/vnd.ms-excel": ".xls",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-    }
-    return mapping.get(content_type.lower(), "")
-
-
-async def _checkout_other(
-    item: str,
-    checkout_dir: Path,
-    checkout_prefix: str = "OTHER_",
-) -> Path | None:
-    """Checkout an OTHER source (local file or URL) into the checkout directory.
-
-    Args:
-        item: File path or URL to checkout.
-        checkout_dir: Base checkout directory.
-        checkout_prefix: Prefix for the checkout subdirectory name.
-
-    Returns:
-        Path to the checked-out file, or None on failure.
-    """
-    if _is_url(item):
-        content_type = await _sniff_content_type(item)
-        ext = _guess_extension(content_type) or ".bin"
-        safe_stem = url_to_safe_stem(item, prefix=checkout_prefix)
-        dest_dir = checkout_dir / "other" / safe_stem
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_file = dest_dir / f"index{ext}"
-
-        with create_cached_session() as session:
-            try:
-                response = session.get(item, timeout=60)
-                response.raise_for_status()
-                dest_file.write_bytes(response.content)
-            except Exception:
-                _logger.warning("Download failed for %s", item)
-                return None
-
-        return dest_file
-
-    # Local file path
-    source = Path(item).expanduser().resolve()
-    if not source.exists():
-        _logger.error("Local file not found: %s", item)
-        return None
-
-    safe_stem = url_to_safe_stem(str(source), prefix=checkout_prefix)
-    dest_dir = checkout_dir / "other" / safe_stem
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_file = dest_dir / source.name
-    shutil.copy2(source, dest_file)
-    return dest_file
-
-
 async def checkout_single_item(
     *,
     item: str,
@@ -200,6 +113,93 @@ async def checkout_single_item(
     member.content_type = content_type
     member.original_url = original_url
     return member, None
+
+
+async def _checkout_other(
+    item: str,
+    checkout_dir: Path,
+    checkout_prefix: str = "OTHER_",
+) -> Path | None:
+    """Checkout an OTHER source (local file or URL) into the checkout directory.
+
+    Args:
+        item: File path or URL to checkout.
+        checkout_dir: Base checkout directory.
+        checkout_prefix: Prefix for the checkout subdirectory name.
+
+    Returns:
+        Path to the checked-out file, or None on failure.
+    """
+    if _is_url(item):
+        content_type = await _sniff_content_type(item)
+        ext = _guess_extension(content_type) or ".bin"
+        safe_stem = url_to_safe_stem(item, prefix=checkout_prefix)
+        dest_dir = checkout_dir / "other" / safe_stem
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_file = dest_dir / f"index{ext}"
+
+        with create_cached_session() as session:
+            try:
+                response = session.get(item, timeout=60)
+                response.raise_for_status()
+                dest_file.write_bytes(response.content)
+            except Exception:
+                _logger.warning("Download failed for %s", item)
+                return None
+
+        return dest_file
+
+    # Local file path
+    source = Path(item).expanduser().resolve()
+    if not source.exists():
+        _logger.error("Local file not found: %s", item)
+        return None
+
+    safe_stem = url_to_safe_stem(str(source), prefix=checkout_prefix)
+    dest_dir = checkout_dir / "other" / safe_stem
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_file = dest_dir / source.name
+    shutil.copy2(source, dest_file)
+    return dest_file
+
+
+def _is_url(value: str) -> bool:
+    """Return True if value looks like an HTTP(S) URL."""
+    try:
+        parsed = urlparse(value)
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    except Exception:
+        return False
+
+
+async def _sniff_content_type(url: str) -> str:
+    """Sniff Content-Type via HEAD request."""
+    try:
+        with create_cached_session() as session:
+            response = session.head(url, allow_redirects=True, timeout=30)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "application/octet-stream")
+            return content_type.split(";")[0].strip()
+    except Exception:
+        _logger.warning("HEAD request failed for %s; falling back to generic type", url)
+        return "application/octet-stream"
+
+
+def _guess_extension(content_type: str) -> str:
+    """Guess a file extension from a MIME content type."""
+    mapping = {
+        "text/html": ".html",
+        "text/plain": ".txt",
+        "text/markdown": ".md",
+        "application/pdf": ".pdf",
+        "application/msword": ".doc",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+        "application/vnd.ms-powerpoint": ".ppt",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+        "application/vnd.ms-excel": ".xls",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    }
+    return mapping.get(content_type.lower(), "")
 
 
 __all__ = ["checkout_single_item"]

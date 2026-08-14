@@ -77,17 +77,35 @@ def config_show(
     ConfigExporter()
 
 
-def _check_dir_exists(target_dir: Path) -> tuple[bool, str]:
-    """Check if a directory exists or can be created."""
-    if target_dir.exists():
-        return True, ""
-    try:
-        target_dir.parent.mkdir(parents=True, exist_ok=True)
-        return True, " (will be created)"
-    except PermissionError:
-        return False, " (permission denied)"
-    except OSError as e:
-        return False, f" ({e})"
+@config_app.command("validate", rich_help_panel=HELP_PANEL_CONFIG)
+def config_validate(
+    file: ConfigValidateFileOption = None,
+    strict: ConfigValidateStrictOption = False,
+) -> None:
+    """Validate configuration files.
+
+    Exit codes:
+    - 0: All valid
+    - 1: Syntax error
+    - 2: Validation error (bad values)
+    - 3: Warnings only (ok to proceed, or --strict treats warnings as errors)
+    """
+    if file:
+        config = _validate_from_file(file)
+    else:
+        try:
+            config = ThreeGPPConfig.from_settings()
+        except ValidationError as e:
+            rprint("[red]Validation error in discovered config:[/red]")
+            for error in e.errors():
+                rprint(f"  {error['loc']}: {error['msg']}")
+            raise typer.Exit(2)
+        except Exception as e:
+            rprint(f"[red]Error loading config:[/red] {e}")
+            raise typer.Exit(1)
+
+    issues = _validate_config_values(config)
+    _display_validation_results(issues, strict)
 
 
 def _validate_config_values(config: ThreeGPPConfig) -> list[tuple[str, str]]:
@@ -131,6 +149,19 @@ def _validate_config_values(config: ThreeGPPConfig) -> list[tuple[str, str]]:
         issues.append(("warning", "crawl.working_group not set (no filter applied)"))
 
     return issues
+
+
+def _check_dir_exists(target_dir: Path) -> tuple[bool, str]:
+    """Check if a directory exists or can be created."""
+    if target_dir.exists():
+        return True, ""
+    try:
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        return True, " (will be created)"
+    except PermissionError:
+        return False, " (permission denied)"
+    except OSError as e:
+        return False, f" ({e})"
 
 
 def _validate_from_file(file: Path) -> ThreeGPPConfig:
@@ -192,37 +223,6 @@ def _display_validation_results(issues: list[tuple[str, str]], strict: bool) -> 
 
     rprint("[yellow]Configuration is valid (with warnings)[/yellow]")
     raise typer.Exit(3)
-
-
-@config_app.command("validate", rich_help_panel=HELP_PANEL_CONFIG)
-def config_validate(
-    file: ConfigValidateFileOption = None,
-    strict: ConfigValidateStrictOption = False,
-) -> None:
-    """Validate configuration files.
-
-    Exit codes:
-    - 0: All valid
-    - 1: Syntax error
-    - 2: Validation error (bad values)
-    - 3: Warnings only (ok to proceed, or --strict treats warnings as errors)
-    """
-    if file:
-        config = _validate_from_file(file)
-    else:
-        try:
-            config = ThreeGPPConfig.from_settings()
-        except ValidationError as e:
-            rprint("[red]Validation error in discovered config:[/red]")
-            for error in e.errors():
-                rprint(f"  {error['loc']}: {error['msg']}")
-            raise typer.Exit(2)
-        except Exception as e:
-            rprint(f"[red]Error loading config:[/red] {e}")
-            raise typer.Exit(1)
-
-    issues = _validate_config_values(config)
-    _display_validation_results(issues, strict)
 
 
 @config_app.command("docs", rich_help_panel=HELP_PANEL_CONFIG)

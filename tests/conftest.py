@@ -26,6 +26,46 @@ def _reset_cache_manager() -> None:
 
 
 @pytest.fixture
+def populated_db(
+    test_db_path: Path,
+    sample_meetings: list[dict[str, object]],
+    sample_tdocs: list[TDocMetadata],
+) -> TDocDatabase:
+    """Create and populate a test database.
+
+    Args:
+        test_db_path: Path to test database
+        sample_meetings: Sample meeting metadata
+        sample_tdocs: Sample TDoc metadata
+
+    Returns:
+        Populated TDocDatabase instance
+    """
+
+    async def _populate() -> None:
+        async with TDocDatabase(test_db_path) as db:
+            await insert_sample_meetings_async(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+
+    asyncio.run(_populate())
+    return TDocDatabase(test_db_path)
+
+
+@pytest.fixture
+def test_db_path(test_cache_dir: Path) -> Path:
+    """Get test database path.
+
+    Args:
+        test_cache_dir: Test cache directory
+
+    Returns:
+        Path to test database
+    """
+    return PathConfig(cache_dir=test_cache_dir).db_file
+
+
+@pytest.fixture
 def test_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a temporary cache directory for tests.
 
@@ -42,19 +82,6 @@ def test_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     cache_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("TDC_CACHE_DIR", str(cache_dir))
     return cache_dir
-
-
-@pytest.fixture
-def test_db_path(test_cache_dir: Path) -> Path:
-    """Get test database path.
-
-    Args:
-        test_cache_dir: Test cache directory
-
-    Returns:
-        Path to test database
-    """
-    return PathConfig(cache_dir=test_cache_dir).db_file
 
 
 @pytest.fixture
@@ -169,31 +196,9 @@ def sample_meetings() -> list[dict[str, object]]:
     ]
 
 
-@pytest.fixture
-def populated_db(
-    test_db_path: Path,
-    sample_meetings: list[dict[str, object]],
-    sample_tdocs: list[TDocMetadata],
-) -> TDocDatabase:
-    """Create and populate a test database.
-
-    Args:
-        test_db_path: Path to test database
-        sample_meetings: Sample meeting metadata
-        sample_tdocs: Sample TDoc metadata
-
-    Returns:
-        Populated TDocDatabase instance
-    """
-
-    async def _populate() -> None:
-        async with TDocDatabase(test_db_path) as db:
-            await insert_sample_meetings_async(db, sample_meetings)
-            for tdoc in sample_tdocs:
-                _ = await db.upsert_tdoc(tdoc)
-
-    asyncio.run(_populate())
-    return TDocDatabase(test_db_path)
+def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
+    """Synchronous compatibility wrapper around async meeting insertion helper."""
+    asyncio.run(insert_sample_meetings_async(database, meetings))
 
 
 async def insert_sample_meetings_async(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
@@ -248,11 +253,6 @@ async def insert_sample_meetings_async(database: MeetingDatabase, meetings: list
 
         # Use the proper database API instead of raw SQL
         _ = await database.upsert_meeting(meeting_metadata)
-
-
-def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
-    """Synchronous compatibility wrapper around async meeting insertion helper."""
-    asyncio.run(insert_sample_meetings_async(database, meetings))
 
 
 if __name__ == "__main__":

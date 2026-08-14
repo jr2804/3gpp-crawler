@@ -13,29 +13,11 @@ from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError
 
 
-def _load_env_file() -> None:
-    """Load environment variables from .env file if it exists."""
-    env_file = Path(__file__).parent.parent / ".env"
-    if env_file.exists():
-        with open(env_file) as f:
-            for raw_line in f:
-                line = raw_line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, value = line.split("=", 1)
-                    os.environ[key.strip()] = value.strip()
-
-
-def _get_credentials() -> PortalCredentials | None:
-    """Get credentials from environment, loading .env file first."""
-    _load_env_file()
-
-    username = os.getenv("TDC_EOL_USERNAME")
-    password = os.getenv("TDC_EOL_PASSWORD")
-
-    if not username or not password:
-        return None
-
-    return PortalCredentials(username=username, password=password)
+@pytest.fixture(autouse=True)
+def check_internet() -> None:
+    """Fixture to check internet connection before running tests."""
+    if not _check_internet_connection():
+        pytest.skip("No internet connection available")
 
 
 def _check_internet_connection() -> bool:
@@ -46,22 +28,6 @@ def _check_internet_connection() -> bool:
         return False
     else:
         return True
-
-
-@pytest.fixture
-def credentials() -> PortalCredentials:
-    """Fixture to provide credentials, skipping test if not available."""
-    creds = _get_credentials()
-    if not creds:
-        pytest.skip("Missing TDC_EOL_USERNAME or TDC_EOL_PASSWORD environment variables")
-    return creds
-
-
-@pytest.fixture(autouse=True)
-def check_internet() -> None:
-    """Fixture to check internet connection before running tests."""
-    if not _check_internet_connection():
-        pytest.skip("No internet connection available")
 
 
 def test_fetch_tdoc_metadata_success(credentials: PortalCredentials) -> None:
@@ -107,3 +73,37 @@ def test_fetch_tdoc_metadata_invalid_credentials() -> None:
 
     with pytest.raises(PortalAuthenticationError), PortalClient(credentials=invalid_credentials, timeout=30) as client:
         client.fetch_tdoc_metadata(tdoc_id)
+
+
+@pytest.fixture
+def credentials() -> PortalCredentials:
+    """Fixture to provide credentials, skipping test if not available."""
+    creds = _get_credentials()
+    if not creds:
+        pytest.skip("Missing TDC_EOL_USERNAME or TDC_EOL_PASSWORD environment variables")
+    return creds
+
+
+def _get_credentials() -> PortalCredentials | None:
+    """Get credentials from environment, loading .env file first."""
+    _load_env_file()
+
+    username = os.getenv("TDC_EOL_USERNAME")
+    password = os.getenv("TDC_EOL_PASSWORD")
+
+    if not username or not password:
+        return None
+
+    return PortalCredentials(username=username, password=password)
+
+
+def _load_env_file() -> None:
+    """Load environment variables from .env file if it exists."""
+    env_file = Path(__file__).parent.parent / ".env"
+    if env_file.exists():
+        with open(env_file) as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ[key.strip()] = value.strip()

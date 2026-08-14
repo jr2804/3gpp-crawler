@@ -12,17 +12,6 @@ from convert_lo.exceptions import SofficeNotFoundError
 _VALID_BINARY_NAMES = {"soffice", "soffice.exe", "soffice.bin"}
 
 
-def _is_valid_soffice(candidate: Path) -> bool:
-    """Validate that a candidate path is a plausible soffice binary.
-
-    Checks that the filename matches expected binary names and that no
-    path traversal components (``..``) are present.
-    """
-    if candidate.name not in _VALID_BINARY_NAMES:
-        return False
-    return ".." not in candidate.parts
-
-
 def find_soffice() -> Path:
     """Locate the LibreOffice soffice executable.
 
@@ -61,3 +50,14 @@ def find_soffice() -> Path:
 
     msg = "LibreOffice soffice executable not found"
     raise SofficeNotFoundError(msg)
+
+
+def _is_valid_soffice(candidate: Path) -> bool:
+    """Validate that a candidate path is a plausible soffice binary.
+
+    Checks that the filename matches expected binary names and that no
+    path traversal components (``..``) are present.
+    """
+    if candidate.name not in _VALID_BINARY_NAMES:
+        return False
+    return ".." not in candidate.parts

@@ -4,6 +4,27 @@ from __future__ import annotations
 
 from enum import StrEnum, auto
 
+UNSUPPORTED_CONVERSIONS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("pdf", "doc"),
+        ("pdf", "docx"),
+        ("pdf", "odt"),
+        ("pdf", "rtf"),
+        ("pdf", "txt"),
+        ("pdf", "md"),
+        ("pdf", "epub"),
+        ("pdf", "ods"),
+        ("pdf", "xls"),
+        ("pdf", "xlsx"),
+        ("pdf", "csv"),
+        ("pdf", "odp"),
+        ("pdf", "ppt"),
+        ("pdf", "pptx"),
+        ("pdf", "odg"),
+        ("pdf", "svg"),
+    }
+)
+
 
 class LibreOfficeFormat(StrEnum):
     """Supported LibreOffice output formats."""
@@ -34,25 +55,3 @@ class LibreOfficeFormat(StrEnum):
     ODG = auto()
     SVG = auto()
     FODG = auto()
-
-
-UNSUPPORTED_CONVERSIONS: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("pdf", "doc"),
-        ("pdf", "docx"),
-        ("pdf", "odt"),
-        ("pdf", "rtf"),
-        ("pdf", "txt"),
-        ("pdf", "md"),
-        ("pdf", "epub"),
-        ("pdf", "ods"),
-        ("pdf", "xls"),
-        ("pdf", "xlsx"),
-        ("pdf", "csv"),
-        ("pdf", "odp"),
-        ("pdf", "ppt"),
-        ("pdf", "pptx"),
-        ("pdf", "odg"),
-        ("pdf", "svg"),
-    }
-)

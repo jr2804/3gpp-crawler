@@ -10,6 +10,23 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
+ERROR_INDICATORS: tuple[str, ...] = (
+    "not found",
+    "does not exist",
+    "invalid",
+    "no document",
+)
+
+MANDATORY_FIELDS: tuple[str, ...] = (
+    "meeting",
+    "title",
+    "contact",
+    "source",
+    "tdoc_type",
+    "for",
+    "agenda_item_nbr",
+)
+
 logger = get_logger(__name__)
 
 
@@ -48,103 +65,6 @@ class PortalParser:
 
 class PortalParsingError(Exception):
     """Raised when portal page parsing fails."""
-
-
-ERROR_INDICATORS: tuple[str, ...] = (
-    "not found",
-    "does not exist",
-    "invalid",
-    "no document",
-)
-
-MANDATORY_FIELDS: tuple[str, ...] = (
-    "meeting",
-    "title",
-    "contact",
-    "source",
-    "tdoc_type",
-    "for",
-    "agenda_item_nbr",
-)
-
-
-def _validate_page_content(soup: BeautifulSoup, tdoc_id: str) -> None:
-    """Raise when portal HTML looks like a missing-document page."""
-    page_text = soup.get_text().lower()
-    if any(indicator in page_text for indicator in ERROR_INDICATORS):
-        logger.warning("TDoc %s not found in portal", tdoc_id)
-        msg = f"TDoc {tdoc_id} not found in portal"
-        raise PortalParsingError(msg)
-
-
-def _get_metadata_table(soup: BeautifulSoup, tdoc_id: str) -> Tag:
-    """Get TDoc metadata table from portal HTML."""
-    table = soup.find("table", {"class": "ultimate3gpp", "id": "tableTdocGeneralTabView"})
-    if not table:
-        logger.warning("Metadata table not found for TDoc %s", tdoc_id)
-        msg = f"Metadata table not found for TDoc {tdoc_id}"
-        raise PortalParsingError(msg)
-    return table
-
-
-def _normalize_label(cells: list[Tag]) -> str | None:
-    """Extract normalized key from first column label."""
-    label_cell = cells[0].get_text(strip=True)
-    if not label_cell or not label_cell.endswith(":"):
-        return None
-    label = label_cell.rstrip(":").strip()
-    return label.lower().replace(" ", "_")
-
-
-def _normalize_value(cells: list[Tag], label_key: str) -> str | None:
-    """Extract normalized value from second column with status cleanup."""
-    value = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-    value = value.strip() if value else None
-    if not value:
-        return None
-    if label_key == "status":
-        bracket_pos = value.find("(")
-        if bracket_pos != -1:
-            return value[:bracket_pos].strip()
-    return value
-
-
-def _store_agenda_fields(metadata: dict[str, str | None], value: str) -> None:
-    """Split agenda item into number and text if separator is present."""
-    parts = value.split(" - ", 1)
-    if len(parts) == 2:
-        metadata["agenda_item_nbr"] = parts[0].strip()
-        metadata["agenda_item_text"] = parts[1].strip()
-        return
-    metadata["agenda_item_nbr"] = value
-
-
-def _parse_metadata_table(table: Tag) -> dict[str, str | None]:
-    """Parse metadata rows from portal table."""
-    metadata: dict[str, str | None] = {}
-    for row in table.find_all("tr"):
-        cells = row.find_all("td")
-        if len(cells) < 2:
-            continue
-        label_key = _normalize_label(cells)
-        if label_key is None:
-            continue
-        value = _normalize_value(cells, label_key)
-        if value is None:
-            continue
-        metadata[label_key] = value
-        if label_key == "agenda_item":
-            _store_agenda_fields(metadata, value)
-    return metadata
-
-
-def _validate_mandatory_fields(metadata: dict[str, str | None], tdoc_id: str) -> None:
-    """Ensure all required portal metadata fields are available."""
-    missing_fields = [field for field in MANDATORY_FIELDS if field not in metadata or not metadata[field]]
-    if missing_fields:
-        error_msg = f"Missing mandatory fields for TDoc {tdoc_id}: {', '.join(missing_fields)}"
-        logger.warning(error_msg)
-        raise PortalParsingError(error_msg)
 
 
 def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> TDocMetadata:
@@ -198,6 +118,85 @@ def parse_tdoc_portal_page(html: str, tdoc_id: str, url: str | None = None) -> T
         validated=True,
         validation_failed=False,
     )
+
+
+def _validate_page_content(soup: BeautifulSoup, tdoc_id: str) -> None:
+    """Raise when portal HTML looks like a missing-document page."""
+    page_text = soup.get_text().lower()
+    if any(indicator in page_text for indicator in ERROR_INDICATORS):
+        logger.warning("TDoc %s not found in portal", tdoc_id)
+        msg = f"TDoc {tdoc_id} not found in portal"
+        raise PortalParsingError(msg)
+
+
+def _get_metadata_table(soup: BeautifulSoup, tdoc_id: str) -> Tag:
+    """Get TDoc metadata table from portal HTML."""
+    table = soup.find("table", {"class": "ultimate3gpp", "id": "tableTdocGeneralTabView"})
+    if not table:
+        logger.warning("Metadata table not found for TDoc %s", tdoc_id)
+        msg = f"Metadata table not found for TDoc {tdoc_id}"
+        raise PortalParsingError(msg)
+    return table
+
+
+def _parse_metadata_table(table: Tag) -> dict[str, str | None]:
+    """Parse metadata rows from portal table."""
+    metadata: dict[str, str | None] = {}
+    for row in table.find_all("tr"):
+        cells = row.find_all("td")
+        if len(cells) < 2:
+            continue
+        label_key = _normalize_label(cells)
+        if label_key is None:
+            continue
+        value = _normalize_value(cells, label_key)
+        if value is None:
+            continue
+        metadata[label_key] = value
+        if label_key == "agenda_item":
+            _store_agenda_fields(metadata, value)
+    return metadata
+
+
+def _normalize_label(cells: list[Tag]) -> str | None:
+    """Extract normalized key from first column label."""
+    label_cell = cells[0].get_text(strip=True)
+    if not label_cell or not label_cell.endswith(":"):
+        return None
+    label = label_cell.rstrip(":").strip()
+    return label.lower().replace(" ", "_")
+
+
+def _normalize_value(cells: list[Tag], label_key: str) -> str | None:
+    """Extract normalized value from second column with status cleanup."""
+    value = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+    value = value.strip() if value else None
+    if not value:
+        return None
+    if label_key == "status":
+        bracket_pos = value.find("(")
+        if bracket_pos != -1:
+            return value[:bracket_pos].strip()
+    return value
+
+
+def _store_agenda_fields(metadata: dict[str, str | None], value: str) -> None:
+    """Split agenda item into number and text if separator is present."""
+    parts = value.split(" - ", 1)
+    if len(parts) == 2:
+        metadata["agenda_item_nbr"] = parts[0].strip()
+        metadata["agenda_item_text"] = parts[1].strip()
+        return
+    metadata["agenda_item_nbr"] = value
+
+
+def _validate_mandatory_fields(metadata: dict[str, str | None], tdoc_id: str) -> None:
+    """Ensure all required portal metadata fields are available."""
+    missing_fields = [field for field in MANDATORY_FIELDS if field not in metadata or not metadata[field]]
+    if missing_fields:
+        error_msg = f"Missing mandatory fields for TDoc {tdoc_id}: {', '.join(missing_fields)}"
+        logger.warning(error_msg)
+        raise PortalParsingError(error_msg)
 
 
 __all__ = ["PortalParser", "PortalParsingError", "parse_tdoc_portal_page"]

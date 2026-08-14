@@ -35,6 +35,80 @@ def _get_registry() -> WorkspaceRegistry:
     return WorkspaceRegistry.load()
 
 
+async def checkout_tdoc_to_workspace(
+    tdoc_id: str,
+    checkout_base: Path,
+    db_file: Path | None = None,
+) -> Path | None:
+    """Checkout a TDoc and return its checkout path.
+
+    Uses a fallback chain to resolve TDoc metadata:
+    1. Check local database for existing metadata
+    2. Try WhatTheSpec API (unauthenticated)
+
+    Args:
+        tdoc_id: TDoc identifier.
+        checkout_base: Base checkout directory.
+        db_file: Optional path to database file.
+
+    Returns:
+        Path to the checked out TDoc folder, or None if checkout failed.
+    """
+    normalized_id = normalize_tdoc_id(tdoc_id)
+    if normalized_id is None:
+        return None
+
+    # Check if already checked out
+    existing = resolve_tdoc_checkout_path(normalized_id, checkout_base)
+    if existing is not None:
+        # Verify the folder has actual document files
+        has_files = any(
+            f.is_file() and f.parent.name != ".ai" and not any(part == ".ai" for part in f.relative_to(existing).parts) for f in existing.rglob("*")
+        )
+        if has_files:
+            _logger.debug("TDoc %s already checked out at %s", normalized_id, existing)
+            return existing
+        _logger.info(
+            "TDoc %s folder exists but has no document files, re-downloading...",
+            normalized_id,
+        )
+
+    # Resolve metadata: Step 1 — database
+    metadata: TDocMetadata | None = None
+    db_path = db_file if db_file is not None else PathConfig().db_file
+    if db_path is not None and db_path.exists():
+        try:
+            async with TDocDatabase(db_path) as db:
+                metadata = await db._get_tdoc(normalized_id)
+        except (OSError, ValueError) as exc:
+            _logger.debug("Database lookup failed for %s: %s", normalized_id, exc)
+
+    # Resolve metadata: Step 2 — WhatTheSpec
+    if metadata is None:
+        try:
+            metadata = resolve_via_whatthespec(normalized_id)
+            if metadata is not None:
+                _logger.info("Resolved TDoc %s via WhatTheSpec API", normalized_id)
+        except (OSError, ValueError, requests.RequestException) as exc:
+            _logger.debug("WhatTheSpec lookup failed for %s: %s", normalized_id, exc)
+
+    if metadata is None:
+        _logger.warning("Could not resolve TDoc %s via any source", normalized_id)
+        return None
+
+    # Checkout the TDoc
+    try:
+        checkout_path = checkout_tdoc(metadata, checkout_base)
+        if checkout_path is not None and checkout_path.exists():
+            _logger.info("Checked out TDoc %s to %s", normalized_id, checkout_path)
+            return checkout_path
+        _logger.warning("Checkout returned invalid path for TDoc %s", normalized_id)
+        return None
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        _logger.warning("Error checking out TDoc %s: %s", normalized_id, exc)
+        return None
+
+
 def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None:
     """Resolve a TDoc ID to its checkout path.
 
@@ -55,6 +129,67 @@ def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None
         if tdoc_path.exists() and tdoc_path.is_dir():
             return tdoc_path
     return None
+
+
+async def checkout_spec_to_workspace(
+    spec_number: str,
+    checkout_base: Path,
+    release: str = "latest",
+    db_file: Path | None = None,
+) -> Path | None:
+    """Checkout a spec and return its checkout path.
+
+    Auto-crawls if spec not in database.
+
+    Args:
+        spec_number: Spec number (e.g., "26260" for TS 26.260).
+        checkout_base: Base checkout directory.
+        release: Spec release version (e.g., "19", "19.0.0") or "latest".
+        db_file: Optional path to database file.
+
+    Returns:
+        Path to the checked out spec folder, or None if checkout failed.
+    """
+    normalized = normalize_spec_number(spec_number)
+    requested_release = release.strip()
+
+    db_path = db_file if db_file is not None else PathConfig().db_file
+
+    resolved_release, _ = await resolve_spec_release_from_db(
+        normalized,
+        requested_release,
+        db_file=db_path,
+    )
+
+    # Checkout (or re-use existing) — SpecDownloads extracts to version-
+    # specific subdirectories (e.g. 26260-j10/ vs 26260-i10/) so different
+    # releases coexist under the same parent.  No heuristic cache scan.
+    try:
+        if db_path is not None and db_path.exists():
+            async with SpecDatabase(db_path) as db:
+                versions = await db.get_spec_versions(normalized)
+                if not versions:
+                    _logger.info("Spec %s not in database, auto-crawling...", normalized)
+                    sources = build_default_spec_sources()
+                    await db.crawl_specs([normalized], resolved_release, sources)
+
+        # Use checkout_specs_async to download the spec files
+        async with SpecDatabase(db_path) as db:
+            checkout_paths = await checkout_specs_async(
+                [normalized],
+                checkout_base,
+                db,
+                release=resolved_release,
+                doc_only=False,
+            )
+            if checkout_paths:
+                return checkout_paths[0]
+
+        _logger.warning("Checkout failed for spec %s (release %s)", normalized, requested_release)
+        return None
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        _logger.warning("Error checking out spec %s: %s", normalized, exc)
+        return None
 
 
 async def resolve_spec_release_from_db(
@@ -192,141 +327,6 @@ async def _auto_crawl_and_resolve(
     except Exception as exc:
         _logger.debug("Auto-crawl failed for spec %s: %s", normalized_spec, exc)
         return requested_release, []
-
-
-async def checkout_tdoc_to_workspace(
-    tdoc_id: str,
-    checkout_base: Path,
-    db_file: Path | None = None,
-) -> Path | None:
-    """Checkout a TDoc and return its checkout path.
-
-    Uses a fallback chain to resolve TDoc metadata:
-    1. Check local database for existing metadata
-    2. Try WhatTheSpec API (unauthenticated)
-
-    Args:
-        tdoc_id: TDoc identifier.
-        checkout_base: Base checkout directory.
-        db_file: Optional path to database file.
-
-    Returns:
-        Path to the checked out TDoc folder, or None if checkout failed.
-    """
-    normalized_id = normalize_tdoc_id(tdoc_id)
-    if normalized_id is None:
-        return None
-
-    # Check if already checked out
-    existing = resolve_tdoc_checkout_path(normalized_id, checkout_base)
-    if existing is not None:
-        # Verify the folder has actual document files
-        has_files = any(
-            f.is_file() and f.parent.name != ".ai" and not any(part == ".ai" for part in f.relative_to(existing).parts) for f in existing.rglob("*")
-        )
-        if has_files:
-            _logger.debug("TDoc %s already checked out at %s", normalized_id, existing)
-            return existing
-        _logger.info(
-            "TDoc %s folder exists but has no document files, re-downloading...",
-            normalized_id,
-        )
-
-    # Resolve metadata: Step 1 — database
-    metadata: TDocMetadata | None = None
-    db_path = db_file if db_file is not None else PathConfig().db_file
-    if db_path is not None and db_path.exists():
-        try:
-            async with TDocDatabase(db_path) as db:
-                metadata = await db._get_tdoc(normalized_id)
-        except (OSError, ValueError) as exc:
-            _logger.debug("Database lookup failed for %s: %s", normalized_id, exc)
-
-    # Resolve metadata: Step 2 — WhatTheSpec
-    if metadata is None:
-        try:
-            metadata = resolve_via_whatthespec(normalized_id)
-            if metadata is not None:
-                _logger.info("Resolved TDoc %s via WhatTheSpec API", normalized_id)
-        except (OSError, ValueError, requests.RequestException) as exc:
-            _logger.debug("WhatTheSpec lookup failed for %s: %s", normalized_id, exc)
-
-    if metadata is None:
-        _logger.warning("Could not resolve TDoc %s via any source", normalized_id)
-        return None
-
-    # Checkout the TDoc
-    try:
-        checkout_path = checkout_tdoc(metadata, checkout_base)
-        if checkout_path is not None and checkout_path.exists():
-            _logger.info("Checked out TDoc %s to %s", normalized_id, checkout_path)
-            return checkout_path
-        _logger.warning("Checkout returned invalid path for TDoc %s", normalized_id)
-        return None
-    except (FileNotFoundError, OSError, ValueError) as exc:
-        _logger.warning("Error checking out TDoc %s: %s", normalized_id, exc)
-        return None
-
-
-async def checkout_spec_to_workspace(
-    spec_number: str,
-    checkout_base: Path,
-    release: str = "latest",
-    db_file: Path | None = None,
-) -> Path | None:
-    """Checkout a spec and return its checkout path.
-
-    Auto-crawls if spec not in database.
-
-    Args:
-        spec_number: Spec number (e.g., "26260" for TS 26.260).
-        checkout_base: Base checkout directory.
-        release: Spec release version (e.g., "19", "19.0.0") or "latest".
-        db_file: Optional path to database file.
-
-    Returns:
-        Path to the checked out spec folder, or None if checkout failed.
-    """
-    normalized = normalize_spec_number(spec_number)
-    requested_release = release.strip()
-
-    db_path = db_file if db_file is not None else PathConfig().db_file
-
-    resolved_release, _ = await resolve_spec_release_from_db(
-        normalized,
-        requested_release,
-        db_file=db_path,
-    )
-
-    # Checkout (or re-use existing) — SpecDownloads extracts to version-
-    # specific subdirectories (e.g. 26260-j10/ vs 26260-i10/) so different
-    # releases coexist under the same parent.  No heuristic cache scan.
-    try:
-        if db_path is not None and db_path.exists():
-            async with SpecDatabase(db_path) as db:
-                versions = await db.get_spec_versions(normalized)
-                if not versions:
-                    _logger.info("Spec %s not in database, auto-crawling...", normalized)
-                    sources = build_default_spec_sources()
-                    await db.crawl_specs([normalized], resolved_release, sources)
-
-        # Use checkout_specs_async to download the spec files
-        async with SpecDatabase(db_path) as db:
-            checkout_paths = await checkout_specs_async(
-                [normalized],
-                checkout_base,
-                db,
-                release=resolved_release,
-                doc_only=False,
-            )
-            if checkout_paths:
-                return checkout_paths[0]
-
-        _logger.warning("Checkout failed for spec %s (release %s)", normalized, requested_release)
-        return None
-    except (FileNotFoundError, OSError, ValueError) as exc:
-        _logger.warning("Error checking out spec %s: %s", normalized, exc)
-        return None
 
 
 __all__ = [

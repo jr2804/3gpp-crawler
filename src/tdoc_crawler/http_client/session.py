@@ -30,65 +30,23 @@ from tdoc_crawler.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _niquests_to_internal_request(model: requests.models.PreparedRequest) -> Request:
-    """Convert niquests prepared request into hishel internal request model."""
-    body: bytes
-    if isinstance(model.body, str):
-        body = model.body.encode("utf-8")
-    elif isinstance(model.body, bytes):
-        body = model.body
-    else:
-        body = b""
+@dataclass
+class PoolConfig:
+    """HTTP connection pool configuration.
 
-    if model.method is None:
-        msg = "prepared request method must not be None"
-        raise ValueError(msg)
+    Attributes:
+        max_connections: Maximum number of connection pools to cache
+        max_per_host: Maximum number of connections per host
+        connection_timeout: Connection timeout in seconds
+        enable_retry: Whether to enable retry logic
+        retry_attempts: Number of retry attempts for failed requests
+    """
 
-    return Request(
-        method=model.method,
-        url=str(model.url),
-        headers=Headers(model.headers),
-        stream=iter([body]),
-        metadata=extract_metadata_from_headers(model.headers),
-    )
-
-
-def _decompress_body(body: bytes, content_encoding: str) -> bytes:
-    encoding = content_encoding.lower().strip()
-    if encoding == "br":
-        return brotli.decompress(body)
-    if encoding == "gzip":
-        return gzip_decompress(body)
-    if encoding == "deflate":
-        return zlib_decompress(body)
-    return body
-
-
-def _internal_to_niquests_response(model: Response) -> requests.models.Response:
-    response = requests.models.Response()
-
-    raw_body = b"".join(model.stream) if model.stream is not None else b""
-    metadata_headers = {snake_to_header(key): str(value) for key, value in model.metadata.items()}
-    merged_headers = {**model.headers, **metadata_headers}
-
-    content_encoding = merged_headers.get("content-encoding", "")
-    body = _decompress_body(raw_body, content_encoding) if content_encoding else raw_body
-
-    response.raw = HTTPResponse(
-        body=raw_body,
-        headers=merged_headers,
-        status=model.status_code,
-        preload_content=False,
-        decode_content=False,
-    )
-    response.status_code = model.status_code
-    response.headers.update(model.headers)
-    response.headers.update(metadata_headers)
-    response._content = body
-    response._content_consumed = True
-    response.url = ""
-
-    return response
+    max_connections: int = 10
+    max_per_host: int = 5
+    connection_timeout: float = 30.0
+    enable_retry: bool = True
+    retry_attempts: int = 3
 
 
 class _NiquetsCacheAdapter(CacheAdapter):
@@ -122,54 +80,65 @@ class _NiquetsCacheAdapter(CacheAdapter):
         return response
 
 
-@dataclass
-class PoolConfig:
-    """HTTP connection pool configuration.
-
-    Attributes:
-        max_connections: Maximum number of connection pools to cache
-        max_per_host: Maximum number of connections per host
-        connection_timeout: Connection timeout in seconds
-        enable_retry: Whether to enable retry logic
-        retry_attempts: Number of retry attempts for failed requests
-    """
-
-    max_connections: int = 10
-    max_per_host: int = 5
-    connection_timeout: float = 30.0
-    enable_retry: bool = True
-    retry_attempts: int = 3
-
-
-def resolve_ssl_verify(
-    verify: bool | str | None = None,
-    http_config: HttpConfig | None = None,
-) -> bool | str:
-    """Resolve SSL verification behavior from explicit argument or HttpConfig.
-
-    Resolution order:
-    1. Explicit `verify` parameter
-    2. http_config.verify_ssl if provided
-    3. Default (True)
-
-    Args:
-        verify: Optional explicit SSL verification mode.
-        http_config: Optional HttpConfig. When provided, verify_ssl is used as fallback.
-
-    Returns:
-        Either a boolean verification flag or a certificate bundle path.
-    """
-    if verify is not None:
-        resolved = verify
-    elif http_config is not None:
-        resolved = http_config.verify_ssl
+def _niquests_to_internal_request(model: requests.models.PreparedRequest) -> Request:
+    """Convert niquests prepared request into hishel internal request model."""
+    body: bytes
+    if isinstance(model.body, str):
+        body = model.body.encode("utf-8")
+    elif isinstance(model.body, bytes):
+        body = model.body
     else:
-        resolved = True
+        body = b""
 
-    if resolved is False:
-        logger.warning("SSL certificate verification is disabled. This is insecure.")
+    if model.method is None:
+        msg = "prepared request method must not be None"
+        raise ValueError(msg)
 
-    return resolved
+    return Request(
+        method=model.method,
+        url=str(model.url),
+        headers=Headers(model.headers),
+        stream=iter([body]),
+        metadata=extract_metadata_from_headers(model.headers),
+    )
+
+
+def _internal_to_niquests_response(model: Response) -> requests.models.Response:
+    response = requests.models.Response()
+
+    raw_body = b"".join(model.stream) if model.stream is not None else b""
+    metadata_headers = {snake_to_header(key): str(value) for key, value in model.metadata.items()}
+    merged_headers = {**model.headers, **metadata_headers}
+
+    content_encoding = merged_headers.get("content-encoding", "")
+    body = _decompress_body(raw_body, content_encoding) if content_encoding else raw_body
+
+    response.raw = HTTPResponse(
+        body=raw_body,
+        headers=merged_headers,
+        status=model.status_code,
+        preload_content=False,
+        decode_content=False,
+    )
+    response.status_code = model.status_code
+    response.headers.update(model.headers)
+    response.headers.update(metadata_headers)
+    response._content = body
+    response._content_consumed = True
+    response.url = ""
+
+    return response
+
+
+def _decompress_body(body: bytes, content_encoding: str) -> bytes:
+    encoding = content_encoding.lower().strip()
+    if encoding == "br":
+        return brotli.decompress(body)
+    if encoding == "gzip":
+        return gzip_decompress(body)
+    if encoding == "deflate":
+        return zlib_decompress(body)
+    return body
 
 
 def download_to_file(
@@ -335,6 +304,37 @@ def create_cached_session(
         logger.debug(f"Configured cache + pool adapter: max_connections={pool_config.max_connections}, max_per_host={pool_config.max_per_host}")
 
     return session
+
+
+def resolve_ssl_verify(
+    verify: bool | str | None = None,
+    http_config: HttpConfig | None = None,
+) -> bool | str:
+    """Resolve SSL verification behavior from explicit argument or HttpConfig.
+
+    Resolution order:
+    1. Explicit `verify` parameter
+    2. http_config.verify_ssl if provided
+    3. Default (True)
+
+    Args:
+        verify: Optional explicit SSL verification mode.
+        http_config: Optional HttpConfig. When provided, verify_ssl is used as fallback.
+
+    Returns:
+        Either a boolean verification flag or a certificate bundle path.
+    """
+    if verify is not None:
+        resolved = verify
+    elif http_config is not None:
+        resolved = http_config.verify_ssl
+    else:
+        resolved = True
+
+    if resolved is False:
+        logger.warning("SSL certificate verification is disabled. This is insecure.")
+
+    return resolved
 
 
 __all__ = [

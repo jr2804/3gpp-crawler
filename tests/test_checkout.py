@@ -17,36 +17,6 @@ from tdoc_crawler.tdocs.operations.checkout import (
 from tdoc_crawler.workspaces import resolve_tdoc_checkout_path
 
 
-@pytest.fixture
-def sample_tdoc_metadata() -> TDocMetadata:
-    """Create sample TDoc metadata for testing."""
-    return TDocMetadata(
-        tdoc_id="S4-251234",
-        url="https://www.3gpp.org/ftp/tsg_sa/SA4/s4-251234.zip",
-        title="Test TDoc",
-        meeting_id=113,
-        source="Test Source",
-        contact="test@example.com",
-        tdoc_type="Test Type",
-        for_purpose="Test Purpose",
-        agenda_item_nbr="1.0",
-        agenda_item_text="Test Agenda Item",
-        status="available",
-        meeting_name="Test Meeting",
-        is_revision_of=None,
-        file_size=None,
-        date_created=None,
-        validated=False,
-        validation_failed=False,
-    )
-
-
-@pytest.fixture
-def checkout_dir(tmp_path: Path) -> Path:
-    """Create temporary checkout directory."""
-    return tmp_path / "checkout"
-
-
 class TestGetCheckoutPath:
     """Tests for get_checkout_path function."""
 
@@ -438,3 +408,33 @@ class TestResolveTdocCheckoutPath:
 
         result = resolve_tdoc_checkout_path("S4-999999", checkout_base)
         assert result is None
+
+
+@pytest.fixture
+def sample_tdoc_metadata() -> TDocMetadata:
+    """Create sample TDoc metadata for testing."""
+    return TDocMetadata(
+        tdoc_id="S4-251234",
+        url="https://www.3gpp.org/ftp/tsg_sa/SA4/s4-251234.zip",
+        title="Test TDoc",
+        meeting_id=113,
+        source="Test Source",
+        contact="test@example.com",
+        tdoc_type="Test Type",
+        for_purpose="Test Purpose",
+        agenda_item_nbr="1.0",
+        agenda_item_text="Test Agenda Item",
+        status="available",
+        meeting_name="Test Meeting",
+        is_revision_of=None,
+        file_size=None,
+        date_created=None,
+        validated=False,
+        validation_failed=False,
+    )
+
+
+@pytest.fixture
+def checkout_dir(tmp_path: Path) -> Path:
+    """Create temporary checkout directory."""
+    return tmp_path / "checkout"

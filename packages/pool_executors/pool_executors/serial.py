@@ -7,9 +7,9 @@ from collections.abc import Callable
 from concurrent.futures import Executor, Future
 from typing import Any, TypeVar
 
-logger = logging.getLogger("pool_executors.serial")
-
 T = TypeVar("T")
+
+logger = logging.getLogger("pool_executors.serial")
 
 
 class SerialFuture(Future[T]):

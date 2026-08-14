@@ -38,12 +38,12 @@ from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
-
-_logger = get_logger(__name__)
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_ids
+
+_logger = get_logger(__name__)
 
 tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
 

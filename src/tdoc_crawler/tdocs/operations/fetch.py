@@ -91,6 +91,110 @@ def create_source(
     raise ValueError(msg)
 
 
+async def fetch_missing_tdocs(
+    database: TDocDatabase,
+    config: TDocQueryConfig,
+    results: list[TDocMetadata],
+    full_metadata: bool = False,
+    use_whatthespec: bool = False,
+    session: requests.Session | None = None,
+    http_cache_file: Path | None = None,
+    db_file: Path | None = None,
+) -> FetchMissingResult:
+    """Fetch missing TDocs if any are requested but not found in database.
+
+    Orchestrates fetching based on flags, uses WhatTheSpec fallback when needed.
+
+    Args:
+        database: Database instance
+        config: TDocQueryConfig with requested TDoc IDs
+        results: Current query results
+        full_metadata: If True, fetch full metadata from portal
+        use_whatthespec: If True, always use WhatTheSpec
+        session: Optional requests.Session to reuse
+        http_cache_file: Optional path to HTTP cache database file
+        db_file: Optional path to metadata database file
+
+    Returns:
+        FetchMissingResult with updated results and fetch statistics
+    """
+    if not config.tdoc_ids:
+        return FetchMissingResult(refreshed=results)
+
+    requested = [value.upper() for value in config.tdoc_ids]
+    found = {item.tdoc_id for item in results}
+    missing = [value for value in requested if value not in found]
+    if not missing:
+        return FetchMissingResult(refreshed=results)
+
+    # Log what we're about to do
+    if use_whatthespec:
+        logger.info(f"Fetching missing TDocs via WhatTheSpec: {', '.join(missing)}")
+    elif full_metadata:
+        logger.info(f"Fetching missing TDocs with full metadata: {', '.join(missing)}")
+    else:
+        logger.info(f"Fetching missing TDocs: {', '.join(missing)}")
+
+    # Handle use_whatthespec flag - always use WhatTheSpec method
+    if use_whatthespec:
+        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
+        refreshed = await database.query_tdocs(config)
+        return FetchMissingResult(
+            refreshed=refreshed,
+            fetch_result=fetch_result,
+            used_whatthespec_fallback=True,
+        )
+
+    # Handle full_metadata flag - use authenticated portal method
+    credentials = resolve_credentials(None, None)
+    credentials_unavailable = credentials is None
+
+    if full_metadata:
+        if credentials_unavailable:
+            fetch_result = TDocCrawlResult(
+                processed=len(missing),
+                inserted=0,
+                updated=0,
+                errors=["Portal credentials required for full metadata fetching"],
+            )
+            logger.warning("Portal credentials required for full metadata fetching")
+            return FetchMissingResult(refreshed=results, fetch_result=fetch_result)
+
+        fetch_result = await fetch_missing_tdocs_batch(
+            database=database,
+            missing_ids=missing,
+            session=session,
+            http_cache_file=http_cache_file,
+        )
+
+        refreshed = await database.query_tdocs(config)
+        return FetchMissingResult(refreshed=refreshed, fetch_result=fetch_result)
+
+    # Default behavior - use unauthenticated portal method with WhatTheSpec fallback
+    fetch_result = await fetch_missing_tdocs_batch(
+        database=database,
+        missing_ids=missing,
+        session=session,
+        http_cache_file=http_cache_file,
+    )
+
+    # Check if we should try whatthespec fallback
+    has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
+    if credentials_unavailable or has_credentials_error:
+        logger.info("Falling back to WhatTheSpec for missing TDocs due to credential issues")
+        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
+        used_fallback = True
+    else:
+        used_fallback = False
+
+    refreshed = await database.query_tdocs(config)
+    return FetchMissingResult(
+        refreshed=refreshed,
+        fetch_result=fetch_result,
+        used_whatthespec_fallback=used_fallback,
+    )
+
+
 async def fetch_missing_tdocs_batch(
     database: TDocDatabase,
     missing_ids: list[str],
@@ -226,110 +330,6 @@ async def fetch_via_whatthespec_batch(
         inserted=inserted_count,
         updated=updated_count,
         errors=errors,
-    )
-
-
-async def fetch_missing_tdocs(
-    database: TDocDatabase,
-    config: TDocQueryConfig,
-    results: list[TDocMetadata],
-    full_metadata: bool = False,
-    use_whatthespec: bool = False,
-    session: requests.Session | None = None,
-    http_cache_file: Path | None = None,
-    db_file: Path | None = None,
-) -> FetchMissingResult:
-    """Fetch missing TDocs if any are requested but not found in database.
-
-    Orchestrates fetching based on flags, uses WhatTheSpec fallback when needed.
-
-    Args:
-        database: Database instance
-        config: TDocQueryConfig with requested TDoc IDs
-        results: Current query results
-        full_metadata: If True, fetch full metadata from portal
-        use_whatthespec: If True, always use WhatTheSpec
-        session: Optional requests.Session to reuse
-        http_cache_file: Optional path to HTTP cache database file
-        db_file: Optional path to metadata database file
-
-    Returns:
-        FetchMissingResult with updated results and fetch statistics
-    """
-    if not config.tdoc_ids:
-        return FetchMissingResult(refreshed=results)
-
-    requested = [value.upper() for value in config.tdoc_ids]
-    found = {item.tdoc_id for item in results}
-    missing = [value for value in requested if value not in found]
-    if not missing:
-        return FetchMissingResult(refreshed=results)
-
-    # Log what we're about to do
-    if use_whatthespec:
-        logger.info(f"Fetching missing TDocs via WhatTheSpec: {', '.join(missing)}")
-    elif full_metadata:
-        logger.info(f"Fetching missing TDocs with full metadata: {', '.join(missing)}")
-    else:
-        logger.info(f"Fetching missing TDocs: {', '.join(missing)}")
-
-    # Handle use_whatthespec flag - always use WhatTheSpec method
-    if use_whatthespec:
-        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
-        refreshed = await database.query_tdocs(config)
-        return FetchMissingResult(
-            refreshed=refreshed,
-            fetch_result=fetch_result,
-            used_whatthespec_fallback=True,
-        )
-
-    # Handle full_metadata flag - use authenticated portal method
-    credentials = resolve_credentials(None, None)
-    credentials_unavailable = credentials is None
-
-    if full_metadata:
-        if credentials_unavailable:
-            fetch_result = TDocCrawlResult(
-                processed=len(missing),
-                inserted=0,
-                updated=0,
-                errors=["Portal credentials required for full metadata fetching"],
-            )
-            logger.warning("Portal credentials required for full metadata fetching")
-            return FetchMissingResult(refreshed=results, fetch_result=fetch_result)
-
-        fetch_result = await fetch_missing_tdocs_batch(
-            database=database,
-            missing_ids=missing,
-            session=session,
-            http_cache_file=http_cache_file,
-        )
-
-        refreshed = await database.query_tdocs(config)
-        return FetchMissingResult(refreshed=refreshed, fetch_result=fetch_result)
-
-    # Default behavior - use unauthenticated portal method with WhatTheSpec fallback
-    fetch_result = await fetch_missing_tdocs_batch(
-        database=database,
-        missing_ids=missing,
-        session=session,
-        http_cache_file=http_cache_file,
-    )
-
-    # Check if we should try whatthespec fallback
-    has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
-    if credentials_unavailable or has_credentials_error:
-        logger.info("Falling back to WhatTheSpec for missing TDocs due to credential issues")
-        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
-        used_fallback = True
-    else:
-        used_fallback = False
-
-    refreshed = await database.query_tdocs(config)
-    return FetchMissingResult(
-        refreshed=refreshed,
-        fetch_result=fetch_result,
-        used_whatthespec_fallback=used_fallback,
     )
 
 

@@ -19,95 +19,12 @@ from tdoc_crawler.models.workspaces import SourceKind
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_release_version
 
-logger = get_logger(__name__)
-
 DEFAULT_WORKSPACE = "default"
 
 
-def normalize_workspace_name(workspace: str | None) -> str:
-    """Normalize workspace input to a canonical name."""
-    if workspace is None:
-        return DEFAULT_WORKSPACE
+DEFAULT_SOURCES_DIRNAME = "sources"
 
-    normalized = workspace.strip().lower()
-    if not normalized:
-        return DEFAULT_WORKSPACE
-    return normalized
-
-
-def is_default_workspace(workspace: str | None) -> bool:
-    """Return True when workspace resolves to the reserved default name."""
-    return normalize_workspace_name(workspace) == DEFAULT_WORKSPACE
-
-
-# TypedDict definitions for workspace data structures
-class WorkspaceMemberDict(TypedDict):
-    """Dictionary representation of a workspace member."""
-
-    source_item_id: str
-    source_path: str
-    source_kind: str
-    added_by: str
-    is_active: bool
-    added_at: str
-    release: NotRequired[str]
-    content_type: NotRequired[str]
-    original_url: NotRequired[str]
-
-
-class WorkspaceMetadataDict(TypedDict, total=False):
-    """Dictionary representation of workspace metadata."""
-
-    created_at: str
-    description: str
-    auto_build: bool
-    members: list[WorkspaceMemberDict]
-    wiki_build_timestamp: str
-    wiki_page_count: int
-    wiki_failed_pages: int
-    wiki_compile_hash: str
-    workspace_dir: str
-    sources_dirname: str
-
-
-def normalize_spec_member_id(source_item_id: str) -> str:
-    """Normalize spec member IDs to canonical format for display.
-
-    Handles legacy IDs where release tuple objects were stringified.
-
-    Examples:
-        26261-REL('19', []) -> 26261-REL19.0.0
-        26261-REL19 -> 26261-REL19.0.0
-        26261-REL19.1 -> 26261-REL19.1.0
-
-    Args:
-        source_item_id: The source item ID to normalize.
-
-    Returns:
-        Normalized source item ID with three-digit release version.
-    """
-    return _normalize_legacy_spec_member_id(source_item_id)
-
-
-def _normalize_legacy_spec_member_id(source_item_id: str) -> str:
-    """Normalize spec IDs to canonical three-digit release versions.
-
-    Examples:
-        26261-REL('19', []) -> 26261-REL19.0.0
-        26261-REL19 -> 26261-REL19.0.0
-        26261-REL19.1 -> 26261-REL19.1.0
-    """
-    legacy_match = re.match(r"^(?P<spec>\d+(?:\.\d+)?)-REL\('(?P<release>[^']+)', \[[^\]]*\]\)$", source_item_id)
-    if legacy_match is not None:
-        normalized_release = normalize_release_version(legacy_match.group("release"))
-        return f"{legacy_match.group('spec')}-REL{normalized_release}"
-
-    modern_match = re.match(r"^(?P<spec>\d+(?:\.\d+)?)-REL(?P<release>.+)$", source_item_id)
-    if modern_match is not None:
-        normalized_release = normalize_release_version(modern_match.group("release"))
-        return f"{modern_match.group('spec')}-REL{normalized_release}"
-
-    return source_item_id
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -154,9 +71,6 @@ class WorkspaceMember:
             content_type=data.get("content_type", ""),
             original_url=data.get("original_url", ""),
         )
-
-
-DEFAULT_SOURCES_DIRNAME = "sources"
 
 
 @dataclass
@@ -514,6 +428,92 @@ class WorkspaceRegistry:
         if registry_path is not None and not registry_path.exists():
             registry.save()
         return registry
+
+
+# TypedDict definitions for workspace data structures
+class WorkspaceMemberDict(TypedDict):
+    """Dictionary representation of a workspace member."""
+
+    source_item_id: str
+    source_path: str
+    source_kind: str
+    added_by: str
+    is_active: bool
+    added_at: str
+    release: NotRequired[str]
+    content_type: NotRequired[str]
+    original_url: NotRequired[str]
+
+
+class WorkspaceMetadataDict(TypedDict, total=False):
+    """Dictionary representation of workspace metadata."""
+
+    created_at: str
+    description: str
+    auto_build: bool
+    members: list[WorkspaceMemberDict]
+    wiki_build_timestamp: str
+    wiki_page_count: int
+    wiki_failed_pages: int
+    wiki_compile_hash: str
+    workspace_dir: str
+    sources_dirname: str
+
+
+def is_default_workspace(workspace: str | None) -> bool:
+    """Return True when workspace resolves to the reserved default name."""
+    return normalize_workspace_name(workspace) == DEFAULT_WORKSPACE
+
+
+def normalize_workspace_name(workspace: str | None) -> str:
+    """Normalize workspace input to a canonical name."""
+    if workspace is None:
+        return DEFAULT_WORKSPACE
+
+    normalized = workspace.strip().lower()
+    if not normalized:
+        return DEFAULT_WORKSPACE
+    return normalized
+
+
+def normalize_spec_member_id(source_item_id: str) -> str:
+    """Normalize spec member IDs to canonical format for display.
+
+    Handles legacy IDs where release tuple objects were stringified.
+
+    Examples:
+        26261-REL('19', []) -> 26261-REL19.0.0
+        26261-REL19 -> 26261-REL19.0.0
+        26261-REL19.1 -> 26261-REL19.1.0
+
+    Args:
+        source_item_id: The source item ID to normalize.
+
+    Returns:
+        Normalized source item ID with three-digit release version.
+    """
+    return _normalize_legacy_spec_member_id(source_item_id)
+
+
+def _normalize_legacy_spec_member_id(source_item_id: str) -> str:
+    """Normalize spec IDs to canonical three-digit release versions.
+
+    Examples:
+        26261-REL('19', []) -> 26261-REL19.0.0
+        26261-REL19 -> 26261-REL19.0.0
+        26261-REL19.1 -> 26261-REL19.1.0
+    """
+    legacy_match = re.match(r"^(?P<spec>\d+(?:\.\d+)?)-REL\('(?P<release>[^']+)', \[[^\]]*\]\)$", source_item_id)
+    if legacy_match is not None:
+        normalized_release = normalize_release_version(legacy_match.group("release"))
+        return f"{legacy_match.group('spec')}-REL{normalized_release}"
+
+    modern_match = re.match(r"^(?P<spec>\d+(?:\.\d+)?)-REL(?P<release>.+)$", source_item_id)
+    if modern_match is not None:
+        normalized_release = normalize_release_version(modern_match.group("release"))
+        return f"{modern_match.group('spec')}-REL{normalized_release}"
+
+    return source_item_id
 
 
 __all__ = [

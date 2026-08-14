@@ -68,37 +68,6 @@ def workspace_members(
         console.print(f"[red]Error: {e}[/red]")
 
 
-def _resolve_spec_release_for_add(
-    item: str,
-    release: str,
-    source_kind: SourceKind,
-    auto_crawl: bool,
-) -> str | None:
-    """Resolve a spec release selector to a concrete version for workspace add.
-
-    For non-spec kinds or when resolution fails, returns *release* unchanged.
-    Returns None when the spec does not exist in the database.
-    """
-    if source_kind != SourceKind.SPEC:
-        return release
-    try:
-        resolved, _ = asyncio.run(
-            resolve_spec_release_from_db(item, release, auto_crawl=auto_crawl),
-        )
-        # If auto-crawl was tried and resolved is still "latest", the spec
-        # doesn't exist anywhere.
-        if resolved.lower() == "latest" and release.lower() == "latest":
-            console.print(f"[red]  Spec {item} not found, skipping.[/red]")
-            return None
-        console.print(f"[dim]  Resolved {item} release '{release}' -> {resolved}[/dim]")
-        return resolved
-    except ValueError as exc:
-        console.print(f"[yellow]  Warning: {exc}. Using unresolved release '{release}'.[/yellow]")
-    except Exception as exc:
-        console.print(f"[yellow]  Warning: Failed to resolve release for {item}: {exc}[/yellow]")
-    return release
-
-
 def workspace_add(
     items: WorkspaceItemsArgument = None,
     workspace: WorkspaceNameOption = None,
@@ -242,6 +211,37 @@ def workspace_add(
     if duplicates > 0:
         console.print(f"[yellow]Skipped {duplicates} duplicate(s) already in workspace '{normalized}'.[/yellow]")
     console.print(f"[green]Added {added} item(s) to workspace '{normalized}' ({mode}).[/green]")
+
+
+def _resolve_spec_release_for_add(
+    item: str,
+    release: str,
+    source_kind: SourceKind,
+    auto_crawl: bool,
+) -> str | None:
+    """Resolve a spec release selector to a concrete version for workspace add.
+
+    For non-spec kinds or when resolution fails, returns *release* unchanged.
+    Returns None when the spec does not exist in the database.
+    """
+    if source_kind != SourceKind.SPEC:
+        return release
+    try:
+        resolved, _ = asyncio.run(
+            resolve_spec_release_from_db(item, release, auto_crawl=auto_crawl),
+        )
+        # If auto-crawl was tried and resolved is still "latest", the spec
+        # doesn't exist anywhere.
+        if resolved.lower() == "latest" and release.lower() == "latest":
+            console.print(f"[red]  Spec {item} not found, skipping.[/red]")
+            return None
+        console.print(f"[dim]  Resolved {item} release '{release}' -> {resolved}[/dim]")
+        return resolved
+    except ValueError as exc:
+        console.print(f"[yellow]  Warning: {exc}. Using unresolved release '{release}'.[/yellow]")
+    except Exception as exc:
+        console.print(f"[yellow]  Warning: Failed to resolve release for {item}: {exc}[/yellow]")
+    return release
 
 
 def workspace_clear_invalid(

@@ -33,21 +33,6 @@ def clear_checkout_specs(checkout_dir: Path) -> int:
     return 1
 
 
-def build_default_spec_sources(cache_manager_name: str | None = None) -> list[SpecSource]:
-    """Build the default list of spec sources.
-
-    Args:
-        cache_manager_name: Optional cache manager name for HTTP caching (reserved for future use)
-
-    Returns:
-        List of SpecSource instances for fetching spec metadata
-    """
-    return [
-        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={})),
-        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={})),
-    ]
-
-
 def checkout_specs(
     spec_numbers: list[str],
     checkout_dir: Path,
@@ -86,6 +71,21 @@ async def checkout_specs_async(
     sources = build_default_spec_sources(cache_manager_name=cache_manager_name)
     downloader = SpecDownloads(database)
     return await downloader.checkout_specs_async(spec_numbers, doc_only, checkout_dir, release, sources=sources)
+
+
+def build_default_spec_sources(cache_manager_name: str | None = None) -> list[SpecSource]:
+    """Build the default list of spec sources.
+
+    Args:
+        cache_manager_name: Optional cache manager name for HTTP caching (reserved for future use)
+
+    Returns:
+        List of SpecSource instances for fetching spec metadata
+    """
+    return [
+        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={})),
+        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={})),
+    ]
 
 
 __all__ = [

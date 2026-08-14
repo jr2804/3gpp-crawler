@@ -19,27 +19,6 @@ from tdoc_crawler.utils.version_types import AgendaItem
 from .conftest import insert_sample_meetings_async
 
 
-def _make_mock_session(json_data: list | None = None, side_effect: object = None) -> MagicMock:
-    """Create a mock session that mimics create_cached_session return value.
-
-    Args:
-        json_data: JSON data to return from response.json().
-        side_effect: Side effect for session.get (exception class or instance).
-
-    Returns:
-        MagicMock session with .get() and .close() methods.
-    """
-    mock_session = MagicMock()
-    if side_effect is not None:
-        mock_session.get.side_effect = side_effect
-    else:
-        mock_response = MagicMock()
-        mock_response.json.return_value = json_data
-        mock_response.raise_for_status.return_value = None
-        mock_session.get.return_value = mock_response
-    return mock_session
-
-
 class TestWhatTheSpecResolution:
     """Test suite for WhatTheSpec resolver."""
 
@@ -453,3 +432,24 @@ class TestWhatTheSpecResolutionError:
         Verifies the exception class hierarchy.
         """
         assert issubclass(WhatTheSpecResolutionError, Exception)
+
+
+def _make_mock_session(json_data: list | None = None, side_effect: object = None) -> MagicMock:
+    """Create a mock session that mimics create_cached_session return value.
+
+    Args:
+        json_data: JSON data to return from response.json().
+        side_effect: Side effect for session.get (exception class or instance).
+
+    Returns:
+        MagicMock session with .get() and .close() methods.
+    """
+    mock_session = MagicMock()
+    if side_effect is not None:
+        mock_session.get.side_effect = side_effect
+    else:
+        mock_response = MagicMock()
+        mock_response.json.return_value = json_data
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+    return mock_session

@@ -68,33 +68,6 @@ from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, pars
 HELP_PANEL = "Crawling Commands"
 
 
-def _parse_date(date_str: str | None, is_end: bool = False) -> date | None:
-    """Parse a partial date string, returning None for empty/whitespace input."""
-    if not date_str or not date_str.strip():
-        return None
-    return parse_partial_date(date_str, is_end=is_end)
-
-
-def _build_crawl_scope(
-    meetings: list[MeetingMetadata],
-    working_groups: list,
-    subgroups: list[str],
-) -> str:
-    """Build human-readable scope description for the crawl."""
-    scope_parts: list[str] = []
-    if meetings:
-        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
-        if unique_subgroups:
-            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
-        else:
-            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
-    elif subgroups:
-        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
-    else:
-        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
-    return ", ".join(scope_parts)
-
-
 def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
@@ -252,6 +225,26 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     _print_crawl_results(result, throughput)
 
 
+def _build_crawl_scope(
+    meetings: list[MeetingMetadata],
+    working_groups: list,
+    subgroups: list[str],
+) -> str:
+    """Build human-readable scope description for the crawl."""
+    scope_parts: list[str] = []
+    if meetings:
+        unique_subgroups = {SUBTB_INDEX[m.subtb].code for m in meetings if m.subtb and m.subtb in SUBTB_INDEX}
+        if unique_subgroups:
+            scope_parts.append(f"subgroups: {', '.join(sorted(unique_subgroups))}")
+        else:
+            scope_parts.append(f"meetings: {len(meetings)} meeting(s)")
+    elif subgroups:
+        scope_parts.append(f"subgroups: {', '.join(subgroups)}")
+    else:
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+    return ", ".join(scope_parts)
+
+
 def _print_crawl_results(result: TDocCrawlResult, throughput: float) -> None:
     """Print crawl summary to console."""
     console.print(f"[green]Processed {result.processed} TDocs ({throughput:.1f} TDocs/sec)[/green]")
@@ -382,6 +375,13 @@ def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
 
         with create_cached_session() as session:
             checkout_meeting_tdocs(meetings, crawler_config.path.checkout_dir, crawler_config.path.http_cache_file, session=session)
+
+
+def _parse_date(date_str: str | None, is_end: bool = False) -> date | None:
+    """Parse a partial date string, returning None for empty/whitespace input."""
+    if not date_str or not date_str.strip():
+        return None
+    return parse_partial_date(date_str, is_end=is_end)
 
 
 def crawl_specs(

@@ -202,11 +202,6 @@ class TestCreateExecutor:
         assert executor.submit(_pickle_safe_task).result() == 42
 
 
-def _pickle_safe_task() -> int:
-    """Module-level function for multiprocessing pickling."""
-    return 42
-
-
 class TestCreateExecutorContinued:
     """Additional tests for create_executor factory function."""
 
@@ -442,6 +437,11 @@ class TestFactoryCoverage:
         """Test that 'thread' alias creates ThreadPoolExecutor."""
         executor = create_executor("THREAD")
         assert isinstance(executor, ThreadPoolExecutor)
+
+
+def _pickle_safe_task() -> int:
+    """Module-level function for multiprocessing pickling."""
+    return 42
 
 
 if __name__ == "__main__":

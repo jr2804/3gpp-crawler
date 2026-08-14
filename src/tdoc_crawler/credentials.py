@@ -27,27 +27,6 @@ def set_credentials(username: str | None, password: str | None, prompt: bool | N
         os.environ["TDC_EOL_PROMPT"] = "true" if prompt else "false"
 
 
-def _resolve_prompt_decision(prompt: bool | None, credentials_config: CredentialsConfig | None) -> bool:
-    """Determine whether to prompt the user for credentials.
-
-    Resolution order: explicit prompt flag > config file > TDC_EOL_PROMPT env var.
-
-    Args:
-        prompt: CLI-provided prompt flag (highest precedence).
-        credentials_config: Optional credentials config from settings.
-
-    Returns:
-        Whether to prompt for credentials interactively.
-    """
-    config_prompt = credentials_config.prompt if credentials_config else None
-    should_prompt = prompt if prompt is not None else (config_prompt.lower() in ("true", "1", "yes") if config_prompt else None)
-    if should_prompt is None:
-        should_prompt = os.getenv("TDC_EOL_PROMPT", "").lower() in ("true", "1", "yes")
-    if should_prompt and not sys.stdin.isatty():
-        should_prompt = False
-    return should_prompt
-
-
 def resolve_credentials(
     username: str | None = None,
     password: str | None = None,
@@ -90,6 +69,27 @@ def resolve_credentials(
             return PortalCredentials(username=resolved_username, password=resolved_password)
 
     return None
+
+
+def _resolve_prompt_decision(prompt: bool | None, credentials_config: CredentialsConfig | None) -> bool:
+    """Determine whether to prompt the user for credentials.
+
+    Resolution order: explicit prompt flag > config file > TDC_EOL_PROMPT env var.
+
+    Args:
+        prompt: CLI-provided prompt flag (highest precedence).
+        credentials_config: Optional credentials config from settings.
+
+    Returns:
+        Whether to prompt for credentials interactively.
+    """
+    config_prompt = credentials_config.prompt if credentials_config else None
+    should_prompt = prompt if prompt is not None else (config_prompt.lower() in ("true", "1", "yes") if config_prompt else None)
+    if should_prompt is None:
+        should_prompt = os.getenv("TDC_EOL_PROMPT", "").lower() in ("true", "1", "yes")
+    if should_prompt and not sys.stdin.isatty():
+        should_prompt = False
+    return should_prompt
 
 
 __all__ = ["resolve_credentials", "set_credentials"]

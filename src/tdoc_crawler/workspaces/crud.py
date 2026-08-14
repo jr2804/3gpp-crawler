@@ -12,15 +12,6 @@ from tdoc_crawler.models.workspaces import DEFAULT_WORKSPACE, normalize_workspac
 _logger = get_logger(__name__)
 
 
-def ensure_default_workspace() -> WorkspaceRegistry:
-    """Ensure the reserved default workspace exists."""
-    registry = _get_registry()
-    if DEFAULT_WORKSPACE not in registry.workspaces:
-        registry.create_workspace(DEFAULT_WORKSPACE)
-        registry.save()
-    return registry
-
-
 def get_workspace(workspace: str | None) -> WorkspaceRegistry | None:
     """Get a workspace by name if it exists.
 
@@ -33,6 +24,22 @@ def get_workspace(workspace: str | None) -> WorkspaceRegistry | None:
     normalized_workspace = normalize_workspace_name(workspace)
     registry = _get_registry()
     return registry.get_workspace(normalized_workspace)
+
+
+def list_workspaces() -> list[WorkspaceRegistry]:
+    """List all known workspaces."""
+    ensure_default_workspace()
+    registry = _get_registry()
+    return list(registry.workspaces.values())
+
+
+def ensure_default_workspace() -> WorkspaceRegistry:
+    """Ensure the reserved default workspace exists."""
+    registry = _get_registry()
+    if DEFAULT_WORKSPACE not in registry.workspaces:
+        registry.create_workspace(DEFAULT_WORKSPACE)
+        registry.save()
+    return registry
 
 
 def create_workspace(
@@ -81,13 +88,6 @@ def create_workspace(
         _logger.debug("Skipping workspace directory creation: CacheManager not available")
 
     return registry
-
-
-def list_workspaces() -> list[WorkspaceRegistry]:
-    """List all known workspaces."""
-    ensure_default_workspace()
-    registry = _get_registry()
-    return list(registry.workspaces.values())
 
 
 def delete_workspace(workspace: str | None, delete_artifacts: bool = False) -> bool:

@@ -63,37 +63,6 @@ from tdoc_crawler.utils.parse import collect_spec_numbers, parse_subgroups, pars
 HELP_PANEL = "Query Commands"
 
 
-def _parse_query_dates(
-    start_date: str | None,
-    end_date: str | None,
-) -> tuple[datetime | None, datetime | None]:
-    """Parse and validate start/end date strings, raising typer.Exit on error."""
-    start: datetime | None = None
-    end: datetime | None = None
-    if start_date:
-        try:
-            start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC)
-        except ValueError as exc:
-            console.print("[red]Invalid start date format; use ISO-8601")
-            raise typer.Exit(code=2) from exc
-    if end_date:
-        try:
-            end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC)
-        except ValueError as exc:
-            console.print("[red]Invalid end date format; use ISO-8601")
-            raise typer.Exit(code=2) from exc
-    return start, end
-
-
-def _validate_enum(value: str, enum_cls: type, error_msg: str) -> object:
-    """Validate a string against an enum, raising typer.Exit on error."""
-    try:
-        return enum_cls(value.lower())
-    except ValueError as exc:
-        console.print(f"[red]{error_msg}")
-        raise typer.Exit(code=2) from exc
-
-
 def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     tdoc_ids: TDocIdsArgument = None,
     working_group: WorkingGroupOption = None,
@@ -204,6 +173,37 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     else:
         data = [tdoc_to_dict(result, meeting_map) for result in results]
         console.print(format_output(data, config.output_format))
+
+
+def _parse_query_dates(
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[datetime | None, datetime | None]:
+    """Parse and validate start/end date strings, raising typer.Exit on error."""
+    start: datetime | None = None
+    end: datetime | None = None
+    if start_date:
+        try:
+            start = datetime.combine(parse_partial_date(start_date), datetime.min.time(), tzinfo=UTC)
+        except ValueError as exc:
+            console.print("[red]Invalid start date format; use ISO-8601")
+            raise typer.Exit(code=2) from exc
+    if end_date:
+        try:
+            end = datetime.combine(parse_partial_date(end_date, is_end=True), datetime.max.time(), tzinfo=UTC)
+        except ValueError as exc:
+            console.print("[red]Invalid end date format; use ISO-8601")
+            raise typer.Exit(code=2) from exc
+    return start, end
+
+
+def _validate_enum(value: str, enum_cls: type, error_msg: str) -> object:
+    """Validate a string against an enum, raising typer.Exit on error."""
+    try:
+        return enum_cls(value.lower())
+    except ValueError as exc:
+        console.print(f"[red]{error_msg}")
+        raise typer.Exit(code=2) from exc
 
 
 def query_meetings(

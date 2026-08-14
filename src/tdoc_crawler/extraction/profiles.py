@@ -12,6 +12,15 @@ from __future__ import annotations
 from enum import StrEnum
 
 
+class DeviceType(StrEnum):
+    """Accelerator device for ML-based extraction backends."""
+
+    AUTO = "auto"  # auto-detect (CUDA if available, else CPU)
+    CPU = "cpu"  # force CPU-only
+    CUDA = "cuda"  # force NVIDIA CUDA GPU
+    MPS = "mps"  # force Apple Metal Performance Shaders
+
+
 class ExtractionProfile(StrEnum):
     """Extraction profile levels for wiki ingestion."""
 
@@ -28,27 +37,18 @@ class FiguresMode(StrEnum):
     REFERENCE = "reference"  # images extracted as separate files
 
 
-class TablesMode(StrEnum):
-    """How to handle tables in extraction output."""
-
-    EMBED = "embed"  # tables embedded in markdown
-    CSV = "csv"  # tables exported as separate CSV files
-
-
-class DeviceType(StrEnum):
-    """Accelerator device for ML-based extraction backends."""
-
-    AUTO = "auto"  # auto-detect (CUDA if available, else CPU)
-    CPU = "cpu"  # force CPU-only
-    CUDA = "cuda"  # force NVIDIA CUDA GPU
-    MPS = "mps"  # force Apple Metal Performance Shaders
-
-
 class SpreadsheetMode(StrEnum):
     """How to handle spreadsheet documents in extraction output."""
 
     DATA = "data"  # extract tables/data as markdown/CSV
     VISUAL = "visual"  # convert to PDF via LibreOffice to preserve layout/charts
+
+
+class TablesMode(StrEnum):
+    """How to handle tables in extraction output."""
+
+    EMBED = "embed"  # tables embedded in markdown
+    CSV = "csv"  # tables exported as separate CSV files
 
 
 # Default profile used when none is specified

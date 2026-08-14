@@ -42,49 +42,24 @@ class TableColumnSpec:
     justify: Literal["default", "left", "center", "right", "full"] = "left"
 
 
-def _normalize_to_dataframe(data: StructuredData) -> tuple[pd.DataFrame, str]:
-    """Normalize arbitrary structured data to a DataFrame.
+def print_structured_output(
+    data: StructuredData,
+    output_format: OutputFormat,
+    *,
+    table_title: str = "Results",
+    table_columns: list[TableColumnSpec] | None = None,
+    console: Console | None = None,
+) -> None:
+    """Print structured output through a DataFrame-first common pipeline."""
+    output_console = console or get_console()
+    df, _ = _normalize_to_dataframe(data)
 
-    Returns:
-        Tuple of (dataframe, input_kind) where input_kind is one of:
-        "records", "dict", "scalar", "dataframe".
-    """
-    if isinstance(data, pd.DataFrame):
-        return data.copy(), "dataframe"
+    if output_format is OutputFormat.TABLE:
+        table = _build_table(df, title=table_title, table_columns=table_columns)
+        output_console.print(table)
+        return
 
-    if isinstance(data, list):
-        return pd.DataFrame(data), "records"
-
-    if isinstance(data, dict):
-        return pd.DataFrame([data]), "dict"
-
-    return pd.DataFrame([{"value": data}]), "scalar"
-
-
-def _dataframe_to_payload(df: pd.DataFrame, input_kind: str) -> Any:
-    """Convert normalized DataFrame to a payload shape for serializers."""
-    records = df.to_dict(orient="records")
-
-    if input_kind == "dict":
-        return records[0] if records else {}
-
-    if input_kind == "scalar":
-        if not records:
-            return None
-        return records[0].get("value")
-
-    return records
-
-
-def _format_cell(value: str | float | bool | None) -> str:
-    """Format one table cell from DataFrame value with empty handling."""
-    if value is None:
-        return "-"
-
-    if isinstance(value, float) and pd.isna(value):
-        return "-"
-
-    return str(value)
+    output_console.print(format_output(df, output_format))
 
 
 def _build_table(
@@ -112,6 +87,17 @@ def _build_table(
         table.add_row(*[_format_cell(row[column_name]) for column_name in df.columns])
 
     return table
+
+
+def _format_cell(value: str | float | bool | None) -> str:
+    """Format one table cell from DataFrame value with empty handling."""
+    if value is None:
+        return "-"
+
+    if isinstance(value, float) and pd.isna(value):
+        return "-"
+
+    return str(value)
 
 
 def format_output(data: StructuredData, output_format: OutputFormat) -> str:
@@ -151,24 +137,38 @@ def format_output(data: StructuredData, output_format: OutputFormat) -> str:
             raise ValueError(msg)
 
 
-def print_structured_output(
-    data: StructuredData,
-    output_format: OutputFormat,
-    *,
-    table_title: str = "Results",
-    table_columns: list[TableColumnSpec] | None = None,
-    console: Console | None = None,
-) -> None:
-    """Print structured output through a DataFrame-first common pipeline."""
-    output_console = console or get_console()
-    df, _ = _normalize_to_dataframe(data)
+def _normalize_to_dataframe(data: StructuredData) -> tuple[pd.DataFrame, str]:
+    """Normalize arbitrary structured data to a DataFrame.
 
-    if output_format is OutputFormat.TABLE:
-        table = _build_table(df, title=table_title, table_columns=table_columns)
-        output_console.print(table)
-        return
+    Returns:
+        Tuple of (dataframe, input_kind) where input_kind is one of:
+        "records", "dict", "scalar", "dataframe".
+    """
+    if isinstance(data, pd.DataFrame):
+        return data.copy(), "dataframe"
 
-    output_console.print(format_output(df, output_format))
+    if isinstance(data, list):
+        return pd.DataFrame(data), "records"
+
+    if isinstance(data, dict):
+        return pd.DataFrame([data]), "dict"
+
+    return pd.DataFrame([{"value": data}]), "scalar"
+
+
+def _dataframe_to_payload(df: pd.DataFrame, input_kind: str) -> Any:
+    """Convert normalized DataFrame to a payload shape for serializers."""
+    records = df.to_dict(orient="records")
+
+    if input_kind == "dict":
+        return records[0] if records else {}
+
+    if input_kind == "scalar":
+        if not records:
+            return None
+        return records[0].get("value")
+
+    return records
 
 
 __all__ = ["TableColumnSpec", "format_output", "print_structured_output"]

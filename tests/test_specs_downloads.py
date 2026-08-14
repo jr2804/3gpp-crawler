@@ -6,19 +6,6 @@ import pytest
 from tdoc_crawler.specs.downloads import SpecDownloads
 
 
-@pytest.fixture
-def mock_db() -> MagicMock:
-    return MagicMock()
-
-
-@pytest.fixture
-def downloader(mock_db: MagicMock, tmp_path: Path) -> SpecDownloads:
-    cache_dir = tmp_path / "cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    http_cache_file = cache_dir / "http-cache.sqlite3"
-    return SpecDownloads(mock_db, http_cache_file=http_cache_file)
-
-
 class TestSpecDownloads:
     # This test verifies that checkout_specs resolves URL and uses doc-only logic.
     @patch("tdoc_crawler.specs.downloads.RemoteZipFile")
@@ -51,3 +38,16 @@ class TestSpecDownloads:
 
             # Verify open called with correct filename
             mock_rzf.open.assert_called_with("26132.doc")
+
+
+@pytest.fixture
+def downloader(mock_db: MagicMock, tmp_path: Path) -> SpecDownloads:
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    http_cache_file = cache_dir / "http-cache.sqlite3"
+    return SpecDownloads(mock_db, http_cache_file=http_cache_file)
+
+
+@pytest.fixture
+def mock_db() -> MagicMock:
+    return MagicMock()

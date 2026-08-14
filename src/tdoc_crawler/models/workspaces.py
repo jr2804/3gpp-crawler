@@ -19,40 +19,12 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_id
 DEFAULT_WORKSPACE = "default"
 
 
-def normalize_workspace_name(workspace: str | None) -> str:
-    """Normalize workspace input to a canonical name."""
-    if workspace is None:
-        return DEFAULT_WORKSPACE
-
-    normalized = workspace.strip().lower()
-    if not normalized:
-        return DEFAULT_WORKSPACE
-    return normalized
-
-
-def is_default_workspace(workspace: str | None) -> bool:
-    """Return True when workspace resolves to the reserved default name."""
-    return normalize_workspace_name(workspace) == DEFAULT_WORKSPACE
-
-
 class SourceKind(StrEnum):
     """Kinds of source items that can be part of a workspace corpus."""
 
     TDOC = auto()
     SPEC = auto()
     OTHER = auto()  # catch-all for any other source types
-
-
-class TDocNotFoundError(Exception):
-    """TDoc not found in database or has no files."""
-
-
-class ConversionError(Exception):
-    """Document conversion failed (LibreOffice or remote converter error)."""
-
-
-class WorkspaceNotFoundError(Exception):
-    """Workspace does not exist in registry."""
 
 
 @dataclass
@@ -71,6 +43,18 @@ class Workspace:
             msg = "workspace_name must not be empty"
             raise ValueError(msg)
         self.workspace_name = normalize_workspace_name(self.workspace_name)
+
+
+class TDocNotFoundError(Exception):
+    """TDoc not found in database or has no files."""
+
+
+class ConversionError(Exception):
+    """Document conversion failed (LibreOffice or remote converter error)."""
+
+
+class WorkspaceNotFoundError(Exception):
+    """Workspace does not exist in registry."""
 
 
 class DocumentClassification(BaseModel):
@@ -169,6 +153,22 @@ class SummarizeResult(BaseModel):
         if value is None:
             return []
         return [str(kw).strip() for kw in value if str(kw).strip()]
+
+
+def is_default_workspace(workspace: str | None) -> bool:
+    """Return True when workspace resolves to the reserved default name."""
+    return normalize_workspace_name(workspace) == DEFAULT_WORKSPACE
+
+
+def normalize_workspace_name(workspace: str | None) -> str:
+    """Normalize workspace input to a canonical name."""
+    if workspace is None:
+        return DEFAULT_WORKSPACE
+
+    normalized = workspace.strip().lower()
+    if not normalized:
+        return DEFAULT_WORKSPACE
+    return normalized
 
 
 __all__ = [

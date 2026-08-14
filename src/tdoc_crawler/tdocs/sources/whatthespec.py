@@ -28,83 +28,6 @@ class WhatTheSpecResolutionError(Exception):
     """Raised when WhatTheSpec resolution fails."""
 
 
-def resolve_via_whatthespec(
-    tdoc_id: str,
-    session: requests.Session | None = None,
-    timeout: int = 30,
-    http_config: HttpConfig | None = None,
-    http_cache_file: Path | None = None,
-    db_file: Path | None = None,
-) -> TDocMetadata | None:
-    """Resolve TDoc metadata from whatthespec.net API.
-
-    Args:
-        tdoc_id: TDoc identifier (e.g., "S4-260001").
-        session: Optional requests.Session to reuse.
-        timeout: Request timeout in seconds.
-        http_config: HTTP configuration from ThreeGPPConfig.
-        http_cache_file: Optional explicit path to the HTTP cache database.
-        db_file: Optional explicit path to the metadata database for meeting resolution.
-
-    Returns:
-        TDocMetadata if found, otherwise None.
-    """
-    temp_session: requests.Session | None = None
-    if session is None:
-        temp_session = create_cached_session(http_cache_file=http_cache_file, http_config=http_config)
-        active_session = temp_session
-    else:
-        active_session = session
-
-    url = WHATSPEC_TDOC_URL_TEMPLATE.format(base=WHATSPEC_BASE_URL, tdoc_id=tdoc_id)
-    try:
-        response = active_session.get(url, timeout=timeout)
-        response.raise_for_status()
-        payload = response.json()
-    except requests.RequestException as exc:
-        error_msg = f"WhatTheSpec request failed for {tdoc_id}: {exc}"
-        logger.exception(error_msg)
-        raise WhatTheSpecResolutionError(error_msg) from exc
-    finally:
-        if temp_session:
-            temp_session.close()
-
-    if not isinstance(payload, list) or not payload:
-        return None
-
-    record = payload[0] or {}
-    resolved_id = normalize_tdoc_id(str(record.get("name") or tdoc_id))
-    meeting_raw = record.get("meeting")
-    meeting_name = str(meeting_raw) if meeting_raw else ""
-    agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
-
-    async def resolve_meeting_id_async() -> int:
-        resolved_db_file = db_file if db_file is not None else PathConfig().db_file
-        async with MeetingDatabase(resolved_db_file) as db:
-            return await db.resolve_meeting_id(meeting_name) or 0
-
-    meeting_id = run_async(resolve_meeting_id_async())
-
-    return TDocMetadata(
-        tdoc_id=resolved_id,
-        meeting_id=meeting_id,
-        title=str(record.get("title") or ""),
-        url=str(record.get("link") or ""),
-        source=str(record.get("source") or ""),
-        contact=str(record.get("contact") or ""),
-        tdoc_type=str(record.get("tdoctype") or "unknown"),
-        for_purpose=str(record.get("for") or "unknown"),
-        agenda_item_nbr=agenda_item_nbr,
-        agenda_item_text=str(record.get("ainame") or "Unknown"),
-        status=record.get("status"),
-        is_revision_of=None,
-        file_size=None,
-        date_created=None,
-        validated=False,
-        validation_failed=False,
-    )
-
-
 class WhatTheSpecSource(TDocSource):
     """TDoc metadata source using whatthespec.net API.
 
@@ -187,6 +110,83 @@ class WhatTheSpecSource(TDocSource):
     def requires_authentication(self) -> bool:
         """Return whether this source requires authentication."""
         return False
+
+
+def resolve_via_whatthespec(
+    tdoc_id: str,
+    session: requests.Session | None = None,
+    timeout: int = 30,
+    http_config: HttpConfig | None = None,
+    http_cache_file: Path | None = None,
+    db_file: Path | None = None,
+) -> TDocMetadata | None:
+    """Resolve TDoc metadata from whatthespec.net API.
+
+    Args:
+        tdoc_id: TDoc identifier (e.g., "S4-260001").
+        session: Optional requests.Session to reuse.
+        timeout: Request timeout in seconds.
+        http_config: HTTP configuration from ThreeGPPConfig.
+        http_cache_file: Optional explicit path to the HTTP cache database.
+        db_file: Optional explicit path to the metadata database for meeting resolution.
+
+    Returns:
+        TDocMetadata if found, otherwise None.
+    """
+    temp_session: requests.Session | None = None
+    if session is None:
+        temp_session = create_cached_session(http_cache_file=http_cache_file, http_config=http_config)
+        active_session = temp_session
+    else:
+        active_session = session
+
+    url = WHATSPEC_TDOC_URL_TEMPLATE.format(base=WHATSPEC_BASE_URL, tdoc_id=tdoc_id)
+    try:
+        response = active_session.get(url, timeout=timeout)
+        response.raise_for_status()
+        payload = response.json()
+    except requests.RequestException as exc:
+        error_msg = f"WhatTheSpec request failed for {tdoc_id}: {exc}"
+        logger.exception(error_msg)
+        raise WhatTheSpecResolutionError(error_msg) from exc
+    finally:
+        if temp_session:
+            temp_session.close()
+
+    if not isinstance(payload, list) or not payload:
+        return None
+
+    record = payload[0] or {}
+    resolved_id = normalize_tdoc_id(str(record.get("name") or tdoc_id))
+    meeting_raw = record.get("meeting")
+    meeting_name = str(meeting_raw) if meeting_raw else ""
+    agenda_item_nbr = parse_agenda_item_nbr(record.get("ainumber"))
+
+    async def resolve_meeting_id_async() -> int:
+        resolved_db_file = db_file if db_file is not None else PathConfig().db_file
+        async with MeetingDatabase(resolved_db_file) as db:
+            return await db.resolve_meeting_id(meeting_name) or 0
+
+    meeting_id = run_async(resolve_meeting_id_async())
+
+    return TDocMetadata(
+        tdoc_id=resolved_id,
+        meeting_id=meeting_id,
+        title=str(record.get("title") or ""),
+        url=str(record.get("link") or ""),
+        source=str(record.get("source") or ""),
+        contact=str(record.get("contact") or ""),
+        tdoc_type=str(record.get("tdoctype") or "unknown"),
+        for_purpose=str(record.get("for") or "unknown"),
+        agenda_item_nbr=agenda_item_nbr,
+        agenda_item_text=str(record.get("ainame") or "Unknown"),
+        status=record.get("status"),
+        is_revision_of=None,
+        file_size=None,
+        date_created=None,
+        validated=False,
+        validation_failed=False,
+    )
 
 
 __all__ = [

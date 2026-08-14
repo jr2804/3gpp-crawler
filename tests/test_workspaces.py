@@ -28,18 +28,6 @@ from tdoc_crawler.workspaces import (
 )
 
 
-@pytest.fixture
-def temp_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Create a temporary cache directory and register it."""
-    cache_dir = tmp_path / ".3gpp-crawler"
-    cache_dir.mkdir()
-    monkeypatch.setenv("TDC_CACHE_DIR", str(cache_dir))
-    # Reset CacheManager singleton to allow re-registration in tests
-    CacheManager._instance = None
-    CacheManager(cache_dir).register()
-    return cache_dir
-
-
 class TestWorkspaceModels:
     """Tests for workspace models."""
 
@@ -287,3 +275,15 @@ class TestSpecSourceDirNaming:
             result = _effective_source_id(member)
 
         assert result == "26131"
+
+
+@pytest.fixture
+def temp_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Create a temporary cache directory and register it."""
+    cache_dir = tmp_path / ".3gpp-crawler"
+    cache_dir.mkdir()
+    monkeypatch.setenv("TDC_CACHE_DIR", str(cache_dir))
+    # Reset CacheManager singleton to allow re-registration in tests
+    CacheManager._instance = None
+    CacheManager(cache_dir).register()
+    return cache_dir

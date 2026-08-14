@@ -14,10 +14,10 @@ from __future__ import annotations
 import logging
 from typing import override
 
-logger = logging.getLogger(__name__)
-
 # Logger used by Docling's threaded pipeline for C++ preprocess errors.
 _DOCLING_PIPELINE_LOGGER = "docling.pipeline.standard_pdf_pipeline"
+
+logger = logging.getLogger(__name__)
 
 
 class _DoclingBadAllocFilter(logging.Filter):

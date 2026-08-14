@@ -14,14 +14,6 @@ from tdoc_crawler.config.settings import ThreeGPPConfig
 FormatType = Literal["toml", "yaml", "json"]
 
 
-def _default_value_for_field(info: FieldInfo) -> object:
-    """Extract the default value from a pydantic field info."""
-    default = info.default
-    if callable(default):
-        return None
-    return default
-
-
 class ConfigExporter:
     """Export configuration to file formats with documentation comments."""
 
@@ -198,6 +190,14 @@ class ConfigExporter:
         else:
             result = f'"{value!s}"'
         return result
+
+
+def _default_value_for_field(info: FieldInfo) -> object:
+    """Extract the default value from a pydantic field info."""
+    default = info.default
+    if callable(default):
+        return None
+    return default
 
 
 __all__ = ["ConfigExporter", "FormatType"]

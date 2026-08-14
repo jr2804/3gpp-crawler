@@ -29,6 +29,91 @@ class DocumentListError(Exception):
     """Raised when document list fetching or parsing fails."""
 
 
+class DocumentListSource(TDocSource):
+    """TDoc metadata source using meeting document lists.
+
+    This source provides unauthenticated bulk access to all TDocs in a meeting
+    by downloading and parsing the Excel document list. It's ideal for fetching
+    all metadata for a specific meeting efficiently without credentials.
+    """
+
+    def __init__(
+        self,
+        config: TDocSourceConfig,
+    ) -> None:
+        """Initialize document list source.
+
+        Args:
+            config: Source configuration
+        """
+        self.config = config
+
+    def fetch_by_id(
+        self,
+        tdoc_id: str,
+        *,
+        db_file: Path | None = None,
+        timeout: int = 30,
+    ) -> TDocMetadata | None:
+        """Fetch TDoc metadata by TDoc ID.
+
+        Document list source does not support individual TDoc lookups.
+        Use fetch_by_meeting() instead.
+
+        Args:
+            tdoc_id: TDoc identifier (e.g., "S4-251364")
+            db_file: Optional path to database for meeting resolution (unused)
+            timeout: Request timeout in seconds
+
+        Returns:
+            None (not supported by this source)
+        """
+        msg = f"Document list source does not support individual TDoc lookups for {tdoc_id}"
+        raise NotImplementedError(msg)
+
+    def fetch_by_meeting(
+        self,
+        meeting_id: int,
+        *,
+        timeout: int = 30,
+    ) -> list[TDocMetadata]:
+        """Fetch all TDoc metadata for a meeting via document list.
+
+        Args:
+            meeting_id: 3GPP meeting identifier
+            timeout: Request timeout in seconds
+
+        Returns:
+            List of TDocMetadata for the meeting
+        """
+        try:
+            tdocs = fetch_meeting_document_list(
+                meeting_id=meeting_id,
+                http_config=self.config.http_config,
+                http_cache_file=self.config.http_cache_file,
+                timeout=timeout,
+            )
+            _logger.info(f"Fetched {len(tdocs)} TDocs from document list for meeting {meeting_id}")
+            return tdocs
+
+        except DocumentListError as exc:
+            _logger.warning("Document list fetch failed for meeting %s: %s", meeting_id, exc)
+            return []
+        except (OSError, RuntimeError, ValueError) as exc:
+            _logger.exception("Unexpected error fetching document list for meeting %s: %s", meeting_id, exc)
+            return []
+
+    @property
+    def source_name(self) -> str:
+        """Return the name of this source for logging."""
+        return "DocumentList"
+
+    @property
+    def requires_authentication(self) -> bool:
+        """Return whether this source requires authentication."""
+        return False
+
+
 def fetch_meeting_document_list(
     meeting_id: int,
     timeout: int = 30,
@@ -372,91 +457,6 @@ def _parse_date(date_value: str | None) -> datetime | None:
     except (TypeError, ValueError) as exc:
         _logger.warning("Failed to parse date value '%s': %s", date_value, exc)
         return None
-
-
-class DocumentListSource(TDocSource):
-    """TDoc metadata source using meeting document lists.
-
-    This source provides unauthenticated bulk access to all TDocs in a meeting
-    by downloading and parsing the Excel document list. It's ideal for fetching
-    all metadata for a specific meeting efficiently without credentials.
-    """
-
-    def __init__(
-        self,
-        config: TDocSourceConfig,
-    ) -> None:
-        """Initialize document list source.
-
-        Args:
-            config: Source configuration
-        """
-        self.config = config
-
-    def fetch_by_id(
-        self,
-        tdoc_id: str,
-        *,
-        db_file: Path | None = None,
-        timeout: int = 30,
-    ) -> TDocMetadata | None:
-        """Fetch TDoc metadata by TDoc ID.
-
-        Document list source does not support individual TDoc lookups.
-        Use fetch_by_meeting() instead.
-
-        Args:
-            tdoc_id: TDoc identifier (e.g., "S4-251364")
-            db_file: Optional path to database for meeting resolution (unused)
-            timeout: Request timeout in seconds
-
-        Returns:
-            None (not supported by this source)
-        """
-        msg = f"Document list source does not support individual TDoc lookups for {tdoc_id}"
-        raise NotImplementedError(msg)
-
-    def fetch_by_meeting(
-        self,
-        meeting_id: int,
-        *,
-        timeout: int = 30,
-    ) -> list[TDocMetadata]:
-        """Fetch all TDoc metadata for a meeting via document list.
-
-        Args:
-            meeting_id: 3GPP meeting identifier
-            timeout: Request timeout in seconds
-
-        Returns:
-            List of TDocMetadata for the meeting
-        """
-        try:
-            tdocs = fetch_meeting_document_list(
-                meeting_id=meeting_id,
-                http_config=self.config.http_config,
-                http_cache_file=self.config.http_cache_file,
-                timeout=timeout,
-            )
-            _logger.info(f"Fetched {len(tdocs)} TDocs from document list for meeting {meeting_id}")
-            return tdocs
-
-        except DocumentListError as exc:
-            _logger.warning("Document list fetch failed for meeting %s: %s", meeting_id, exc)
-            return []
-        except (OSError, RuntimeError, ValueError) as exc:
-            _logger.exception("Unexpected error fetching document list for meeting %s: %s", meeting_id, exc)
-            return []
-
-    @property
-    def source_name(self) -> str:
-        """Return the name of this source for logging."""
-        return "DocumentList"
-
-    @property
-    def requires_authentication(self) -> bool:
-        """Return whether this source requires authentication."""
-        return False
 
 
 __all__ = [

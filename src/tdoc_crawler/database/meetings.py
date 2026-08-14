@@ -17,31 +17,6 @@ from tdoc_crawler.utils.normalization import normalize_portal_meeting_name
 _logger = get_logger(__name__)
 
 
-def _filter_by_working_group(meetings: list[MeetingMetadata], allowed_tbids: set[int]) -> list[MeetingMetadata]:
-    """Filter meetings by allowed TBID set."""
-    return [m for m in meetings if m.tbid in allowed_tbids]
-
-
-def _filter_by_subgroup(meetings: list[MeetingMetadata], allowed_codes: set[str]) -> list[MeetingMetadata]:
-    """Filter meetings by subgroup codes."""
-    return [m for m in meetings if m.subtb in SUBTB_INDEX and SUBTB_INDEX[m.subtb].code in allowed_codes]
-
-
-def _filter_with_files(meetings: list[MeetingMetadata]) -> list[MeetingMetadata]:
-    """Keep only meetings that have a files URL."""
-    return [m for m in meetings if m.files_url]
-
-
-def _filter_by_start_date(meetings: list[MeetingMetadata], start_date: datetime) -> list[MeetingMetadata]:
-    """Keep meetings starting on or after the given date."""
-    return [m for m in meetings if m.start_date and m.start_date >= start_date]
-
-
-def _filter_by_end_date(meetings: list[MeetingMetadata], end_date: datetime) -> list[MeetingMetadata]:
-    """Keep meetings ending on or before the given date."""
-    return [m for m in meetings if m.end_date and m.end_date <= end_date]
-
-
 class MeetingDatabase(DocDatabase):
     """Database operations for meeting metadata."""
 
@@ -131,55 +106,6 @@ class MeetingDatabase(DocDatabase):
             if progress_callback:
                 progress_callback(float(index), total)
         return inserted, updated
-
-    @staticmethod
-    async def query_meetings(config: MeetingQueryConfig) -> list[MeetingMetadata]:
-        """Query meetings with filtering and sorting.
-
-        Pushes working_group, start_date, end_date, and files_url filters
-        to SQL WHERE via Oxyde ORM. Subgroup filters remain in-memory due
-        to cross-table lookup requirements.
-
-        Args:
-            config: Query configuration with filters and options
-
-        Returns:
-            List of matching meeting metadata
-        """
-        qs = MeetingMetadata.objects
-
-        if config.working_groups:
-            allowed_tbids = [wg.tbid for wg in config.working_groups]
-            qs = qs.filter(tbid__in=allowed_tbids)
-
-        if config.start_date is not None:
-            qs = qs.filter(start_date__gte=config.start_date)
-
-        if config.end_date is not None:
-            qs = qs.filter(end_date__lte=config.end_date)
-
-        if not config.include_without_files:
-            qs = qs.exclude(files_url="")
-
-        meetings = await qs.all()
-
-        if config.subgroups:
-            allowed_subgroups = {value.strip().upper() for value in config.subgroups}
-            meetings = _filter_by_subgroup(meetings, allowed_subgroups)
-
-        descending = config.order.value.lower() == "desc"
-        meetings.sort(
-            key=lambda meeting: (
-                meeting.start_date or datetime.min.date(),
-                meeting.meeting_id,
-            ),
-            reverse=descending,
-        )
-
-        if config.limit is not None:
-            meetings = meetings[: config.limit]
-
-        return meetings
 
     async def get_existing_meeting_ids(self, working_groups: Iterable[WorkingGroup] | None = None) -> set[int]:
         """Get set of existing meeting IDs, optionally filtered by working group.
@@ -302,6 +228,55 @@ class MeetingDatabase(DocDatabase):
             "recent_crawls": recent_crawls,
         }
 
+    @staticmethod
+    async def query_meetings(config: MeetingQueryConfig) -> list[MeetingMetadata]:
+        """Query meetings with filtering and sorting.
+
+        Pushes working_group, start_date, end_date, and files_url filters
+        to SQL WHERE via Oxyde ORM. Subgroup filters remain in-memory due
+        to cross-table lookup requirements.
+
+        Args:
+            config: Query configuration with filters and options
+
+        Returns:
+            List of matching meeting metadata
+        """
+        qs = MeetingMetadata.objects
+
+        if config.working_groups:
+            allowed_tbids = [wg.tbid for wg in config.working_groups]
+            qs = qs.filter(tbid__in=allowed_tbids)
+
+        if config.start_date is not None:
+            qs = qs.filter(start_date__gte=config.start_date)
+
+        if config.end_date is not None:
+            qs = qs.filter(end_date__lte=config.end_date)
+
+        if not config.include_without_files:
+            qs = qs.exclude(files_url="")
+
+        meetings = await qs.all()
+
+        if config.subgroups:
+            allowed_subgroups = {value.strip().upper() for value in config.subgroups}
+            meetings = _filter_by_subgroup(meetings, allowed_subgroups)
+
+        descending = config.order.value.lower() == "desc"
+        meetings.sort(
+            key=lambda meeting: (
+                meeting.start_date or datetime.min.date(),
+                meeting.meeting_id,
+            ),
+            reverse=descending,
+        )
+
+        if config.limit is not None:
+            meetings = meetings[: config.limit]
+
+        return meetings
+
     async def _meeting_map(self) -> dict[int, MeetingMetadata]:
         """Get mapping of meeting ID to meeting metadata."""
         meetings = await self._table_rows(MeetingMetadata)
@@ -353,6 +328,31 @@ class MeetingDatabase(DocDatabase):
             if getattr(current, field) != getattr(candidate, field):
                 return True
         return False
+
+
+def _filter_by_working_group(meetings: list[MeetingMetadata], allowed_tbids: set[int]) -> list[MeetingMetadata]:
+    """Filter meetings by allowed TBID set."""
+    return [m for m in meetings if m.tbid in allowed_tbids]
+
+
+def _filter_by_subgroup(meetings: list[MeetingMetadata], allowed_codes: set[str]) -> list[MeetingMetadata]:
+    """Filter meetings by subgroup codes."""
+    return [m for m in meetings if m.subtb in SUBTB_INDEX and SUBTB_INDEX[m.subtb].code in allowed_codes]
+
+
+def _filter_with_files(meetings: list[MeetingMetadata]) -> list[MeetingMetadata]:
+    """Keep only meetings that have a files URL."""
+    return [m for m in meetings if m.files_url]
+
+
+def _filter_by_start_date(meetings: list[MeetingMetadata], start_date: datetime) -> list[MeetingMetadata]:
+    """Keep meetings starting on or after the given date."""
+    return [m for m in meetings if m.start_date and m.start_date >= start_date]
+
+
+def _filter_by_end_date(meetings: list[MeetingMetadata], end_date: datetime) -> list[MeetingMetadata]:
+    """Keep meetings ending on or before the given date."""
+    return [m for m in meetings if m.end_date and m.end_date <= end_date]
 
 
 __all__ = ["MeetingDatabase"]

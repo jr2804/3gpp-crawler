@@ -55,159 +55,6 @@ def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> 
             record.file_size = total
 
 
-def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
-    """Calculate the checkout path for a TDoc based on its URL.
-
-    The checkout path mirrors the 3GPP server directory structure.
-
-    Args:
-        metadata: TDoc metadata containing the URL
-        checkout_dir: Base checkout directory
-
-    Returns:
-        Path to the checkout directory for this TDoc
-    """
-    url_path_str: str = str(urlparse(metadata.url).path)
-    url_path_str = url_path_str.lstrip("/")
-    path_parts: list[str] = url_path_str.split("/")
-
-    try:
-        ftp_index = path_parts.index("ftp")
-        relative_parts: list[str] = path_parts[ftp_index + 1 :]
-    except ValueError:
-        relative_parts = path_parts
-
-    if relative_parts:
-        relative_parts = relative_parts[:-1]
-
-    return checkout_dir.joinpath(*relative_parts) / metadata.tdoc_id if relative_parts else checkout_dir / metadata.tdoc_id
-
-
-def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | None = None) -> str | None:
-    """Fetch directory listing and find the correct URL for the TDoc zip.
-
-    Tries the direct parent directory first. If that fails (e.g. the
-    directory does not exist due to path duplication like ``Docs/Docs/``),
-    progressively tries ancestor directories until a match is found.
-
-    Handles case-mismatched filenames and duplicated path segments.
-    """
-    if not metadata.url:
-        return None
-
-    expected_filename = posixpath.basename(metadata.url)
-    expected_lower = expected_filename.lower()
-
-    # Build candidate directory URLs: direct parent, then grandparents
-    url_parts = metadata.url.rsplit("/", 1)
-    directory_url = url_parts[0] + "/"
-    candidate_dirs = [directory_url]
-
-    # Walk up the path to handle duplicated segments (e.g. Docs/Docs/)
-    parsed = urlparse(directory_url)
-    path_segments = [s for s in parsed.path.split("/") if s]
-    # Remove the last segment and try again (up to 3 levels)
-    for i in range(1, min(4, len(path_segments))):
-        shorter = "/" + "/".join(path_segments[:-i]) + "/"
-        candidate = f"{parsed.scheme}://{parsed.netloc}{shorter}"
-        candidate_dirs.append(candidate)
-
-    with requests.Session(disable_http3=True) as plain_session:
-        for dir_url in candidate_dirs:
-            try:
-                response = plain_session.get(dir_url, timeout=60)
-                response.raise_for_status()
-            except (requests.RequestException, OSError):
-                logger.debug("Directory listing failed for %s", dir_url)
-                continue
-
-            soup = BeautifulSoup(response.content or b"", "html.parser")
-            for link in soup.find_all("a", href=True):
-                href = link.get("href")
-                if not isinstance(href, str):
-                    continue
-                full_url = urljoin(dir_url, href)
-                actual_filename = posixpath.basename(full_url)
-                if actual_filename.lower() == expected_lower:
-                    return full_url
-
-    return None
-
-
-def checkout_tdoc(
-    metadata: TDocMetadata,
-    checkout_dir: Path,
-    *,
-    force: bool = False,
-    session: requests.Session | None = None,
-) -> Path:
-    """Download and extract a TDoc to the checkout folder.
-
-    Args:
-        metadata: TDoc metadata containing URL and ID
-        checkout_dir: Base checkout directory
-        force: If True, re-download even if already exists
-        session: Optional requests.Session to reuse for downloads
-
-    Returns:
-        Path to the extracted TDoc directory
-
-    Raises:
-        FileNotFoundError: If download fails or zip is empty
-    """
-    # Check if TDoc is withdrawn - if so, skip download and log debug message
-    if metadata.status == TDocStatus.WITHDRAWN:
-        logger.debug(f"Skipping checkout for withdrawn TDoc {metadata.tdoc_id}")
-        msg = "withdrawn"
-        raise FileNotFoundError(msg)
-
-    checkout_path = get_checkout_path(metadata, checkout_dir)
-
-    if checkout_path.exists() and not force:
-        has_files = any(f.is_file() for f in checkout_path.rglob("*") if not f.name.startswith("."))
-        if has_files:
-            logger.debug(f"TDoc {metadata.tdoc_id} already checked out at {checkout_path}")
-            return checkout_path
-        logger.debug(f"TDoc {metadata.tdoc_id} checkout dir exists but is empty, re-downloading")
-
-    checkout_path.mkdir(parents=True, exist_ok=True)
-    temp_zip_file = checkout_path / f"{metadata.tdoc_id}.zip"
-
-    if metadata.url is None:
-        msg = f"TDoc {metadata.tdoc_id} has no URL"
-        raise ValueError(msg)
-
-    try:
-        try:
-            download_to_file(metadata.url, temp_zip_file, session=session)
-        except requests.HTTPError:
-            corrected_url = _resolve_corrected_url(metadata)
-            if corrected_url and corrected_url != metadata.url:
-                logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
-                with requests.Session(disable_http3=True) as plain_session:
-                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
-            else:
-                raise
-        try:
-            with zipfile.ZipFile(temp_zip_file) as _zf:
-                pass
-        except zipfile.BadZipFile:
-            corrected_url = _resolve_corrected_url(metadata)
-            if corrected_url and corrected_url != metadata.url:
-                logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
-                with requests.Session(disable_http3=True) as plain_session:
-                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
-            else:
-                raise
-        safe_extract_zip(temp_zip_file, checkout_path)
-        logger.info("Checked out %s to %s", metadata.tdoc_id, checkout_path)
-    finally:
-        if temp_zip_file.exists():
-            temp_zip_file.unlink()
-
-    return checkout_path
-
-
 def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bool = False, session: requests.Session | None = None) -> Path:
     """Prepare TDoc file for opening (download and extract if needed).
 
@@ -321,6 +168,49 @@ def clear_checkout_tdocs(checkout_dir: Path) -> int:
     return removed
 
 
+def checkout_meeting_tdocs(
+    meetings: list[MeetingMetadata],
+    checkout_dir: Path,
+    http_cache_file: Path,
+    session: requests.Session | None = None,
+    cache_manager_name: str | None = None,
+) -> CheckoutResult:
+    """Checkout TDoc files from a list of meetings.
+
+    Args:
+        meetings: List of MeetingMetadata to checkout TDocs from
+        checkout_dir: Base checkout directory
+        http_cache_file: Path to HTTP cache database
+        session: Optional requests.Session to reuse for downloads
+        cache_manager_name: Optional cache manager name for HTTP caching
+
+    Returns:
+        CheckoutResult with success/error counts
+    """
+    if not meetings:
+        return CheckoutResult(success_count=0, error_count=0, errors=[])
+
+    unique: dict[str, TDocMetadata] = {}
+    errors: list[str] = []
+
+    for meeting in meetings:
+        if not meeting.files_url:
+            errors.append(f"{meeting.short_name}: no files URL")
+            continue
+        try:
+            meeting_folder = get_meeting_checkout_folder(meeting, checkout_dir)
+            doclist_path = meeting_folder / f"meeting_{meeting.meeting_id}_doclist.xlsx"
+            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_file, save_doclist_to=doclist_path)
+        except DocumentListError as exc:
+            errors.append(f"{meeting.short_name}: {exc}")
+            continue
+        for metadata in tdocs:
+            if metadata.tdoc_id not in unique:
+                unique[metadata.tdoc_id] = metadata
+
+    return checkout_tdocs(list(unique.values()), checkout_dir, force=False, session=session, cache_manager_name=cache_manager_name)
+
+
 def checkout_tdocs(
     results: list[TDocMetadata],
     checkout_dir: Path,
@@ -366,6 +256,159 @@ def checkout_tdocs(
     return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors)
 
 
+def checkout_tdoc(
+    metadata: TDocMetadata,
+    checkout_dir: Path,
+    *,
+    force: bool = False,
+    session: requests.Session | None = None,
+) -> Path:
+    """Download and extract a TDoc to the checkout folder.
+
+    Args:
+        metadata: TDoc metadata containing URL and ID
+        checkout_dir: Base checkout directory
+        force: If True, re-download even if already exists
+        session: Optional requests.Session to reuse for downloads
+
+    Returns:
+        Path to the extracted TDoc directory
+
+    Raises:
+        FileNotFoundError: If download fails or zip is empty
+    """
+    # Check if TDoc is withdrawn - if so, skip download and log debug message
+    if metadata.status == TDocStatus.WITHDRAWN:
+        logger.debug(f"Skipping checkout for withdrawn TDoc {metadata.tdoc_id}")
+        msg = "withdrawn"
+        raise FileNotFoundError(msg)
+
+    checkout_path = get_checkout_path(metadata, checkout_dir)
+
+    if checkout_path.exists() and not force:
+        has_files = any(f.is_file() for f in checkout_path.rglob("*") if not f.name.startswith("."))
+        if has_files:
+            logger.debug(f"TDoc {metadata.tdoc_id} already checked out at {checkout_path}")
+            return checkout_path
+        logger.debug(f"TDoc {metadata.tdoc_id} checkout dir exists but is empty, re-downloading")
+
+    checkout_path.mkdir(parents=True, exist_ok=True)
+    temp_zip_file = checkout_path / f"{metadata.tdoc_id}.zip"
+
+    if metadata.url is None:
+        msg = f"TDoc {metadata.tdoc_id} has no URL"
+        raise ValueError(msg)
+
+    try:
+        try:
+            download_to_file(metadata.url, temp_zip_file, session=session)
+        except requests.HTTPError:
+            corrected_url = _resolve_corrected_url(metadata)
+            if corrected_url and corrected_url != metadata.url:
+                logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
+                with requests.Session(disable_http3=True) as plain_session:
+                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
+            else:
+                raise
+        try:
+            with zipfile.ZipFile(temp_zip_file) as _zf:
+                pass
+        except zipfile.BadZipFile:
+            corrected_url = _resolve_corrected_url(metadata)
+            if corrected_url and corrected_url != metadata.url:
+                logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
+                with requests.Session(disable_http3=True) as plain_session:
+                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
+            else:
+                raise
+        safe_extract_zip(temp_zip_file, checkout_path)
+        logger.info("Checked out %s to %s", metadata.tdoc_id, checkout_path)
+    finally:
+        if temp_zip_file.exists():
+            temp_zip_file.unlink()
+
+    return checkout_path
+
+
+def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
+    """Calculate the checkout path for a TDoc based on its URL.
+
+    The checkout path mirrors the 3GPP server directory structure.
+
+    Args:
+        metadata: TDoc metadata containing the URL
+        checkout_dir: Base checkout directory
+
+    Returns:
+        Path to the checkout directory for this TDoc
+    """
+    url_path_str: str = str(urlparse(metadata.url).path)
+    url_path_str = url_path_str.lstrip("/")
+    path_parts: list[str] = url_path_str.split("/")
+
+    try:
+        ftp_index = path_parts.index("ftp")
+        relative_parts: list[str] = path_parts[ftp_index + 1 :]
+    except ValueError:
+        relative_parts = path_parts
+
+    if relative_parts:
+        relative_parts = relative_parts[:-1]
+
+    return checkout_dir.joinpath(*relative_parts) / metadata.tdoc_id if relative_parts else checkout_dir / metadata.tdoc_id
+
+
+def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | None = None) -> str | None:
+    """Fetch directory listing and find the correct URL for the TDoc zip.
+
+    Tries the direct parent directory first. If that fails (e.g. the
+    directory does not exist due to path duplication like ``Docs/Docs/``),
+    progressively tries ancestor directories until a match is found.
+
+    Handles case-mismatched filenames and duplicated path segments.
+    """
+    if not metadata.url:
+        return None
+
+    expected_filename = posixpath.basename(metadata.url)
+    expected_lower = expected_filename.lower()
+
+    # Build candidate directory URLs: direct parent, then grandparents
+    url_parts = metadata.url.rsplit("/", 1)
+    directory_url = url_parts[0] + "/"
+    candidate_dirs = [directory_url]
+
+    # Walk up the path to handle duplicated segments (e.g. Docs/Docs/)
+    parsed = urlparse(directory_url)
+    path_segments = [s for s in parsed.path.split("/") if s]
+    # Remove the last segment and try again (up to 3 levels)
+    for i in range(1, min(4, len(path_segments))):
+        shorter = "/" + "/".join(path_segments[:-i]) + "/"
+        candidate = f"{parsed.scheme}://{parsed.netloc}{shorter}"
+        candidate_dirs.append(candidate)
+
+    with requests.Session(disable_http3=True) as plain_session:
+        for dir_url in candidate_dirs:
+            try:
+                response = plain_session.get(dir_url, timeout=60)
+                response.raise_for_status()
+            except (requests.RequestException, OSError):
+                logger.debug("Directory listing failed for %s", dir_url)
+                continue
+
+            soup = BeautifulSoup(response.content or b"", "html.parser")
+            for link in soup.find_all("a", href=True):
+                href = link.get("href")
+                if not isinstance(href, str):
+                    continue
+                full_url = urljoin(dir_url, href)
+                actual_filename = posixpath.basename(full_url)
+                if actual_filename.lower() == expected_lower:
+                    return full_url
+
+    return None
+
+
 def get_meeting_checkout_folder(meeting: MeetingMetadata, checkout_dir: Path) -> Path:
     """Calculate the checkout folder for a meeting based on its files_url.
 
@@ -393,49 +436,6 @@ def get_meeting_checkout_folder(meeting: MeetingMetadata, checkout_dir: Path) ->
         relative_parts = path_parts
 
     return checkout_dir.joinpath(*relative_parts) if relative_parts else checkout_dir
-
-
-def checkout_meeting_tdocs(
-    meetings: list[MeetingMetadata],
-    checkout_dir: Path,
-    http_cache_file: Path,
-    session: requests.Session | None = None,
-    cache_manager_name: str | None = None,
-) -> CheckoutResult:
-    """Checkout TDoc files from a list of meetings.
-
-    Args:
-        meetings: List of MeetingMetadata to checkout TDocs from
-        checkout_dir: Base checkout directory
-        http_cache_file: Path to HTTP cache database
-        session: Optional requests.Session to reuse for downloads
-        cache_manager_name: Optional cache manager name for HTTP caching
-
-    Returns:
-        CheckoutResult with success/error counts
-    """
-    if not meetings:
-        return CheckoutResult(success_count=0, error_count=0, errors=[])
-
-    unique: dict[str, TDocMetadata] = {}
-    errors: list[str] = []
-
-    for meeting in meetings:
-        if not meeting.files_url:
-            errors.append(f"{meeting.short_name}: no files URL")
-            continue
-        try:
-            meeting_folder = get_meeting_checkout_folder(meeting, checkout_dir)
-            doclist_path = meeting_folder / f"meeting_{meeting.meeting_id}_doclist.xlsx"
-            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_file, save_doclist_to=doclist_path)
-        except DocumentListError as exc:
-            errors.append(f"{meeting.short_name}: {exc}")
-            continue
-        for metadata in tdocs:
-            if metadata.tdoc_id not in unique:
-                unique[metadata.tdoc_id] = metadata
-
-    return checkout_tdocs(list(unique.values()), checkout_dir, force=False, session=session, cache_manager_name=cache_manager_name)
 
 
 __all__ = [

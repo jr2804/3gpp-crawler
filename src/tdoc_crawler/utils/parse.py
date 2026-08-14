@@ -48,6 +48,29 @@ def parse_spec_version(value: str | int | None) -> SpecVersion:
 parse_spec_version_nbr = parse_spec_version
 
 
+def parse_working_groups(values: list[str] | None, subgroups: list[str] | None = None) -> list[WorkingGroup]:
+    """Parse and normalize working group names, expanding plenary aliases.
+
+    Args:
+        values: Explicit working group values from CLI
+        subgroups: Optional subgroup list to infer working groups from
+
+    Returns:
+        List of working groups to crawl
+    """
+    if not values:
+        if subgroups:
+            return infer_working_groups_from_subgroups(subgroups)
+        return [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
+
+    resolved: list[WorkingGroup] = []
+    for item in values:
+        normalized = normalize_working_group_alias(item)
+        resolved.append(normalized)
+
+    return resolved
+
+
 def infer_working_groups_from_subgroups(subgroups: list[str]) -> list[WorkingGroup]:
     """Infer working groups from subgroup codes.
 
@@ -75,29 +98,6 @@ def infer_working_groups_from_subgroups(subgroups: list[str]) -> list[WorkingGro
             working_groups.append(wg)
 
     return working_groups
-
-
-def parse_working_groups(values: list[str] | None, subgroups: list[str] | None = None) -> list[WorkingGroup]:
-    """Parse and normalize working group names, expanding plenary aliases.
-
-    Args:
-        values: Explicit working group values from CLI
-        subgroups: Optional subgroup list to infer working groups from
-
-    Returns:
-        List of working groups to crawl
-    """
-    if not values:
-        if subgroups:
-            return infer_working_groups_from_subgroups(subgroups)
-        return [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
-
-    resolved: list[WorkingGroup] = []
-    for item in values:
-        normalized = normalize_working_group_alias(item)
-        resolved.append(normalized)
-
-    return resolved
 
 
 def parse_subgroups(values: list[str] | None) -> list[str] | None:

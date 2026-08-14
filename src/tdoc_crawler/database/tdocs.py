@@ -13,15 +13,11 @@ from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
-_logger = get_logger(__name__)
-
 SQLITE_MAX_VARS = 999
 
 DEFAULT_BULK_BATCH_SIZE = 40
 
-
-def _get_updatable_fields(model_type: type) -> list[str]:
-    return [name for name, f in model_type.model_fields.items() if not getattr(f, "db_pk", False)]
+_logger = get_logger(__name__)
 
 
 class TDocDatabase(MeetingDatabase):
@@ -226,11 +222,6 @@ class TDocDatabase(MeetingDatabase):
         filtered = self._filter_by_pattern(filtered, config.agenda_pattern, lambda record: record.agenda_item_text, exclude=False)
         return self._filter_by_pattern(filtered, config.agenda_pattern_exclude, lambda record: record.agenda_item_text, exclude=True)
 
-    @staticmethod
-    async def _get_tdoc(tdoc_id: str) -> TDocMetadata | None:
-        """Get a TDoc by ID."""
-        return await TDocMetadata.objects.filter(tdoc_id=tdoc_id.upper()).first()
-
     async def _resolve_tbid(self, record: TDocMetadata) -> TDocMetadata:
         """Resolve tbid from the associated meeting and return updated record."""
         if record.meeting_id is None:
@@ -239,6 +230,11 @@ class TDocDatabase(MeetingDatabase):
         if meeting is None or meeting.tbid is None:
             return record
         return self._clone_tdoc(record, {"tbid": meeting.tbid})
+
+    @staticmethod
+    async def _get_tdoc(tdoc_id: str) -> TDocMetadata | None:
+        """Get a TDoc by ID."""
+        return await TDocMetadata.objects.filter(tdoc_id=tdoc_id.upper()).first()
 
     @staticmethod
     def _meeting_start_date(record: TDocMetadata, meeting_map: dict[int, MeetingMetadata], fallback: date) -> date:
@@ -362,6 +358,10 @@ class TDocDatabase(MeetingDatabase):
         data = {field: getattr(metadata, field, None) for field in TDocMetadata.__annotations__}
         data.update(updates)
         return TDocMetadata(**data)
+
+
+def _get_updatable_fields(model_type: type) -> list[str]:
+    return [name for name, f in model_type.model_fields.items() if not getattr(f, "db_pk", False)]
 
 
 __all__ = ["TDocDatabase"]

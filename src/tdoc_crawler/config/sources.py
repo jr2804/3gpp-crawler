@@ -50,46 +50,6 @@ class ConfigLoadError(Exception):
         super().__init__(f"Failed to load config from {config_file}: {reason}")
 
 
-def _interpolate_env_vars(value: Any) -> Any:
-    """Recursively interpolate ${ENV_VAR} patterns in string values.
-
-    Args:
-        value: The value to interpolate (may be nested).
-
-    Returns:
-        The value with environment variables interpolated.
-    """
-    if isinstance(value, str):
-        pattern = re.compile(r"\$\{([^}]+)\}")
-
-        def replacer(match: re.Match[str]) -> str:
-            env_var = match.group(1)
-            env_value = os.getenv(env_var)
-            if env_value is None:
-                return match.group(0)
-            return env_value
-
-        return pattern.sub(replacer, value)
-    if isinstance(value, dict):
-        return {k: _interpolate_env_vars(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_interpolate_env_vars(item) for item in value]
-    return value
-
-
-def _collect_conf_d(directory: Path, files: list[Path]) -> None:
-    """Append alphabetically sorted config files from a conf.d directory."""
-    if not directory.is_dir():
-        return
-    files.extend(conf_file for conf_file in sorted(directory.iterdir()) if conf_file.suffix.lower() in {".toml", ".yaml", ".yml", ".json"})
-
-
-def _add_if_exists(path: Path, files: list[Path]) -> None:
-    """Append path to files list if it exists as a regular file."""
-    if path.is_file():
-        files.append(path)
-
-
 def discover_config_files(cwd: Path | None = None) -> list[Path]:
     """Discover configuration files in precedence order (lowest first).
 
@@ -125,32 +85,17 @@ def discover_config_files(cwd: Path | None = None) -> list[Path]:
     return files
 
 
-def _load_toml(config_file: Path) -> dict[str, Any]:
-    """Load and interpolate a TOML config file."""
-    with config_file.open("r", encoding="utf-8") as f:
-        content = f.read()
-    content = _interpolate_env_vars(content)
-    return tomllib.loads(content)
+def _collect_conf_d(directory: Path, files: list[Path]) -> None:
+    """Append alphabetically sorted config files from a conf.d directory."""
+    if not directory.is_dir():
+        return
+    files.extend(conf_file for conf_file in sorted(directory.iterdir()) if conf_file.suffix.lower() in {".toml", ".yaml", ".yml", ".json"})
 
 
-def _load_yaml(config_file: Path) -> dict[str, Any]:
-    """Load and interpolate a YAML config file."""
-    yaml = import_module("yaml")
-    with config_file.open("r", encoding="utf-8") as f:
-        try:
-            data = yaml.safe_load(f)
-        except yaml.scanner.ScannerError as e:
-            raise ConfigLoadError(config_file, f"Parse error: {e}") from e
-    if data is None:
-        data = {}
-    return _interpolate_env_vars(data)
-
-
-def _load_json(config_file: Path) -> dict[str, Any]:
-    """Load and interpolate a JSON config file."""
-    with config_file.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-    return _interpolate_env_vars(data)
+def _add_if_exists(path: Path, files: list[Path]) -> None:
+    """Append path to files list if it exists as a regular file."""
+    if path.is_file():
+        files.append(path)
 
 
 def load_config_file(config_file: Path) -> dict[str, Any]:
@@ -200,6 +145,61 @@ def load_config_file(config_file: Path) -> dict[str, Any]:
         raise ConfigLoadError(config_file, f"Expected dict at root, got {type(data).__name__}")
 
     return data
+
+
+def _load_toml(config_file: Path) -> dict[str, Any]:
+    """Load and interpolate a TOML config file."""
+    with config_file.open("r", encoding="utf-8") as f:
+        content = f.read()
+    content = _interpolate_env_vars(content)
+    return tomllib.loads(content)
+
+
+def _load_yaml(config_file: Path) -> dict[str, Any]:
+    """Load and interpolate a YAML config file."""
+    yaml = import_module("yaml")
+    with config_file.open("r", encoding="utf-8") as f:
+        try:
+            data = yaml.safe_load(f)
+        except yaml.scanner.ScannerError as e:
+            raise ConfigLoadError(config_file, f"Parse error: {e}") from e
+    if data is None:
+        data = {}
+    return _interpolate_env_vars(data)
+
+
+def _load_json(config_file: Path) -> dict[str, Any]:
+    """Load and interpolate a JSON config file."""
+    with config_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return _interpolate_env_vars(data)
+
+
+def _interpolate_env_vars(value: Any) -> Any:
+    """Recursively interpolate ${ENV_VAR} patterns in string values.
+
+    Args:
+        value: The value to interpolate (may be nested).
+
+    Returns:
+        The value with environment variables interpolated.
+    """
+    if isinstance(value, str):
+        pattern = re.compile(r"\$\{([^}]+)\}")
+
+        def replacer(match: re.Match[str]) -> str:
+            env_var = match.group(1)
+            env_value = os.getenv(env_var)
+            if env_value is None:
+                return match.group(0)
+            return env_value
+
+        return pattern.sub(replacer, value)
+    if isinstance(value, dict):
+        return {k: _interpolate_env_vars(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_interpolate_env_vars(item) for item in value]
+    return value
 
 
 def merge_configs(configs: list[dict[str, Any]]) -> dict[str, Any]:

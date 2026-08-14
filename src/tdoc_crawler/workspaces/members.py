@@ -12,11 +12,6 @@ from tdoc_crawler.utils.normalization import normalize_release_version, normaliz
 _logger = get_logger(__name__)
 
 
-def _normalize_member_id(member_id: str) -> str:
-    """Normalize a member ID for comparison."""
-    return member_id.lower().replace("rel", "")
-
-
 def add_workspace_members(
     workspace: str | None,
     members: list[WorkspaceMember],
@@ -59,6 +54,11 @@ def add_workspace_members(
         registry.save()
 
     return added_count
+
+
+def _normalize_member_id(member_id: str) -> str:
+    """Normalize a member ID for comparison."""
+    return member_id.lower().replace("rel", "")
 
 
 def list_workspace_members(

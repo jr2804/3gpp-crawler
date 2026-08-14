@@ -26,8 +26,6 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS
 
-_logger = get_logger(__name__)
-
 _PYTHON_TO_SQLITE_TYPE: dict[str, str] = {
     "int": "INTEGER",
     "str": "TEXT",
@@ -40,38 +38,7 @@ _PYTHON_TO_SQLITE_TYPE: dict[str, str] = {
     "dict": "TEXT",
 }
 
-
-def _build_column_sql(field: dict, pk_count: int) -> str:
-    """Build a single column SQL definition from a schema field dict."""
-    col_name = field["name"]
-    sql_type = _PYTHON_TO_SQLITE_TYPE.get(field["python_type"], "TEXT")
-
-    if not field.get("nullable", True):
-        sql_type += " NOT NULL"
-
-    default = field.get("default")
-    if default is not None and default != "NULL":
-        sql_type += f" DEFAULT {default}"
-
-    is_pk = bool(field.get("primary_key", False))
-    is_unique = bool(field.get("unique", False))
-    if is_pk and pk_count == 1:
-        sql_type += " PRIMARY KEY"
-    elif is_unique:
-        sql_type += " UNIQUE"
-
-    return f"{col_name} {sql_type}"
-
-
-def _build_column_defs(fields: list[dict]) -> tuple[list[str], list[str]]:
-    """Build all column definitions and collect primary key field names.
-
-    Returns:
-        Tuple of (column SQL strings, primary key field names).
-    """
-    pk_fields = [f["name"] for f in fields if bool(f.get("primary_key", False))]
-    column_defs = [_build_column_sql(f, len(pk_fields)) for f in fields]
-    return column_defs, pk_fields
+_logger = get_logger(__name__)
 
 
 class DocDatabase:
@@ -316,6 +283,39 @@ class DocDatabase:
                 _logger.exception("Failed to clear table %s: %s", table, exc)
                 counts[table] = 0
         return counts
+
+
+def _build_column_defs(fields: list[dict]) -> tuple[list[str], list[str]]:
+    """Build all column definitions and collect primary key field names.
+
+    Returns:
+        Tuple of (column SQL strings, primary key field names).
+    """
+    pk_fields = [f["name"] for f in fields if bool(f.get("primary_key", False))]
+    column_defs = [_build_column_sql(f, len(pk_fields)) for f in fields]
+    return column_defs, pk_fields
+
+
+def _build_column_sql(field: dict, pk_count: int) -> str:
+    """Build a single column SQL definition from a schema field dict."""
+    col_name = field["name"]
+    sql_type = _PYTHON_TO_SQLITE_TYPE.get(field["python_type"], "TEXT")
+
+    if not field.get("nullable", True):
+        sql_type += " NOT NULL"
+
+    default = field.get("default")
+    if default is not None and default != "NULL":
+        sql_type += f" DEFAULT {default}"
+
+    is_pk = bool(field.get("primary_key", False))
+    is_unique = bool(field.get("unique", False))
+    if is_pk and pk_count == 1:
+        sql_type += " PRIMARY KEY"
+    elif is_unique:
+        sql_type += " UNIQUE"
+
+    return f"{col_name} {sql_type}"
 
 
 __all__ = ["DocDatabase"]

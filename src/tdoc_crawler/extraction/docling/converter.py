@@ -54,48 +54,6 @@ class DoclingConfig:
         self.device = device
 
 
-def _get_or_create_converter(
-    profile: ExtractionProfile,
-    *,
-    device: DeviceType | str = DeviceType.AUTO,
-    docx_direct: bool = False,
-) -> DocumentConverter:
-    """Return a cached ``DocumentConverter`` matching *profile*, *device*, and *docx_direct*.
-
-    Creates a new converter on first call (or when the key changes) and
-    suppresses the noisy tqdm "Loading weights" progress bars during creation.
-    """
-    key = (profile, device, docx_direct)
-    if key in _converter_cache:
-        return _converter_cache[key]
-
-    pipeline_opts = _build_pipeline_options(profile, device=device, docx_direct=docx_direct)
-
-    format_options: dict[InputFormat, Any] = {
-        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts),
-    }
-    if docx_direct:
-        format_options[InputFormat.DOCX] = WordFormatOption(pipeline_options=pipeline_opts)
-
-    # Suppress tqdm "Loading weights" bars during model initialisation.
-    old_tqdm = os.environ.get("TQDM_DISABLE")
-    os.environ["TQDM_DISABLE"] = "1"
-    try:
-        converter = DocumentConverter(
-            allowed_formats=[InputFormat.PDF, InputFormat.DOCX],
-            format_options=format_options,
-        )
-    finally:
-        if old_tqdm is None:
-            os.environ.pop("TQDM_DISABLE", None)
-        else:
-            os.environ["TQDM_DISABLE"] = old_tqdm
-
-    _converter_cache.clear()
-    _converter_cache[key] = converter
-    return converter
-
-
 def _run_docling(
     input_file: Path,
     output_dir: Path,
@@ -171,6 +129,48 @@ def _run_docling(
     page_count = getattr(result.input, "page_count", 0) or 0
 
     return markdown_content, json_path, page_count
+
+
+def _get_or_create_converter(
+    profile: ExtractionProfile,
+    *,
+    device: DeviceType | str = DeviceType.AUTO,
+    docx_direct: bool = False,
+) -> DocumentConverter:
+    """Return a cached ``DocumentConverter`` matching *profile*, *device*, and *docx_direct*.
+
+    Creates a new converter on first call (or when the key changes) and
+    suppresses the noisy tqdm "Loading weights" progress bars during creation.
+    """
+    key = (profile, device, docx_direct)
+    if key in _converter_cache:
+        return _converter_cache[key]
+
+    pipeline_opts = _build_pipeline_options(profile, device=device, docx_direct=docx_direct)
+
+    format_options: dict[InputFormat, Any] = {
+        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts),
+    }
+    if docx_direct:
+        format_options[InputFormat.DOCX] = WordFormatOption(pipeline_options=pipeline_opts)
+
+    # Suppress tqdm "Loading weights" bars during model initialisation.
+    old_tqdm = os.environ.get("TQDM_DISABLE")
+    os.environ["TQDM_DISABLE"] = "1"
+    try:
+        converter = DocumentConverter(
+            allowed_formats=[InputFormat.PDF, InputFormat.DOCX],
+            format_options=format_options,
+        )
+    finally:
+        if old_tqdm is None:
+            os.environ.pop("TQDM_DISABLE", None)
+        else:
+            os.environ["TQDM_DISABLE"] = old_tqdm
+
+    _converter_cache.clear()
+    _converter_cache[key] = converter
+    return converter
 
 
 def _export_tables_as_csv(result: Any, output_dir: Path, stem: str) -> None:

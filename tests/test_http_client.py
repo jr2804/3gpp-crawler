@@ -321,10 +321,6 @@ class TestSslContextAdapters:
             session.close()
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
-
-
 class TestHttpSessionWithConfig:
     """Test HTTP session functions with HttpConfig integration."""
 
@@ -393,3 +389,7 @@ class TestHttpConfigBackwardCompat:
         assert session is not None
         assert hasattr(session, "headers")
         session.close()
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

@@ -19,52 +19,78 @@ class NormalizationError(ValueError):
     """Raised when spec identifier normalization or expansion fails."""
 
 
-def _strip_prefixes(value: str) -> str:
-    """Strip optional 3GPP and TS/TR prefixes from a spec string."""
-    cleaned = value.strip().upper()
-    cleaned = cleaned.removeprefix("3GPP")
-    cleaned = cleaned.strip()
-    if cleaned.startswith(("TS", "TR")):
-        cleaned = cleaned[2:]
-    return cleaned.strip()
+def normalize_spec_number_compact(value: str) -> str:
+    """Normalize spec numbers to compact canonical format.
+
+    Args:
+        value: Spec number in dotted or undotted form.
+
+    Returns:
+        Normalized compact spec number (e.g., "26260").
+
+    Raises:
+        ValueError: When the spec number is not in a supported format.
+    """
+    return normalize_spec_number(value).replace(".", "")
 
 
-def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
-    """Parse a spec number and return (series, increment, format_kind, increment_digits)."""
-    body = _strip_prefixes(value)
-    if not body:
+def expand_spec_ranges_batch(spec_inputs: list[str]) -> list[str]:
+    """Expand all spec range inputs in a batch.
+
+    Args:
+        spec_inputs: List of spec inputs that may contain range syntax.
+
+    Returns:
+        List of expanded and normalized individual spec numbers.
+        Invalid spec inputs are silently skipped.
+    """
+    expanded: list[str] = []
+    for spec_input in spec_inputs:
+        try:
+            expanded.extend(expand_spec_ranges(spec_input))
+        except NormalizationError:
+            # Skip invalid spec inputs silently
+            continue
+    return expanded
+
+
+def expand_spec_ranges(spec_input: str) -> Generator[str]:
+    """Expand spec range syntax into individual spec numbers.
+
+    Supports formats:
+    - 26.260-26.266  (260,261,262,263,264,265,266)
+    - 26.260:26.266  (same as above, alias)
+    - 26.260+6       (260,261,262,263,264,265,266)
+    - Flexible prefixes: "3GPP TS 26.260-26.266", "TR 26260-26.266", etc.
+
+    Args:
+        spec_input: Input string that may contain range syntax.
+
+    Yields:
+        Individual normalized spec numbers (e.g., "26.260", "26.261", ...)
+
+    Raises:
+        NormalizationError: If the range syntax is invalid or series numbers don't match.
+    """
+    cleaned = spec_input.strip()
+    if not cleaned:
         msg = "Spec number is required"
         raise NormalizationError(msg)
 
-    if "." in body:
-        body_no_space = re.sub(r"\s+", "", body)
-        match = _DOTTED_BODY_PATTERN.match(body_no_space)
-        if not match:
-            msg = f"Unsupported spec number format: {value}"
+    if "+" in cleaned:
+        yield from _expand_offset_range(cleaned)
+        return
+
+    split = _RANGE_SPLIT_PATTERN.split(cleaned, maxsplit=1)
+    if len(split) == 3:
+        left, _sep, right = split
+        if not right.strip():
+            msg = "Missing end value in range"
             raise NormalizationError(msg)
-        series = match.group("series")
-        increment_raw = match.group("increment")
-        increment = increment_raw.zfill(3)
-        return series, increment, "dotted", len(increment_raw)
+        yield from _expand_dash_range(left, right, spec_input)
+        return
 
-    digits_only = re.sub(r"\s+", "", body)
-    match = _UNDOTTED_BODY_PATTERN.match(digits_only)
-    if not match:
-        msg = f"Unsupported spec number format: {value}"
-        raise NormalizationError(msg)
-    series = match.group("series")
-    increment_raw = match.group("increment")
-    increment = increment_raw.zfill(3)
-    return series, increment, "undotted", len(increment_raw)
-
-
-def _validate_range(start_num: int, end_num: int, spec_input: str) -> None:
-    if start_num > end_num:
-        msg = f"Invalid range: start {start_num} > end {end_num}"
-        raise NormalizationError(msg)
-    if end_num - start_num > 1329:
-        msg = f"Range too large: {end_num - start_num + 1} specs"
-        raise NormalizationError(msg)
+    yield normalize_spec_number(cleaned)
 
 
 def normalize_spec_number(value: str) -> str:
@@ -81,21 +107,6 @@ def normalize_spec_number(value: str) -> str:
     """
     series, increment, _, _ = _parse_spec_number(value)
     return f"{series}.{increment}"
-
-
-def normalize_spec_number_compact(value: str) -> str:
-    """Normalize spec numbers to compact canonical format.
-
-    Args:
-        value: Spec number in dotted or undotted form.
-
-    Returns:
-        Normalized compact spec number (e.g., "26260").
-
-    Raises:
-        ValueError: When the spec number is not in a supported format.
-    """
-    return normalize_spec_number(value).replace(".", "")
 
 
 def _expand_offset_range(cleaned: str) -> Generator[str]:
@@ -154,63 +165,52 @@ def _expand_dash_range(left: str, right: str, original: str) -> Generator[str]:
         yield f"{series1}.{num:03d}"
 
 
-def expand_spec_ranges(spec_input: str) -> Generator[str]:
-    """Expand spec range syntax into individual spec numbers.
-
-    Supports formats:
-    - 26.260-26.266  (260,261,262,263,264,265,266)
-    - 26.260:26.266  (same as above, alias)
-    - 26.260+6       (260,261,262,263,264,265,266)
-    - Flexible prefixes: "3GPP TS 26.260-26.266", "TR 26260-26.266", etc.
-
-    Args:
-        spec_input: Input string that may contain range syntax.
-
-    Yields:
-        Individual normalized spec numbers (e.g., "26.260", "26.261", ...)
-
-    Raises:
-        NormalizationError: If the range syntax is invalid or series numbers don't match.
-    """
-    cleaned = spec_input.strip()
-    if not cleaned:
+def _parse_spec_number(value: str) -> tuple[str, str, str, int]:
+    """Parse a spec number and return (series, increment, format_kind, increment_digits)."""
+    body = _strip_prefixes(value)
+    if not body:
         msg = "Spec number is required"
         raise NormalizationError(msg)
 
-    if "+" in cleaned:
-        yield from _expand_offset_range(cleaned)
-        return
-
-    split = _RANGE_SPLIT_PATTERN.split(cleaned, maxsplit=1)
-    if len(split) == 3:
-        left, _sep, right = split
-        if not right.strip():
-            msg = "Missing end value in range"
+    if "." in body:
+        body_no_space = re.sub(r"\s+", "", body)
+        match = _DOTTED_BODY_PATTERN.match(body_no_space)
+        if not match:
+            msg = f"Unsupported spec number format: {value}"
             raise NormalizationError(msg)
-        yield from _expand_dash_range(left, right, spec_input)
-        return
+        series = match.group("series")
+        increment_raw = match.group("increment")
+        increment = increment_raw.zfill(3)
+        return series, increment, "dotted", len(increment_raw)
 
-    yield normalize_spec_number(cleaned)
+    digits_only = re.sub(r"\s+", "", body)
+    match = _UNDOTTED_BODY_PATTERN.match(digits_only)
+    if not match:
+        msg = f"Unsupported spec number format: {value}"
+        raise NormalizationError(msg)
+    series = match.group("series")
+    increment_raw = match.group("increment")
+    increment = increment_raw.zfill(3)
+    return series, increment, "undotted", len(increment_raw)
 
 
-def expand_spec_ranges_batch(spec_inputs: list[str]) -> list[str]:
-    """Expand all spec range inputs in a batch.
+def _strip_prefixes(value: str) -> str:
+    """Strip optional 3GPP and TS/TR prefixes from a spec string."""
+    cleaned = value.strip().upper()
+    cleaned = cleaned.removeprefix("3GPP")
+    cleaned = cleaned.strip()
+    if cleaned.startswith(("TS", "TR")):
+        cleaned = cleaned[2:]
+    return cleaned.strip()
 
-    Args:
-        spec_inputs: List of spec inputs that may contain range syntax.
 
-    Returns:
-        List of expanded and normalized individual spec numbers.
-        Invalid spec inputs are silently skipped.
-    """
-    expanded: list[str] = []
-    for spec_input in spec_inputs:
-        try:
-            expanded.extend(expand_spec_ranges(spec_input))
-        except NormalizationError:
-            # Skip invalid spec inputs silently
-            continue
-    return expanded
+def _validate_range(start_num: int, end_num: int, spec_input: str) -> None:
+    if start_num > end_num:
+        msg = f"Invalid range: start {start_num} > end {end_num}"
+        raise NormalizationError(msg)
+    if end_num - start_num > 1329:
+        msg = f"Range too large: {end_num - start_num + 1} specs"
+        raise NormalizationError(msg)
 
 
 def normalize_release(release: str) -> tuple[str, str | None, int | None]:
@@ -276,6 +276,20 @@ def normalize_release(release: str) -> tuple[str, str | None, int | None]:
     return ("prefix", normalized, specificity)
 
 
+def normalize_tdoc_ids(tdoc_ids: list[str] | None) -> list[str] | None:
+    """Normalize a list of TDoc IDs to uppercase.
+
+    Args:
+        tdoc_ids: List of TDoc identifiers to normalize.
+
+    Returns:
+        List of uppercase normalized TDoc IDs, or None if input is None.
+    """
+    if tdoc_ids is None:
+        return None
+    return [normalize_tdoc_id(tdoc_id) for tdoc_id in tdoc_ids]
+
+
 def normalize_tdoc_id(tdoc_id: str) -> str:
     """Normalize a TDoc ID to uppercase.
 
@@ -293,20 +307,6 @@ def normalize_tdoc_id(tdoc_id: str) -> str:
         msg = "TDoc ID cannot be empty"
         raise ValueError(msg)
     return normalized
-
-
-def normalize_tdoc_ids(tdoc_ids: list[str] | None) -> list[str] | None:
-    """Normalize a list of TDoc IDs to uppercase.
-
-    Args:
-        tdoc_ids: List of TDoc identifiers to normalize.
-
-    Returns:
-        List of uppercase normalized TDoc IDs, or None if input is None.
-    """
-    if tdoc_ids is None:
-        return None
-    return [normalize_tdoc_id(tdoc_id) for tdoc_id in tdoc_ids]
 
 
 def normalize_portal_meeting_name(portal_meeting: str | None) -> str:
@@ -380,43 +380,6 @@ def normalize_release_version(release: str) -> str:
     return ".".join(parts)
 
 
-def normalize_working_group_alias(alias: str) -> WorkingGroup:
-    """Normalize working group aliases to canonical working group enums.
-
-    Supports: RAN, SA, CT and their common name variants.
-
-    Args:
-        alias: Working group alias or name
-
-    Returns:
-        Canonical working group enum value (WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT)
-
-    Raises:
-        ValueError: When the alias cannot be resolved
-    """
-    alias_upper = alias.strip().upper()
-    cleaned = re.sub(r"[#\-_\s]", "", alias_upper)
-
-    # Easy check via list(WorkingGroup): match against name or value
-    for working_group in WorkingGroup:
-        if cleaned.startswith((working_group.value, working_group.name)):
-            return working_group
-
-    # If not found: match first letter
-    if cleaned:
-        for working_group in WorkingGroup:
-            if working_group.value[0] == cleaned[0]:
-                return working_group
-
-    # If not found: any match of name/value in cleaned
-    for working_group in WorkingGroup:
-        if working_group.value in cleaned or working_group.name in cleaned:
-            return working_group
-
-    msg = f"Unknown working group: {alias}"
-    raise ValueError(msg)
-
-
 def normalize_subgroup_alias(alias: str) -> SubWorkingGroup:
     """Normalize subgroup aliases to canonical subgroup enums.
 
@@ -461,6 +424,43 @@ def normalize_working_group_list(value: Iterable[str | WorkingGroup]) -> list[Wo
         List of normalized WorkingGroup enum members.
     """
     return [normalize_working_group_alias(str(item)) if not isinstance(item, WorkingGroup) else item for item in value]
+
+
+def normalize_working_group_alias(alias: str) -> WorkingGroup:
+    """Normalize working group aliases to canonical working group enums.
+
+    Supports: RAN, SA, CT and their common name variants.
+
+    Args:
+        alias: Working group alias or name
+
+    Returns:
+        Canonical working group enum value (WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT)
+
+    Raises:
+        ValueError: When the alias cannot be resolved
+    """
+    alias_upper = alias.strip().upper()
+    cleaned = re.sub(r"[#\-_\s]", "", alias_upper)
+
+    # Easy check via list(WorkingGroup): match against name or value
+    for working_group in WorkingGroup:
+        if cleaned.startswith((working_group.value, working_group.name)):
+            return working_group
+
+    # If not found: match first letter
+    if cleaned:
+        for working_group in WorkingGroup:
+            if working_group.value[0] == cleaned[0]:
+                return working_group
+
+    # If not found: any match of name/value in cleaned
+    for working_group in WorkingGroup:
+        if working_group.value in cleaned or working_group.name in cleaned:
+            return working_group
+
+    msg = f"Unknown working group: {alias}"
+    raise ValueError(msg)
 
 
 def sanitize_filename_stem(stem: str) -> str:

@@ -17,8 +17,6 @@ from tdoc_crawler.constants.urls import MEETING_PORTAL_URL_TEMPLATE, MEETINGS_RE
 from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 
-logger = logging.getLogger(__name__)
-
 # Parent TBIDs for the 3 TSGs — used with IncludeChildTbs=True to get
 # all child WG meetings in fewer API calls.
 _TSG_PARENT_TBIDS: list[int] = [373, 375, 649]  # RAN, SA, CT
@@ -34,55 +32,7 @@ _PAGE_SIZE = 500
 DEFAULT_START_DATE = date(1994, 1, 1)
 DEFAULT_END_DATE = date.today() + timedelta(days=365 * 3)  # 3 years in the future, to include upcoming meetings
 
-
-def _build_subtb_filter(subgroups: list[str] | None) -> list[int]:
-    """Convert subgroup codes to SubTB IDs for the API ``Tbs`` parameter.
-
-    If *subgroups* is empty/None, returns the 3 TSG parent TBIDs so that
-    ``IncludeChildTbs=True`` fetches all WGs.
-    """
-    if not subgroups:
-        return list(_TSG_PARENT_TBIDS)
-    result: list[int] = []
-    for code in subgroups:
-        subtb = _CODE_TO_SUBTB.get(code.upper())
-        if subtb is not None:
-            result.append(subtb)
-        else:
-            logger.warning("Unknown subgroup code %r — skipping", code)
-    return result or list(_TSG_PARENT_TBIDS)
-
-
-def _parse_portal_date(text: str | None) -> date | None:
-    """Parse portal datetime string ``'YYYY-MM-DD HH:MM:SS'`` → date."""
-    if not text:
-        return None
-    try:
-        return datetime.strptime(text[:10], "%Y-%m-%d").date()
-    except (ValueError, IndexError):
-        return None
-
-
-def _portal_meeting_to_metadata(m: dict[str, Any]) -> MeetingMetadata:
-    """Convert a single portal API meeting object to MeetingMetadata."""
-    subtb = m.get("TBId")
-    wg_info = _SUBTB_TO_WG.get(subtb) if subtb else None
-    tbid = wg_info[0] if wg_info else subtb or 0
-    wg_info[1] if wg_info else ""
-
-    return MeetingMetadata(
-        meeting_id=m["Id"],
-        tbid=tbid,
-        subtb=subtb,
-        short_name=m.get("ShortTitle", ""),
-        title=m.get("Title"),
-        start_date=_parse_portal_date(m.get("StartDate")),
-        end_date=_parse_portal_date(m.get("EndDate")),
-        location=m.get("Location") or None,
-        files_url=m.get("MtgDocURL") or None,
-        portal_url=MEETING_PORTAL_URL_TEMPLATE.format(portal_base=PORTAL_BASE_URL, meeting_id=m["Id"]),
-        tdoc_count=m.get("DocCount", 0),
-    )
+logger = logging.getLogger(__name__)
 
 
 def fetch_meetings(
@@ -176,6 +126,56 @@ def fetch_meetings(
         session.close()
 
     return all_meetings
+
+
+def _build_subtb_filter(subgroups: list[str] | None) -> list[int]:
+    """Convert subgroup codes to SubTB IDs for the API ``Tbs`` parameter.
+
+    If *subgroups* is empty/None, returns the 3 TSG parent TBIDs so that
+    ``IncludeChildTbs=True`` fetches all WGs.
+    """
+    if not subgroups:
+        return list(_TSG_PARENT_TBIDS)
+    result: list[int] = []
+    for code in subgroups:
+        subtb = _CODE_TO_SUBTB.get(code.upper())
+        if subtb is not None:
+            result.append(subtb)
+        else:
+            logger.warning("Unknown subgroup code %r — skipping", code)
+    return result or list(_TSG_PARENT_TBIDS)
+
+
+def _portal_meeting_to_metadata(m: dict[str, Any]) -> MeetingMetadata:
+    """Convert a single portal API meeting object to MeetingMetadata."""
+    subtb = m.get("TBId")
+    wg_info = _SUBTB_TO_WG.get(subtb) if subtb else None
+    tbid = wg_info[0] if wg_info else subtb or 0
+    wg_info[1] if wg_info else ""
+
+    return MeetingMetadata(
+        meeting_id=m["Id"],
+        tbid=tbid,
+        subtb=subtb,
+        short_name=m.get("ShortTitle", ""),
+        title=m.get("Title"),
+        start_date=_parse_portal_date(m.get("StartDate")),
+        end_date=_parse_portal_date(m.get("EndDate")),
+        location=m.get("Location") or None,
+        files_url=m.get("MtgDocURL") or None,
+        portal_url=MEETING_PORTAL_URL_TEMPLATE.format(portal_base=PORTAL_BASE_URL, meeting_id=m["Id"]),
+        tdoc_count=m.get("DocCount", 0),
+    )
+
+
+def _parse_portal_date(text: str | None) -> date | None:
+    """Parse portal datetime string ``'YYYY-MM-DD HH:MM:SS'`` → date."""
+    if not text:
+        return None
+    try:
+        return datetime.strptime(text[:10], "%Y-%m-%d").date()
+    except (ValueError, IndexError):
+        return None
 
 
 __all__ = ["fetch_meetings"]
