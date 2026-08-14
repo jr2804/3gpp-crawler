@@ -237,8 +237,16 @@ Thumbs.db
 
 # Agent skills that are downloaded/installed from external sources
 skills-lock.json
-/.agents
 skills/
+
+# Keep .agents/ DOX .md files tracked (override any blanket ignore)
+/.agents/*
+!/.agents/*.md
+!/.agents/history/
+!/.agents/history/**
+
+# Implementation plans — mutable working artifacts, never committed
+/.agents/plans/
 
 # Dolt database files (added by bd init)
 .dolt/
