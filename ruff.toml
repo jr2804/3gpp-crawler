@@ -64,6 +64,7 @@ ignore = [
 
 [lint.pylint]
 max-locals = 20
+max-positional-args = 15
 
 [lint.per-file-ignores]
 "tests/*.py" = ["S101", "S106", "PLR6301", "S603", "PLW1510"]

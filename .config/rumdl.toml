@@ -36,6 +36,9 @@ disable = ["MD033", "MD013"]
 #     "CHANGELOG.md",
 #     "LICENSE.md",
 # ]
+exclude = [
+    ".agents/history/",
+]
 
 # Respect .gitignore files when scanning directories (default: true)
 # respect-gitignore = true
