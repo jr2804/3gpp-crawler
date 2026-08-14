@@ -53,8 +53,6 @@ if [ -n "${PREV_TAG}" ] && [ "${PREV_TAG}" != "v${VERSION}" ]; then
     LOG="$(git log --pretty=format:'* %s (%h)' "${PREV_TAG}..${SHA}" 2>/dev/null || true)"
 fi
 [ -n "${LOG:-}" ] || LOG="$(git log --pretty=format:'* %s (%h)' "${SHA}" -10 2>/dev/null || true)"
-DESCRIPTION="Release **v${VERSION}**\n\n${LOG}"
-
 # --- create annotated tag --------------------------------------------------
 log "creating tag v${VERSION}"
 curl --fail --silent --show-error --request POST \
@@ -65,12 +63,18 @@ curl --fail --silent --show-error --request POST \
     "${API}/projects/${PROJECT}/repository/tags" >/dev/null
 
 # --- create release --------------------------------------------------------
+# description via temp file: git-bash → native curl.exe argv conversion mangles
+# non-ASCII (emoji) to '?' — @file keeps the bytes intact
+DESC_FILE="$(mktemp)"
+command -v cygpath >/dev/null 2>&1 && DESC_FILE="$(cygpath -w "${DESC_FILE}")" # native curl can't read MSYS /tmp paths
+printf 'Release **v%s**\n\n%s' "${VERSION}" "${LOG}" >"${DESC_FILE}"
 log "creating release v${VERSION}"
 curl --fail --silent --show-error --request POST \
     --header "PRIVATE-TOKEN: ${TOKEN}" \
     --data-urlencode "name=v${VERSION}" \
     --data-urlencode "tag_name=v${VERSION}" \
-    --data-urlencode "description=${DESCRIPTION}" \
+    --data-urlencode "description@${DESC_FILE}" \
     "${API}/projects/${PROJECT}/releases" >/dev/null
+rm -f "${DESC_FILE}"
 
 log "release v${VERSION} created for ${SHA}"
