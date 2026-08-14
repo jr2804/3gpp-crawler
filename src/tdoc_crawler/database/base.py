@@ -1,7 +1,8 @@
 """Base database class with common operations using Oxyde ORM."""
 
+import contextlib
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Self
 from uuid import uuid4
@@ -110,10 +111,9 @@ class DocDatabase:
 
     async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, exc_tb: object | None) -> None:
         if self._database is not None:
-            try:
+            with contextlib.suppress(RuntimeError):
+                # Pool already closed by nested overwrite
                 await self._database.disconnect()
-            except RuntimeError:
-                pass  # Pool already closed by nested overwrite
         self._database = None
 
     # ------------------------------------------------------------------
@@ -136,7 +136,8 @@ class DocDatabase:
         """
         return await self._clear_tables(["spec_downloads", "spec_versions", "spec_source_records", "specs"])
 
-    async def log_crawl_start(self, crawl_type: str, filters: list[str] | None, incremental: bool) -> str:
+    @staticmethod
+    async def log_crawl_start(crawl_type: str, filters: list[str] | None, incremental: bool) -> str:
         """Log the start of a crawl operation.
 
         Args:
@@ -159,12 +160,14 @@ class DocDatabase:
             items_updated=0,
             errors_count=0,
             status="RUNNING",
+            # oxyde create() excludes unset fields; created_at has no SQL default
+            created_at=datetime.now(UTC),
         )
         await CrawlLogEntry.objects.create(instance=entry)
         return entry.log_id
 
+    @staticmethod
     async def log_crawl_end(
-        self,
         crawl_id: str,
         items_added: int,
         items_updated: int,
@@ -238,7 +241,8 @@ class DocDatabase:
             except Exception as exc:
                 _logger.debug("Migration check for %s.%s skipped: %s", table_name, column_name, exc)
 
-    async def _ensure_reference_data(self) -> None:
+    @staticmethod
+    async def _ensure_reference_data() -> None:
         """Populate reference tables for working and subworking groups."""
         for record in WORKING_GROUP_RECORDS:
             existing = await WorkingGroupRecord.objects.filter(tbid=record.tbid).first()
@@ -260,7 +264,8 @@ class DocDatabase:
                 )
                 await SubWorkingGroupRecord.objects.create(instance=oxyde_record)
 
-    async def _table_rows(self, model_class: type) -> list:
+    @staticmethod
+    async def _table_rows(model_class: type) -> list:
         """Fetch all rows for a given model class."""
         try:
             return await model_class.objects.all()
@@ -269,7 +274,8 @@ class DocDatabase:
             msg = "table-read-failed"
             raise DatabaseError(msg, detail=f"Model '{model_class.__name__}': {exc}") from exc
 
-    async def _clear_tables(self, table_names: str | Iterable[str]) -> dict[str, int]:
+    @staticmethod
+    async def _clear_tables(table_names: str | Iterable[str]) -> dict[str, int]:
         """Clear specified tables from database.
 
         Args:
@@ -303,7 +309,8 @@ class DocDatabase:
             try:
                 count = await model_class.objects.count()
                 table_name = model_class.get_table_name()
-                await execute_raw(f"DELETE FROM {table_name}", using="default")
+                # table_name derives from registered models, never user input
+                await execute_raw(f"DELETE FROM {table_name}", using="default")  # noqa: S608
                 counts[table] = count
             except (OSError, ValueError) as exc:
                 _logger.exception("Failed to clear table %s: %s", table, exc)

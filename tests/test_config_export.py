@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tdoc_crawler.config.export import ConfigExporter, FormatType
 from tdoc_crawler.config.settings import ThreeGPPConfig
 
@@ -74,9 +76,5 @@ def test_unsupported_format_raises() -> None:
     exporter = ConfigExporter()
     # Use a type ignore to bypass static type checking for invalid format
     invalid_format: FormatType = "invalid"  # type: ignore[assignment]
-    try:
+    with pytest.raises(ValueError, match="Unsupported format"):
         exporter.export(invalid_format)
-    except ValueError as e:
-        assert "Unsupported format" in str(e)
-    else:
-        raise AssertionError("Expected ValueError for unsupported format")

@@ -43,7 +43,7 @@ from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.parse import parse_working_groups
 
 
-def query_tdocs(
+def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     tdoc_ids: TDocIdsArgument = None,
     working_group: WorkingGroupOption = None,
     start_date: StartDateOption = None,

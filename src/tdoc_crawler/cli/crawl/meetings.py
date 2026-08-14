@@ -41,7 +41,7 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs
 from tdoc_crawler.utils.parse import parse_subgroups, parse_working_groups
 
 
-def crawl_meetings(
+def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     limit_meetings: LimitMeetingsOption = None,

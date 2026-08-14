@@ -94,7 +94,7 @@ def _validate_enum(value: str, enum_cls: type, error_msg: str) -> object:
         raise typer.Exit(code=2) from exc
 
 
-def query_tdocs(
+def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     tdoc_ids: TDocIdsArgument = None,
     working_group: WorkingGroupOption = None,
     start_date: StartDateOption = None,

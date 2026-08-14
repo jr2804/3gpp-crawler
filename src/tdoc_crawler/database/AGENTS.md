@@ -20,7 +20,7 @@ SQLite via Oxyde ORM. All models live in `oxyde_models.py`.
 
 ### Decision flow
 
-```
+```text
 Does it go into SQLite?
   → Yes: Oxyde Model in oxyde_models.py
   → No: Does it need validators/serializers/JSON schema?
@@ -45,6 +45,7 @@ from packaging.version import Version
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
 
+
 class AgendaItem(Version):
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type, handler: GetCoreSchemaHandler) -> CoreSchema:
@@ -52,6 +53,7 @@ class AgendaItem(Version):
             if isinstance(value, Version):
                 return cls(str(value))
             return cls(str(value).strip())
+
         return core_schema.no_info_plain_validator_function(
             validate,
             serialization=core_schema.plain_serializer_function_ser_schema(str),
@@ -70,6 +72,12 @@ This gives you:
 - **Don't create parallel models** for the same entity. If the Oxyde model lacks a field, add it there.
 - **Custom types go in `utils/version_types.py`**, not inline in models.
 - **Tests that construct DB models** must import from `database.oxyde_models`.
+- **Oxyde `create()` excludes unset fields** (`model_dump(exclude_unset=True)` since oxyde 0.7.x):
+  fields relying on pydantic `default_factory`/`default` are **dropped from the INSERT** if not
+  set explicitly at construction. `default_factory` fields get **no SQL DEFAULT** (NOT NULL
+  violation); plain `default=` fields do get a SQL DEFAULT and are safe. Always set
+  `default_factory` fields explicitly when constructing an instance for `create()` — see
+  `_prepare_tdoc`/`_clone_tdoc` in `tdocs.py` for the established pattern.
 
 ## Database Classes
 

@@ -81,7 +81,7 @@ class TestWorkspaceModels:
 
     def test_document_classification_invalid_confidence(self) -> None:
         """Test that invalid confidence raises ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="confidence must be between 0.0 and 1.0"):
             DocumentClassification(
                 document_id="S4-12345",
                 file_path="test.pdf",

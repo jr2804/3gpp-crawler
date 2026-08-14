@@ -145,21 +145,17 @@ class TestConvertSpreadsheetToMarkdown:
         assert "1" in result
 
     def test_xlsx_data_mode(self, tmp_path: Path) -> None:
+        openpyxl = pytest.importorskip("openpyxl")
         xlsx_file = tmp_path / "data.xlsx"
         # Create a minimal xlsx via openpyxl
-        try:
-            import openpyxl
-
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = "Sheet1"
-            ws["A1"] = "Name"
-            ws["B1"] = "Value"
-            ws["A2"] = "Alice"
-            ws["B2"] = 100
-            wb.save(str(xlsx_file))
-        except ImportError:
-            pytest.skip("openpyxl not available")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Sheet1"
+        ws["A1"] = "Name"
+        ws["B1"] = "Value"
+        ws["A2"] = "Alice"
+        ws["B2"] = 100
+        wb.save(str(xlsx_file))
 
         result = _convert_spreadsheet_to_markdown(xlsx_file, mode=SpreadsheetMode.DATA)
 

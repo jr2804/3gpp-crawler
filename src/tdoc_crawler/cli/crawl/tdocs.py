@@ -47,7 +47,7 @@ from tdoc_crawler.tdocs.operations.checkout import checkout_tdocs
 from tdoc_crawler.utils.parse import parse_subgroups, parse_working_groups
 
 
-def crawl_tdocs(
+def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     limit_tdocs: LimitTDocsOption = None,

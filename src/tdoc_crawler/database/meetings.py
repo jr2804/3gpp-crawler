@@ -132,7 +132,8 @@ class MeetingDatabase(DocDatabase):
                 progress_callback(float(index), total)
         return inserted, updated
 
-    async def query_meetings(self, config: MeetingQueryConfig) -> list[MeetingMetadata]:
+    @staticmethod
+    async def query_meetings(config: MeetingQueryConfig) -> list[MeetingMetadata]:
         """Query meetings with filtering and sorting.
 
         Pushes working_group, start_date, end_date, and files_url filters
@@ -306,7 +307,8 @@ class MeetingDatabase(DocDatabase):
         meetings = await self._table_rows(MeetingMetadata)
         return {meeting.meeting_id: meeting for meeting in meetings}
 
-    async def _get_meeting(self, meeting_id: int) -> MeetingMetadata | None:
+    @staticmethod
+    async def _get_meeting(meeting_id: int) -> MeetingMetadata | None:
         """Get a meeting by ID."""
         return await MeetingMetadata.objects.filter(meeting_id=meeting_id).first()
 

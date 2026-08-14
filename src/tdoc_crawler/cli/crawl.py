@@ -95,7 +95,7 @@ def _build_crawl_scope(
     return ", ".join(scope_parts)
 
 
-def crawl_tdocs(
+def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     limit_tdocs: LimitTDocsOption = None,
@@ -262,7 +262,7 @@ def _print_crawl_results(result: TDocCrawlResult, throughput: float) -> None:
             console.print(f"  - {error}")
 
 
-def crawl_meetings(
+def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     limit_meetings: LimitMeetingsOption = None,

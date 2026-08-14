@@ -330,7 +330,8 @@ class SpecDatabase(DocDatabase):
         await updated_version.save()
         return False, changed
 
-    async def get_spec_versions(self, spec_number: str) -> list[SpecificationVersion]:
+    @staticmethod
+    async def get_spec_versions(spec_number: str) -> list[SpecificationVersion]:
         """Get all versions for a spec."""
         try:
             return await SpecificationVersion.objects.filter(spec_number=spec_number).all()
@@ -339,7 +340,8 @@ class SpecDatabase(DocDatabase):
             msg = "spec-versions-read-failed"
             raise DatabaseError(msg, detail=str(exc)) from exc
 
-    async def query_specs(self, filters: SpecQueryFilters) -> list[SpecQueryResult]:
+    @staticmethod
+    async def query_specs(filters: SpecQueryFilters) -> list[SpecQueryResult]:
         """Query stored spec metadata.
 
         Pushes spec_number, title, working_group, and status filters to
@@ -530,10 +532,12 @@ class SpecDatabase(DocDatabase):
     async def _spec_table_rows(self) -> list[Specification]:
         return await self._table_rows(Specification)
 
-    async def _get_specification(self, spec_number: str) -> Specification | None:
+    @staticmethod
+    async def _get_specification(spec_number: str) -> Specification | None:
         return await Specification.objects.filter(spec_number=spec_number).first()
 
-    async def _get_spec_source_record(self, record_id: str) -> SpecificationSourceRecord | None:
+    @staticmethod
+    async def _get_spec_source_record(record_id: str) -> SpecificationSourceRecord | None:
         try:
             return await SpecificationSourceRecord.objects.filter(record_id=record_id).first()
         except Exception as exc:
@@ -541,7 +545,8 @@ class SpecDatabase(DocDatabase):
             msg = "spec-source-read-failed"
             raise DatabaseError(msg, detail=str(exc)) from exc
 
-    async def _get_spec_version(self, record_id: str) -> SpecificationVersion | None:
+    @staticmethod
+    async def _get_spec_version(record_id: str) -> SpecificationVersion | None:
         return await SpecificationVersion.objects.filter(record_id=record_id).first()
 
     @staticmethod

@@ -122,7 +122,7 @@ class TestNormalizeRelease:
         assert result == ("prefix", "18", 1)
 
     def test_invalid_raises(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid release format"):
             normalize_release("invalid")
 
 
@@ -185,7 +185,7 @@ class TestNormalizeWorkingGroupAlias:
         assert normalize_working_group_alias("CT3") == WorkingGroup.CT
 
     def test_unknown_raises(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unknown working group"):
             normalize_working_group_alias("UNKNOWN")
 
 
@@ -208,8 +208,8 @@ class TestNormalizeSubgroupAlias:
         assert normalize_subgroup_alias("CT-3") == SubWorkingGroup.C3
 
     def test_unknown_raises(self) -> None:
-        with pytest.raises(ValueError):
-            normalize_subgroup_alias("UNKNOWN")
+        with pytest.raises(ValueError, match="Unknown subgroup code"):
+            normalize_subgroup_alias("S99")
 
 
 class TestExpandSpecRanges:
