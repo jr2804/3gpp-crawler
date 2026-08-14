@@ -1,0 +1,6 @@
+category,tool,tool_value,mcp_command,mcp_name,skill_repo,skill
+codebase,github:yoanbernabeu/grepai,latest,grepai mcp-serve,grepai,https://codeberg.org/jr2804/copier-uv-plus.git,cli-grepai
+codebase,,,,uvx --from git+https://forge.3gpp.org/rep/reimes/teddi-mcp.git teddi-mcp,teddi,,
+slop,github:djinn-soul/CytoScnPy,latest,cytoscnpy mcp-server,cytoscnpy,,
+tracking,github:gastownhall/beads,latest,,,gastownhall/beads,
+tracking,pipx:beads-mcp,latest,./beads-mcp,beads,,

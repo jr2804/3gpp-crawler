@@ -1,7 +1,7 @@
 [tasks.format]
 description = "Format code (undersort, ruff)"
 run = [
-	"uv run undersort src/ packages/ tests/ --exclude .config/",
+	"csort run src/ tests/ packages/ --config .config/csort.toml",
 	"ruff check --select I --fix", # isort-equivalent sorting of imports
 	"ruff format src/ packages/ tests/ --exclude .config",
 ]
