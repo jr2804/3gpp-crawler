@@ -7,6 +7,7 @@
 # Environment: needs the forge token via `mise env`
 # (MISE_GITLAB_ENTERPRISE_TOKEN). No glab or jq required — plain curl.
 set -euo pipefail
+export LC_ALL=C.UTF-8 # keep emoji in commit subjects readable in release notes
 
 SHA="${1:?usage: auto-release.sh <sha> [branch] [remote]}"
 BRANCH="${2:-main}"
@@ -18,7 +19,8 @@ PROJECT="136" # reimes/3gpp-crawler
 log() { echo "[auto-release $(date -u +%H:%M:%S)] $*"; }
 
 # --- forge token -----------------------------------------------------------
-TOKEN="$(mise env --json 2>/dev/null | python -c 'import json,sys; print(json.load(sys.stdin).get("MISE_GITLAB_ENTERPRISE_TOKEN",""))')"
+# sed instead of python: bare `python` is not on PATH in hook environments
+TOKEN="$(mise env --json 2>/dev/null | sed -n 's/.*"MISE_GITLAB_ENTERPRISE_TOKEN"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
 if [ -z "${TOKEN}" ]; then
     log "ERROR: MISE_GITLAB_ENTERPRISE_TOKEN not found via 'mise env'"
     exit 1
