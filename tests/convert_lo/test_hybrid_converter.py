@@ -161,8 +161,8 @@ class TestConverterConvert:
             assert "--convert-to" in cmd
             assert "pdf" in cmd
             assert "--outdir" in cmd
-            assert str(output_dir) in cmd
-            assert str(example_docx_path) in cmd
+            assert str(output_dir.resolve()) in cmd
+            assert str(example_docx_path.resolve()) in cmd
 
     def test_convert_creates_output_dir(
         self,

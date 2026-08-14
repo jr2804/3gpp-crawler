@@ -7,17 +7,14 @@ These models replace the previous pydantic-sqlite based persistence layer.
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import Any
 
 from oxyde import Field, Model
 from pydantic import field_validator
 
+from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.version_types import AgendaItem, SpecVersion
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
 
 
 class WorkingGroupRecord(Model):
@@ -60,7 +57,7 @@ class CrawlLogEntry(Model):
     items_updated: int = Field(default=0, ge=0)
     errors_count: int = Field(default=0, ge=0)
     status: str = Field(default="RUNNING")
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     class Meta:
         """Oxyde table configuration."""
@@ -82,9 +79,9 @@ class MeetingMetadata(Model):
     files_url: str | None = None
     portal_url: str | None = None
     tdoc_count: int = Field(default=0, ge=0)
-    last_synced: datetime = Field(default_factory=_utcnow)
-    created_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
+    last_synced: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     class Meta:
         """Oxyde table configuration."""
@@ -110,8 +107,8 @@ class TDocMetadata(Model):
     is_revision_of: str | None = None
     file_size: int | None = None
     date_created: datetime | None = None
-    date_retrieved: datetime = Field(default_factory=_utcnow)
-    date_updated: datetime = Field(default_factory=_utcnow)
+    date_retrieved: datetime = Field(default_factory=utc_now)
+    date_updated: datetime = Field(default_factory=utc_now)
     validated: bool = Field(default=False)
     validation_failed: bool = Field(default=False)
 
