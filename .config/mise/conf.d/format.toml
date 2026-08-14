@@ -1,0 +1,11 @@
+[tasks.format]
+description = "Format code (undersort, ruff)"
+run = [
+	"uv run undersort src/ packages/ tests/ --exclude .config/",
+	"ruff check --select I --fix", # isort-equivalent sorting of imports
+	"ruff format src/ packages/ tests/ --exclude .config",
+]
+
+[tasks.format-md]
+description = "Lint and reformat Markdown files with rumdl"
+run = "rumdl fmt --config .config/rumdl.toml src/ docs/ tests/ packages/ ./"

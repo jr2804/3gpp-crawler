@@ -1,4 +1,26 @@
+# mise configuration
+# Task definitions are in conf.d/*.toml files (automatically loaded by mise)
+
 [tools]
+# basic frameworks that should always be available
+node = "latest"
+bun = "latest"
+
+"gitlab:gitlab-org/cli" = "latest"
+
+# Linter/formatter/type checker tools
+"ruff" = "latest"
+"ty" = "latest"
+"rumdl" = "latest"
+"pipx:undersort" = "latest"
+"pipx:codespell" = "latest"
+"pipx:mdformat" = {version = "latest", uvx = "true", uvx_args = "--with mdformat-front-matters"}
+
+# CLI tools rg and tree-cli -> use `rg --files | tree-cli --fromfile` to get a nice tree view of the project files
+ripgrep = "latest"
+"github:peteretelej/tree" = { version = "latest", rename_exe = "tree-cli" }
+
+# AI/dev tools
 "aqua:steveyegge/beads" = "latest"
 "github:yoanbernabeu/grepai" = "latest"
 "github:djinn-soul/CytoScnPy" = "latest"
@@ -6,116 +28,11 @@
 "github:rtk-ai/rtk" = "latest"
 #"github:arabold/docs-mcp-server" = "latest"
 
-"ruff" = "latest"
-"ty" = "latest"
-"pipx:mdformat" = {version = "latest", uvx = "true", uvx_args = "--with mdformat-front-matters"}
-"pipx:undersort" = "latest"
-
-ripgrep = "latest"
-"github:peteretelej/tree" = { version = "latest", rename_exe = "tree-cli" }
-
-node = "latest"
-bun = "latest"
-java = "temurin"
-
 [env]
 GITLAB_HOST = "forge.3gpp.org"
 
 [settings.npm]
 package_manager = "bun"
 
-[tasks.default]
-run = "mise tasks"
-
-[tasks.upgrade-tools]
-description = "Upgrade all development tools to their latest versions"
-run = ["mise install", "mise up", "mise prune"]
-
-[tasks.env-sync]
-description = "Sync the virtual environment with pyproject.toml dependencies"
-run = "uv sync -U --dev --all-extras --all-groups --all-packages"
-
-[tasks.format]
-description = "Format source code and tests"
-run = [
-    "uv run undersort src/ packages/ tests/ --exclude .config/",
-    "ruff check --select I --fix", # isort-equivalent sorting of imports
-    "ruff format src/ packages/ tests/ --exclude .config",
-]
-
-[tasks.format-md]
-description = "Format Markdown files"
-run = "uv tool run --with mdformat-front-matters mdformat src/ docs/ tests/ packages/ "
-
-[tasks.lint]
-description = "Lint source code and tests"
-run = "ruff check src/ packages/ tests/"
-
-[tasks.lint-fix]
-description = "Lint source code and tests and fix simple issues"
-run = "ruff check --fix src/ packages/ tests/"
-
-[tasks.lint-fix-unsafe]
-description = "Lint source code and tests and fix simple issues"
-run = "ruff check --fix --unsafe-fixes src tests"
-
-[tasks.type-check]
-description = "Type check source code and tests"
-run = "ty check src/ tests/ packages/"
-
-[tasks.test]
-description = "Run all tests with verbose output and short tracebacks"
-run = "uv run pytest tests/ -v --tb=short"
-
-[tasks.test-coverage]
-description = "Run all tests with coverage report"
-run = "uv run pytest tests/ -v --cov=src/3gpp_crawler --cov-report=html"
-
-[tasks.add-mcp-servers]
-
-depends = ["upgrade-tools", "env-sync"]
-
-usage = '''
-arg "<ai_agent>" help="AI assistant to use: claude, gemini, copilot, opencode, ... see: https://github.com/neondatabase/add-mcp"
-'''
-shell = "pwsh -NoProfile -Command"
-run = [
-    'cls',
-    'npx -y add-mcp -y -a {{usage.ai_agent}} "grepai mcp-serve"',
-    'npx -y add-mcp -y -a {{usage.ai_agent}} -n teddi "uvx --from https://forge.3gpp.org/rep/reimes/teddi-mcp.git teddi-mcp"',
-    'npx -y add-mcp -y -a {{usage.ai_agent}} -n cytoscnpy-mcp "cytoscnpy mcp-server"'
-]
-
-[tasks.add-skills]
-run = [
-    "cls",
-    # python & programming skills
-    "npx -y skills add https://github.com/jr2804/prompts -a universal -y -s python-ultimate -s code-deduplication -s docling-document-intelligence -s coding-discipline -s output-quality",
-    "npx -y skills add https://github.com/jiatastic/open-python-skills -a universal -y -s ty-skills -s pydantic",
-    "npx -y skills add https://github.com/glaforge/deslopify -a universal -y",
-
-    # development tool skills
-	"npx -y skills add https://github.com/s2005/uv-skill -a universal -y",
-	"npx -y skills add https://github.com/netresearch/agent-rules-skill -a universal -y",
-
-    # skills for other tools
-    "npx -y skills add https://github.com/nicobailon/visual-explainer -a universal -y",
-	"npx -y skills add https://github.com/FlorianBruniaux/claude-code-ultimate-guide/tree/main/examples -s rtk-optimizer -a universal -y",
-    "npx -y skills add JuliusBrussee/caveman -a universal -y",
-    "npx -y skills add run-llama/llamaparse-agent-skills --skill liteparse -a universal -y",
-
-    # skill for project-specific tools/MCP servers
-    "npx -y skills add https://github.com/AlmogBaku/debug-skill -a universal -y", # for dab tool -> AlmogBaku/debug-skill
-	"npx -y skills add yoanbernabeu/grepai-skills -a universal -y",
-	"npx -y skills add AlmogBaku/debug-skill -a universal -y",
-	"npx -y skills add https://github.com/arabold/docs-mcp-server -a universal -y",
-
-    # 3GPP skills (TODO: fix - requires well-known endpoint)
-    "npx -y skills add https://forge.3gpp.org/rep/reimes/awesome-3gpp-skills/-/tree/main/skills -a universal -y",
-    "npx -y skills add https://github.com/lugasia/3gpp-skill -a universal -y",
-
-    # skill for teddi-mcp/-cli
-    "npx -y skills add https://forge.3gpp.org/rep/reimes/teddi-mcp/-/tree/main/skills -a universal -y",
-
-
-]
+[settings.pipx]
+uvx = true

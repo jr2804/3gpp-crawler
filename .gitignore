@@ -239,6 +239,9 @@ Thumbs.db
 skills-lock.json
 skills/
 
+# Copier answers (regenerated on update)
+.copier-answers.yml
+
 # Keep .agents/ DOX .md files tracked (override any blanket ignore)
 /.agents/*
 !/.agents/*.md
@@ -266,3 +269,4 @@ src/teddi-mcp/uv.lock
 .opencode/
 /.beads/export-state.json
 opencode.json
+/.config/mise/conf.d/mise.local.toml

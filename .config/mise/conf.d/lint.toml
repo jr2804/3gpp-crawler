@@ -1,0 +1,19 @@
+[tasks.lint]
+description = "Lint source code and tests"
+run = "ruff check src/ packages/ tests/"
+
+[tasks.lint-fix]
+description = "Lint source code and tests and fix simple issues"
+run = "ruff check --fix src/ packages/ tests/"
+
+[tasks.lint-fix-unsafe]
+description = "Lint source code and tests and fix simple issues"
+run = "ruff check --fix --unsafe-fixes src tests"
+
+[tasks.typecheck]
+description = "Run type checker (ty)"
+run = "ty check src tests packages"
+
+[tasks.spell]
+description = "Run spell checker (codespell)"
+run = "codespell src tests packages"

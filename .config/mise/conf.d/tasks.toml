@@ -1,0 +1,14 @@
+[tasks.default]
+run = "mise tasks"
+
+[tasks.dev]
+description = "Install development dependencies"
+run = "uv sync -U --dev --all-extras --all-groups"
+
+[tasks.upgrade-tools]
+description = "Upgrade all development tools to their latest versions"
+run = ["mise install", "mise up", "mise prune"]
+
+[tasks.env-sync]
+description = "Sync the virtual environment with pyproject.toml dependencies"
+run = "uv sync -U --dev --all-extras --all-groups --all-packages"

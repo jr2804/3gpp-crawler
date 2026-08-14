@@ -1,0 +1,24 @@
+[tasks.test]
+description = "Run tests with coverage"
+run = "uv run pytest --cov=tdoc_crawler"
+sources = ["src/**/*.py", "tests/**/*.py"]
+outputs = ["htmlcov/", ".coverage"]
+
+[tasks.test-coverage]
+description = "Run all tests with coverage report"
+run = "uv run pytest tests/ -v --cov=src/tdoc_crawler --cov-report=html"
+
+[tasks.all]
+description = "Run all quality checks"
+depends = [
+  "test",
+  "lint",
+  "spell",
+  "format",
+  "format-md",
+  "docs",
+]
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = ["rm -rf build dist *.egg-info .pytest_cache .coverage htmlcov docs/_build"]
