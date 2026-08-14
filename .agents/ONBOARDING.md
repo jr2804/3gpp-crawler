@@ -67,4 +67,5 @@ uv add <package>
 - **grepai** — find code by intent (semantic search, MCP)
 - **teddi-mcp** — ETSI TEDDI terms/definitions
 - **bd** / beads — issue tracking
+- **glab** — GitLab CLI for `forge.3gpp.org` (upstream remote: `git remote 3gpp`)
 - **3gpp-\*** skills — domain context (tdocs, specs, meetings, WGs)
