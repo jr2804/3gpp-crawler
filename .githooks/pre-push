@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# pre-push hook — schedule a CalVer release after the default branch push lands.
+#
+# Installed via: git config core.hooksPath .githooks
+# The actual release runs detached (scripts/auto-release.sh) so it can wait
+# for the push to complete; output goes to .git/auto-release.log.
+
+REMOTE_NAME="${1:-origin}"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "${remote_ref}" = "refs/heads/main" ] && [ "${local_sha}" != "0000000000000000000000000000000000000000" ]; then
+        ROOT="$(git rev-parse --show-toplevel)"
+        LOG="${ROOT}/.git/auto-release.log"
+        echo "[$(date -u +%H:%M:%S)] push ${local_sha} -> ${remote_ref}; scheduling auto-release" >>"${LOG}"
+        nohup bash "${ROOT}/scripts/auto-release.sh" "${local_sha}" main "${REMOTE_NAME}" >>"${LOG}" 2>&1 &
+        echo "auto-release scheduled for ${local_sha} (log: .git/auto-release.log)" >&2
+    fi
+ done
+exit 0
