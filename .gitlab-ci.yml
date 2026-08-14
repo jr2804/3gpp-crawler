@@ -1,0 +1,69 @@
+---
+# CalVer release automation.
+#
+# On every push to the default branch this job creates a GitLab release
+# tagged vYYYY.MM.N, where YYYY.MM is the current year/month (UTC) and N
+# is the per-month counter starting at 1 (e.g. v2026.08.1, v2026.08.2).
+#
+# The version is derived from the tag via uv-dynamic-versioning
+# (see [tool.uv-dynamic-versioning] in pyproject.toml), so no version
+# files need updating.
+
+stages:
+  - release
+
+release:
+  stage: release
+  image: alpine:3.20
+  # serialize concurrent pipelines so two near-simultaneous pushes cannot
+  # compute the same N and race on tag creation
+  resource_group: calver-release
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - apk add --no-cache git curl jq
+  script:
+    - |
+      set -euo pipefail
+
+      # --- compute next CalVer -------------------------------------------
+      # shallow CI clone: make sure all tags are present
+      git fetch --tags --quiet
+      PREFIX="$(date -u +%Y.%m)."
+      LAST_N="$(git tag -l "v${PREFIX}*" | sed 's/^v//' | awk -F. '{print $NF}' | grep -E '^[0-9]+$' | sort -n | tail -1)"
+      N="$(( ${LAST_N:-0} + 1 ))"
+      VERSION="${PREFIX}${N}"
+      echo "Creating release v${VERSION} from ${CI_COMMIT_SHORT_SHA}"
+
+      # --- release notes: commits since previous CalVer tag --------------
+      PREV_TAG="$(git tag -l 'v20[0-9][0-9].*' | sort -V | tail -1 || true)"
+      if [ -n "${PREV_TAG}" ] && [ "${PREV_TAG}" != "v${VERSION}" ]; then
+        LOG="$(git log --pretty=format:'* %s (%h)' "${PREV_TAG}..HEAD")"
+      else
+        LOG="$(git log --pretty=format:'* %s (%h)' HEAD)"
+      fi
+
+      # --- auth: dedicated token if provided, else CI_JOB_TOKEN ----------
+      TOKEN="${RELEASE_TOKEN:-${CI_JOB_TOKEN}}"
+
+      # --- create annotated tag at the pushed commit ----------------------
+      curl --fail --silent --show-error --request POST \
+        --header "PRIVATE-TOKEN: ${TOKEN}" \
+        --data-urlencode "tag_name=v${VERSION}" \
+        --data-urlencode "ref=${CI_COMMIT_SHA}" \
+        --data-urlencode "message=Release v${VERSION}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags" >/dev/null
+
+      # --- create the release ---------------------------------------------
+      jq -n \
+        --arg name "v${VERSION}" \
+        --arg tag_name "v${VERSION}" \
+        --arg ref "${CI_COMMIT_SHA}" \
+        --arg description "Release **v${VERSION}**\n\n${LOG}" \
+        '{name: $name, tag_name: $tag_name, ref: $ref, description: $description}' \
+        > release-payload.json
+      curl --fail --silent --show-error --request POST \
+        --header "PRIVATE-TOKEN: ${TOKEN}" \
+        --header "Content-Type: application/json" \
+        --data @release-payload.json \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
