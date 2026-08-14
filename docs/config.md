@@ -29,7 +29,7 @@ Config files are discovered in this order (later files override earlier):
 
 ### Path Settings
 
-*File system paths for cache, database, checkout, and workspaces*
+File system paths for cache, database, checkout, and workspaces
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -40,7 +40,7 @@ Config files are discovered in this order (later files override earlier):
 
 ### HTTP Settings
 
-*HTTP client behavior, caching, timeouts, and retries*
+HTTP client behavior, caching, timeouts, and retries
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -53,7 +53,7 @@ Config files are discovered in this order (later files override earlier):
 
 ### Credentials Settings
 
-*ETSI Online (EOL) portal authentication credentials*
+ETSI Online (EOL) portal authentication credentials
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -63,7 +63,7 @@ Config files are discovered in this order (later files override earlier):
 
 ### Crawl Settings
 
-*Crawling filters, limits, and worker configuration*
+Crawling filters, limits, and worker configuration
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
