@@ -59,7 +59,7 @@ uv run ty check
 
 - Update the relevant docs in `docs/` when adding/changing CLI commands (see [docs/index.md](index.md) for the documentation index).
 - Write Google-style docstrings for all functions.
-- Keep `docs/history/` logs updated for significant changes.
+- Keep `.agents/history/` logs updated for significant changes.
 
 ## Architecture Overview
 
@@ -189,7 +189,7 @@ Avoid `typing.TYPE_CHECKING` as a workaround for circular imports. It indicates 
 
 Document checkouts and workspace artifacts are stored in **separate directory trees** under the cache root:
 
-```
+```text
 ~/.3gpp-crawler/
 ├── checkout/          # Raw downloaded/extracted documents (TDocs, Specs)
 ├── workspaces/        # Workspace data (sources, wiki) — separate from checkouts

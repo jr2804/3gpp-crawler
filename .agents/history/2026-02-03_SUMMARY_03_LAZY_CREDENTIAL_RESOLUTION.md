@@ -92,6 +92,7 @@ Refactored credential handling to use environment-driven lazy resolution. Creden
 
 - **Added**: Lazy credential resolution
 - **Logic**:
+
   ```python
   if not credentials:
       credentials = resolve_credentials(None, None)
@@ -99,6 +100,7 @@ Refactored credential handling to use environment-driven lazy resolution. Creden
       errors.append("Portal credentials required for targeted fetch. Set EOL_USERNAME and EOL_PASSWORD.")
       return TDocCrawlResult(...)
   ```
+
 - **Behavior**: Only resolves credentials when actually needed for targeted fetch
 - **Fallback**: Returns error if credentials cannot be resolved
 
@@ -112,9 +114,11 @@ Refactored credential handling to use environment-driven lazy resolution. Creden
 
 - **Added**: Lazy credential resolution before session creation
 - **Logic**:
+
   ```python
   credentials = config.credentials or resolve_credentials(None, None)
   ```
+
 - **Behavior**: Resolves credentials from environment when not provided in config
 - **Session Auth**: Uses resolved credentials for session authentication
 
@@ -148,6 +152,7 @@ EOL_PROMPT=false
 - Scenario-based examples table
 
 **Key Documentation Points**:
+
 | Scenario | Behavior |
 |----------|----------|
 | Credentials in `.env` | Used automatically |
@@ -180,7 +185,7 @@ tdoc-crawler crawl-meetings --prompt-credentials
 
 **Old Flow**:
 
-```
+```text
 CLI entry point
   ↓
 resolve_credentials() called immediately
@@ -194,7 +199,7 @@ Use credentials in crawler
 
 **New Flow**:
 
-```
+```text
 CLI entry point
   ↓
 set_credentials() - writes to EOL_* env vars only

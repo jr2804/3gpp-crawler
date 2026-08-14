@@ -33,10 +33,10 @@ Added a new CLI command `3gpp-ai providers list` to the `3gpp-ai` package that d
 | hf | Y | Y | - |
 | jina | N | Y | - |
 | ollama | Y | Y | - |
-| openrouter | Y | Y | via openai - https://openrouter.ai/api/v1 |
-| nvidia | Y | Y | via openai - https://integrate.api.nvidia.com/v1/ |
+| openrouter | Y | Y | via openai - <https://openrouter.ai/api/v1> |
+| nvidia | Y | Y | via openai - <https://integrate.api.nvidia.com/v1/> |
 | openai | Y | Y | - |
-| zai-coding-plan | Y | Y | via zhipu - https://api.z.ai/api/paas/v4 |
+| zai-coding-plan | Y | Y | via zhipu - <https://api.z.ai/api/paas/v4> |
 | zhipu | Y | Y | - |
 
 ## Requirements

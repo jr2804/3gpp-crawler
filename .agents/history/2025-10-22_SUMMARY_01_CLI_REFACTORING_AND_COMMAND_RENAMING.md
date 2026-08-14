@@ -33,7 +33,7 @@ Comprehensive refactoring of the CLI module to improve code organization, mainta
 
 **After**: Organized submodule structure:
 
-```
+```text
 src/tdoc_crawler/cli/
 ├── __init__.py          # Package entry point (exports app)
 ├── app.py               # Main command functions with @app.command decorators

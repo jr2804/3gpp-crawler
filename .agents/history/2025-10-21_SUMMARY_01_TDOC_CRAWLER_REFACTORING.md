@@ -19,7 +19,7 @@ The current 3GPP crawler has fundamental design flaws:
 
 TDoc crawling must depend on meeting metadata. The workflow is:
 
-```
+```text
 1. User runs `crawl-meetings` → Populates meetings table
 2. User runs `crawl` → Queries meetings table → Crawls each meeting's files_url
 3. For each candidate file → Validate via portal → Store/cache result

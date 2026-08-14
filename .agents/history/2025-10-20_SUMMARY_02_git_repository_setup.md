@@ -62,7 +62,7 @@ gh repo create 3gpp-crawler --private --source=. --remote=origin \
 
 ### Remote Configuration
 
-```
+```text
 origin  https://forge.3gpp.org/rep/reimes/3gpp-crawler.git (fetch)
 origin  https://forge.3gpp.org/rep/reimes/3gpp-crawler.git (push)
 ```

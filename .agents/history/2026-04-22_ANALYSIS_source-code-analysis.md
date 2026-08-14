@@ -228,7 +228,7 @@ ______________________________________________________________________
 
 ### Dependency Graph
 
-```
+```text
 pool_executors (0 deps)
     ↓
 convert-lo (minimal deps)

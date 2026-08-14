@@ -38,12 +38,13 @@ When both branches now just fall through to `ThreeGPPConfig.from_settings()`.
 
 file count | Risk
 Notes |
+
 |---|---|---|---|---|
-|---|---|---|
-| \*\*Priority 0: `conftest.py` (shared fixtures, ~2 | Highest |
-|---|---|
-|---|---|
-| **Current:** |
+| --- | --- | --- |  |  |
+| \*\*Priority 0: `conftest.py` (shared fixtures, ~2 | Highest |  |  |  |
+| --- | --- |  |  |  |
+| --- | --- |  |  |  |
+| **Current:** |  |  |  |  |
 
 ```python
 from tdoc_crawler.config import CacheManager, register_cache_manager, resolve_cache_manager
@@ -100,7 +101,7 @@ Field names changed in Phase 3. Tests use `HttpConfig(cache_ttl=3600, ...)` inst
 
 `HttpCacheConfig(ttl=3600, ...)`.
 
-#### Pattern C: `resolve_cache_manager(name).xxx` → `PathConfig().xxx` | `resolve_cache_manager()` was an source code. In test fixtures, use `PathConfig()` directly or use the `PathConfig` properties: `db_file`, `http_cache_file`, `checkout_dir`.
+#### Pattern C: `resolve_cache_manager(name).xxx` → `PathConfig().xxx` | `resolve_cache_manager()` was an source code. In test fixtures, use `PathConfig()` directly or use the `PathConfig` properties: `db_file`, `http_cache_file`, `checkout_dir`
 
 In tests, use `test_cache_dir / "3gpp_crawler.db"`, `test_cache_dir / "http-cache.sqlite3"`, etc.
 
@@ -108,7 +109,7 @@ directly via path computation.
 
 #### Pattern D: `@patch("...CacheManager")` → `@patch("...ThreeGPPConfig")` | `test_new_cli_flags.py` mocks `CacheManager` in `tdoc_crawler.cli.tdoc_app`. Should mock `ThreeGPPConfig.from_settings()` instead, and verify that `config.path.cache_dir` and `config.path.http_cache_file` are set correctly. #### Pattern E: `SpecDownloads(cache_manager_name=...)` → `SpecDownloads(database=...)` | `SpecDownloads.__init__` no longer takes `cache_manager_name`. Tests pass `database` fixture directly. |
 
-#### Pattern F: `monkeypatch.setattr(workspace_ops, "resolve_cache_manager", ...)` → `monkeypatch.setattr(workspace_ops, "PathConfig", ...)` | `test_ai_workspaces.py` patches `resolve_cache_manager`. Replace with `PathConfig` return `SimpleNamespace(db_file=...)` or `PathConfig` return `SimpleNamespace(db_file=...)`.
+#### Pattern F: `monkeypatch.setattr(workspace_ops, "resolve_cache_manager", ...)` → `monkeypatch.setattr(workspace_ops, "PathConfig", ...)` | `test_ai_workspaces.py` patches `resolve_cache_manager`. Replace with `PathConfig` return `SimpleNamespace(db_file=...)` or `PathConfig` return `SimpleNamespace(db_file=...)`
 
 ### Phase ordering | File | Priority | Risk |
 

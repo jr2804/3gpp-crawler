@@ -141,7 +141,7 @@ Successfully updated the database schema to support the new meeting-driven TDoc 
 
 ### Foreign Key Relationships
 
-```
+```text
 working_groups (tbid PK)
     ↑
 subworking_groups (subtb PK, tbid FK)

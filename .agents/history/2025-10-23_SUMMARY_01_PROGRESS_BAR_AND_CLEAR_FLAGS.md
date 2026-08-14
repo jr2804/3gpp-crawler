@@ -111,7 +111,7 @@ uv run tdoc-crawler crawl-tdocs --clear-tdocs --limit-meetings 5
 
 Output:
 
-```
+```text
 Cleared 1234 TDocs from database
 Crawling TDocs (working groups: RAN)
 ...
@@ -150,7 +150,7 @@ uv run tdoc-crawler crawl-meetings --clear-db
 
 Output:
 
-```
+```text
 Cleared database: 5678 TDocs, 123 meetings
 Crawling meetings (working groups: RAN, SA, CT)
 ...
@@ -290,13 +290,13 @@ All 63 tests passing:
 
 **`crawl-tdocs` flags:**
 
-```
+```text
 --clear-tdocs        Clear all TDoc records before crawling
 ```
 
 **`crawl-meetings` flags:**
 
-```
+```text
 --clear-db           Clear all database data before crawling
 ```
 

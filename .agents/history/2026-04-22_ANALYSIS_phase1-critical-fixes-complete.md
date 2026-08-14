@@ -111,7 +111,7 @@ ______________________________________________________________________
 
 **All Tests Passing:** 87/87 ✅
 
-```
+```text
 tests/test_cache_manager.py::TestCacheManager - 14 tests PASSED
 tests/test_config_defaults.py - 2 tests PASSED
 tests/test_database.py::TestTDocDatabase - 13 tests PASSED

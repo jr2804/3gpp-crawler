@@ -38,7 +38,7 @@ uv add <package>
 ## Where to dig deeper
 
 - `docs/` — user-facing documentation (crawl, query, workspace, config)
-- `docs/history/` — detailed change history
+- `.agents/history/` — detailed change history
 - `.agents/HISTORY.md` — past decisions and rationale
 - Source-tree AGENTS.md files — local contracts per area
 - `.agents/skills/3gpp-*/SKILL.md` — 3GPP domain context

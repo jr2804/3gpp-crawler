@@ -194,7 +194,7 @@ tdoc-crawler crawl-meetings
 
 1. **Sign up for EOL account:**
 
-   - Visit https://portal.etsi.org/
+   - Visit <https://portal.etsi.org/>
    - Register for an account
    - Add credentials to `.env`
 

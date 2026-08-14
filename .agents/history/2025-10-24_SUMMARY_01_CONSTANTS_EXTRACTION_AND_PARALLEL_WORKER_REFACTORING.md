@@ -186,7 +186,7 @@ ______________________________________________________________________
 - Full validation happens in main interpreter
 - Maintains type safety in primary codebase
 
-### Decision 3: Lazy-Loading in Package __init__
+### Decision 3: Lazy-Loading in Package **init**
 
 **Problem**: Early import of heavy modules (portal, meetings, tdocs) triggers Pydantic load at package initialization.
 
@@ -215,12 +215,12 @@ ______________________________________________________________________
 - Tests failed due to:
   - Mock patches targeting wrong modules (tdocs.py vs parallel.py)
   - Pydantic instantiation in subinterpreter contexts
-  - Incomplete lazy-loading in __init__.py
+  - Incomplete lazy-loading in **init**.py
   - Unconditional credential prompts
 
 ### After Refactoring
 
-```
+```text
 collected 63 items
 61 passed, 2 skipped, 772 warnings in 15.50s
 Exit code: 0 ✅
@@ -248,14 +248,14 @@ ______________________________________________________________________
 
 ### Linting Results
 
-```
+```text
 Ran: uv run ruff check --select I --fix src/tdoc_crawler/crawlers/__init__.py
 Result: All checks passed! ✓
 ```
 
 ### Import Sorting
 
-- All __init__.py files validated with isort rules
+- All **init**.py files validated with isort rules
 - Imports properly organized: stdlib → third-party → local
 
 ______________________________________________________________________
@@ -266,7 +266,7 @@ ______________________________________________________________________
 |-------|-----------|-----|--------------|
 | Mock patch failures | tdocs.py refactored → parallel.py | Updated @patch paths to parallel.py | test_crawl_connection_failure passes |
 | Pydantic in subinterpreter | Workers instantiated TDocMetadata directly | Remove Pydantic from worker boundary (JSON serialization) | fetch_meeting_tdocs uses json.dumps() |
-| Module import errors | __init__.py eagerly loaded portal, meetings, tdocs | Implement lazy-loading with __getattr__ | Modules load on-demand, constants available at startup |
+| Module import errors | **init**.py eagerly loaded portal, meetings, tdocs | Implement lazy-loading with **getattr** | Modules load on-demand, constants available at startup |
 | Test credential prompts | query_tdocs prompted unconditionally | Added sys.stdin.isatty() check | Tests run without input, CLI retains prompts |
 | Runner complexity in tests | Real Runner spawns subinterpreters (slow) | Created _StubRunner class | test_crawl_\* tests run in \<0.5s each |
 
@@ -301,7 +301,7 @@ ______________________________________________________________________
 
 ### Before This Session
 
-```
+```text
 TDocCrawler
   ├── _create_session() → requests.Session
   ├── _crawl_meeting() → HTTP directory traversal
@@ -311,7 +311,7 @@ TDocCrawler
 
 ### After This Session
 
-```
+```text
 TDocCrawler (Main Thread)
   ├── _get_meetings_to_crawl() → Query DB
   ├── _apply_meeting_limits() → Apply limits
@@ -357,7 +357,7 @@ ______________________________________________________________________
 
 - ✅ New constants.py created and validated (pure Python, no Pydantic)
 - ✅ parallel.py worker functions implemented (JSON serialization)
-- ✅ Lazy-loading in __init__.py functional (modules load on-demand)
+- ✅ Lazy-loading in **init**.py functional (modules load on-demand)
 - ✅ Mock patches corrected (parallel.py, not tdocs.py)
 - ✅ \_StubRunner implemented for unit test determinism
 - ✅ TTY detection added to CLI (sys.stdin.isatty())

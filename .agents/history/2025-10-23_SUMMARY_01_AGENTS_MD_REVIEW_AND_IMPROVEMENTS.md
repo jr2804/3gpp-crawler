@@ -14,13 +14,13 @@ ______________________________________________________________________
 
 The `AGENTS.md` file currently places helper function implementations (`resolve_cache_dir`, `get_credentials`, `_infer_working_groups_from_ids`) inside a single `cli.py` code block. This does not match the current, more modular project structure.## 1. Executive Summary
 
-### Current ImplementationThe previous review (earlier part of this file) highlighted missing documentation on HTTP crawling, subdirectory detection, fuzzy meeting name matching, and portal authentication. Those concerns have since been largely addressed inside `AGENTS.md` (the document now contains sections titled “HTTP Directory Crawling and File Detection” and subdirectory logic, plus portal module references). However, substantial new divergences have appeared after the recent refactor:
+### Current ImplementationThe previous review (earlier part of this file) highlighted missing documentation on HTTP crawling, subdirectory detection, fuzzy meeting name matching, and portal authentication. Those concerns have since been largely addressed inside `AGENTS.md` (the document now contains sections titled “HTTP Directory Crawling and File Detection” and subdirectory logic, plus portal module references). However, substantial new divergences have appeared after the recent refactor
 
 The project has been refactored to use a dedicated `src/tdoc_crawler/cli/helpers.py` module, which contains these helper functions and more. A new helper, `infer_working_groups_from_subgroups`, was also introduced to improve CLI usability.
 
 High‑impact mismatches:
 
-### Proposed Changes to `AGENTS.md`1. Database schema in `AGENTS.md` describes an older (pre‑v2) table layout – omits columns now present and still lists non‑existent ones (e.g. `for_value`, `last_validated`, missing `url`, `file_size`, `for_purpose`, `document_type`, `checksum`, `source_path`, `date_updated`, `validation_failed`).
+### Proposed Changes to `AGENTS.md`1. Database schema in `AGENTS.md` describes an older (pre‑v2) table layout – omits columns now present and still lists non‑existent ones (e.g. `for_value`, `last_validated`, missing `url`, `file_size`, `for_purpose`, `document_type`, `checksum`, `source_path`, `date_updated`, `validation_failed`)
 
 1. **Update Project Structure:** Modify the `Project Structure` section to show that `cli/` is a submodule containing `app.py` and `helpers.py`.2. Project structure still assumes monolithic `cli.py` and `database.py` whereas code is now split (e.g. `src/tdoc_crawler/cli/app.py`, `cli/helpers.py`, `cli/fetching.py`, `cli/printing.py` and database submodules `database/schema.py`, `database/connection.py`, `database/tdocs.py`, `database/statistics.py`).
 
@@ -32,9 +32,9 @@ High‑impact mismatches:
 
 1. Statistics and helper queries in current code derive working group counts via JOIN; `AGENTS.md` still suggests grouping directly on a removed column.
 
-## 2. Enhance Subgroup Alias Normalization Logic7. Crawl log structure changed (new fields: `crawl_type`, `start_time`, `end_time`, `incremental`, `items_added`, `items_updated`, `errors_count`, `status`), but the document lists an older minimal form (`timestamp`, `tdocs_discovered`, etc.).
+## 2. Enhance Subgroup Alias Normalization Logic7. Crawl log structure changed (new fields: `crawl_type`, `start_time`, `end_time`, `incremental`, `items_added`, `items_updated`, `errors_count`, `status`), but the document lists an older minimal form (`timestamp`, `tdocs_discovered`, etc.)
 
-### Current State in `AGENTS.md`If left uncorrected, a coding assistant following the existing `AGENTS.md` would regenerate obsolete schema, reintroduce denormalized columns, misname fields, and write incompatible queries/tests.
+### Current State in `AGENTS.md`If left uncorrected, a coding assistant following the existing `AGENTS.md` would regenerate obsolete schema, reintroduce denormalized columns, misname fields, and write incompatible queries/tests
 
 The `Working Group Alias Handling` section provides an inaccurate and overly simplistic implementation for `normalize_subgroup_alias`. It suggests the function just calls `normalize_working_group_alias`, which is incorrect.
 
@@ -90,7 +90,7 @@ Progress is tracked at the database level, not the collection level.| Statistics
 
 ## 4. Add New CLI Flags app.py # Typer application & command registration
 
-```
+```text
     fetching.py     # Targeted fetch & portal orchestration
 ```
 
@@ -98,7 +98,7 @@ Progress is tracked at the database level, not the collection level.| Statistics
 
 The `CLI Commands Implementation` section is missing the `--clear-db` and `--clear-tdocs` flags that were recently added to the `crawl-meetings` and `crawl-tdocs` commands, respectively. printing.py # Output formatting (table/json/yaml/csv)
 
-```
+```text
 crawlers/
 ```
 
@@ -110,7 +110,7 @@ crawlers/
 
 - The `TDocDatabase` class has corresponding `clear_all_data()` and `clear_tdocs()` methods. database/
 
-  ```
+  ```text
     schema.py       # SCHEMA_VERSION, table DDL, reference population
   ```
 
@@ -122,11 +122,11 @@ crawlers/
 
 - **Document Database Methods:** Briefly mention the `clear_*` methods in the `Database Helper Methods` section. models/ # Pydantic models & enums
 
-  __init__.py
+  **init**.py
 
-By incorporating these changes, `AGENTS.md` will be more aligned with the current state of the project, enabling a coding assistant to reproduce the existing functionality more accurately. __main__.py
+By incorporating these changes, `AGENTS.md` will be more aligned with the current state of the project, enabling a coding assistant to reproduce the existing functionality more accurately. **main**.py
 
-````
+````text
 
 Add an explicit note: “Monolithic `cli.py` and `database.py` referenced elsewhere are legacy; new contributions MUST use the modular structure above.”
 

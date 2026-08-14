@@ -106,7 +106,7 @@ ______________________________________________________________________
 
 **Goal:** Offer cloud-based PDF conversion when LibreOffice unavailable.
 
-**Repository:** https://forge.3gpp.org/rep/reimes/pdf-remote-converter
+**Repository:** <https://forge.3gpp.org/rep/reimes/pdf-remote-converter>
 
 **Design:**
 

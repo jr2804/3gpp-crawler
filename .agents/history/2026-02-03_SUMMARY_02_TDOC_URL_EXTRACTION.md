@@ -37,7 +37,7 @@ TDOC_DOWNLOAD_URL: Final[str] = f"{PORTAL_BASE_URL}/ngppapp/DownloadTDoc.aspx"
 - **Parameters**:
   - `tdoc_id`: TDoc identifier (e.g., 'S4-251364')
   - `timeout`: Request timeout in seconds (default 15 seconds)
-- **Returns**: Direct FTP URL (e.g., 'https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_133-e/Docs/S4-251364.zip')
+- **Returns**: Direct FTP URL (e.g., '<https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_133-e/Docs/S4-251364.zip>')
 - **Raises**:
   - `PortalParsingError`: If URL extraction fails or TDoc not found
   - `requests.RequestException`: For network errors
@@ -78,7 +78,7 @@ cdata_pattern = r"<!\[CDATA\[(.*?)\]\]>"
 1. Fetch `DownloadTDoc.aspx?contributionUid={tdoc_id}` without authentication
 1. Check for error messages ("TDoc cannot be found")
 1. Extract URL from JavaScript redirect pattern
-1. Validate URL format (must start with http://, https://, or ftp://)
+1. Validate URL format (must start with <http://>, <https://>, or ftp://)
 1. Return extracted URL or raise exception with TDoc ID and failure reason
 
 ### 4. Error Handling
@@ -132,7 +132,7 @@ session.headers.update({
 
 ### URL Validation
 
-1. Checks if URL starts with valid protocol (http://, https://, ftp://)
+1. Checks if URL starts with valid protocol (<http://>, <https://>, ftp://)
 1. Optionally validates that URL contains the TDoc ID (case-insensitive)
 
 ## Benefits

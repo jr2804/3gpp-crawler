@@ -179,7 +179,7 @@ Controlled by the `--figures` option:
 
 Spec source directories include the release version suffix:
 
-```
+```text
 ~/.3gpp-crawler/wiki/my-project/sources/26260-REL18.0.0/
 ~/.3gpp-crawler/wiki/my-project/sources/26131-REL19.0.0/
 ```

@@ -180,7 +180,8 @@ in a skill or `docs/`, linked once.
 - When `.agents/HISTORY.md` grows too large, archive older entries to
   `.agents/history/`. Reference them from `.agents/HISTORY.md`.
 - Completed plans (`.agents/plans/<feature>/`) may be archived to
-  `.agents/history/<feature>/` for long-term reference.
+  `.agents/history/` for long-term reference — rename with completion-date
+  prefix per the naming schema in `.agents/FILES.md`.
 - `.agents/history/` IS version-controlled (durable decision records).
 
 ## Size budget

@@ -170,37 +170,37 @@ All tests use mocks to verify correct parameter passing without requiring full d
 
 ## Usage Examples
 
-### Basic subgroup filtering:
+### Basic subgroup filtering
 
 ```bash
 uv run tdoc-crawler query-meetings -w SA -s SA4 --limit 5
 ```
 
-### Using short alias:
+### Using short alias
 
 ```bash
 uv run tdoc-crawler query-meetings -w SA -s S4 --limit 5
 ```
 
-### Filtering plenary meetings:
+### Filtering plenary meetings
 
 ```bash
 uv run tdoc-crawler query-meetings -w RP -s "RAN Plenary" --limit 5
 ```
 
-### Using working group alias:
+### Using working group alias
 
 ```bash
 uv run tdoc-crawler query-meetings -w SP --limit 5
 ```
 
-### Multiple subgroups:
+### Multiple subgroups
 
 ```bash
 uv run tdoc-crawler query-meetings -w RAN -s R1 -s R2 --limit 10
 ```
 
-### Combined filters with aliases:
+### Combined filters with aliases
 
 ```bash
 uv run tdoc-crawler query-meetings -w SP -s S4 --limit 5

@@ -165,6 +165,7 @@ If you have an existing `.env` file, you can migrate to the new config file appr
    ```
 
 1. **Copy values from your .env:**
+
    | .env Variable | Config File Setting |
    |----------------|---------------------|
    | TDC_CACHE_DIR | path.cache_dir |

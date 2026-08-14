@@ -81,7 +81,7 @@ Replace the existing 3gpp-ai pipeline with **LightRAG** (Python GraphRAG framewo
 
 ## Architecture Diagram
 
-```
+```text
 +---------------------------------------------------------------------------+
 |                        3GPP Crawler Application                           |
 +---------------------------------------------------------------------------+
@@ -722,7 +722,7 @@ OpenSearch runs on Windows via zip archive (no Docker). See investigation report
 - [x] (2026-03-23) Phase 4.2 complete: Entity seeder (EntitySeeder with seed_tdoc/seed_spec/seed_meeting/seed_wg)
 - [x] (2026-03-23) Phase 5.1 complete: Removed legacy pipeline.py, graph.py
 - [x] (2026-03-23) Phase 5.2 complete: Updated pyproject.toml (removed lancedb, sentence-transformers, etc.)
-- [x] (2026-03-23) Phase 5.3 complete: Updated __init__.py exports (LightRAG only)
+- [x] (2026-03-23) Phase 5.3 complete: Updated **init**.py exports (LightRAG only)
 - [x] (2026-03-23) Phase 5.4 complete: Removed broken CLI commands (ai query/process/status)
 - [x] (2026-03-23) Phase 6.1 complete: Unit tests (test_lightrag_config.py: 11 tests, test_metadata.py: 11 tests)
 - [x] (2026-03-23) Phase 6.2 complete: Integration tests (test_integration.py: 4 async tests)
@@ -747,11 +747,12 @@ The following modules are obsolete (replaced by LightRAG pipeline):
 | `tdoc_ai/config.py` | 213 | `AiConfig` - replaced by `LightRAGConfig` with sub-configs |
 
 **Partial deprecation** (retain minimal types, remove rest):
+
 | Module | Action | Lines Saved |
 |--------|--------|-------------|
 | `tdoc_ai/models.py` | Remove `GraphNode`, `GraphEdge`, `DocumentChunk`, `DocumentClassification` - only keep `ProcessingStatus`, `PipelineStage`, `SourceKind` | ~280 |
 
-#### 7.2 __init__.py Cleanup
+#### 7.2 **init**.py Cleanup
 
 Current state exports 40+ symbols including legacy ones. Target: clean separation.
 

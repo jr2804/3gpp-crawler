@@ -653,7 +653,7 @@ ______________________________________________________________________
 
 ### Complexity Warnings
 
-```
+```text
 C901 `_crawl_meeting` is too complex (11 > 10)
 C901 `_scan_directory_for_tdocs` is too complex (18 > 10)
 ```

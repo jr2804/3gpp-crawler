@@ -22,6 +22,17 @@ Kept compact — agents hallucinate less when they know where definitions live.
 | HTTP session | `src/tdoc_crawler/http_client/session.py` | `create_cached_session()`, `download_to_file()`, `PoolConfig` |
 | Docs config | `zensical.toml` | nav, theme, plugins (replaces mkdocs.yml) |
 | Mise tasks/tools | `.config/mise/config.toml` + `conf.d/*.toml` | task definitions split by category |
-| CI / release automation | `.gitlab-ci.yml` | CalVer release (vYYYY.MM.N) on every push to default branch |
+| CI / release automation | `.githooks/pre-push` + `scripts/auto-release.sh` | CalVer release (vYYYY.MM.N) on every push to default branch |
 | CLI commands | `src/tdoc_crawler/cli/` | Typer apps: `tdoc_app`, `spec_app`, `mgmt_app`, `config_app` |
 | Credentials | `src/tdoc_crawler/credentials.py` | `set_credentials()`, EOL auth |
+
+## Naming conventions
+
+- **Archived plans** (`.agents/history/`, version-controlled):
+  `YYYY-MM-DD_<TYPE>_<summary>.md` — date = **completion date** of the
+  work, `TYPE` ∈ `SUMMARY` | `ANALYSIS` | `PLAN`. Example:
+  `2026-08-10_SUMMARY_feature1.md`.
+- **Active plans** (`.agents/plans/`, gitignored): no date prefix, but the
+  plan **must embed a date** (creation timestamp) in its content — e.g.
+  `Created: YYYY-MM-DD` line or a front-matter `date:` field. Filename
+  stays descriptive (`01-sub-feature.md`), order = implementation order.

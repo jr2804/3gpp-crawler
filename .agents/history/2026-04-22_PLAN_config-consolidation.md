@@ -4,7 +4,7 @@
 
 All phases (0-7) of this plan have been implemented. The configuration system has been fully consolidated.
 
-### What was done:
+### What was done
 
 - **Phase 0**: Renamed `TDocCrawlerConfig` → `ThreeGPPConfig`. All `AliasChoices` now reference `ConfigEnvVar`.
 - **Phase 1**: Created `AiConfig(BaseSettings)` and `ThreeGPPAIConfig(ThreeGPPConfig)` in `packages/3gpp-ai/threegpp_ai/config.py`.
@@ -15,9 +15,9 @@ All phases (0-7) of this plan have been implemented. The configuration system ha
 - **Phase 6**: Added `config` CLI to 3gpp-ai via `create_config_app()` factory.
 - **Phase 7**: Final cleanup — deleted deprecated files, fixed exports, updated documentation.
 
-### Final Architecture:
+### Final Architecture
 
-```
+```text
 ThreeGPPConfig (BaseSettings)                          ← src/tdoc_crawler/config/settings.py
 ├── path: PathConfig           (paths, db, checkout, ai_cache, ai_workspace_file)
 ├── http: HttpConfig           (TTL, retries, SSL, timeout)
@@ -50,7 +50,7 @@ The project has **7 overlapping config models** across 3 packages, causing:
 
 ## Target Architecture
 
-```
+```text
 ThreeGPPConfig (BaseSettings)                          ← src/tdoc_crawler/config/settings.py
 ├── path: PathConfig           (paths, db, checkout, ai_cache, ai_workspace_file)
 ├── http: HttpConfig           (TTL, retries, SSL, timeout)
@@ -83,7 +83,7 @@ NO CrawlLimits                                         ← deleted entirely
 
 **Config flow:**
 
-```
+```text
 3gpp-crawler.toml  ──→  ThreeGPPConfig.from_settings()      (tdoc-crawler CLI, spec-crawler CLI)
                             ↓ no [ai] section → ignored (extra="ignore")
 
@@ -882,7 +882,7 @@ ______________________________________________________________________
 
 ## Dependency Graph
 
-```
+```text
 Phase 0 (Rename + ConfigEnvVar integration)  ← prerequisite for everything
   ↓
 Phase 1 (AiConfig + ThreeGPPAIConfig)        ← uses ConfigEnvVar references from Phase 0

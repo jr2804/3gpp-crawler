@@ -2,9 +2,9 @@
 title: Code of Conduct
 ---
 
-# Contributor Covenant Code of Conduct
+## Contributor Covenant Code of Conduct
 
-## Our Pledge
+### Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our
 community a harassment-free experience for everyone, regardless of age, body
@@ -13,7 +13,7 @@ identity and expression, level of experience, education, socio-economic status,
 nationality, personal appearance, race, religion, or sexual identity
 and orientation.
 
-## Our Standards
+### Our Standards
 
 Examples of behavior that contributes to a positive environment:
 
@@ -31,13 +31,13 @@ Examples of unacceptable behavior:
 * Publishing others' private information without explicit permission
 * Other conduct which could reasonably be considered inappropriate
 
-## Enforcement
+### Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the project maintainers at jan.reimes@head-acoustics.com.
+reported to the project maintainers at <jan.reimes@head-acoustics.com>.
 All complaints will be reviewed and investigated.
 
-## Attribution
+### Attribution
 
 This Code of Conduct is adapted from the
 [Contributor Covenant](https://www.contributor-covenant.org), version 2.0.

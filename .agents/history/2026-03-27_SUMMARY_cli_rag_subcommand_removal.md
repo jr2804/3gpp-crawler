@@ -37,7 +37,7 @@
 
 ### New CLI Structure
 
-```
+```text
 3gpp-ai --help
 ├── summarize   (existing)
 ├── convert     (existing)

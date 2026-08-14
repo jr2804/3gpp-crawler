@@ -26,4 +26,4 @@ How to keep `.agents/` files current.
 | `HISTORY.md` | Notable decision made or resolved |
 | `MAINTENANCE.md` | Maintenance procedures, triggers, or principles change |
 | `plans/` | New feature implementation starts |
-| `history/` | HISTORY.md overflow or completed plans archived |
+| `history/` | HISTORY.md overflow or completed plans archived (rename per naming schema in `FILES.md`) |
