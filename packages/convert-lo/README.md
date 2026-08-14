@@ -76,7 +76,7 @@ LibreOfficeFormat.HTML
 ```python
 Converter(
     soffice_file=None,  # Auto-detect LibreOffice
-    timeout=300,         # Timeout per file in seconds
+    timeout=300,  # Timeout per file in seconds
 )
 ```
 

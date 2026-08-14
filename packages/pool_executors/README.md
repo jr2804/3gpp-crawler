@@ -23,8 +23,10 @@ pip install pool-executors
 ```python
 from pool_executors import SerialPoolExecutor
 
+
 def task(x: int) -> int:
     return x * 2
+
 
 with SerialPoolExecutor() as executor:
     futures = [executor.submit(task, i) for i in range(5)]
@@ -53,12 +55,7 @@ executor = create_executor("thread", max_workers=4)  # ThreadPoolExecutor
 from pool_executors import create_executor
 
 # All kwargs are forwarded to the underlying executor
-executor = create_executor(
-    "multiprocessing",
-    max_workers=4,
-    initializer=setup_fn,
-    initargs=(arg1, arg2)
-)
+executor = create_executor("multiprocessing", max_workers=4, initializer=setup_fn, initargs=(arg1, arg2))
 ```
 
 ### Executor Type Reference
@@ -130,8 +127,10 @@ The `Runner` class provides an async-compatible interface for `pool_executors`, 
 from pool_executors import Runner
 import asyncio
 
+
 def cpu_intensive_task(x: int) -> int:
     return x * x
+
 
 async def main():
     # Create runner with 4 workers using multiprocessing
@@ -140,12 +139,9 @@ async def main():
     # Use context manager to start executor
     async with runner.start():
         # Run tasks asynchronously
-        results = await asyncio.gather(
-            runner.run(cpu_intensive_task, 2),
-            runner.run(cpu_intensive_task, 3),
-            runner.run(cpu_intensive_task, 4)
-        )
+        results = await asyncio.gather(runner.run(cpu_intensive_task, 2), runner.run(cpu_intensive_task, 3), runner.run(cpu_intensive_task, 4))
         print(results)  # [4, 9, 16]
+
 
 asyncio.run(main())
 ```
@@ -155,9 +151,12 @@ asyncio.run(main())
 ```python
 from pool_executors import Runner
 
+
 async def io_bound_task(url: str) -> str:
     import requests
+
     return requests.get(url).text[:100]  # Return first 100 chars
+
 
 async def main():
     # Use threading for I/O-bound tasks
@@ -166,6 +165,7 @@ async def main():
     async with runner.start():
         result = await runner.run(io_bound_task, "https://example.com")
         print(result)
+
 
 asyncio.run(main())
 ```
@@ -176,13 +176,16 @@ asyncio.run(main())
 from pool_executors import Runner
 import asyncio
 
+
 def process_data(data: list) -> list:
     return [x * 2 for x in data]
+
 
 async def fetch_data() -> list:
     # Simulate async data fetching
     await asyncio.sleep(0.1)
     return [1, 2, 3, 4, 5]
+
 
 async def main():
     runner = Runner(workers=2, executor_type="subinterpreter")
@@ -194,6 +197,7 @@ async def main():
         # Process data in executor
         processed = await runner.run(process_data, data)
         print(processed)  # [2, 4, 6, 8, 10]
+
 
 asyncio.run(main())
 ```
@@ -225,10 +229,12 @@ Use the `Runner` class when:
 from pool_executors import Runner
 import asyncio
 
+
 def might_fail(x: int) -> int:
     if x < 0:
         raise ValueError("Negative values not allowed")
     return x * x
+
 
 async def main():
     runner = Runner(workers=2)
@@ -239,6 +245,7 @@ async def main():
         except ValueError as e:
             print(f"Error: {e}")  # Error: Negative values not allowed
 
+
 asyncio.run(main())
 ```
 
@@ -248,13 +255,16 @@ asyncio.run(main())
 from pool_executors import Runner
 import asyncio
 
+
 def init_db_connection():
     # Initialize database connection
     pass
 
+
 def query_database(user_id: int) -> dict:
     # Use initialized connection
     return {"id": user_id, "name": "Test User"}
+
 
 async def main():
     # Initialize with custom setup
@@ -264,6 +274,7 @@ async def main():
         # Run with initialized state
         result = await runner.run(query_database, 42)
         print(result)  # {"id": 42, "name": "Test User"}
+
 
 asyncio.run(main())
 ```

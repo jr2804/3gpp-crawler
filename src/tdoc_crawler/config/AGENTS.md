@@ -9,13 +9,13 @@ Type-safe configuration from files and env vars. Alias: `TDocCrawlerConfig`.
 ```python
 from tdoc_crawler.config import ThreeGPPConfig
 
-config = ThreeGPPConfig.from_settings()               # auto-discover
-config = ThreeGPPConfig.from_settings(config_file=...) # explicit file
+config = ThreeGPPConfig.from_settings()  # auto-discover
+config = ThreeGPPConfig.from_settings(config_file=...)  # explicit file
 
-config.path.cache_dir       # Path to cache directory
-config.http.timeout         # HTTP timeout
-config.credentials.username # Portal credentials
-config.crawl.workers        # Concurrent workers
+config.path.cache_dir  # Path to cache directory
+config.http.timeout  # HTTP timeout
+config.credentials.username  # Portal credentials
+config.crawl.workers  # Concurrent workers
 ```
 
 **Config discovery** (later overrides earlier):
@@ -36,10 +36,10 @@ Single source of truth for all file paths. Register once at program start, then 
 from tdoc_crawler.config import resolve_cache_manager
 
 manager = resolve_cache_manager()
-manager.root              # cache root directory
-manager.db_file           # SQLite database
-manager.http_cache_file   # HTTP cache
-manager.checkout_dir      # Spec checkout directory
+manager.root  # cache root directory
+manager.db_file  # SQLite database
+manager.http_cache_file  # HTTP cache
+manager.checkout_dir  # Spec checkout directory
 ```
 
 ## Key Rules

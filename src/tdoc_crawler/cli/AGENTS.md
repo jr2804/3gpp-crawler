@@ -30,7 +30,7 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 
 Spec source directories under `wiki/<workspace>/sources/` **MUST** include the `-REL<version>` suffix:
 
-```
+```text
 # CORRECT
 wiki/atias/sources/26260-REL18.0.0/
 wiki/atias/sources/26131-REL19.0.0/
