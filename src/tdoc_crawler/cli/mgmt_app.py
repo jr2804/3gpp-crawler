@@ -13,6 +13,8 @@ from typing import Annotated
 
 import typer
 
+from tdoc_crawler import __version__
+from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
 from tdoc_crawler.cli.mcp_app import app as mcp_app
@@ -27,6 +29,12 @@ mgmt_app = typer.Typer(
     name="3gpp-crawler",
     help="3GPP Crawler — crawl, query, tag, and download 3GPP documents",
 )
+
+
+@mgmt_app.command("version", help="Show installed version")
+def _version() -> None:
+    console.print(f"3gpp-crawler version [bold]{__version__}[/bold]")
+
 
 # Mount the shared sub-apps (same objects used by the shortcut CLIs)
 mgmt_app.add_typer(tdoc_app, name="tdoc", help="TDocs and meetings (shortcut: tdoc-crawler)")
