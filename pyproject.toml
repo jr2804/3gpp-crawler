@@ -21,7 +21,6 @@ dependencies = [
     # "doc2txt>=1.0.8",
     "hishel>=1.1.8",
     "liteparse>=1.2.0",
-    "docling>=2.93.0",
     "packaging>=24.0",
     "pandas>=3.0.0",
     "pydantic>=2.12.2",
@@ -41,9 +40,6 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "niquests>=3.18.4",
     "opencv-python-headless>=4.13.0.92",
-    "pymupdf>=1.27.2.3",
-    "pymupdf4llm>=1.27.2.3",
-    "markdownify>=0.14",
     "pdf-remote-converter",
 ]
 

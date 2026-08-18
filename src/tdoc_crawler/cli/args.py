@@ -8,7 +8,6 @@ from typing import Annotated
 import typer
 
 from tdoc_crawler.config import ConfigEnvVar
-from tdoc_crawler.extraction.profiles import DeviceType, ExtractionProfile, FiguresMode, SpreadsheetMode, TablesMode
 
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
@@ -176,31 +175,6 @@ ProgressOption = Annotated[
     typer.Option("--progress/--no-progress", help="Enable/disable progress bar (disable for scripts and CI)", envvar=ConfigEnvVar.TDC_PROGRESS.name),
 ]
 
-MdYamlFrontmatterOption = Annotated[
-    bool,
-    typer.Option(
-        "--md-yaml-frontmatter/--no-md-yaml-frontmatter",
-        help="Include YAML frontmatter in generated Markdown",
-        envvar=ConfigEnvVar.TDC_MD_YAML_FRONTMATTER.name,
-    ),
-]
-
-WorkspaceDeleteForceOption = Annotated[
-    bool,
-    typer.Option("--force", help="Permanently delete workspace and all artifacts"),
-]
-DeleteArtifactsOption = Annotated[
-    bool,
-    typer.Option("--delete-artifacts", help="Delete all workspace artifacts for members"),
-]
-DeleteLlmWikiOption = Annotated[
-    bool,
-    typer.Option("--delete-llm-wiki", help="Delete the .llm-wiki folder for this workspace"),
-]
-IncludeInactiveOption = Annotated[
-    bool,
-    typer.Option("--include-inactive/--exclude-inactive", help="Include/exclude inactive members", envvar=ConfigEnvVar.TDC_INCLUDE_INACTIVE.name),
-]
 WorkspaceProcessForceOption = Annotated[
     bool,
     typer.Option("--force", help="Re-process existing artifacts"),
@@ -208,103 +182,4 @@ WorkspaceProcessForceOption = Annotated[
 ProcessLimitOption = Annotated[
     int | None,
     typer.Option("--limit", help="Limit number of members to process"),
-]
-SkipExistingOption = Annotated[
-    bool,
-    typer.Option(
-        "--skip-existing/--no-skip-existing",
-        help="Skip members that already have artifacts (default: True)",
-        envvar=ConfigEnvVar.TDC_SKIP_EXISTING.name,
-    ),
-]
-ProfileOption = Annotated[
-    ExtractionProfile,
-    typer.Option("--profile", help="Extraction profile: pdf-only, markdown-only, default, or advanced", envvar=ConfigEnvVar.TDC_PROFILE.name),
-]
-FiguresModeOption = Annotated[
-    FiguresMode,
-    typer.Option(
-        "--figures",
-        help=("Figure handling for all profiles: embed (images embedded/self-contained) or reference (extract image files)"),
-        envvar=ConfigEnvVar.TDC_FIGURES.name,
-    ),
-]
-TablesModeOption = Annotated[
-    TablesMode,
-    typer.Option(
-        "--tables",
-        help="Table handling: embed (in markdown) or csv (separate CSV files)",
-        envvar=ConfigEnvVar.TDC_TABLES.name,
-    ),
-]
-DeviceOption = Annotated[
-    DeviceType,
-    typer.Option(
-        "--device",
-        help="Accelerator device: auto (detect), cpu, cuda, or mps",
-        envvar=ConfigEnvVar.TDC_DEVICE.name,
-    ),
-]
-DocxDirectOption = Annotated[
-    bool,
-    typer.Option(
-        "--docx-direct/--docx-convert",
-        help="Feed .docx/.doc directly to backend, skip LibreOffice PDF conversion",
-        envvar=ConfigEnvVar.TDC_DOCX_DIRECT.name,
-    ),
-]
-RemoteFallbackOption = Annotated[
-    bool,
-    typer.Option(
-        "--remote-fallback/--no-remote-fallback",
-        help="Use online PDF service when LibreOffice fails (requires API keys, see .env.example)",
-        envvar=ConfigEnvVar.TDC_REMOTE_FALLBACK.name,
-    ),
-]
-WorkspaceNameOption = Annotated[
-    str | None,
-    typer.Option("-w", "--workspace", help="Workspace name (default: active workspace)", envvar=ConfigEnvVar.TDC_WORKSPACE.name),
-]
-SourceKindOption = Annotated[
-    str,
-    typer.Option("--kind", help="Source kind: tdoc, spec, or other"),
-]
-DryRunOption = Annotated[
-    bool,
-    typer.Option("--dry-run", help="Show what would be removed without removing"),
-]
-
-SpreadsheetModeOption = Annotated[
-    SpreadsheetMode,
-    typer.Option(
-        "--spreadsheet-mode",
-        help="Spreadsheet handling: data (extract tables as markdown/CSV) or visual (convert to PDF via LibreOffice)",
-    ),
-]
-
-CheckoutPrefixOption = Annotated[
-    str,
-    typer.Option(
-        "--checkout-prefix",
-        help="Prefix for checkout directory names when adding OTHER sources (default: OTHER_)",
-    ),
-]
-
-DepthOption = Annotated[
-    int,
-    typer.Option(
-        "--depth",
-        help="Maximum crawl depth for URL-based OTHER sources (default: 1)",
-        min=1,
-        max=5,
-    ),
-]
-
-WorkspaceDirOption = Annotated[
-    Path | None,
-    typer.Option("--dir", "-d", help="Custom workspace data directory (default: ~/.3gpp-crawler/workspaces/<name>)"),
-]
-SourcesDirNameOption = Annotated[
-    str | None,
-    typer.Option("--src-dir", "-s", help="Custom sources subdirectory name (default: 'sources')"),
 ]

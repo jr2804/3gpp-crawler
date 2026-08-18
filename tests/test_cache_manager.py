@@ -67,11 +67,6 @@ class TestCacheManager:
         manager = CacheManager(tmp_path)
         assert manager.checkout_dir == tmp_path / "checkout"
 
-    def test_workspace_registry_file_path(self, tmp_path: Path) -> None:
-        """Test workspace_registry_file property returns correct path."""
-        manager = CacheManager(tmp_path)
-        assert manager.workspace_registry_file == tmp_path / "workspaces.json"
-
 
 class TestCacheManagerIntegration:
     """Test CacheManager integration with actual filesystem."""

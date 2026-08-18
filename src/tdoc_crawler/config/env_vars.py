@@ -69,20 +69,9 @@ class ConfigEnvVar(StrEnum):
     TDC_PROGRESS = "crawl.progress"
     TDC_FULL_METADATA = "crawl.full_metadata"
     TDC_INCLUDE_WITHOUT_FILES = "crawl.include_without_files"
-    TDC_INCLUDE_INACTIVE = "workspace.include_inactive"
     TDC_PROMPT_CREDENTIALS = "credentials.prompt_credentials"
     TDC_DOC_ONLY = "crawl.doc_only"
     TDC_AUTO_CRAWL_SPECS = "crawl.auto_crawl_specs"
-    TDC_MD_YAML_FRONTMATTER = "workspace.md_yaml_frontmatter"
-    TDC_DOCX_DIRECT = "workspace.docx_direct"
-    TDC_SKIP_EXISTING = "workspace.skip_existing"
-    # Workspace extraction settings
-    TDC_PROFILE = "workspace.profile"
-    TDC_FIGURES = "workspace.figures"
-    TDC_TABLES = "workspace.tables"
-    TDC_DEVICE = "workspace.device"
-    TDC_REMOTE_FALLBACK = "workspace.remote_fallback"
-    TDC_WORKSPACE = "workspace.name"
 
 
 TOML_PATH_TO_ENV_VAR: dict[str, str] = {e.value: e.name for e in ConfigEnvVar}

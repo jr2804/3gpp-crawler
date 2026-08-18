@@ -31,8 +31,7 @@ from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HEL
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.utils import launch_file
-from tdoc_crawler.config import CacheManager, resolve_cache_manager
-from tdoc_crawler.config.workspace_registry import WorkspaceRegistry
+from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
@@ -273,31 +272,6 @@ def stats(
     table.add_row("Unique document types", str(stats_dict.get("unique_document_types", 0)))
 
     console.print(table)
-
-    # Wiki build health
-    try:
-        manager = resolve_cache_manager()
-        registry = WorkspaceRegistry.load(manager.workspace_registry_file)
-        if registry.workspaces:
-            console.print()
-            wiki_table = Table(title="Wiki Build Health")
-            wiki_table.add_column("Workspace", style="cyan")
-            wiki_table.add_column("Pages", justify="right")
-            wiki_table.add_column("Failed", justify="right")
-            wiki_table.add_column("Hash", style="dim")
-            wiki_table.add_column("Last Build", style="dim")
-            for name, metadata in sorted(registry.workspaces.items()):
-                if metadata.wiki_page_count > 0 or metadata.wiki_build_timestamp is not None:
-                    pages = str(metadata.wiki_page_count)
-                    failed = f"[red]{metadata.wiki_failed_pages}[/red]" if metadata.wiki_failed_pages > 0 else "0"
-                    h = metadata.wiki_compile_hash[:8] + "..." if metadata.wiki_compile_hash else "-"
-                    ts = metadata.wiki_build_timestamp[:10] if metadata.wiki_build_timestamp else "-"
-                    wiki_table.add_row(name, pages, failed, h, ts)
-                else:
-                    wiki_table.add_row(name, "[dim]no build[/dim]", "", "", "")
-            console.print(wiki_table)
-    except Exception:
-        _logger.debug("Wiki health check unavailable", exc_info=True)
 
 
 # Register command aliases

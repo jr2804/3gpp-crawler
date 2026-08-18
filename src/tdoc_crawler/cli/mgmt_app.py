@@ -1,4 +1,4 @@
-"""Management CLI application — config and workspace commands.
+"""Management CLI application — config commands.
 
 This is the "3gpp-crawler" CLI entry point, providing management subcommands
 that were previously part of tdoc-crawler and spec-crawler.
@@ -13,7 +13,6 @@ import typer
 
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
-from tdoc_crawler.cli.workspace import app as workspace_app
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
@@ -25,9 +24,6 @@ mgmt_app = typer.Typer(
 
 # Register config sub-app
 mgmt_app.add_typer(config_app, name="config", help="Manage configuration")
-
-# Register workspace sub-app
-mgmt_app.add_typer(workspace_app, name="workspace", help="Manage extraction workspaces")
 
 
 @mgmt_app.callback()

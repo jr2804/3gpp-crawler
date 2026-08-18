@@ -10,11 +10,14 @@ from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.database.tdocs import TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
-from tdoc_crawler.models.workspaces import TDocNotFoundError
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc, get_checkout_path
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
+
+
+class TDocNotFoundError(Exception):
+    """Raised when a TDoc cannot be found or checked out."""
 
 
 @dataclass

@@ -28,8 +28,6 @@ from typing import ClassVar
 DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
 DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
-DEFAULT_LLM_WIKI_DIRNAME = "wiki"
-WORKSPACE_REGISTRY_FILENAME = "workspaces.json"
 
 
 class CacheManagerNotRegisteredError(RuntimeError):
@@ -96,24 +94,6 @@ class CacheManager:
     def checkout_dir(self) -> Path:
         """Path to checkout directory for documents."""
         return self._cache_dir / DEFAULT_CHECKOUT_DIRNAME
-
-    @property
-    def workspace_registry_file(self) -> Path:
-        """Path to workspace registry JSON file."""
-        return self._cache_dir / WORKSPACE_REGISTRY_FILENAME
-
-    @property
-    def llm_wiki_dir(self) -> Path:
-        """Path to LLM wiki workspace directory."""
-        return self._cache_dir / DEFAULT_LLM_WIKI_DIRNAME
-
-    def workspace_llm_wiki_dir(self, workspace_name: str) -> Path:
-        """Path to a specific workspace's LLM wiki directory."""
-        return self.llm_wiki_dir / workspace_name
-
-    def workspace_sources_dir(self, workspace_name: str) -> Path:
-        """Path to a workspace's sources subdirectory."""
-        return self.workspace_llm_wiki_dir(workspace_name) / "sources"
 
 
 def resolve_cache_manager() -> CacheManager:

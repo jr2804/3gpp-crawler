@@ -13,8 +13,8 @@ from tdoc_crawler.tdocs.operations.checkout import (
     checkout_tdoc,
     get_checked_out_tdocs,
     get_checkout_path,
+    resolve_tdoc_checkout_path,
 )
-from tdoc_crawler.workspaces import resolve_tdoc_checkout_path
 
 
 class TestGetCheckoutPath:

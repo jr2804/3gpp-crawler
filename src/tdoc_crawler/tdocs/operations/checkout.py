@@ -438,6 +438,26 @@ def get_meeting_checkout_folder(meeting: MeetingMetadata, checkout_dir: Path) ->
     return checkout_dir.joinpath(*relative_parts) if relative_parts else checkout_dir
 
 
+def resolve_tdoc_checkout_path(tdoc_id: str, checkout_base: Path) -> Path | None:
+    """Resolve a TDoc ID to its checkout path.
+
+    The checkout path follows the 3GPP FTP structure:
+    <checkout_base>/<group>/<meeting>/Docs/<tdoc_id>/
+
+    Args:
+        tdoc_id: TDoc identifier (e.g., "S4-251971")
+        checkout_base: Base checkout directory
+
+    Returns:
+        Path to the TDoc checkout folder if found, None otherwise
+    """
+    for docs_dir in checkout_base.rglob("Docs"):
+        tdoc_path = docs_dir / tdoc_id
+        if tdoc_path.exists() and tdoc_path.is_dir():
+            return tdoc_path
+    return None
+
+
 __all__ = [
     "CheckoutResult",
     "checkout_meeting_tdocs",
