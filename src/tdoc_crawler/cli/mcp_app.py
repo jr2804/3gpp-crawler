@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from tdoc_crawler.cli._shared import console
+from tdoc_crawler.mcp_server import run_mcp
 
 app = typer.Typer(help="Run 3gpp-crawler as a Model Context Protocol (MCP) server")
 
@@ -15,7 +16,6 @@ def run_mcp_server(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
     try:
-        from tdoc_crawler.mcp_server import run_mcp  # noqa: PLC0415
         run_mcp()
     except Exception as exc:
         console.print(f"[red]Failed to start MCP server: {exc}[/red]")

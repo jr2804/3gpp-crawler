@@ -18,8 +18,9 @@ from tdoc_crawler.models.base import TagKind
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_tdoc_id
 
-app = typer.Typer(help="Manage tags for TDocs, specs, and other items")
 HELP_PANEL = "Tag Commands"
+
+app = typer.Typer(help="Manage tags for TDocs, specs, and other items")
 
 
 class TagKindChoice(StrEnum):
@@ -58,15 +59,6 @@ TagFilterTagOption = Annotated[
     str | None,
     typer.Option("--tag", "-t", help="Filter by tag name"),
 ]
-
-
-def _normalize_item(kind: TagKindChoice, item: str) -> str:
-    """Normalize an item id per kind (tdoc/spec have canonical forms)."""
-    if kind is TagKindChoice.TDOC:
-        return normalize_tdoc_id(item)
-    if kind is TagKindChoice.SPEC:
-        return normalize_spec_number(item)
-    return item.strip()
 
 
 def tag_add(
@@ -113,6 +105,15 @@ def tag_remove(
 
     for item, removed in run_async(run()):
         console.print(f"[yellow]{item}[/yellow]: {removed} tag(s) removed")
+
+
+def _normalize_item(kind: TagKindChoice, item: str) -> str:
+    """Normalize an item id per kind (tdoc/spec have canonical forms)."""
+    if kind is TagKindChoice.TDOC:
+        return normalize_tdoc_id(item)
+    if kind is TagKindChoice.SPEC:
+        return normalize_spec_number(item)
+    return item.strip()
 
 
 def tag_list(

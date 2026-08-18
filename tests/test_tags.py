@@ -18,11 +18,6 @@ from tdoc_crawler.database.tags import (
 from tdoc_crawler.models.base import TagKind
 
 
-@pytest.fixture(name="tag_db")
-def fixture_tag_db(tmp_path: Path) -> Path:
-    return tmp_path / "tags.db"
-
-
 class TestNormalizeTags:
     def test_strips_and_dedupes(self) -> None:
         assert normalize_tags([" A ", "a", "b", "", "  "]) == ["a", "b"]
@@ -39,6 +34,11 @@ class TestParseTagGroups:
     def test_empty(self) -> None:
         assert parse_tag_groups([]) == []
         assert parse_tag_groups(["", "  "]) == []
+
+
+@pytest.fixture(name="tag_db")
+def fixture_tag_db(tmp_path: Path) -> Path:
+    return tmp_path / "tags.db"
 
 
 @pytest.mark.asyncio

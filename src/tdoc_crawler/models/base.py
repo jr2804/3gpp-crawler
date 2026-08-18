@@ -6,14 +6,6 @@ from dataclasses import dataclass
 from enum import StrEnum, auto
 
 
-class TagKind(StrEnum):
-    """Kind of item a tag is attached to."""
-
-    TDOC = "tdoc"
-    SPEC = "spec"
-    OTHER = "other"
-
-
 class OutputFormat(StrEnum):
     """Supported output formats for CLI responses."""
 
@@ -29,6 +21,14 @@ class SortOrder(StrEnum):
 
     ASC = auto()
     DESC = auto()
+
+
+class TagKind(StrEnum):
+    """Kind of item a tag is attached to."""
+
+    TDOC = "tdoc"
+    SPEC = "spec"
+    OTHER = "other"
 
 
 @dataclass

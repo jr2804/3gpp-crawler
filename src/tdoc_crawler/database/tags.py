@@ -18,18 +18,6 @@ from tdoc_crawler.models.base import TagKind
 from tdoc_crawler.utils.misc import utc_now
 
 
-def normalize_tags(tags: list[str]) -> list[str]:
-    """Strip, drop empties, dedupe (order-preserving)."""
-    seen: set[str] = set()
-    result: list[str] = []
-    for tag in tags:
-        cleaned = tag.strip().lower()
-        if cleaned and cleaned not in seen:
-            seen.add(cleaned)
-            result.append(cleaned)
-    return result
-
-
 def parse_tag_groups(values: list[str]) -> list[list[str]]:
     """Parse CLI ``--tag`` values into OR-groups: comma-split each value."""
     return [normalize_tags(v.split(",")) for v in values if v and v.strip()]
@@ -70,17 +58,25 @@ async def remove_tags(kind: TagKind, item_id: str, tags: list[str] | None = None
     return removed
 
 
+def normalize_tags(tags: list[str]) -> list[str]:
+    """Strip, drop empties, dedupe (order-preserving)."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for tag in tags:
+        cleaned = tag.strip().lower()
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            result.append(cleaned)
+    return result
+
+
 async def list_tags(
     kind: TagKind | None = None,
     item_id: str | None = None,
     tag: str | None = None,
 ) -> list[TagEntry]:
     """List tag rows, optionally filtered by kind, item, and/or tag."""
-    rows = (
-        await TagEntry.objects.filter(kind=kind.value).all()
-        if kind is not None
-        else await TagEntry.objects.all()
-    )
+    rows = await TagEntry.objects.filter(kind=kind.value).all() if kind is not None else await TagEntry.objects.all()
     if item_id is not None:
         rows = [row for row in rows if row.item_id == item_id]
     if tag is not None:

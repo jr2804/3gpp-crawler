@@ -16,10 +16,6 @@ from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 
-class TDocNotFoundError(Exception):
-    """Raised when a TDoc cannot be found or checked out."""
-
-
 @dataclass
 class TDocFiles:
     """Paths to available TDoc file types."""
@@ -33,6 +29,10 @@ class TDocFiles:
     def primary_path(self) -> Path | None:
         """Return the primary document path, preferring PDF > DOCX > DOC."""
         return self.pdf_path or self.docx_path or self.doc_path
+
+
+class TDocNotFoundError(Exception):
+    """Raised when a TDoc cannot be found or checked out."""
 
 
 def fetch_tdoc_files(document_id: str, force_download: bool = False) -> TDocFiles:
