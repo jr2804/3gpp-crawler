@@ -20,7 +20,6 @@ dependencies = [
     "convert-lo",
     # "doc2txt>=1.0.8",
     "hishel>=1.1.8",
-    "liteparse>=1.2.0",
     "packaging>=24.0",
     "pandas>=3.0.0",
     "pydantic>=2.12.2",
@@ -31,16 +30,14 @@ dependencies = [
     "typer>=0.19.2",
     "xlsxwriter>=3.2.9",
     "unzip-http>=0.7",
-    "lxml>=6.0.2",
     "pool-executors",
     "oxyde>=0.4.0",
     "ison-py>=1.0.2",
-    "isonantic>=1.0.1",
     "toon-format",
     "pydantic-settings>=2.13.1",
     "niquests>=3.18.4",
-    "opencv-python-headless>=4.13.0.92",
     "pdf-remote-converter",
+    "fastmcp>=3.4.7",
 ]
 
 [project.urls]
