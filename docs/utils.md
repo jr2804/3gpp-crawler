@@ -1,59 +1,56 @@
 # Utility Commands
 
-Utilities provide file system access, spec downloading, and database diagnostics.
+File system access, spec downloading, and database diagnostics.
 
-## File & TDoc Access
+## TDoc Access
 
 ### `open`
 
-Download (if needed), extract, and open a TDoc file with the system default application.
+Download (if needed), extract, and open a TDoc file with the system default
+application.
 
 ```bash
-# Open a specific TDoc
-tdoc-crawler open R1-2400001
+3gpp-crawler tdoc open S4-250638
 ```
 
 ### `checkout`
 
-Download and extract TDoc(s) to the checkout folder (`~/.3gpp-crawler/checkout/`) for offline access.
+Download and extract TDoc(s) to the checkout folder for offline access.
+Add `--pdf` to convert extracted Office documents to PDF next to their
+sources (requires [LibreOffice](https://www.libreoffice.org/) or a remote
+fallback provider).
 
 ```bash
-# Batch checkout
-tdoc-crawler checkout R1-2400001 S2-2400567
+3gpp-crawler tdoc checkout S4-250638
+3gpp-crawler tdoc checkout S4-250638 S4-250639 --pdf
 ```
 
-______________________________________________________________________
+## Specifications
 
-## Technical Specifications
-
-### `open-spec` (alias: `os`)
+### `open`
 
 Download and open the latest document for a specification.
 
 ```bash
-# Open latest 23.501
-spec-crawler open-spec 23.501
-
-# Open release 17 version
-spec-crawler open-spec 23.501 -r 17
+3gpp-crawler spec open 23.501
+3gpp-crawler spec open 23.501 --release 17
 ```
 
-### `checkout-spec` (alias: `cos`)
+### `checkout`
 
 Batch download specification documents to the checkout folder.
 
 **Features:**
 
-- **Progress bar** for multi-spec operations.
-- **Range syntax** support (e.g., `26130-26.140`).
-- **Hierarchical organization** in the checkout folder.
+- Progress bar for multi-spec operations.
+- Range syntax support (e.g. `26130-26140`).
+- `--release` selector (`latest` or e.g. `18.0`).
+- `--pdf` conversion, same as TDoc checkout.
 
 ```bash
-# Checkout range of specs
-spec-crawler checkout-spec 26130-26140
+3gpp-crawler spec checkout 26130-26140
+3gpp-crawler spec checkout 26260 --release 18.0 --pdf
 ```
-
-______________________________________________________________________
 
 ## Diagnostics
 
@@ -62,6 +59,10 @@ ______________________________________________________________________
 Display high-level database statistics.
 
 ```bash
-# View database population status
-tdoc-crawler stats
+3gpp-crawler tdoc stats
 ```
+
+### `config`
+
+Manage configuration — see the [Configuration](config.md) guide for
+`init`, `show`, `validate`, and `docs` subcommands.

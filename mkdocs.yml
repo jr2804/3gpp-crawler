@@ -1,0 +1,132 @@
+site_name: 3GPP Crawler
+site_description: Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI.
+site_author: Jan Reimes
+site_url: https://forge.3gpp.org/rep/reimes/3gpp-crawler
+repo_url: https://forge.3gpp.org/rep/reimes/3gpp-crawler
+repo_name: 3gpp-crawler
+copyright: Copyright &copy; 2026 Jan Reimes
+
+nav:
+  - Home:
+      - Overview: index.md
+      - Credits: credits.md
+      - License: license.md
+  - Guides:
+      - Crawling: crawl.md
+      - Querying: query.md
+      - Tags: tags.md
+      - Utilities: utils.md
+      - WhatTheSpec: whatthespec.md
+      - MCP Server: mcp.md
+      - Configuration: config.md
+      - HTTP Caching & Misc: misc.md
+      - Convert-LO Usage: convert-lo-usage.md
+  - Development:
+      - Development Guide: development.md
+      - Contributing: contributing.md
+      - Code of Conduct: code_of_conduct.md
+  - API reference: reference/api.md
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: lime
+      toggle:
+        icon: material/weather-night
+        name: Switch to system preference
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - content.footnote.tooltips
+    - content.tabs.link
+    - content.tooltips
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.path
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - search.highlight
+    - toc.follow
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://forge.3gpp.org/rep/reimes/3gpp-crawler
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/3gpp-crawler/
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          inventories:
+            - https://docs.python.org/3/objects.inv
+          options:
+            backlinks: tree
+            docstring_options:
+              ignore_init_summary: true
+            docstring_section_style: list
+            filters: ["!^_"]
+            heading_level: 1
+            inherited_members: true
+            merge_init_into_class: true
+            parameter_headings: true
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true

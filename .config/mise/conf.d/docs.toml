@@ -1,3 +1,16 @@
+# Documentation tasks.
+# Note: zensical currently does not run on Windows (upstream watcher crash);
+# mkdocs is the default builder. zensical.toml is kept in sync for when
+# zensical works again — update BOTH navs when adding/removing pages.
+
 [tasks.docs]
-description = "Build documentation"
+description = "Build documentation (mkdocs)"
+run = ["uv run mkdocs build --strict"]
+
+[tasks."docs:serve"]
+description = "Live-reload docs preview (mkdocs)"
+run = ["uv run mkdocs serve"]
+
+[tasks."docs:zensical"]
+description = "Build documentation (zensical; requires a working zensical install)"
 run = ["uv run zensical build"]

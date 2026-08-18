@@ -272,3 +272,5 @@ src/teddi-mcp/uv.lock
 /.beads/export-state.json
 opencode.json
 /.config/mise/conf.d/mise.local.toml
+# MkDocs build output
+site/

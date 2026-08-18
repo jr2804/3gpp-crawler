@@ -1,28 +1,52 @@
-# 3GPP Crawler Documentation
+# 3GPP Crawler
 
 ![3GPP Crawler Logo](images/logo.jpg)
 
-Welcome to the documentation for **3gpp-crawler**, a command-line tool for querying structured 3GPP document data.
+A command-line tool for crawling the 3GPP FTP server, caching 3GPP document
+metadata in a local database, and querying structured data via JSON/YAML
+output.
 
-## 📖 Table of Contents
+`3gpp-crawler` is the main CLI; `tdoc-crawler` and `spec-crawler` are
+shortcuts for the `tdoc` and `spec` groups.
 
-- [**Crawl Documentation**](crawl.md) – How to fetch metadata from 3GPP servers and portal.
-- [**Query Documentation**](query.md) – How to search and display stored metadata.
-- [**Utility Documentation**](utils.md) – File access, spec handling, and database inspection.
-- [**WhatIsWhatTheSpec**](whatthespec.md) – Understanding the primary WhatTheSpec data source and 3GPP fallback.
-- [**Development Guide**](development.md) – Setup, testing, and contribution guidelines.
-- [**HTTP Caching & Configuration**](misc.md) – Caching behavior, environment variables, and directory structure.
-- [**Changelog & History**](history.md) – Chronological log of all significant changes.
+## Quick Start
 
-## 🚀 Quick Reference
+```bash
+# 1. Populate meeting database (REQUIRED first step)
+3gpp-crawler tdoc crawl-meetings
 
-- [**Crawl-Meetings**](crawl.md#crawl-meetings-alias-cm) (`cm`)
-- [**Crawl-TDocs**](crawl.md#crawl-tdocs-alias-ct) (`ct`)
-- [**Crawl-Specs**](crawl.md#crawl-specs-alias-cs) (`cs`)
-- [**Query-TDocs**](query.md#query-tdocs-alias-qt) (`qt`)
-- [**Query-Meetings**](query.md#query-meetings-alias-qm) (`qm`)
-- [**Query-Specs**](query.md#query-specs) (`qs`)
-- [**Open TDoc**](utils.md#open)
-- [**Checkout Specs**](utils.md#checkout-spec-alias-cos)
+# 2. Crawl TDoc metadata
+3gpp-crawler tdoc crawl
 
-For a brief overview of all commands, see the [README.md](../README.md).
+# 3. Crawl spec metadata
+3gpp-crawler spec crawl
+
+# 4. Query
+3gpp-crawler tdoc query --working-group SA --start-date 2024
+```
+
+## Documentation
+
+### Guides
+
+- [**Crawling**](crawl.md) — Fetch metadata from 3GPP servers and portal.
+- [**Querying**](query.md) — Search and display stored metadata.
+- [**Tags**](tags.md) — Organize TDocs and specs with lightweight tags.
+- [**Utilities**](utils.md) — Open, checkout, and stats commands.
+- [**WhatTheSpec**](whatthespec.md) — The primary metadata source.
+- [**MCP Server**](mcp.md) — Use 3gpp-crawler from AI agents.
+- [**Configuration**](config.md) — Config files, environment variables.
+- [**HTTP Caching & Misc**](misc.md) — Caching behavior, credentials.
+- [**Convert-LO Usage**](convert-lo-usage.md) — LibreOffice conversion package.
+
+### Development
+
+- [**Development Guide**](development.md) — Setup, testing, architecture.
+- [**Contributing**](contributing.md) — How to contribute.
+- [**Code of Conduct**](code_of_conduct.md) — Community standards.
+
+### Reference
+
+- [**API Reference**](reference/api.md) — Python API documentation.
+- [**Credits**](credits.md) — Acknowledgments.
+- [**License**](license.md) — License information.

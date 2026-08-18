@@ -15,16 +15,16 @@ nav = [
   { "Guides" = [
     { "Crawling" = "crawl.md" },
     { "Querying" = "query.md" },
-    { "Workspaces" = "workspace.md" },
+    { "Tags" = "tags.md" },
     { "Utilities" = "utils.md" },
     { "WhatTheSpec" = "whatthespec.md" },
+    { "MCP Server" = "mcp.md" },
     { "Configuration" = "config.md" },
     { "HTTP Caching & Misc" = "misc.md" },
     { "Convert-LO Usage" = "convert-lo-usage.md" },
   ] },
   { "Development" = [
     { "Development Guide" = "development.md" },
-    { "History" = "history.md" },
     { "Contributing" = "contributing.md" },
     { "Code of Conduct" = "code_of_conduct.md" },
   ] },

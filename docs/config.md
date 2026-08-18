@@ -29,14 +29,13 @@ Config files are discovered in this order (later files override earlier):
 
 ### Path Settings
 
-File system paths for cache, database, checkout, and workspaces
+File system paths for cache, database, and checkout
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `cache_dir` | Path | ~/.3gpp-crawler | Root cache directory for storing downloaded files and metadata |
 | `db_filename` | str | "3gpp_crawler.db" | SQLite database filename for storing crawl metadata |
 | `checkout_dirname` | str | "checkout" | Subdirectory name for checked-out documents |
-| `workspaces_dirname` | str | "workspaces" | Subdirectory name for workspace data (sources, wiki) |
 
 ### HTTP Settings
 

@@ -20,7 +20,7 @@ Kept compact — agents hallucinate less when they know where definitions live.
 | Domain enums | `src/tdoc_crawler/models/base.py` | StrEnum: `TDocStatus`, `SourceKind`, `TagKind`, `OutputFormat`, `SortOrder` |
 | DB models | `src/tdoc_crawler/database/oxyde_models.py` | Oxyde models, one per table |
 | HTTP session | `src/tdoc_crawler/http_client/session.py` | `create_cached_session()`, `download_to_file()`, `PoolConfig` |
-| Docs config | `zensical.toml` | nav, theme, plugins (replaces mkdocs.yml) |
+| Docs config | `mkdocs.yml` (default builder; `mise run docs`) + `zensical.toml` (kept in sync; zensical broken on Windows) | nav, theme, plugins — update BOTH navs when adding/removing pages |
 | Mise tasks/tools | `.config/mise/config.toml` + `conf.d/*.toml` | task definitions split by category; dev-feature tools/MCP/skills driven by `data/dev-features.csv` + `data/skills.csv` via `scripts/install_dev_features.py` (`mise run add-mcp-servers`, `mise run add-skills`) |
 | CI / release automation | `.githooks/pre-push` + `scripts/auto-release.sh` | CalVer release (vYYYY.MM.N) on every push to default branch |
 | CLI commands | `src/tdoc_crawler/cli/` | Typer apps: `tdoc_app`, `spec_app`, `mgmt_app`, `config_app`, `tag_app`, `mcp_app` |

@@ -2,41 +2,40 @@
 
 ## HTTP Caching
 
-To prevent rate-limiting and improve performance, `3gpp-crawler` caches all HTTP requests by default.
+To prevent rate-limiting and improve performance, `3gpp-crawler` caches all
+HTTP requests by default.
 
 ### Default Behavior
 
-- **Cache Location**: `~/.3gpp-crawler/http-cache.sqlite3`
+- **Cache location**: `~/.3gpp-crawler/http-cache.sqlite3`
 - **TTL**: 2 hours (7200 seconds).
 - **Refresh**: TTL is extended whenever a cached item is accessed.
 
 ### Configuration
 
-You can control caching via CLI or `.env`:
+Via `.env` or config file (see [Configuration](config.md)):
 
 ```bash
-# Environment variables
 HTTP_CACHE_TTL=7200
-
-# CLI Flags
---cache-ttl 3600
 ```
 
 ## ETSI Online (EOL) Credentials
 
-Credentials provide access to the **official 3GPP portal**, acting as a reliable fallback for the primary community-maintained source.
+Credentials provide access to the **official 3GPP portal**, acting as a
+reliable fallback for the primary community-maintained source
+([WhatTheSpec](whatthespec.md)).
 
-### Why Credentials?
+### Why credentials?
 
-While `3gpp-crawler` primarily uses **WhatTheSpec** for its speed and lack of required authentication, EOL credentials provide a **3GPP-official fallback**:
+While `3gpp-crawler` primarily uses **WhatTheSpec** for its speed and lack
+of required authentication, EOL credentials provide a 3GPP-official
+fallback:
 
-- **Redundancy**: Ensures functionality if the primary community source is unavailable or encounters issues.
-- **Official Verification**: Provides an alternative path to retrieve metadata directly from 3GPP endpoints.
-- **Reliability**: Guarantees that the tool remains functional even if third-party indexing services are down.
+- **Redundancy**: functionality if the community source is unavailable.
+- **Official verification**: metadata directly from 3GPP endpoints.
+- **Reliability**: the tool remains functional if third-party services are down.
 
-### Resolution Order
-
-The tool prefers unauthenticated community access first, falling back to 3GPP portal if credentials are provided:
+### Resolution order
 
 1. CLI parameters (`--eol-username`, `--eol-password`).
 1. Environment variables (`TDC_EOL_USERNAME`, `TDC_EOL_PASSWORD`).
@@ -46,10 +45,12 @@ The tool prefers unauthenticated community access first, falling back to 3GPP po
 
 By default, all data is stored in `~/.3gpp-crawler`:
 
-- `tdoc_crawler.db`: Main metadata database.
-- `http-cache.sqlite3`: HTTP request cache.
-- `tdocs/`: Downloaded and extracted TDoc files.
-- `checkout/`: Files specifically exported for user review.
-- `workspaces/`: Workspace data including extraction artifacts and processed sources.
+| Path | Purpose |
+|------|---------|
+| `3gpp_crawler.db` | Main metadata database. |
+| `http-cache.sqlite3` | HTTP request cache. |
+| `tdocs/` | Downloaded and extracted TDoc files. |
+| `checkout/` | Files exported for offline review. |
 
-You can override the root directory using the `--cache-dir` flag on most commands.
+Override the root directory with the `--cache-dir` flag on most commands
+or via `TDC_CACHE_DIR`.

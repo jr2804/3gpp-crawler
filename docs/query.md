@@ -1,87 +1,76 @@
 # Querying Metadata
 
-Query commands allow you to search and display metadata stored in your local database. They support various output formats like tables, JSON, and YAML.
+Query commands search metadata stored in your local database and display
+it as tables, JSON, or YAML.
 
 ## Commands
 
-### `query` (TDocs) (alias: `qt`)
+### `query` (TDocs, alias: `qt`)
 
-Search for TDocs by ID, working group, or date range.
+Search TDocs by ID, working group, date range, title, agenda, or
+[tags](tags.md).
 
-**Targeted Fetching:**
-If you query a TDoc ID that is not in your database, `tdoc-crawler` automatically attempts to find it on the portal and FTP server. This makes the tool very resilient even if you haven't run a full crawl.
+**Targeted fetching**: if you query a TDoc ID that is not in your database,
+the tool automatically attempts to fetch it from the portal and FTP server.
+Disable with `--no-fetch`.
 
-**Options:**
+```bash
+3gpp-crawler tdoc query R1-260001             # specific ID (auto-fetches)
+3gpp-crawler tdoc query --working-group SA --limit 20
+3gpp-crawler tdoc query --agenda "*codec*" --start-date 2024
+3gpp-crawler tdoc query --tag codec,rel-18    # tag filter (OR within option)
+3gpp-crawler tdoc query --tag codec --tag rel-18   # tag filter (AND across)
+3gpp-crawler tdoc query --output json         # JSON output
+```
 
 | Option | Description |
 |--------|-------------|
-| `-w, --working-group WG` | Filter by working group (repeatable). |
-| `-o, --output FORMAT` | `table`, `json`, `yaml` (default: `table`). |
-| `-l, --limit N` | Maximum number of results. |
-| `--start-date TIMESTAMP` | Filter from ISO 8601 date. |
-| `--no-fetch` | Disable automatic fetching of missing TDocs. |
-
-**Examples:**
-
-```bash
-# Query specific TDoc (auto-fetches if missing)
-tdoc-crawler query R1-2400001
-
-# Filter by working group and limit
-tdoc-crawler query --working-group RAN --limit 20
-
-# Export results as JSON
-tdoc-crawler query R1-2400001 --output json
-```
-
-______________________________________________________________________
+| `TDOC_IDS` | Positional TDoc identifiers. |
+| `-w, --working-group WG` | Filter by working group. |
+| `--start-date / --end-date` | ISO 8601 timestamp filters. |
+| `--source / --title / --agenda` | Glob patterns; `-ex` variants exclude. |
+| `-t, --tag TAGS` | Tag filter (repeatable, comma = OR). See [Tags](tags.md). |
+| `-l, --limit N` | Maximum rows. |
+| `--order` | `asc` or `desc`. |
+| `-o, --output FORMAT` | `table`, `json`, `yaml`. |
+| `--fetch / --no-fetch` | Automatic fetching of missing TDocs (default: on). |
+| `--checkout` | Download and extract the matched TDocs. |
 
 ### `query-meetings` (alias: `qm`)
 
-Browse meeting schedules and metadata. Unlike `query` (TDocs), this command only searches already-crawled meetings.
+Browse crawled meeting schedules and metadata.
 
-**Options:**
+```bash
+3gpp-crawler tdoc query-meetings -w SA
+3gpp-crawler tdoc query-meetings -s S4
+3gpp-crawler tdoc query-meetings --output yaml
+```
 
 | Option | Description |
 |--------|-------------|
-| `-w, --working-group WG` | Filter by working group (`RAN`, `SA`, `CT`, `RP`, `SP`, `CP`). |
-| `-s, --sub-group SG` | Filter by sub-working group (e.g., `S4`, `R1`). |
+| `-w, --working-group WG` | Filter by working group (`RAN`, `SA`, `CT`). |
+| `-s, --sub-group SG` | Filter by sub-working group (e.g. `S4`, `R1`). |
 | `-o, --output FORMAT` | `table`, `json`, `yaml`. |
-| `--include-without-files` | Include meetings without FTP file links. |
 
-**Examples:**
-
-```bash
-# List SA meetings
-tdoc-crawler query-meetings -w SA
-
-# Filter RAN Plenary
-tdoc-crawler query-meetings -w RP -s "RAN Plenary"
-
-# Export as YAML
-tdoc-crawler query-meetings --output yaml
-```
-
-______________________________________________________________________
-
-### `query` (Specs)
+### `query` (specs)
 
 Query technical specification metadata from the local catalog.
 
-**Options:**
+```bash
+3gpp-crawler spec query 23.501
+3gpp-crawler spec query --status "Under change control"
+3gpp-crawler spec query --tag rel-18
+```
 
 | Option | Description |
 |--------|-------------|
-| `-w, --group WG` | Filter by working group. |
-| `-s, --status STATUS` | Filter by status (e.g., "Under change control"). |
-| `-v, --verbose` | Show per-source discrepancy details. |
+| `SPEC_NUMBERS` | Positional spec numbers (dotted or undotted). |
+| `--status STATUS` | Filter by status. |
+| `-w, --working-group WG` | Filter by working group. |
+| `-t, --tag TAGS` | Tag filter (repeatable, comma = OR). See [Tags](tags.md). |
+| `-o, --output FORMAT` | `table`, `json`, `yaml`. |
 
-**Examples:**
+## Shortcuts
 
-```bash
-# Query specific spec
-spec-crawler query 23.501
-
-# Filter by status
-spec-crawler query --status "Under change control"
-```
+`tdoc-crawler query …` and `spec-crawler query …` run the same commands
+without the group prefix.
