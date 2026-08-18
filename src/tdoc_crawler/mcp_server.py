@@ -9,9 +9,7 @@ from typing import Any
 
 import typer
 from fastmcp import FastMCP
-from rich.console import Console
 
-from tdoc_crawler.cli import _shared
 from tdoc_crawler.cli.config_app import (
     config_show as cli_config_show,
 )
@@ -66,6 +64,7 @@ def crawl_tdocs(
     title: list[str] | None = None,
     source: list[str] | None = None,
     agenda: list[str] | None = None,
+    limit_meetings: int | None = None,
     limit_tdocs: int | None = None,
 ) -> str:
     return _run_captured(
@@ -76,6 +75,7 @@ def crawl_tdocs(
         title=title,
         source=source,
         agenda=agenda,
+        limit_meetings=limit_meetings,
         limit_tdocs=limit_tdocs,
     )
 
@@ -232,16 +232,19 @@ def tag_list(
 
 
 def _run_captured(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
-    """Helper to run a CLI function with rich output captured into a string."""
+    """Run a CLI function with stdout/stderr captured into a string."""
     buffer = io.StringIO()
-    original_console = _shared.console
-    _shared.console = Console(file=buffer, force_terminal=False)
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    sys.stdout = buffer
+    sys.stderr = buffer
     try:
         fn(*args, **kwargs)
     except (SystemExit, typer.Exit):
         pass
     finally:
-        _shared.console = original_console
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
     return buffer.getvalue()
 
 
@@ -250,36 +253,12 @@ def _run_captured(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
 
 @mcp.tool(name="config_show", description="Show active configuration values")
 def config_show() -> str:
-    return _run_captured_stdout(cli_config_show)
+    return _run_captured(cli_config_show)
 
 
 @mcp.tool(name="config_validate", description="Validate configuration files and path settings")
 def config_validate() -> str:
-    return _run_captured_stdout(cli_config_validate)
-
-
-def _run_captured_stdout(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
-    """Run a CLI function with _shared.console, stdout, and stderr all captured.
-
-    Needed for commands like config_* that use rprint / their own console
-    instead of _shared.console.
-    """
-    buffer = io.StringIO()
-    original_console = _shared.console
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-    _shared.console = Console(file=buffer, force_terminal=False)
-    sys.stdout = buffer
-    sys.stderr = buffer
-    try:
-        fn(*args, **kwargs)
-    except (SystemExit, typer.Exit):
-        pass
-    finally:
-        _shared.console = original_console
-        sys.stdout = original_stdout
-        sys.stderr = original_stderr
-    return buffer.getvalue()
+    return _run_captured(cli_config_validate)
 
 
 def run_mcp() -> None:
