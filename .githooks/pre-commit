@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# pre-commit hook — bump CalVer (YYYY.MM.N, N per-month counter) and stage it.
+# Every commit on main gets a unique version before it's committed.
+# N is the number of existing remote tags in the current month + 1.
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+# --- only bump on main branch ----------------------------------------------
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "${BRANCH}" != "main" ]; then
+    exit 0
+fi
+
+# --- determine remote (prefer tracked, fall back to origin) ----------------
+REMOTE="$(git config branch.main.remote || echo origin)"
+
+# --- compute next CalVer ---------------------------------------------------
+PREFIX="$(date -u +%Y.%m)."
+LAST_N="$(git ls-remote --tags "${REMOTE}" 2>/dev/null | awk -v p="v${PREFIX}" 'index($2, "refs/tags/" p)==1 { n=$2; sub("refs/tags/" p, "", n); if (n ~ /^[0-9]+$/) print n }' | sort -n | tail -1)"
+N="$(( ${LAST_N:-0} + 1 ))"
+VERSION="${PREFIX}${N}"
+
+# --- write version into __init__.py & pyproject.toml -----------------------
+INIT="${ROOT}/src/tdoc_crawler/__init__.py"
+TOML="${ROOT}/pyproject.toml"
+sed -i 's/^__version__ = ".*"/__version__ = "'"${VERSION}"'"/' "${INIT}"
+sed -i 's/^version = ".*"/version = "'"${VERSION}"'"/' "${TOML}"
+
+# --- stage the version files so the pending commit picks them up -----------
+git add "${INIT}" "${TOML}"
+echo "version bumped to ${VERSION}"
