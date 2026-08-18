@@ -63,14 +63,21 @@ class CacheManager:
     def register(self) -> CacheManager:
         """Register this instance as the global CacheManager.
 
+        Idempotent when the cache directory matches an existing
+        registration (nested CLI callbacks each resolve the same config);
+        raises when a different directory is already registered.
+
         Returns:
             Self for chaining
 
         Raises:
-            RuntimeError: If a manager is already registered
+            RuntimeError: If a manager with a different cache_dir is
+                already registered
         """
         if CacheManager._instance is not None:
-            msg = "CacheManager already registered. Call only once at startup."
+            if CacheManager._instance._cache_dir == self._cache_dir:
+                return CacheManager._instance
+            msg = "CacheManager already registered with a different cache_dir."
             raise RuntimeError(msg)
         CacheManager._instance = self
         return self

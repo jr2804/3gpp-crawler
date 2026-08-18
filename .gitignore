@@ -237,7 +237,9 @@ Thumbs.db
 
 # Agent skills that are downloaded/installed from external sources
 skills-lock.json
-skills/
+skills/*
+# ...but this repo's own skills are authored in skills/
+!skills/3gpp-crawler/
 
 # Copier answers (regenerated on update)
 .copier-answers.yml

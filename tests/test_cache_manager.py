@@ -33,13 +33,21 @@ class TestCacheManager:
         assert CacheManager._instance is manager
 
     def test_cache_manager_double_register_raises(self, tmp_path: Path) -> None:
-        """Test registering twice raises an error."""
+        """Test registering twice with a different dir raises an error."""
         manager1 = CacheManager(tmp_path)
         manager1.register()
 
         manager2 = CacheManager(tmp_path / "other")
         with pytest.raises(RuntimeError, match="already registered"):
             manager2.register()
+
+    def test_cache_manager_register_same_dir_idempotent(self, tmp_path: Path) -> None:
+        """Test re-registering the same cache_dir returns the existing instance."""
+        manager1 = CacheManager(tmp_path).register()
+        # Same directory (new instance, as nested CLI callbacks produce)
+        manager2 = CacheManager(tmp_path)
+        result = manager2.register()
+        assert result is manager1
 
     def test_resolve_cache_manager_not_registered(self) -> None:
         """Test resolving unregistered manager raises error."""

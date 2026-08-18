@@ -88,25 +88,29 @@ NOTE:    If no credentials are provided, the tool will prompt you interactively 
 
 ### 1. Command Reference
 
-| Command | Alias | Purpose |
-|---------|-------|---------|
-| **tdoc-crawler** | | |
-| `crawl` | `ct` | Crawl TDoc metadata from FTP |
-| `crawl-meetings` | `cm` | Populate meeting database (Run this first!) |
-| `query` | `qt` | Search for TDocs (auto-fetches if missing) |
-| `query-meetings` | `qm` | Search and display meeting metadata |
-| `open` | | Download and open a TDoc |
-| `checkout` | | Batch download TDocs (use `--pdf` for PDF conversion) |
-| `tag {add,remove,list}` | | Manage lightweight tags on TDocs and specs |
-| `stats` | | View database statistics |
-| `mcp` | | Run as MCP server for AI agents |
-| **spec-crawler** | | |
-| `crawl` | | Crawl technical specification metadata |
-| `query` | | Search technical specifications |
-| `open` | | Download and open latest spec document |
-| `checkout` | | Batch download specifications (use `--pdf` for PDF conversion) |
+`3gpp-crawler` is the main CLI; `tdoc-crawler` and `spec-crawler` are shortcuts for the `tdoc` and `spec` groups.
+
+| Command | Shortcut | Purpose |
+|---------|----------|---------|
 | **3gpp-crawler** | | |
+| `tdoc {subcommand}` | `tdoc-crawler` | TDocs and meetings (see below) |
+| `spec {subcommand}` | `spec-crawler` | Technical specifications (see below) |
 | `config {init,show,validate,docs}` | | Manage configuration |
+| `tag {add,remove,list}` | | Manage lightweight tags on TDocs and specs |
+| `mcp` | | Run as MCP server for AI agents |
+| **tdoc group** | | |
+| `tdoc crawl` | `ct` | Crawl TDoc metadata from FTP |
+| `tdoc crawl-meetings` | `cm` | Populate meeting database (Run this first!) |
+| `tdoc query` | `qt` | Search for TDocs (auto-fetches if missing) |
+| `tdoc query-meetings` | `qm` | Search and display meeting metadata |
+| `tdoc open` | | Download and open a TDoc |
+| `tdoc checkout` | | Batch download TDocs (use `--pdf` for PDF conversion) |
+| `tdoc stats` | | View database statistics |
+| **spec group** | | |
+| `spec crawl` | | Crawl technical specification metadata |
+| `spec query` | | Search technical specifications |
+| `spec open` | | Download and open latest spec document |
+| `spec checkout` | | Batch download specifications (use `--pdf` for PDF conversion) |
 
 ### 1. Crawl Metadata
 

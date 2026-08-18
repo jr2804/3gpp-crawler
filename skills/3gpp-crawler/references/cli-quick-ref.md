@@ -1,6 +1,9 @@
 # CLI Quick Reference
 
-## tdoc-crawler
+`3gpp-crawler` is the main CLI. `tdoc-crawler` and `spec-crawler` are
+shortcuts for the `tdoc` and `spec` groups (same commands, no group prefix).
+
+## 3gpp-crawler tdoc (shortcut: tdoc-crawler)
 
 ### crawl-meetings (cm)
 ```bash
@@ -14,7 +17,6 @@ tdoc-crawler crawl-meetings -s S4 --no-prompt    # skip credential prompts
 tdoc-crawler crawl                               # all TDocs
 tdoc-crawler crawl --wg SA                       # SA working group
 tdoc-crawler crawl --start-date 2024             # from 2024 onwards
-tdoc-crawler crawl --wg RAN --start-date 2023    # RAN from 2023
 ```
 
 ### query (qt)
@@ -49,29 +51,12 @@ tdoc-crawler checkout S4-250638                  # download + extract
 tdoc-crawler checkout S4-250638 S4-250639 --pdf  # batch + PDF conversion
 ```
 
-### tag
-```bash
-tdoc-crawler tag add tdoc S4-250638 --tag codec
-tdoc-crawler tag add tdoc S4-250638 --tag codec,rel-18
-tdoc-crawler tag add spec 26260 --tag rel-18
-tdoc-crawler tag remove tdoc S4-250638 --tag codec
-tdoc-crawler tag remove tdoc S4-250638           # remove all tags
-tdoc-crawler tag list                            # list all tags
-tdoc-crawler tag list --kind tdoc                # filter by kind
-tdoc-crawler tag list --tag codec                # filter by tag
-```
-
-### mcp
-```bash
-tdoc-crawler mcp                                 # start stdio MCP server
-```
-
 ### stats
 ```bash
 tdoc-crawler stats                               # database statistics
 ```
 
-## spec-crawler
+## 3gpp-crawler spec (shortcut: spec-crawler)
 
 ### crawl
 ```bash
@@ -101,14 +86,34 @@ spec-crawler checkout 26260 --release 18.0       # specific release
 spec-crawler checkout 26260 26261 --pdf          # batch + PDF
 ```
 
-## 3gpp-crawler
+## 3gpp-crawler tag (top-level)
 
-### config
+```bash
+3gpp-crawler tag add tdoc S4-250638 --tag codec
+3gpp-crawler tag add tdoc S4-250638 --tag codec,rel-18
+3gpp-crawler tag add spec 26260 --tag rel-18
+3gpp-crawler tag remove tdoc S4-250638 --tag codec
+3gpp-crawler tag remove tdoc S4-250638           # remove all tags
+3gpp-crawler tag list                            # list all tags
+3gpp-crawler tag list --kind tdoc                # filter by kind
+3gpp-crawler tag list --tag codec                # filter by tag
+```
+
+Also available nested: `3gpp-crawler tdoc tag …` / `tdoc-crawler tag …`.
+
+## 3gpp-crawler config
+
 ```bash
 3gpp-crawler config init                         # create default config
 3gpp-crawler config show                         # show active config
 3gpp-crawler config validate                     # validate config
 3gpp-crawler config docs                         # show field documentation
+```
+
+## 3gpp-crawler mcp
+
+```bash
+3gpp-crawler mcp                                 # start stdio MCP server
 ```
 
 ## Environment variables

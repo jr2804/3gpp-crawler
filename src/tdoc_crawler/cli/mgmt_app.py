@@ -1,7 +1,9 @@
-"""Management CLI application — config commands.
+"""Main CLI application — 3gpp-crawler umbrella entry point.
 
-This is the "3gpp-crawler" CLI entry point, providing management subcommands
-that were previously part of tdoc-crawler and spec-crawler.
+``3gpp-crawler`` is the main CLI: it mounts the TDoc group (``tdoc``),
+the Spec group (``spec``), plus top-level ``config``, ``tag``, and ``mcp``.
+``tdoc-crawler`` and ``spec-crawler`` are thin shortcuts that invoke the
+same sub-apps directly.
 """
 
 from __future__ import annotations
@@ -13,17 +15,25 @@ import typer
 
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
+from tdoc_crawler.cli.mcp_app import app as mcp_app
+from tdoc_crawler.cli.spec_app import spec_app
+from tdoc_crawler.cli.tag_app import app as tag_app
+from tdoc_crawler.cli.tdoc_app import tdoc_app
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 
 mgmt_app = typer.Typer(
     name="3gpp-crawler",
-    help="3GPP Crawler — configuration and workspace management",
+    help="3GPP Crawler — crawl, query, tag, and download 3GPP documents",
 )
 
-# Register config sub-app
+# Mount the shared sub-apps (same objects used by the shortcut CLIs)
+mgmt_app.add_typer(tdoc_app, name="tdoc", help="TDocs and meetings (shortcut: tdoc-crawler)")
+mgmt_app.add_typer(spec_app, name="spec", help="Technical specifications (shortcut: spec-crawler)")
 mgmt_app.add_typer(config_app, name="config", help="Manage configuration")
+mgmt_app.add_typer(tag_app, name="tag", help="Manage tags for TDocs, specs, and other items")
+mgmt_app.add_typer(mcp_app, name="mcp", help="Run as Model Context Protocol (MCP) server")
 
 
 @mgmt_app.callback()
@@ -48,7 +58,7 @@ def _mgmt_app_callback(
         ),
     ] = str(DEFAULT_VERBOSITY),
 ) -> None:
-    """Global CLI options for the management app."""
+    """Global CLI options for the 3gpp-crawler umbrella app."""
     config = load_cli_config(ctx, config_file)
     CacheManager(config.path.cache_dir).register()
     ctx.obj = config
