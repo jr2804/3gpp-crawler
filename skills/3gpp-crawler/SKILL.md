@@ -15,7 +15,7 @@ Crawl, query, tag, and download 3GPP documents locally. One SQLite DB, one main 
 
 ## Lifecycle
 
-```
+```text
 crawl-meetings → crawl → query → tag → checkout [--pdf]
      (1)          (2)     (3)    (4)       (5)
 ```
@@ -57,6 +57,7 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 ## Tag filter semantics
 
 `--tag` supports comma-separated values and repeated options:
+
 - `--tag a,b` → OR within group (items matching a OR b)
 - `--tag a --tag b` → AND across groups (items matching a AND b)
 - Works on `tdoc query` and `spec query`

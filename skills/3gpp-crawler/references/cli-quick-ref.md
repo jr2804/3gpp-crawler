@@ -6,6 +6,7 @@ shortcuts for the `tdoc` and `spec` groups (same commands, no group prefix).
 ## 3gpp-crawler tdoc (shortcut: tdoc-crawler)
 
 ### crawl-meetings (cm)
+
 ```bash
 tdoc-crawler crawl-meetings                      # all groups
 tdoc-crawler crawl-meetings -s S4                # SA4 subgroup
@@ -13,6 +14,7 @@ tdoc-crawler crawl-meetings -s S4 --no-prompt    # skip credential prompts
 ```
 
 ### crawl (ct)
+
 ```bash
 tdoc-crawler crawl                               # all TDocs
 tdoc-crawler crawl --wg SA                       # SA working group
@@ -20,6 +22,7 @@ tdoc-crawler crawl --start-date 2024             # from 2024 onwards
 ```
 
 ### query (qt)
+
 ```bash
 tdoc-crawler query                               # all TDocs
 tdoc-crawler query R1-260001                     # specific ID
@@ -34,6 +37,7 @@ tdoc-crawler query --limit 10                    # limit results
 ```
 
 ### query-meetings (qm)
+
 ```bash
 tdoc-crawler query-meetings                      # all meetings
 tdoc-crawler query-meetings -s S4                # SA4 subgroup
@@ -41,17 +45,20 @@ tdoc-crawler query-meetings --wg SA              # SA working group
 ```
 
 ### open
+
 ```bash
 tdoc-crawler open S4-250638                      # download + open
 ```
 
 ### checkout
+
 ```bash
 tdoc-crawler checkout S4-250638                  # download + extract
 tdoc-crawler checkout S4-250638 S4-250639 --pdf  # batch + PDF conversion
 ```
 
 ### stats
+
 ```bash
 tdoc-crawler stats                               # database statistics
 ```
@@ -59,6 +66,7 @@ tdoc-crawler stats                               # database statistics
 ## 3gpp-crawler spec (shortcut: spec-crawler)
 
 ### crawl
+
 ```bash
 spec-crawler crawl                               # all specs
 spec-crawler crawl 26260                         # specific spec
@@ -66,6 +74,7 @@ spec-crawler crawl --wg SA4                      # filter by WG
 ```
 
 ### query
+
 ```bash
 spec-crawler query                               # all specs
 spec-crawler query 26260                         # specific spec
@@ -74,12 +83,14 @@ spec-crawler query --tag rel-18
 ```
 
 ### open
+
 ```bash
 spec-crawler open 26260                          # download + open
 spec-crawler open 26260 --release 18.0           # specific release
 ```
 
 ### checkout
+
 ```bash
 spec-crawler checkout 26260                      # latest release
 spec-crawler checkout 26260 --release 18.0       # specific release
