@@ -37,7 +37,7 @@ uv add <package>
 
 ## Where to dig deeper
 
-- `docs/` — user-facing documentation (crawl, query, workspace, config)
+- `docs/` — user-facing documentation (crawl, query, tags, config)
 - `.agents/history/` — detailed change history
 - `.agents/HISTORY.md` — past decisions and rationale
 - Source-tree AGENTS.md files — local contracts per area
