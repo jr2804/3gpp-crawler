@@ -137,6 +137,27 @@ def is_office_format(source_file: Path) -> bool:
     return source_file.suffix.lower() in OFFICE_FORMATS
 
 
+def convert_dir_to_pdf(directory: Path, *, force: bool = False, remote_fallback: bool = True) -> tuple[int, int]:
+    """Convert every Office document under *directory* to PDF next to its source.
+
+    Returns:
+        Tuple of (converted, failed) counts.  Existing PDFs are kept unless
+        *force* is set.
+    """
+    converted = 0
+    failed = 0
+    for file in sorted(directory.rglob("*")):
+        if not file.is_file() or not is_office_format(file):
+            continue
+        try:
+            ensure_pdf(file, file.parent, force=force, remote_fallback=remote_fallback)
+            converted += 1
+        except ConversionError as exc:
+            logger.warning("PDF conversion failed for %s: %s", file, exc)
+            failed += 1
+    return converted, failed
+
+
 def _is_remote_converter_available() -> bool:
     """Check if pdf-remote-converter has at least one provider configured."""
     return bool(pdf_remote_converter.router.get_configured_providers(ProviderSettings()))

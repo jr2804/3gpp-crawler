@@ -129,6 +129,10 @@ ReleaseOption = Annotated[
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download", envvar=ConfigEnvVar.TDC_DOC_ONLY.name)]
 
 # Options - General/Common
+PdfOption = Annotated[
+    bool,
+    typer.Option("--pdf", help="Convert extracted Office documents to PDF next to their sources (LibreOffice, remote fallback)"),
+]
 TagFilterOption = Annotated[
     list[str] | None,
     typer.Option("--tag", "-t", help="Filter by tags: comma-separated values are OR-combined; repeat the option to AND-combine groups"),

@@ -21,6 +21,7 @@ from tdoc_crawler.cli.args import (
     EolUsernameOption,
     ForceOption,
     FullMetadataOption,
+    PdfOption,
     PromptCredentialsOption,
     TDocIdArgument,
     UseWhatTheSpecOption,
@@ -35,6 +36,7 @@ from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.extraction import convert_dir_to_pdf
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
@@ -153,6 +155,7 @@ def checkout(
     force: ForceOption = False,
     full_metadata: FullMetadataOption = False,
     use_whatthespec: UseWhatTheSpecOption = False,
+    pdf: PdfOption = False,
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
@@ -211,6 +214,13 @@ def checkout(
                     checkout_path = checkout_tdoc(metadata, checkout_dir, force=force, session=session)
 
                     progress.console.print(f"[green]ok {metadata.tdoc_id} -> {checkout_path}")
+
+                    if pdf:
+                        converted, failed_pdfs = convert_dir_to_pdf(checkout_path, force=force)
+                        if converted:
+                            progress.console.print(f"[cyan]   {metadata.tdoc_id}: {converted} file(s) converted to PDF[/cyan]")
+                        if failed_pdfs:
+                            progress.console.print(f"[red]   {metadata.tdoc_id}: {failed_pdfs} PDF conversion(s) failed[/red]")
 
                     success_count += 1
 
