@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import io
+import sys
 from collections.abc import Callable
 from typing import Any
 
+import typer
 from fastmcp import FastMCP
 from rich.console import Console
 
@@ -41,80 +43,78 @@ from tdoc_crawler.config import PathConfig
 mcp = FastMCP("3gpp-crawler", instructions="3GPP specification & TDoc crawler MCP server")
 
 
-def _run_captured(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
-    """Helper to run a CLI function with rich output captured into a string."""
-    buffer = io.StringIO()
-    original_console = _shared.console
-    _shared.console = Console(file=buffer, force_terminal=False)
-    try:
-        fn(*args, **kwargs)
-    except SystemExit:
-        pass
-    finally:
-        _shared.console = original_console
-    return buffer.getvalue()
+# --- CHECKOUT / DOWNLOAD GROUP ---
+
+
+class _DummyContext:
+    class _Obj:
+        def __init__(self) -> None:
+            self.path = PathConfig()
+
+    def __init__(self) -> None:
+        self.obj = self._Obj()
 
 
 # --- CRAWL GROUP ---
 
-@mcp.tool(name="crawl_tdocs", description="Crawl TDoc metadata for meetings or TDoc IDs")
+
+@mcp.tool(name="crawl_tdocs", description="Crawl TDoc metadata from 3GPP meeting document lists (Excel)")
 def crawl_tdocs(
-    meeting_ids: list[str] | None = None,
-    tdoc_ids: list[str] | None = None,
-    working_groups: list[str] | None = None,
-    use_whatthespec: bool = False,
-    full_metadata: bool = False,
+    working_group: list[str] | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    title: list[str] | None = None,
+    source: list[str] | None = None,
+    agenda: list[str] | None = None,
+    limit_tdocs: int | None = None,
 ) -> str:
     return _run_captured(
         cli_crawl_tdocs,
-        meeting_ids=meeting_ids,
-        tdoc_ids=tdoc_ids,
-        working_groups=working_groups,
-        use_whatthespec=use_whatthespec,
-        full_metadata=full_metadata,
+        working_group=working_group,
+        start_date=start_date,
+        end_date=end_date,
+        title=title,
+        source=source,
+        agenda=agenda,
+        limit_tdocs=limit_tdocs,
     )
 
 
-@mcp.tool(name="crawl_specs", description="Crawl 3GPP specification metadata or files")
+@mcp.tool(name="crawl_specs", description="Crawl 3GPP specification metadata")
 def crawl_specs(
     spec_numbers: list[str] | None = None,
-    series: list[str] | None = None,
-    releases: list[str] | None = None,
-    working_groups: list[str] | None = None,
-    versions: bool = False,
+    release: str = "latest",
 ) -> str:
     return _run_captured(
         cli_crawl_specs,
         spec_numbers=spec_numbers,
-        series=series,
-        releases=releases,
-        working_groups=working_groups,
-        versions=versions,
+        release=release,
     )
 
 
 @mcp.tool(name="crawl_meetings", description="Crawl meeting metadata from 3GPP portal")
 def crawl_meetings(
-    working_groups: list[str] | None = None,
-    start_year: int | None = None,
-    end_year: int | None = None,
+    working_group: list[str] | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> str:
     return _run_captured(
         cli_crawl_meetings,
-        working_groups=working_groups,
-        start_year=start_year,
-        end_year=end_year,
+        working_group=working_group,
+        start_date=start_date,
+        end_date=end_date,
     )
 
 
 # --- QUERY GROUP ---
 
-@mcp.tool(name="query_tdocs", description="Query stored TDoc metadata with optional filtering by tag, WG, dates, title, etc.")
+
+@mcp.tool(name="query_tdocs", description="Query stored TDoc metadata with optional filtering by tag, WG, dates, title pattern, etc.")
 def query_tdocs(
     tdoc_ids: list[str] | None = None,
-    working_group: str | None = None,
+    working_group: list[str] | None = None,
     tag: list[str] | None = None,
-    title: str | None = None,
+    title: list[str] | None = None,
     agenda: str | None = None,
     limit: int | None = None,
 ) -> str:
@@ -147,25 +147,12 @@ def query_specs(
 
 @mcp.tool(name="query_meetings", description="Query stored 3GPP meetings metadata")
 def query_meetings(
-    meeting_ids: list[str] | None = None,
-    working_group: str | None = None,
+    working_group: list[str] | None = None,
 ) -> str:
     return _run_captured(
         cli_query_meetings,
-        meeting_ids=meeting_ids,
         working_group=working_group,
     )
-
-
-# --- CHECKOUT / DOWNLOAD GROUP ---
-
-class _DummyContext:
-    class _Obj:
-        def __init__(self) -> None:
-            self.path = PathConfig()
-
-    def __init__(self) -> None:
-        self.obj = self._Obj()
 
 
 @mcp.tool(name="checkout_tdocs", description="Download and extract TDocs to checkout directory")
@@ -200,6 +187,7 @@ def checkout_specs(
 
 
 # --- TAG GROUP ---
+
 
 @mcp.tool(name="tag_add", description="Add tags to items (tdoc, spec, or other)")
 def tag_add(
@@ -243,16 +231,55 @@ def tag_list(
     )
 
 
+def _run_captured(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
+    """Helper to run a CLI function with rich output captured into a string."""
+    buffer = io.StringIO()
+    original_console = _shared.console
+    _shared.console = Console(file=buffer, force_terminal=False)
+    try:
+        fn(*args, **kwargs)
+    except (SystemExit, typer.Exit):
+        pass
+    finally:
+        _shared.console = original_console
+    return buffer.getvalue()
+
+
 # --- CONFIG GROUP ---
+
 
 @mcp.tool(name="config_show", description="Show active configuration values")
 def config_show() -> str:
-    return _run_captured(cli_config_show)
+    return _run_captured_stdout(cli_config_show)
 
 
 @mcp.tool(name="config_validate", description="Validate configuration files and path settings")
 def config_validate() -> str:
-    return _run_captured(cli_config_validate)
+    return _run_captured_stdout(cli_config_validate)
+
+
+def _run_captured_stdout(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
+    """Run a CLI function with _shared.console, stdout, and stderr all captured.
+
+    Needed for commands like config_* that use rprint / their own console
+    instead of _shared.console.
+    """
+    buffer = io.StringIO()
+    original_console = _shared.console
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    _shared.console = Console(file=buffer, force_terminal=False)
+    sys.stdout = buffer
+    sys.stderr = buffer
+    try:
+        fn(*args, **kwargs)
+    except (SystemExit, typer.Exit):
+        pass
+    finally:
+        _shared.console = original_console
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+    return buffer.getvalue()
 
 
 def run_mcp() -> None:
