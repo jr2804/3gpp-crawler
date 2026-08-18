@@ -30,6 +30,7 @@ from tdoc_crawler.cli.args import (
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
+from tdoc_crawler.cli.mcp_app import app as mcp_app
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.tag_app import app as tag_app
 from tdoc_crawler.cli.utils import launch_file
@@ -289,6 +290,7 @@ def stats(
 tdoc_app.command("ct", rich_help_panel=HELP_PANEL_CRAWLING, hidden=True)(crawl_tdocs)
 tdoc_app.command("cm", rich_help_panel=HELP_PANEL_CRAWLING, hidden=True)(crawl_meetings)
 tdoc_app.add_typer(tag_app, name="tag", help="Manage tags for TDocs, specs, and other items")
+tdoc_app.add_typer(mcp_app, name="mcp", help="Run as Model Context Protocol (MCP) server")
 
 tdoc_app.command("qt", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_tdocs)
 tdoc_app.command("qm", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_meetings)
