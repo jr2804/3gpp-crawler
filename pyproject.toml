@@ -1,6 +1,6 @@
 [project]
 name = "3gpp-crawler"
-dynamic = ["version"]
+version = "2025.8.1"
 description = "Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI."
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
@@ -63,7 +63,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
@@ -116,12 +116,6 @@ method_type_order = ["instance", "class", "static"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/tdoc_crawler"]
 
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
-
-[tool.uv-dynamic-versioning]
-vcs = "git"
-style = "pep440"
 bump = true
 
 [tool.uv.workspace]

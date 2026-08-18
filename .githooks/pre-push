@@ -1,19 +1,34 @@
 #!/usr/bin/env bash
-# pre-push hook — schedule a CalVer release after the default branch push lands.
+# pre-push hook — bump CalVer in source tree, then schedule GitLab release.
 #
 # Installed via: git config core.hooksPath .githooks
-# The actual release runs detached (scripts/auto-release.sh) so it can wait
-# for the push to complete; output goes to .git/auto-release.log.
+# The release job runs detached (scripts/auto-release.sh) after push lands.
 
 REMOTE_NAME="${1:-origin}"
 
 while read -r local_ref local_sha remote_ref remote_sha; do
     if [ "${remote_ref}" = "refs/heads/main" ] && [ "${local_sha}" != "0000000000000000000000000000000000000000" ]; then
         ROOT="$(git rev-parse --show-toplevel)"
+
+        # --- compute next CalVer -------------------------------------------------
+        PREFIX="$(date -u +%Y.%m)."
+        LAST_N="$(git ls-remote --tags "${REMOTE_NAME}" 2>/dev/null | awk -v p="v${PREFIX}" 'index($2, "refs/tags/" p)==1 { n=$2; sub("refs/tags/" p, "", n); if (n ~ /^[0-9]+$/) print n }' | sort -n | tail -1)"
+        N="$(( ${LAST_N:-0} + 1 ))"
+        VERSION="${PREFIX}${N}"
+
+        # --- write version into __init__.py & pyproject.toml ----------------------
+        INIT="${ROOT}/src/tdoc_crawler/__init__.py"
+        TOML="${ROOT}/pyproject.toml"
+        sed -i 's/^__version__ = ".*"/__version__ = "'"${VERSION}"'"/' "${INIT}"
+        sed -i 's/^version = ".*"/version = "'"${VERSION}"'"/' "${TOML}"
+        git add "${INIT}" "${TOML}"
+        echo "bumped version to ${VERSION} in src/tdoc_crawler/__init__.py and pyproject.toml"
+
+        # --- push & schedule remote release (existing logic) ---------------------
         LOG="${ROOT}/.git/auto-release.log"
-        echo "[$(date -u +%H:%M:%S)] push ${local_sha} -> ${remote_ref}; scheduling auto-release" >>"${LOG}"
+        echo "[$(date -u +%H:%M:%S)] push ${local_sha} -> ${remote_ref}; scheduling auto-release (v${VERSION})" >>"${LOG}"
         nohup bash "${ROOT}/scripts/auto-release.sh" "${local_sha}" main "${REMOTE_NAME}" >>"${LOG}" 2>&1 &
-        echo "auto-release scheduled for ${local_sha} (log: .git/auto-release.log)" >&2
+        echo "auto-release scheduled for v${VERSION} (log: .git/auto-release.log)" >&2
     fi
- done
+done
 exit 0

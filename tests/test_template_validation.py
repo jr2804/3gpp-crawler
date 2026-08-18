@@ -31,11 +31,8 @@ def test_pyproject_toml_structure() -> None:
     if "name" not in content["project"]:
         msg = "Missing project name"
         raise AssertionError(msg)
-    if "dynamic" not in content["project"]:
-        msg = "Missing 'dynamic' in [project] section (version should be dynamic)"
-        raise AssertionError(msg)
-    if "version" not in content["project"]["dynamic"]:
-        msg = "Missing 'version' in dynamic list"
+    if "version" not in content["project"]:
+        msg = "Missing 'version' in [project] section"
         raise AssertionError(msg)
     if "description" not in content["project"]:
         msg = "Missing project description"
