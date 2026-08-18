@@ -16,6 +16,7 @@ from tdoc_crawler.cli.args import (
     SpecArgument,
     SpecFileOption,
     StatusOption,
+    TagFilterOption,
     TitleOption,
     VerbosityOption,
     WorkingGroupOption,
@@ -24,9 +25,10 @@ from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_spec_table, spec_query_to_dict
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
+from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.models.base import OutputFormat, TagKind
 from tdoc_crawler.specs.models import SpecQueryFilters
 from tdoc_crawler.specs.operations.checkout import checkout_specs
 from tdoc_crawler.utils.parse import collect_spec_numbers, parse_working_groups
@@ -43,6 +45,7 @@ def query_specs(
     clear_specs: ClearSpecsOption = False,
     spec_file: SpecFileOption = None,
     cache_dir: CacheDirOption = None,
+    tag: TagFilterOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query spec metadata from database."""
@@ -78,7 +81,12 @@ def query_specs(
 
     async def run_query() -> list:
         async with SpecDatabase(db_file) as database:
-            return await database.query_specs(filters)
+            results = await database.query_specs(filters)
+            groups = parse_tag_groups(tag or [])
+            if groups:
+                matching = await item_ids_for_tag_groups(groups, TagKind.SPEC)
+                results = [r for r in results if r.spec_number in matching]
+            return results
 
     results = asyncio.run(run_query())
 

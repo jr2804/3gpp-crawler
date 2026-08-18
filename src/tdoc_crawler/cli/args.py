@@ -129,6 +129,10 @@ ReleaseOption = Annotated[
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download", envvar=ConfigEnvVar.TDC_DOC_ONLY.name)]
 
 # Options - General/Common
+TagFilterOption = Annotated[
+    list[str] | None,
+    typer.Option("--tag", "-t", help="Filter by tags: comma-separated values are OR-combined; repeat the option to AND-combine groups"),
+]
 CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name)]
 ClearDbOption = Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")]
 CheckoutOption = Annotated[

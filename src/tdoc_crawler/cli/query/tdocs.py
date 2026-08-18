@@ -22,6 +22,7 @@ from tdoc_crawler.cli.args import (
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
+    TagFilterOption,
     TDocIdsArgument,
     TitlePatternExcludeOption,
     TitlePatternOption,
@@ -33,10 +34,11 @@ from tdoc_crawler.cli.printing import print_tdoc_table, tdoc_to_dict
 from tdoc_crawler.cli.query._helpers import _parse_date_range
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.models.base import OutputFormat, SortOrder
+from tdoc_crawler.models.base import OutputFormat, SortOrder, TagKind
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdocs, resolve_tdoc_file_sizes
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
@@ -62,6 +64,7 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     title_ex: TitlePatternExcludeOption = None,
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
+    tag: TagFilterOption = None,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query TDoc metadata from database."""
@@ -113,6 +116,10 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     async def run_query() -> list:
         async with TDocDatabase(db_file) as database:
             results = await database.query_tdocs(config)
+            groups = parse_tag_groups(tag or [])
+            if groups:
+                matching = await item_ids_for_tag_groups(groups, TagKind.TDOC)
+                results = [r for r in results if r.tdoc_id in matching]
             if fetch:
                 with create_cached_session() as session:
                     result = await fetch_missing_tdocs(

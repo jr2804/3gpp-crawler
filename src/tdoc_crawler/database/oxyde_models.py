@@ -65,6 +65,21 @@ class CrawlLogEntry(Model):
         is_table = True
 
 
+class TagEntry(Model):
+    """Tag attached to an item (polymorphic: kind + item_id is the pointer)."""
+
+    tag_id: str = Field(db_pk=True)
+    kind: str
+    item_id: str
+    tag: str
+    created_at: datetime = Field(default_factory=utc_now)
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
 class MeetingMetadata(Model):
     """Metadata for 3GPP meetings."""
 
@@ -220,5 +235,6 @@ __all__ = [
     "SpecificationVersion",
     "SubWorkingGroupRecord",
     "TDocMetadata",
+    "TagEntry",
     "WorkingGroupRecord",
 ]
