@@ -102,6 +102,14 @@ class TDocCrawlConfig(BaseModel):
             "consider lower worker counts on constrained systems."
         ),
     )
+    executor: str | None = Field(
+        None,
+        description=(
+            "Executor type override: 'serial', 'threading', 'multiprocessing', or 'subinterpreter'. "
+            "None = auto (serial when workers=1, else multiprocessing). "
+            "Use 'threading'/'subinterpreter' when child-process spawn is unsafe (e.g. stdio MCP server)."
+        ),
+    )
     overall_timeout: int | None = Field(
         None,
         ge=1,

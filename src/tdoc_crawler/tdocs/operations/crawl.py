@@ -118,7 +118,7 @@ class TDocCrawler:
         max_tdocs = self._resolve_max_tdocs(config.limit_tdocs)
         targets = self._normalize_targets(targets)
 
-        executor, executor_type = self._create_executor_for_workers(config.workers)
+        executor, executor_type = self._create_executor_for_workers(config.workers, config.executor)
 
         logger.debug("Using %s executor with %d worker(s)", executor_type, config.workers)
 
@@ -237,10 +237,21 @@ class TDocCrawler:
         return {normalize_tdoc_id(item) for item in targets}
 
     @staticmethod
-    def _create_executor_for_workers(workers: int) -> tuple[Executor, str]:
-        """Create configured executor and return it with a label for logging."""
-        if workers == 1:
+    def _create_executor_for_workers(workers: int, executor: str | None = None) -> tuple[Executor, str]:
+        """Create configured executor and return it with a label for logging.
+
+        Args:
+            workers: Number of parallel workers.
+            executor: Optional executor type override ('serial', 'threading',
+                'multiprocessing', 'subinterpreter'). None = auto: serial when
+                workers=1, else multiprocessing.
+        """
+        if executor:
+            executor = executor.lower()
+        if executor == "serial" or (executor is None and workers == 1):
             return create_executor("serial"), "serial"
+        if executor is not None:
+            return create_executor(executor, max_workers=workers), executor
         return create_executor("multiprocessing", max_workers=workers), "multiprocessing"
 
     @staticmethod

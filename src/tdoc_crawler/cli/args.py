@@ -145,6 +145,14 @@ CheckoutOption = Annotated[
 ]
 CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Directory for checkout files", envvar=ConfigEnvVar.TDC_CHECKOUT_DIR.name)]
 WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers", envvar=ConfigEnvVar.TDC_WORKERS.name)]
+ExecutorOption = Annotated[
+    str | None,
+    typer.Option(
+        "--executor",
+        hidden=True,
+        help="Executor type: serial, threading, multiprocessing, or subinterpreter (default: auto)",
+    ),
+]
 MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts", envvar=ConfigEnvVar.TDC_MAX_RETRIES.name)]
 TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds", envvar=ConfigEnvVar.TDC_TIMEOUT.name)]
 VerbosityOption = Annotated[
