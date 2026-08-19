@@ -1,6 +1,6 @@
 [project]
 name = "3gpp-crawler"
-version = "2026.08.17"
+version = "2026.08.18"
 description = "Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI."
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"

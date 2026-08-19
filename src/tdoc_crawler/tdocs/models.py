@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from enum import StrEnum, auto
 
+from pool_executors import ExecutorType
 from pydantic import BaseModel, Field, field_validator
 
 from tdoc_crawler.config.settings import HttpConfig
@@ -102,10 +103,10 @@ class TDocCrawlConfig(BaseModel):
             "consider lower worker counts on constrained systems."
         ),
     )
-    executor: str | None = Field(
+    executor: ExecutorType | None = Field(
         None,
         description=(
-            "Executor type override: 'serial', 'threading', 'multiprocessing', or 'subinterpreter'. "
+            "Executor type override: serial, threading, multiprocessing, or subinterpreter. "
             "None = auto (serial when workers=1, else multiprocessing). "
             "Use 'threading'/'subinterpreter' when child-process spawn is unsafe (e.g. stdio MCP server)."
         ),

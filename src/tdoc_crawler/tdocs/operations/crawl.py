@@ -9,7 +9,7 @@ from concurrent.futures import Executor, Future, as_completed
 from dataclasses import dataclass
 from datetime import date
 
-from pool_executors import create_executor
+from pool_executors import ExecutorType, create_executor
 
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
@@ -237,22 +237,19 @@ class TDocCrawler:
         return {normalize_tdoc_id(item) for item in targets}
 
     @staticmethod
-    def _create_executor_for_workers(workers: int, executor: str | None = None) -> tuple[Executor, str]:
-        """Create configured executor and return it with a label for logging.
+    def _create_executor_for_workers(workers: int, executor: ExecutorType | None = None) -> tuple[Executor, ExecutorType]:
+        """Create configured executor and return it with its resolved type.
 
         Args:
             workers: Number of parallel workers.
-            executor: Optional executor type override ('serial', 'threading',
-                'multiprocessing', 'subinterpreter'). None = auto: serial when
+            executor: Optional executor type override. None = auto: serial when
                 workers=1, else multiprocessing.
         """
-        if executor:
-            executor = executor.lower()
-        if executor == "serial" or (executor is None and workers == 1):
-            return create_executor("serial"), "serial"
         if executor is not None:
             return create_executor(executor, max_workers=workers), executor
-        return create_executor("multiprocessing", max_workers=workers), "multiprocessing"
+        if workers == 1:
+            return create_executor(ExecutorType.SERIAL), ExecutorType.SERIAL
+        return create_executor(ExecutorType.MULTIPROCESSING, max_workers=workers), ExecutorType.MULTIPROCESSING
 
     @staticmethod
     def _submit_meeting_futures(executor: Executor, meetings: list[MeetingMetadata], config: TDocCrawlConfig) -> dict[Future[str], MeetingMetadata]:

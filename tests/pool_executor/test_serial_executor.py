@@ -242,7 +242,7 @@ class TestCreateExecutorContinued:
 
     def test_invalid_executor_type(self: TestCreateExecutorContinued) -> None:
         """Test that invalid executor type raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid executor type"):
+        with pytest.raises(ValueError, match="not a valid ExecutorType"):
             create_executor("invalid_type")
 
     def test_executor_with_max_workers(self: TestCreateExecutorContinued) -> None:
@@ -263,12 +263,17 @@ class TestExecutorType:
         """Test all executor type values exist."""
         assert ExecutorType.SERIAL == "serial"
         assert ExecutorType.MULTIPROCESSING == "multiprocessing"
-        assert ExecutorType.MP == "mp"
         assert ExecutorType.THREADING == "threading"
-        assert ExecutorType.THREAD == "thread"
         assert ExecutorType.SUBINTERPRETER == "subinterpreter"
-        assert ExecutorType.SUB == "sub"
-        assert ExecutorType.SI == "si"
+        # Aliases are accepted via ExecutorType() coercion (case-insensitive).
+        assert ExecutorType("mp") is ExecutorType.MULTIPROCESSING
+        assert ExecutorType("MP") is ExecutorType.MULTIPROCESSING
+        assert ExecutorType("thread") is ExecutorType.THREADING
+        assert ExecutorType("THREAD") is ExecutorType.THREADING
+        assert ExecutorType("sub") is ExecutorType.SUBINTERPRETER
+        assert ExecutorType("si") is ExecutorType.SUBINTERPRETER
+        # Only 4 canonical members.
+        assert len(ExecutorType) == 4
 
     def test_executor_type_case_insensitive_creation(self) -> None:
         """Test creating ExecutorType from case-insensitive string via factory."""
@@ -376,7 +381,7 @@ class TestFactoryCoverage:
 
     def test_invalid_executor_type_error_message(self) -> None:
         """Test that invalid executor type shows valid types in error."""
-        with pytest.raises(ValueError, match="Invalid executor type") as exc_info:
+        with pytest.raises(ValueError, match="not a valid ExecutorType") as exc_info:
             create_executor("unknown")
 
         error_message = str(exc_info.value)
@@ -389,14 +394,9 @@ class TestFactoryCoverage:
         """Test ExecutorType enum equality with strings."""
         assert ExecutorType.SERIAL == "serial"
         assert ExecutorType("serial") == ExecutorType.SERIAL
-        # Verify different case doesn't match (StrEnum behavior)
-        try:
-            result = ExecutorType("SERIAL")
-            # If this doesn't raise, the test should check the result
-            assert result == ExecutorType.SERIAL
-        except ValueError:
-            # Expected: StrEnum doesn't support case-insensitive creation
-            pass
+        # Case-insensitive alias resolution via _missing_
+        assert ExecutorType("SERIAL") is ExecutorType.SERIAL
+        assert ExecutorType("Mp") is ExecutorType.MULTIPROCESSING
 
     def test_all_executor_aliases_work(self) -> None:
         """Test all executor type aliases create correct executor types."""

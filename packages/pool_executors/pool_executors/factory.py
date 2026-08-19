@@ -20,17 +20,17 @@ except (ImportError, AttributeError):
 logger = logging.getLogger("pool_executors.factory")
 
 
-def create_executor(executor_type: ExecutorType | str, **kwargs: Any) -> Executor:
+def create_executor(executor_type: ExecutorType, **kwargs: Any) -> Executor:
     """Create executor instance based on type.
 
-    Supports case-insensitive type names and aliases:
-    - "serial" / "SERIAL" → SerialPoolExecutor
-    - "multiprocessing" / "mp" / "MP" → ProcessPoolExecutor
-    - "threading" / "thread" / "THREAD" → ThreadPoolExecutor
-    - "subinterpreter" / "sub" / "si" / "SI" → InterpreterPoolExecutor (Python 3.14+)
+    Accepts canonical names and short aliases (case-insensitive):
+    - "serial" → SerialPoolExecutor
+    - "multiprocessing" / "mp" → ProcessPoolExecutor
+    - "threading" / "thread" → ThreadPoolExecutor
+    - "subinterpreter" / "sub" / "si" → InterpreterPoolExecutor (Python 3.14+)
 
     Args:
-        executor_type: Executor type (case-insensitive)
+        executor_type: Executor type (canonical name, alias, or ExecutorType member)
         **kwargs: Arguments forwarded to executor constructor
 
     Returns:
@@ -40,39 +40,26 @@ def create_executor(executor_type: ExecutorType | str, **kwargs: Any) -> Executo
         ValueError: If executor_type is invalid
 
     Example:
+        >>> executor = create_executor(ExecutorType.THREADING, max_workers=2)
         >>> executor = create_executor("mp", max_workers=4)
         >>> executor = create_executor("SERIAL")
-        >>> executor = create_executor(ExecutorType.THREADING, max_workers=2)
     """
-    # Normalize to lowercase string
-    type_str = str(executor_type).lower()
+    exec_type = ExecutorType(executor_type)
 
-    # Convert to ExecutorType enum
-    try:
-        exec_type = ExecutorType(type_str)
-    except ValueError as e:
-        valid_types = ", ".join(sorted({member.value for member in ExecutorType}))
-        msg = f"Invalid executor type '{executor_type}'. Valid types: {valid_types}"
-        raise ValueError(msg) from e
-
-    # Dispatch to appropriate executor
-    if exec_type in (ExecutorType.SERIAL,):
+    if exec_type is ExecutorType.SERIAL:
         return SerialPoolExecutor(**kwargs)
 
-    if exec_type in (ExecutorType.MULTIPROCESSING, ExecutorType.MP):
+    if exec_type is ExecutorType.MULTIPROCESSING:
         return ProcessPoolExecutor(**kwargs)
 
-    if exec_type in (ExecutorType.THREADING, ExecutorType.THREAD):
+    if exec_type is ExecutorType.THREADING:
         return ThreadPoolExecutor(**kwargs)
 
-    if exec_type in (ExecutorType.SUBINTERPRETER, ExecutorType.SUB, ExecutorType.SI):
-        # Use InterpreterPoolExecutor if available (Python 3.14+)
+    if exec_type is ExecutorType.SUBINTERPRETER:
         if HAS_INTERPRETER_POOL_EXECUTOR and InterpreterPoolExecutor is not None:
             return InterpreterPoolExecutor(**kwargs)
-        else:
-            logger.warning("InterpreterPoolExecutor not available (Python 3.14+ required), falling back to ProcessPoolExecutor")
-            return ProcessPoolExecutor(**kwargs)
+        logger.warning("InterpreterPoolExecutor not available (Python 3.14+ required), falling back to ProcessPoolExecutor")
+        return ProcessPoolExecutor(**kwargs)
 
-    # Should never reach here due to enum validation above
     msg = f"Unhandled executor type: {exec_type}"
     raise RuntimeError(msg)
