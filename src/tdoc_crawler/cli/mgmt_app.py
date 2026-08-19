@@ -14,7 +14,7 @@ from typing import Annotated
 import typer
 
 from tdoc_crawler import __version__
-from tdoc_crawler.cli._shared import console
+from tdoc_crawler.cli._shared import GlobSafeTyper, console
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
 from tdoc_crawler.cli.mcp_app import app as mcp_app
@@ -25,7 +25,7 @@ from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 
-mgmt_app = typer.Typer(
+mgmt_app = GlobSafeTyper(
     name="3gpp-crawler",
     help="3GPP Crawler — crawl, query, tag, and download 3GPP documents",
 )

@@ -15,7 +15,7 @@ import typer
 from rich.table import Table
 
 from tdoc_crawler import __version__
-from tdoc_crawler.cli._shared import console, create_progress_bar
+from tdoc_crawler.cli._shared import GlobSafeTyper, console, create_progress_bar
 from tdoc_crawler.cli.args import (
     CheckoutTDocIdsArgument,
     EolPasswordOption,
@@ -49,7 +49,7 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_id, normalize_tdoc_i
 
 _logger = get_logger(__name__)
 
-tdoc_app = typer.Typer(help="3GPP Crawler - TDocs and Meetings")
+tdoc_app = GlobSafeTyper(help="3GPP Crawler - TDocs and Meetings")
 
 
 @tdoc_app.command("version", help="Show installed version")

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from typing import Any
 
+import typer
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskID, TextColumn
+from typer.main import get_command
 
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.logging import get_console
@@ -12,6 +16,25 @@ from tdoc_crawler.specs.operations.checkout import clear_checkout_specs
 from tdoc_crawler.tdocs.operations.checkout import clear_checkout_tdocs
 
 console = get_console()
+
+
+class GlobSafeTyper(typer.Typer):
+    """``typer.Typer`` that disables Click's Windows glob expansion.
+
+    Click's default behavior on Windows (``Command.main(windows_expand_args=True)``)
+    rewrites any option value containing ``*``, ``?`` or ``[`` against the
+    CWD before it reaches the callback. For data fields like ``--title`` /
+    ``--agenda`` that contain arbitrary glob patterns, this rewrites user input
+    to whatever filenames happen to live in the caller's directory.
+
+    Override ``__call__`` so we never hand Click a value with glob metachars
+    that hasn't already been parsed through Typer's normal option machinery.
+    """
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
+        if not args and "windows_expand_args" not in kwargs and getattr(sys, "argv", None):
+            return get_command(self).main(windows_expand_args=False, **kwargs)
+        return super().__call__(*args, **kwargs)
 
 
 async def handle_clear_options(
@@ -83,6 +106,7 @@ def create_progress_bar(description: str, total: float = 100) -> tuple[Progress,
 
 
 __all__ = [
+    "GlobSafeTyper",
     "console",
     "create_progress_bar",
     "handle_clear_options",

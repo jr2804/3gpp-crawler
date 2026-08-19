@@ -12,6 +12,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 
+from tdoc_crawler.cli._shared import GlobSafeTyper
 from tdoc_crawler.cli.constants import HELP_PANEL_CONFIG, SECTION_DESCRIPTIONS
 from tdoc_crawler.config.export import ConfigExporter
 from tdoc_crawler.config.settings import ThreeGPPConfig
@@ -49,7 +50,7 @@ ConfigDocsSectionOption = Annotated[
     typer.Option("--section", "-s", help="Show specific section (path, http, credentials, crawl)"),
 ]
 
-config_app = typer.Typer(help="Manage configuration")
+config_app = GlobSafeTyper(help="Manage configuration")
 
 
 @config_app.command("init", rich_help_panel=HELP_PANEL_CONFIG)

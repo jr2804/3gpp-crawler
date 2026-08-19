@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import typer
 
-from tdoc_crawler.cli._shared import console
+from tdoc_crawler.cli._shared import GlobSafeTyper, console
 
-app = typer.Typer(help="Run 3gpp-crawler as a Model Context Protocol (MCP) server")
+app = GlobSafeTyper(help="Run 3gpp-crawler as a Model Context Protocol (MCP) server")
 
 
 @app.callback(invoke_without_command=True)

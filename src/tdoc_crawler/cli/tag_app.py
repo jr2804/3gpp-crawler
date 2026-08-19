@@ -8,7 +8,7 @@ from typing import Annotated
 
 import typer
 
-from tdoc_crawler.cli._shared import console
+from tdoc_crawler.cli._shared import GlobSafeTyper, console
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.tags import add_tags, list_tags, remove_tags
@@ -20,7 +20,7 @@ from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_td
 
 HELP_PANEL = "Tag Commands"
 
-app = typer.Typer(help="Manage tags for TDocs, specs, and other items")
+app = GlobSafeTyper(help="Manage tags for TDocs, specs, and other items")
 
 
 class TagKindChoice(StrEnum):

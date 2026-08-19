@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from tdoc_crawler import __version__
-from tdoc_crawler.cli._shared import console
+from tdoc_crawler.cli._shared import GlobSafeTyper, console
 from tdoc_crawler.cli.args import VerbosityOption
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
@@ -18,7 +18,7 @@ from tdoc_crawler.cli.specs import checkout_spec, open_spec
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 
-spec_app = typer.Typer(help="3GPP Crawler for Technical Specifications/Reports")
+spec_app = GlobSafeTyper(help="3GPP Crawler for Technical Specifications/Reports")
 
 
 @spec_app.command("version", help="Show installed version")
