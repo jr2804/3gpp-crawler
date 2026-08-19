@@ -65,6 +65,15 @@ The fix: `_NiquetsCacheAdapter.init_poolmanager()` injects `disabled_svn={HttpVe
 
 **Enforcement:** If you ever create a raw `niquests.Session()` or `requests.Session()` (aliased from niquests), add `disable_http3=True` without exception. If you create a custom adapter mounted on a cached session, ensure `init_poolmanager` disables HTTP/3.
 
+## Multiprocessing Spawn Deadlock Under MCP (CRITICAL)
+
+The stdio MCP server (`mcp_server.py`) runs with stdin/stdout in overlapped
+(async I/O) mode on Windows. `ProcessPoolExecutor` spawn children inherit
+those handles and deadlock on synchronous I/O — symptoms: crawl hangs forever,
+no errors. `TDocCrawlConfig.executor` lets callers pick in-process parallelism
+(`"threading"`, or `"subinterpreter"` on Python 3.14+); the MCP wrapper picks
+it automatically. Never use multiprocessing executors from MCP tool code.
+
 ## Anti-Duplication (DRY)
 
 Search before implementing. Check relevant domain package (`tdocs/`, `meetings/`, `specs/`). Refactor rather than duplicate.
