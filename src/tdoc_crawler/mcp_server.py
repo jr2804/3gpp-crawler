@@ -56,7 +56,13 @@ class _DummyContext:
 # --- CRAWL GROUP ---
 
 
-@mcp.tool(name="crawl_tdocs", description="Crawl TDoc metadata from 3GPP meeting document lists (Excel)")
+@mcp.tool(
+    name="crawl_tdocs",
+    description=(
+        "Crawl TDoc metadata from 3GPP meeting document lists (Excel). "
+        "Serial fetch: scope with start_date/end_date, limit_meetings or limit_tdocs for speed"
+    ),
+)
 def crawl_tdocs(
     working_group: list[str] | None = None,
     start_date: str | None = None,
@@ -77,6 +83,8 @@ def crawl_tdocs(
         agenda=agenda,
         limit_meetings=limit_meetings,
         limit_tdocs=limit_tdocs,
+        workers=1,
+        show_progress=False,
     )
 
 
