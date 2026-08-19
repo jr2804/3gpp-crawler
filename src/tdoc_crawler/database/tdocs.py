@@ -7,8 +7,10 @@ from typing import Any
 
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
+from tdoc_crawler.models.base import TagKind
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
@@ -174,6 +176,11 @@ class TDocDatabase(MeetingDatabase):
         records = self._filter_by_retrieved_dates(records, config.start_date, config.end_date)
 
         records = self._apply_pattern_filters(records, config)
+
+        if config.tag:
+            groups = parse_tag_groups(config.tag)
+            matching = await item_ids_for_tag_groups(groups, TagKind.TDOC)
+            records = [record for record in records if record.tdoc_id in matching]
 
         if not meeting_map:
             meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
