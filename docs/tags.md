@@ -52,6 +52,9 @@ Both `tdoc query` and `spec query` accept `--tag` filters:
 3gpp-crawler tdoc query --tag codec,codec2 --tag rel-18
 ```
 
+Tag filtering runs **before** `--limit`, so `--tag atias --limit 300` returns
+tagged rows even when they sort beyond the first 300.
+
 ## Kinds are independent
 
 Tags on TDocs do not affect spec queries and vice versa — each kind has its

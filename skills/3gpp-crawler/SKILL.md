@@ -61,6 +61,7 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 - `--tag a,b` → OR within group (items matching a OR b)
 - `--tag a --tag b` → AND across groups (items matching a AND b)
 - Works on `tdoc query` and `spec query`
+- Tag filtering runs **before** `--limit`, so `--tag atias --limit 300` returns tagged rows even when they sort beyond the first 300 (fixed in #3)
 
 ## MCP server
 
@@ -100,3 +101,5 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 - `--pdf` requires LibreOffice or a remote fallback provider (see `.env.example`)
 - Tags are independent per kind: a tag on a TDoc doesn't affect spec queries
 - DB lives at `~/.3gpp-crawler/3gpp_crawler.db` by default (configurable via `TDC_CACHE_DIR`)
+- Bare `--title`/`--agenda` patterns (no `*?[]`) substring-match by default — `ATIAS` behaves like `*ATIAS*`
+- On Windows `cmd.exe`, single quotes are literal: use `"*ATIAS*"` (double quotes) or no quotes, not `'*ATIAS*'`

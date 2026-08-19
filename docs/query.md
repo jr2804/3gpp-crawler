@@ -28,7 +28,7 @@ Disable with `--no-fetch`.
 | `TDOC_IDS` | Positional TDoc identifiers. |
 | `-w, --working-group WG` | Filter by working group. |
 | `--start-date / --end-date` | ISO 8601 timestamp filters. |
-| `--source / --title / --agenda` | Glob patterns; `-ex` variants exclude. |
+| `--source / --title / --agenda` | Glob patterns; bare patterns (no `*?[]`) substring-match. `-ex` variants exclude. |
 | `-t, --tag TAGS` | Tag filter (repeatable, comma = OR). See [Tags](tags.md). |
 | `-l, --limit N` | Maximum rows. |
 | `--order` | `asc` or `desc`. |
