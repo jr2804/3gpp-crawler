@@ -298,10 +298,15 @@ class TDocDatabase(MeetingDatabase):
         value_getter: Callable[[TDocMetadata], str | None],
         exclude: bool,
     ) -> list[TDocMetadata]:
-        """Apply case-insensitive glob filter to a selected text field."""
+        """Apply case-insensitive glob filter to a selected text field.
+
+        Patterns without glob metacharacters (``*``, ``?``, ``[``) are wrapped
+        in ``*...*`` so a bare ``ATIAS`` substring-matches rather than failing
+        the literal ``fnmatch`` comparison.
+        """
         if not values:
             return records
-        patterns = [value.lower() for value in values]
+        patterns = [TDocDatabase._normalize_glob(value).lower() for value in values]
         if exclude:
             return [
                 record
@@ -311,6 +316,13 @@ class TDocDatabase(MeetingDatabase):
         return [
             record for record in records if value_getter(record) and any(fnmatch.fnmatch(str(value_getter(record)).lower(), pattern) for pattern in patterns)
         ]
+
+    @staticmethod
+    def _normalize_glob(value: str) -> str:
+        """Wrap bare patterns in ``*...*`` so they substring-match by default."""
+        if any(ch in value for ch in "*?[]"):
+            return value
+        return f"*{value}*"
 
     # ------------------------------------------------------------------
     # Normalisation helpers
