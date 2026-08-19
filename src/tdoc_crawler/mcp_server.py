@@ -9,6 +9,7 @@ from typing import Any
 
 import typer
 from fastmcp import FastMCP
+from pool_executors import ExecutorType
 
 from tdoc_crawler.cli.config_app import (
     config_show as cli_config_show,
@@ -38,14 +39,15 @@ from tdoc_crawler.cli.tag_app import (
 from tdoc_crawler.cli.tdoc_app import checkout as cli_checkout_tdoc
 from tdoc_crawler.config import PathConfig
 
-try:
-    from pool_executors.factory import HAS_INTERPRETER_POOL_EXECUTOR
-except ImportError:  # pragma: no cover - pool_executors is a hard dep
-    HAS_INTERPRETER_POOL_EXECUTOR = False
-
 # Multiprocessing spawn is unsafe under the stdio server (children inherit
 # overlapped stdio handles and deadlock). Use in-process parallelism instead.
-_MCP_EXECUTOR = "subinterpreter" if HAS_INTERPRETER_POOL_EXECUTOR else "threading"
+# Subinterpreter wins on Python 3.14+ because it sidesteps the GIL; threading
+# elsewhere. The factory transparently falls back to multiprocessing for
+# ExecutorType.SUBINTERPRETER on older Pythons, so we have to pick ourselves
+# rather than passing SUBINTERPRETER unconditionally.
+_MCP_EXECUTOR: ExecutorType = (
+    ExecutorType.SUBINTERPRETER if sys.version_info >= (3, 14) else ExecutorType.THREADING
+)
 
 mcp = FastMCP("3gpp-crawler", instructions="3GPP specification & TDoc crawler MCP server")
 

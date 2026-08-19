@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any
 
@@ -11,11 +12,8 @@ from pool_executors.types import ExecutorType
 
 try:
     from concurrent.futures import InterpreterPoolExecutor
-
-    HAS_INTERPRETER_POOL_EXECUTOR = True
 except (ImportError, AttributeError):
     InterpreterPoolExecutor = None  # type: ignore[assignment, misc]
-    HAS_INTERPRETER_POOL_EXECUTOR = False
 
 logger = logging.getLogger("pool_executors.factory")
 
@@ -56,9 +54,14 @@ def create_executor(executor_type: ExecutorType, **kwargs: Any) -> Executor:
         return ThreadPoolExecutor(**kwargs)
 
     if exec_type is ExecutorType.SUBINTERPRETER:
-        if HAS_INTERPRETER_POOL_EXECUTOR and InterpreterPoolExecutor is not None:
+        if InterpreterPoolExecutor is not None:
             return InterpreterPoolExecutor(**kwargs)
-        logger.warning("InterpreterPoolExecutor not available (Python 3.14+ required), falling back to ProcessPoolExecutor")
+        logger.warning(
+            "ExecutorType.SUBINTERPRETER is not available on Python %s (requires 3.14+); "
+            "falling back to ProcessPoolExecutor. For stdio MCP or other spawn-unsafe "
+            "environments, request ExecutorType.THREADING instead.",
+            sys.version_info[:2],
+        )
         return ProcessPoolExecutor(**kwargs)
 
     msg = f"Unhandled executor type: {exec_type}"
