@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from gzip import decompress as gzip_decompress
 from pathlib import Path
@@ -270,9 +271,21 @@ def create_cached_session(
     logger.debug("Creating cached HTTP session with cache_db=%s)", cache_file)
     logger.debug("HTTP cache config: ttl=%s, max_retries=%s", ttl, max_retries_count)
 
-    # Create SQLite storage backend
+    # Create SQLite storage backend. WAL mode gives concurrent reads while
+    # writing and avoids "database is locked" under the threaded sub-interpreter
+    # Open the connection ourselves so we can set PRAGMA journal_mode=WAL.
+    # WAL mode gives concurrent reads while writing and avoids "database is
+    # locked" under the threaded sub-interpreter workers that crawl_tdocs
+    # uses under the MCP stdio server. Hishel accepts a pre-built connection,
+    # but treats database_path as a plain path so URI-based params like
+    # ?journal_mode=WAL won't work without this hook.
+    cache_path = Path(cache_file)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(str(cache_path), check_same_thread=False)
+    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("PRAGMA synchronous=NORMAL")
     storage = SyncSqliteStorage(
-        database_path=cache_file,
+        connection=connection,
         default_ttl=ttl,
     )
     storage = cast("SyncBaseStorage", storage)
