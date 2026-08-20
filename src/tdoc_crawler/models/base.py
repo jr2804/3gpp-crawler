@@ -16,6 +16,15 @@ class OutputFormat(StrEnum):
     YAML = auto()
 
 
+class SortKey(StrEnum):
+    """Sort keys for TDoc query ordering."""
+
+    MEETING_DATE = "meeting_date"  # default: meeting start_date, then tdoc_id
+    RESERVATION_DATE = "reservation_date"
+    UPLOADED_AT = "uploaded_at"
+    TDOC_ID = "tdoc_id"
+
+
 class SortOrder(StrEnum):
     """Sort orders accepted by query operations."""
 

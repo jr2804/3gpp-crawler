@@ -21,6 +21,12 @@ import typer
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli._shared import GlobSafeTyper
+from tdoc_crawler.cli.config_app import config_app
+from tdoc_crawler.cli.mcp_app import app as mcp_app
+from tdoc_crawler.cli.mgmt_app import mgmt_app
+from tdoc_crawler.cli.spec_app import spec_app
+from tdoc_crawler.cli.tag_app import app as tag_app
+from tdoc_crawler.cli.tdoc_app import tdoc_app
 
 
 def test_glob_safe_typer_is_typer_subclass() -> None:
@@ -29,22 +35,14 @@ def test_glob_safe_typer_is_typer_subclass() -> None:
 
 def test_cli_apps_use_glob_safe_typer() -> None:
     """Every CLI entry-point app must override Click's Windows glob expansion."""
-    from tdoc_crawler.cli.config_app import config_app
-    from tdoc_crawler.cli.mcp_app import app as mcp_app
-    from tdoc_crawler.cli.mgmt_app import mgmt_app
-    from tdoc_crawler.cli.spec_app import spec_app
-    from tdoc_crawler.cli.tag_app import app as tag_app
-    from tdoc_crawler.cli.tdoc_app import tdoc_app
-
     for app in (mgmt_app, tdoc_app, spec_app, tag_app, mcp_app, config_app):
         assert isinstance(app, GlobSafeTyper), f"{app!r} is not GlobSafeTyper"
 
 
 def test_argv_glob_value_not_rewritten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Repro of issue #2: with a matching file present in CWD, the literal
-    `*ATIAS*` passed via sys.argv reaches the callback unexpanded."""
-    import tempfile
-
+    `*ATIAS*` passed via sys.argv reaches the callback unexpanded.
+    """
     # CWD contains a file whose name is what Windows glob of `*ATIAS*` would produce.
     monkeypatch.chdir(tmp_path)
     (tmp_path / "debug_atias.py").write_text("pass")

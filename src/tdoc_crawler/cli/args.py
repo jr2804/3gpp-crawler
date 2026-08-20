@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from tdoc_crawler.config import ConfigEnvVar
+from tdoc_crawler.models.base import SortKey
 
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
@@ -33,6 +34,10 @@ LimitMeetingsPerSubWgOption = Annotated[
 LimitSubWgsOption = Annotated[int | None, typer.Option("--limit-subwgs", help="Limit number of sub-working groups")]
 LimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")]
 OrderOption = Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")]
+SortKeyOption = Annotated[
+    SortKey,
+    typer.Option("--sort-by", help="Sort key: meeting_date, reservation_date, uploaded_at, tdoc_id"),
+]
 StartDateOption = Annotated[
     str | None,
     typer.Option("--start-date", help="Filter from ISO timestamp (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)", envvar=ConfigEnvVar.TDC_START_DATE.name),

@@ -272,6 +272,8 @@ def convert_excel_row_to_tdoc_metadata(
     status = _get_column_value(row, ["TDoc Status"])
     is_revision_of = _get_column_value(row, ["Is revision of"])
     date_created = _get_column_value(row, ["Date", "Created", "Date Created", "Submission Date", "Reservation date"])
+    reservation_date = _get_column_value(row, ["Reservation date"])
+    uploaded_at = _get_column_value(row, ["Uploaded"])
 
     # Generate URL from files_url if available
     # Format: files_url + "/Docs/" + tdoc_id + ".zip"
@@ -286,8 +288,10 @@ def convert_excel_row_to_tdoc_metadata(
         if agenda_item_desc and agenda_text == "Unknown":
             agenda_text = agenda_item_desc
 
-        # Parse date
+        # Parse dates
         parsed_date = _parse_date(date_created)
+        parsed_reservation = _parse_date(reservation_date)
+        parsed_uploaded = _parse_date(uploaded_at)
 
         return TDocMetadata(
             tdoc_id=tdoc_id.upper(),
@@ -306,6 +310,8 @@ def convert_excel_row_to_tdoc_metadata(
             date_created=parsed_date,
             date_retrieved=now,
             date_updated=now,
+            reservation_date=parsed_reservation,
+            uploaded_at=parsed_uploaded,
             validated=True,  # Direct from portal, no validation needed
             validation_failed=False,
         )
@@ -425,7 +431,7 @@ def _parse_date(date_value: str | None) -> datetime | None:
     """Parse date from Excel value.
 
     Args:
-        date_value: Date value from Excel
+        date_value: Date value from Excel (string or datetime)
 
     Returns:
         datetime object or None if parsing fails
@@ -433,30 +439,33 @@ def _parse_date(date_value: str | None) -> datetime | None:
     if not date_value:
         return None
 
-    try:
-        if isinstance(date_value, datetime):
-            return date_value
-        if isinstance(date_value, str):
-            # Try common date formats (with and without time)
-            formats = [
-                "%d/%m/%Y %H:%M:%S",
-                "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%d",
-                "%d/%m/%Y",
-                "%m/%d/%Y",
-                "%d-%m-%Y",
-                "%Y/%m/%d",
-            ]
-            for fmt in formats:
-                try:
-                    return datetime.strptime(date_value, fmt)
-                except ValueError:
-                    continue
-        return None
-
-    except (TypeError, ValueError) as exc:
-        _logger.warning("Failed to parse date value '%s': %s", date_value, exc)
-        return None
+    if isinstance(date_value, datetime):
+        return date_value
+    if isinstance(date_value, str):
+        s = date_value.strip()
+        # Ordered most-specific first; covers US (m/d/Y) and ISO (Y-m-d) with
+        # and without AM/PM and fractional seconds.
+        formats = [
+            "%m/%d/%Y %I:%M:%S %p",  # 8/18/2026 3:37:04 PM
+            "%d/%m/%Y %I:%M:%S %p",
+            "%Y-%m-%d %H:%M:%S.%f",  # 2026-08-18 21:57:14.217000
+            "%Y-%m-%dT%H:%M:%S.%f",
+            "%m/%d/%Y %H:%M:%S",
+            "%d/%m/%Y %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+            "%m/%d/%Y",
+            "%d-%m-%Y",
+            "%Y/%m/%d",
+        ]
+        for fmt in formats:
+            try:
+                return datetime.strptime(s, fmt)
+            except ValueError:
+                continue
+    return None
 
 
 __all__ = [

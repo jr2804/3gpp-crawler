@@ -10,13 +10,6 @@ from pool_executors import ExecutorType, SerialPoolExecutor
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawler
 
 
-def _resolve(workers: int, executor: ExecutorType | None) -> tuple[Executor, ExecutorType]:
-    created, resolved = TDocCrawler._create_executor_for_workers(workers, executor)
-    with created:
-        pass
-    return created, resolved
-
-
 def test_auto_single_worker_is_serial() -> None:
     _, kind = _resolve(1, None)
     assert kind is ExecutorType.SERIAL
@@ -37,6 +30,13 @@ def test_serial_override_when_workers_high() -> None:
     created, kind = _resolve(4, ExecutorType.SERIAL)
     assert isinstance(created, SerialPoolExecutor)
     assert kind is ExecutorType.SERIAL
+
+
+def _resolve(workers: int, executor: ExecutorType | None) -> tuple[Executor, ExecutorType]:
+    created, resolved = TDocCrawler._create_executor_for_workers(workers, executor)
+    with created:
+        pass
+    return created, resolved
 
 
 def test_alias_mp_resolves_to_multiprocessing() -> None:

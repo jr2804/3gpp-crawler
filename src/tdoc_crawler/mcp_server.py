@@ -45,9 +45,7 @@ from tdoc_crawler.config import PathConfig
 # elsewhere. The factory transparently falls back to multiprocessing for
 # ExecutorType.SUBINTERPRETER on older Pythons, so we have to pick ourselves
 # rather than passing SUBINTERPRETER unconditionally.
-_MCP_EXECUTOR: ExecutorType = (
-    ExecutorType.SUBINTERPRETER if sys.version_info >= (3, 14) else ExecutorType.THREADING
-)
+_MCP_EXECUTOR: ExecutorType = ExecutorType.SUBINTERPRETER if sys.version_info >= (3, 14) else ExecutorType.THREADING
 
 mcp = FastMCP("3gpp-crawler", instructions="3GPP specification & TDoc crawler MCP server")
 
@@ -69,10 +67,7 @@ class _DummyContext:
 
 @mcp.tool(
     name="crawl_tdocs",
-    description=(
-        "Crawl TDoc metadata from 3GPP meeting document lists (Excel). "
-        "Scope with start_date/end_date, limit_meetings or limit_tdocs for speed"
-    ),
+    description=("Crawl TDoc metadata from 3GPP meeting document lists (Excel). Scope with start_date/end_date, limit_meetings or limit_tdocs for speed"),
 )
 def crawl_tdocs(
     working_group: list[str] | None = None,
@@ -138,6 +133,8 @@ def query_tdocs(
     title: list[str] | None = None,
     agenda: str | None = None,
     limit: int | None = None,
+    sort_by: str | None = None,
+    order: str | None = None,
 ) -> str:
     return _run_captured(
         cli_query_tdocs,
@@ -147,6 +144,8 @@ def query_tdocs(
         title=title,
         agenda=agenda,
         limit=limit,
+        sort_by=sort_by,
+        order=order,
     )
 
 
@@ -252,6 +251,19 @@ def tag_list(
     )
 
 
+# --- CONFIG GROUP ---
+
+
+@mcp.tool(name="config_show", description="Show active configuration values")
+def config_show() -> str:
+    return _run_captured(cli_config_show)
+
+
+@mcp.tool(name="config_validate", description="Validate configuration files and path settings")
+def config_validate() -> str:
+    return _run_captured(cli_config_validate)
+
+
 def _run_captured(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
     """Run a CLI function with stdout/stderr captured into a string."""
     buffer = io.StringIO()
@@ -267,19 +279,6 @@ def _run_captured(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
         sys.stdout = original_stdout
         sys.stderr = original_stderr
     return buffer.getvalue()
-
-
-# --- CONFIG GROUP ---
-
-
-@mcp.tool(name="config_show", description="Show active configuration values")
-def config_show() -> str:
-    return _run_captured(cli_config_show)
-
-
-@mcp.tool(name="config_validate", description="Validate configuration files and path settings")
-def config_validate() -> str:
-    return _run_captured(cli_config_validate)
 
 
 def run_mcp() -> None:

@@ -77,6 +77,8 @@ def print_tdoc_table(
                 "agenda_short": extract_agenda_item_short(result.agenda_item_text) or "-",
                 "status": result.status or "-",
                 "size_kb": size_kb,
+                "reservation": result.reservation_date.isoformat() if result.reservation_date else "-",
+                "uploaded": result.uploaded_at.isoformat() if result.uploaded_at else "-",
             },
         )
 
@@ -93,6 +95,8 @@ def print_tdoc_table(
             TableColumnSpec("agenda_short", "Agenda Short", style="dim"),
             TableColumnSpec("status", "Status", style="magenta"),
             TableColumnSpec("size_kb", "Size (KB)", style="blue", justify="right"),
+            TableColumnSpec("reservation", "Reserved", style="cyan"),
+            TableColumnSpec("uploaded", "Uploaded", style="cyan"),
         ],
         console=console,
     )

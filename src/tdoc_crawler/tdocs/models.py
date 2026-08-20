@@ -13,6 +13,7 @@ from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias
 from tdoc_crawler.models.base import (
     OutputFormat,
+    SortKey,
     SortOrder,
 )
 from tdoc_crawler.models.working_groups import WorkingGroup
@@ -171,7 +172,8 @@ class TDocQueryConfig(BaseModel):
     agenda_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude agenda_item_text field; multiple values are OR'd")
     tag: list[str] | None = Field(None, description="Tag filter: comma-separated values are OR-combined; repeated values are AND-combined")
     limit: int | None = Field(None, ge=1, description="Maximum results")
-    order: SortOrder = Field(SortOrder.ASC, description="Sort order (asc|desc) applied to meeting start_date, then tdoc_id")
+    order: SortOrder = Field(SortOrder.ASC, description="Sort order (asc|desc)")
+    sort_key: SortKey = Field(SortKey.MEETING_DATE, description="Sort key: meeting_date, reservation_date, uploaded_at, tdoc_id")
 
     @field_validator("tdoc_ids", mode="before")
     @classmethod

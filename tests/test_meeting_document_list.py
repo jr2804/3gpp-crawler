@@ -103,6 +103,42 @@ class TestMeetingDocumentList:
         with pytest.raises(DocumentListError, match="No recognizable TDoc ID columns found"):
             parse_excel_document_list(excel_content, meeting_id=12345)
 
+    def test_parse_excel_captures_reservation_and_upload_dates(self) -> None:
+        """Issue #5: Reservation date / Uploaded Excel columns must be captured."""
+        test_data = {
+            "TDoc": ["S4-261564", "S4-261592"],
+            "Title": ["Doc A", "Doc B"],
+            "Type": ["CR", "CR"],
+            "For": ["Agreement", "Agreement"],
+            "Source": ["Orange", "Orange, Deutsche"],
+            "Contact": ["John", "Jane"],
+            "Agenda Item": ["9.6", "9.7"],
+            # Exact formats from issue #5
+            "Reservation date": ["8/18/2026 3:37:04 PM", "8/18/2026 5:46:06 PM"],
+            "Uploaded": ["2026-08-18 21:57:14.217000", "2026-08-18 18:05:40"],
+        }
+
+        df = pd.DataFrame(test_data)
+        excel_content = _create_test_excel_bytes(df)
+
+        result = parse_excel_document_list(excel_content, meeting_id=12345)
+
+        assert len(result) == 2
+        by_id = {r.tdoc_id: r for r in result}
+
+        a = by_id["S4-261564"]
+        assert a.reservation_date is not None
+        assert a.reservation_date.year == 2026
+        assert a.reservation_date.month == 8
+        assert a.reservation_date.hour == 15  # 3:37:04 PM -> 15:37:04
+        assert a.uploaded_at is not None
+        assert a.uploaded_at.hour == 21
+        assert a.uploaded_at.microsecond == 217000
+
+        b = by_id["S4-261592"]
+        # S4-261592 was uploaded BEFORE S4-261564 despite higher TDoc number
+        assert b.uploaded_at < a.uploaded_at
+
     def test_fetch_meeting_document_list_network_error(self) -> None:
         """Test handling of network errors."""
         with patch("tdoc_crawler.tdocs.sources.doclist.create_cached_session") as mock_session:

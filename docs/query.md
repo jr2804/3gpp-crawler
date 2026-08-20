@@ -32,9 +32,20 @@ Disable with `--no-fetch`.
 | `-t, --tag TAGS` | Tag filter (repeatable, comma = OR). See [Tags](tags.md). |
 | `-l, --limit N` | Maximum rows. |
 | `--order` | `asc` or `desc`. |
+| `--sort-by KEY` | Sort key: `meeting_date` (default), `reservation_date`, `uploaded_at`, `tdoc_id`. |
 | `-o, --output FORMAT` | `table`, `json`, `yaml`. |
 | `--fetch / --no-fetch` | Automatic fetching of missing TDocs (default: on). |
 | `--checkout` | Download and extract the matched TDocs. |
+
+The JSON/YAML output and table both include the true source timestamps
+`reservation_date` (3GPP reservation slot) and `uploaded_at` (actual upload/
+revision time). These are captured from the meeting document list; use
+`--sort-by uploaded_at` to order by real submission time rather than TDoc
+number (which reflects reservation order, not upload order).
+
+```bash
+3gpp-crawler tdoc query --working-group SA4 --sort-by uploaded_at --order desc --limit 20
+```
 
 ### `query-meetings` (alias: `qm`)
 

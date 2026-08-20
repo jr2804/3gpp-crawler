@@ -124,6 +124,8 @@ class TDocMetadata(Model):
     date_created: datetime | None = None
     date_retrieved: datetime = Field(default_factory=utc_now)
     date_updated: datetime = Field(default_factory=utc_now)
+    reservation_date: datetime | None = None
+    uploaded_at: datetime | None = None
     validated: bool = Field(default=False)
     validation_failed: bool = Field(default=False)
 

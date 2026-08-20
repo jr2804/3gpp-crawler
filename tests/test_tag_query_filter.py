@@ -20,20 +20,6 @@ from tdoc_crawler.models.base import TagKind
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 
 
-def _make_tdoc(tdoc_id: str, meeting_id: int) -> TDocMetadata:
-    return TDocMetadata(
-        tdoc_id=tdoc_id,
-        meeting_id=meeting_id,
-        tbid=375,
-        title=f"Title {tdoc_id}",
-        source="Test",
-        contact="Test",
-        agenda_item_nbr="9.1",
-        agenda_item_text="Test agenda",
-        date_retrieved=datetime(2023, 1, 1, tzinfo=UTC),
-    )
-
-
 @pytest.mark.asyncio
 async def test_tag_filter_applies_before_limit(tmp_path: Path) -> None:
     """A tagged TDoc beyond the first `limit` rows must still be returned."""
@@ -91,3 +77,17 @@ async def test_tag_filter_no_match_returns_empty(tmp_path: Path) -> None:
         results = await db.query_tdocs(config)
 
     assert results == []
+
+
+def _make_tdoc(tdoc_id: str, meeting_id: int) -> TDocMetadata:
+    return TDocMetadata(
+        tdoc_id=tdoc_id,
+        meeting_id=meeting_id,
+        tbid=375,
+        title=f"Title {tdoc_id}",
+        source="Test",
+        contact="Test",
+        agenda_item_nbr="9.1",
+        agenda_item_text="Test agenda",
+        date_retrieved=datetime(2023, 1, 1, tzinfo=UTC),
+    )

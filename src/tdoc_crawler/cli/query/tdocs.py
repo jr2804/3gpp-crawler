@@ -19,6 +19,7 @@ from tdoc_crawler.cli.args import (
     LimitOption,
     OrderOption,
     OutputFormatOption,
+    SortKeyOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
@@ -37,7 +38,7 @@ from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
-from tdoc_crawler.models.base import OutputFormat, SortOrder
+from tdoc_crawler.models.base import OutputFormat, SortKey, SortOrder
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdocs, resolve_tdoc_file_sizes
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
@@ -51,6 +52,7 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     end_date: EndDateOption = None,
     limit: LimitOption = None,
     order: OrderOption = SortOrder.ASC.value,
+    sort_by: SortKeyOption = SortKey.MEETING_DATE,
     output_format: OutputFormatOption = OutputFormat.TABLE.value,
     checkout: CheckoutOption = False,
     fetch: FetchOption = True,
@@ -93,6 +95,7 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
         end_date=end,
         limit=limit,
         order=sort_order,
+        sort_key=sort_by,
         source_pattern=source,
         source_pattern_exclude=source_ex,
         title_pattern=title,

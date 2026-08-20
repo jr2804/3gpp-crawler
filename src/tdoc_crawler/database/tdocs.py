@@ -10,7 +10,7 @@ from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
-from tdoc_crawler.models.base import TagKind
+from tdoc_crawler.models.base import SortKey, TagKind
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
@@ -186,13 +186,7 @@ class TDocDatabase(MeetingDatabase):
             meeting_map = {meeting.meeting_id: meeting for meeting in await self._table_rows(MeetingMetadata)}
         descending = config.order.value.lower() == "desc"
         fallback = date.max if descending else date.min
-        records.sort(
-            key=lambda record: (
-                self._meeting_start_date(record, meeting_map, fallback),
-                record.tdoc_id.upper(),
-            ),
-            reverse=descending,
-        )
+        records.sort(key=self._sort_key(config, meeting_map, fallback), reverse=descending)
 
         if config.limit is not None:
             records = records[: config.limit]
@@ -218,6 +212,29 @@ class TDocDatabase(MeetingDatabase):
         allowed_tbids = [wg.tbid for wg in working_groups]
         records = await TDocMetadata.objects.filter(tbid__in=allowed_tbids).all()
         return {record.tdoc_id for record in records}
+
+    def _sort_key(
+        self,
+        config: TDocQueryConfig,
+        meeting_map: dict[int, MeetingMetadata],
+        fallback: date,
+    ) -> Callable[[TDocMetadata], tuple]:
+        """Return a sort-key callable for the configured ``sort_key``.
+
+        ``reservation_date`` / ``uploaded_at`` may be ``None``; falling back to
+        the opposite source date keeps genuinely-recent docs ordered sensibly.
+        """
+        if config.sort_key is SortKey.RESERVATION_DATE:
+            return lambda record: (record.reservation_date or record.uploaded_at or fallback,)
+        if config.sort_key is SortKey.UPLOADED_AT:
+            return lambda record: (record.uploaded_at or record.reservation_date or fallback,)
+        if config.sort_key is SortKey.TDOC_ID:
+            return lambda record: (record.tdoc_id.upper(),)
+        # Default: meeting start_date, then tdoc_id (case-insensitive)
+        return lambda record: (
+            self._meeting_start_date(record, meeting_map, fallback),
+            record.tdoc_id.upper(),
+        )
 
     def _apply_pattern_filters(self, records: list[TDocMetadata], config: TDocQueryConfig) -> list[TDocMetadata]:
         """Apply all supported include/exclude glob filters."""
@@ -355,6 +372,10 @@ class TDocDatabase(MeetingDatabase):
             updates["is_revision_of"] = ""
         if metadata.date_created is None:
             updates["date_created"] = metadata.date_retrieved or utc_now()
+        if metadata.reservation_date is None:
+            updates["reservation_date"] = metadata.date_retrieved or utc_now()
+        if metadata.uploaded_at is None:
+            updates["uploaded_at"] = metadata.date_retrieved or utc_now()
         if metadata.tbid is None:
             updates["tbid"] = 0
         if updates:
