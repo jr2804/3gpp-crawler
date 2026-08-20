@@ -9,8 +9,51 @@ import niquests as requests
 import pandas as pd
 import pytest
 
-from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list, parse_excel_document_list
+from tdoc_crawler.tdocs.sources.doclist import (
+    DocumentListError,
+    _construct_tdoc_url,
+    fetch_meeting_document_list,
+    parse_excel_document_list,
+)
 from tdoc_crawler.utils.version_types import AgendaItem
+
+
+class TestConstructTdocUrl:
+    """Issue #6: files_url already ends with /Docs/ and must not be doubled."""
+
+    def test_files_url_ending_in_docs_not_doubled(self) -> None:
+        """Portal MtgDocURL already points at the Docs dir; URL must keep a single /Docs/."""
+        url = _construct_tdoc_url(
+            "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/",
+            "S4-261564",
+        )
+        assert url == "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/S4-261564.zip"
+        assert "/Docs/Docs/" not in url
+
+    def test_files_url_ending_in_docs_no_trailing_slash(self) -> None:
+        url = _construct_tdoc_url(
+            "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs",
+            "S4-261564",
+        )
+        assert url == "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/S4-261564.zip"
+
+    def test_files_url_without_docs_segment_appends_it(self) -> None:
+        """files_url pointing above the Docs dir still gets a single /Docs/ appended."""
+        url = _construct_tdoc_url(
+            "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e",
+            "S4-261564",
+        )
+        assert url == "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/S4-261564.zip"
+
+    def test_upper_tdoc_id(self) -> None:
+        url = _construct_tdoc_url(
+            "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs",
+            "s4-261564",
+        )
+        assert url == "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/S4-261564.zip"
+
+    def test_none_files_url_returns_none(self) -> None:
+        assert _construct_tdoc_url(None, "S4-261564") is None
 
 
 class TestMeetingDocumentList:

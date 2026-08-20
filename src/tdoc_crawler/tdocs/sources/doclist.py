@@ -335,7 +335,12 @@ def _construct_tdoc_url(files_url: str | None, tdoc_id: str) -> str | None:
     if not files_url:
         return None
     base = files_url.rstrip("/")
-    return f"{base}/Docs/{tdoc_id.upper()}.zip"
+    # ``files_url`` (portal MtgDocURL) already points at the meeting ``Docs``
+    # directory, e.g. ``.../TSGS4_137-e/Docs``. Only append ``/Docs`` when it
+    # is not already present, so we never produce a dead ``Docs/Docs/`` path.
+    if not base.endswith("/Docs"):
+        base = f"{base}/Docs"
+    return f"{base}/{tdoc_id.upper()}.zip"
 
 
 def _extract_tdoc_id(row: pd.Series) -> str | None:
