@@ -4,3 +4,4 @@ codebase,,,,uvx --from git+https://forge.3gpp.org/rep/reimes/teddi-mcp.git teddi
 slop,github:djinn-soul/CytoScnPy,latest,cytoscnpy mcp-server,cytoscnpy,,
 tracking,github:gastownhall/beads,latest,,,gastownhall/beads,
 tracking,pipx:beads-mcp,latest,./beads-mcp,beads,,
+codebase,pipx:repowise,latest,repowise mcp .,repowise,repowise-dev/repowise,

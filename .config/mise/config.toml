@@ -26,6 +26,9 @@ ripgrep = "latest"
 "github:djinn-soul/CytoScnPy" = "latest"
 "github:AlmogBaku/debug-skill" = "latest"
 "github:rtk-ai/rtk" = "latest"
+"github:gastownhall/beads" = "latest"
+"pipx:beads-mcp" = "latest"
+"pipx:repowise" = "latest"
 #"github:arabold/docs-mcp-server" = "latest"
 
 [env]

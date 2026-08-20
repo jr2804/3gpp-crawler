@@ -268,9 +268,14 @@ src/teddi-mcp/uv.lock
 # GSD planning docs (local only)
 #.planning/
 /PLAN.md
+
+# Misc. tools
 .opencode/
 /.beads/export-state.json
 opencode.json
 /.config/mise/conf.d/mise.local.toml
+mcporter.json
+.repowise/
+
 # MkDocs build output
 site/
