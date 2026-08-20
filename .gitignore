@@ -275,6 +275,8 @@ src/teddi-mcp/uv.lock
 opencode.json
 /.config/mise/conf.d/mise.local.toml
 mcporter.json
+.mcp.json
+
 .repowise/
 
 # MkDocs build output
