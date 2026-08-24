@@ -88,7 +88,31 @@ This gives you:
 | `SpecDatabase` | `specs.py` | Spec CRUD, version management |
 | `DocDatabase` | `base.py` | Base class with shared helpers |
 
+## Schema Management — No Migrations
+
+Schema is owned by Oxyde. On startup:
+
+1. **Empty DB** (`TDocMetadata.get_table_name()` not in `sqlite_master`) → call
+   `oxyde.db.schema.create_tables()` and seed reference data.
+2. **Existing DB** → diff model columns against live columns via
+   `PRAGMA table_info`. If they match, return. Otherwise raise
+   `DatabaseError("schema-mismatch")` pointing the caller at regeneration.
+
+We deliberately do **not** run ALTER TABLE migrations on existing DBs. Adding
+a column to a model requires the user to delete the old DB or point
+`TDC_PATH_CACHE_DIR` at a fresh directory. This is the right trade-off — the
+schema is small, the cost of guessing what shape an old DB should have is high,
+and silent drift between model and table is what bit us in #5.
+
 ## Common Mistakes
+
+```python
+# ❌ WRONG — hardcoding table names
+counts = await self._clear_tables(["tdocs", "meetings"])  # stringly-typed, drift-prone
+
+# ✅ CORRECT — pass model classes; SQL names derived from the ORM
+counts = await self._clear_tables([TDocMetadata, MeetingMetadata])
+```
 
 ```python
 # ❌ WRONG — creating a parallel model

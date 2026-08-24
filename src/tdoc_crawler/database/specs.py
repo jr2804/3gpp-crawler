@@ -11,6 +11,7 @@ from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.database.oxyde_models import (
     Specification,
+    SpecificationDownload,
     SpecificationSourceRecord,
     SpecificationVersion,
 )
@@ -108,7 +109,9 @@ class SpecDatabase(DocDatabase):
         Returns:
             Mapping of table name to deleted row count.
         """
-        return await self._clear_tables(["spec_downloads", "spec_versions", "spec_source_records", "specs"])
+        return await self._clear_tables(
+            [SpecificationDownload, SpecificationVersion, SpecificationSourceRecord, Specification]
+        )
 
     async def crawl_specs(
         self,
