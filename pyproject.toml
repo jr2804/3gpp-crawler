@@ -1,6 +1,6 @@
 [project]
 name = "3gpp-crawler"
-version = "2026.08.28"
+version = "2026.08.29"
 description = "Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI."
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
@@ -21,6 +21,7 @@ dependencies = [
     # "doc2txt>=1.0.8",
     "hishel>=1.1.8",
     "packaging>=24.0",
+    "pathspec>=0.12",
     "pandas>=3.0.0",
     "pydantic>=2.12.2",
     "python-calamine>=0.5.3",

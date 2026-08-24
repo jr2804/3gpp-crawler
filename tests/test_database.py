@@ -277,9 +277,7 @@ class TestTDocDatabase:
         test_db_path.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(test_db_path) as conn:
             # Simulate an old DB: only the columns that existed before #5.
-            conn.execute(
-                "CREATE TABLE tdocmetadata (tdoc_id TEXT PRIMARY KEY, title TEXT)"
-            )
+            conn.execute("CREATE TABLE tdocmetadata (tdoc_id TEXT PRIMARY KEY, title TEXT)")
 
         with pytest.raises(DatabaseError, match="schema-mismatch"):
             async with TDocDatabase(test_db_path):

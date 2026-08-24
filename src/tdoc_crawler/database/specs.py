@@ -109,9 +109,7 @@ class SpecDatabase(DocDatabase):
         Returns:
             Mapping of table name to deleted row count.
         """
-        return await self._clear_tables(
-            [SpecificationDownload, SpecificationVersion, SpecificationSourceRecord, Specification]
-        )
+        return await self._clear_tables([SpecificationDownload, SpecificationVersion, SpecificationSourceRecord, Specification])
 
     async def crawl_specs(
         self,
