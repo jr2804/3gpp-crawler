@@ -1,0 +1,125 @@
+"""``tdoc checkout`` command — lives in its own module (not ``tdoc_app``) so
+``mcp_server`` can import it without cycling through ``tdoc_app`` → ``mcp_app``.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import zipfile
+from typing import Any
+
+import typer
+
+from tdoc_crawler.cli._shared import console, create_progress_bar
+from tdoc_crawler.cli.args import (
+    CheckoutTDocIdsArgument,
+    EolPasswordOption,
+    EolUsernameOption,
+    ForceOption,
+    FullMetadataOption,
+    PdfOption,
+    PromptCredentialsOption,
+    UseWhatTheSpecOption,
+    VerbosityOption,
+)
+from tdoc_crawler.credentials import set_credentials
+from tdoc_crawler.database import TDocDatabase
+from tdoc_crawler.extraction import convert_dir_to_pdf
+from tdoc_crawler.http_client import create_cached_session
+from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
+from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.tdocs.operations.checkout import checkout_tdoc
+from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
+from tdoc_crawler.utils.normalization import normalize_tdoc_ids
+
+
+def checkout_tdocs(
+    ctx: typer.Context,
+    tdoc_ids: CheckoutTDocIdsArgument,
+    force: ForceOption = False,
+    full_metadata: FullMetadataOption = False,
+    use_whatthespec: UseWhatTheSpecOption = False,
+    pdf: PdfOption = False,
+    eol_username: EolUsernameOption = None,
+    eol_password: EolPasswordOption = None,
+    prompt_credentials: PromptCredentialsOption = None,
+    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+) -> None:
+    """Download and extract TDoc(s) to checkout folder."""
+    set_verbosity(verbosity)
+
+    set_credentials(eol_username, eol_password, prompt=prompt_credentials)
+
+    # Get config from context (set in callback)
+    crawler_config = ctx.obj
+
+    normalized_ids = normalize_tdoc_ids(tdoc_ids)
+
+    config = TDocQueryConfig(tdoc_ids=normalized_ids)
+
+    with create_cached_session() as session:
+
+        async def _load_tdoc_results() -> list[Any]:
+
+            async with TDocDatabase(crawler_config.path.db_file) as database:
+                results = await database.query_tdocs(config)
+
+                result = await fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                    full_metadata=full_metadata,
+                    use_whatthespec=use_whatthespec,
+                    session=session,
+                )
+
+                if result.fetch_result and result.fetch_result.errors:
+                    console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
+
+                refreshed_results = result.refreshed
+
+                if not refreshed_results:
+                    raise typer.Exit(code=1)
+                return refreshed_results
+
+        results = asyncio.run(_load_tdoc_results())
+
+        checkout_dir = crawler_config.path.checkout_dir
+
+        success_count = 0
+
+        error_count = 0
+
+        progress, task = create_progress_bar("Checking out TDocs...", total=len(results))
+
+        with progress:
+            for metadata in results:
+                try:
+                    checkout_path = checkout_tdoc(metadata, checkout_dir, force=force, session=session)
+
+                    progress.console.print(f"[green]ok {metadata.tdoc_id} -> {checkout_path}")
+
+                    if pdf:
+                        converted, failed_pdfs = convert_dir_to_pdf(checkout_path, force=force)
+                        if converted:
+                            progress.console.print(f"[cyan]   {metadata.tdoc_id}: {converted} file(s) converted to PDF[/cyan]")
+                        if failed_pdfs:
+                            progress.console.print(f"[red]   {metadata.tdoc_id}: {failed_pdfs} PDF conversion(s) failed[/red]")
+
+                    success_count += 1
+
+                except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+                    progress.console.print(f"[red]FAIL {metadata.tdoc_id}: {exc}")
+
+                    error_count += 1
+
+                progress.advance(task)
+
+        console.print(f"\n[cyan]Checked out {success_count} TDoc(s)[/cyan]")
+
+        if error_count:
+            console.print(f"[red]Failed: {error_count} TDoc(s)[/red]")
+
+
+__all__ = ["checkout_tdocs"]

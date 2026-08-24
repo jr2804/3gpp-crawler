@@ -587,7 +587,7 @@ class TestOpenCommand:
 class TestCheckoutCommand:
     """Tests for checkout command with whatthespec fallback."""
 
-    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_checkout_with_whatthespec_fallback(
@@ -670,7 +670,7 @@ class TestCheckoutCommand:
         # checkout_tdoc should have been called for both TDocs
         assert mock_checkout.call_count == 2
 
-    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
+    @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_checkout_with_whatthespec_graceful_failure(

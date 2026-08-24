@@ -76,6 +76,7 @@ The `--force` flag is the ONLY way to overwrite existing output. It defaults to 
 |--------|----------------|
 | `app.py` | Typer command definitions |
 | `args.py` | Typer Annotated types |
+| `checkout.py` | `tdoc checkout` command — standalone module so `mcp_server` can import it without cycling through `tdoc_app` |
 | `console.py` | Rich Console singleton |
 | `utils.py` | CLI helpers (check classification rules) |
 | `printing.py` | Table and output formatting |

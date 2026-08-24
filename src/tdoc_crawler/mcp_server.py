@@ -11,6 +11,7 @@ import typer
 from fastmcp import FastMCP
 from pool_executors import ExecutorType
 
+from tdoc_crawler.cli.checkout import checkout_tdocs as cli_checkout_tdoc
 from tdoc_crawler.cli.config_app import (
     config_show as cli_config_show,
 )
@@ -36,7 +37,6 @@ from tdoc_crawler.cli.tag_app import (
 from tdoc_crawler.cli.tag_app import (
     tag_remove as cli_tag_remove,
 )
-from tdoc_crawler.cli.tdoc_app import checkout as cli_checkout_tdoc
 from tdoc_crawler.config import PathConfig
 
 # Multiprocessing spawn is unsafe under the stdio server (children inherit

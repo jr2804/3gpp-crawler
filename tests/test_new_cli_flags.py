@@ -151,11 +151,11 @@ class TestNewCLIFlags:
         assert kwargs["full_metadata"] is True
         assert kwargs["use_whatthespec"] is True
 
-    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
-    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
-    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
+    @patch("tdoc_crawler.cli.checkout.TDocDatabase")
+    @patch("tdoc_crawler.cli.checkout.create_cached_session")
+    @patch("tdoc_crawler.cli.checkout.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
+    @patch("tdoc_crawler.cli.checkout.set_credentials")
     @patch("tdoc_crawler.cli.tdoc_app.load_cli_config")
     def test_checkout_with_full_metadata_flag(
         self,
@@ -193,11 +193,11 @@ class TestNewCLIFlags:
         args, kwargs = mock_fetch.call_args
         assert kwargs["full_metadata"] is True
 
-    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
-    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
-    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.checkout_tdoc")
-    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
+    @patch("tdoc_crawler.cli.checkout.TDocDatabase")
+    @patch("tdoc_crawler.cli.checkout.create_cached_session")
+    @patch("tdoc_crawler.cli.checkout.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
+    @patch("tdoc_crawler.cli.checkout.set_credentials")
     @patch("tdoc_crawler.cli.tdoc_app.load_cli_config")
     def test_checkout_with_whatthespec_flag(
         self,
