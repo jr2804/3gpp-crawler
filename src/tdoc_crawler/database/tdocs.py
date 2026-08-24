@@ -105,7 +105,12 @@ class TDocDatabase(MeetingDatabase):
             prepared.append(record)
 
         all_ids = [record.tdoc_id for record in prepared]
-        existing_ids = {record.tdoc_id for record in await TDocMetadata.objects.filter(tdoc_id__in=all_ids).all()}
+        # Chunked to respect SQLite's host-variable limit (SQLITE_MAX_VARS);
+        # a single tdoc_id__in query with thousands of IDs fails outright.
+        existing_ids: set[str] = set()
+        for i in range(0, len(all_ids), SQLITE_MAX_VARS):
+            chunk = all_ids[i : i + SQLITE_MAX_VARS]
+            existing_ids.update(record.tdoc_id for record in await TDocMetadata.objects.filter(tdoc_id__in=chunk).all())
 
         now = utc_now()
         to_create: list[TDocMetadata] = []
