@@ -103,6 +103,14 @@ SQLite via `pydantic-sqlite`. Return Pydantic models. TDoc IDs use `.upper()` fo
 
 Refactor to eliminate circular dependencies. Extract shared types to `models/` layer — both modules import from neutral `models/`.
 
+Known hard cycle: `tdocs/operations/checkout.py` ← `extraction/fetch_tdoc.py` (extraction imports checkout's `checkout_tdoc`). Therefore `checkout.py` must never import from `extraction` at module level — that is why `_TDOC_DOCUMENT_SUFFIXES` is defined locally instead of reusing `OFFICE_FORMATS`. The former `cli/mcp_app.py` cycle was resolved structurally: the `tdoc checkout` command lives in `cli/checkout.py` (not `tdoc_app`) so `mcp_server` never imports `tdoc_app`. Inline imports are forbidden (csort hoists them) — resolve cycles by moving code, not by deferring imports.
+
+## TDoc Checkout Layout
+
+`tdoc open` (`prepare_tdoc_file`) and `tdoc checkout` (`checkout_tdocs` in `cli/checkout.py`) MUST share one business-logic path: both compute the on-disk location via `get_checkout_path()` (mirrors the 3GPP server URL: `checkout_dir/<tsg>/<wg>/<meeting>/Docs/<tdoc_id>`). Never introduce a parallel layout.
+
+The "main file" inside an extracted zip is picked by `_select_main_file()` using positive suffix classification (`_TDOC_DOCUMENT_SUFFIXES`): TDoc-ID-prefixed document > largest document > largest non-clutter file. OS/archive clutter is filtered by gitignore-style patterns from `utils/clutter.py`: defaults ship as packaged data (`utils/clutter-ignore`), copied to `<cache-dir>/clutter-ignore` for user editing (`!` negation re-includes; deleting the file restores defaults). The filter runs at BOTH the extraction boundary (`safe_extract_zip`) — because sidecars inherit the original's suffix, so suffix-based consumers like `--pdf` conversion cannot distinguish them — and in `_select_main_file` (covers pre-existing checkout dirs with legacy clutter on disk).
+
 ## Testing
 
 See `tests/AGENTS.md`.
