@@ -1,6 +1,7 @@
 """Tests for TDoc checkout functionality."""
 
 import io
+import os
 import zipfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -493,6 +494,103 @@ class TestSelectMainFile:
         with pytest.raises(FileNotFoundError, match="no-files-in-archive"):
             _select_main_file(extract_dir, "S4-261599")
 
+    def test_exact_id_name_wins(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "S4-261599 On objective evaluation.docx").write_bytes(b"x")
+        (extract_dir / "S4-261599.docx").write_bytes(b"x")
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+
+        assert chosen.name == "S4-261599.docx"
+
+    def test_title_match_outranks_other_prefixed_files(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        main = extract_dir / "S4-261599 On objective evaluation of binaural capture.docx"
+        main.write_bytes(b"x")
+        (extract_dir / "S4-261599 Annex A test data.xlsx").write_bytes(b"x" * 500)
+
+        chosen = _select_main_file(extract_dir, "S4-261599", title="On objective evaluation of binaural capture")
+
+        assert chosen == main
+
+    def test_case_insensitive_prefix(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "Presentation.pptx").write_bytes(b"x" * 900)
+        (extract_dir / "s4-261599 proposal.pptx").write_bytes(b"x")
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+
+        assert chosen.name == "s4-261599 proposal.pptx"
+
+    @pytest.mark.parametrize(
+        ("better", "worse"),
+        [
+            (".docx", ".pptx"),
+            (".pptx", ".ppt"),
+            (".ppt", ".pdf"),
+            (".pdf", ".xlsx"),
+            (".xlsx", ".doc"),
+            (".doc", ".xls"),
+        ],
+    )
+    def test_type_preference_order(self, tmp_path: Path, better: str, worse: str) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / f"S4-261599 title{better}").write_bytes(b"x")
+        (extract_dir / f"S4-261599 title{worse}").write_bytes(b"x")
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+
+        assert chosen.name == f"S4-261599 title{better}"
+
+    def test_marked_version_wins_by_content(self, tmp_path: Path) -> None:
+        """S4-242060 shape: v2 carries marks, v2_clean is the export."""
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        marked = extract_dir / "S4-242060_ATIAS_subjective_test_method_v2.docx"
+        _write_docx(marked, marked=True)
+        clean = extract_dir / "S4-242060_ATIAS_subjective_test_method_v2_clean.docx"
+        _write_docx(clean, marked=False)
+        chosen = _select_main_file(extract_dir, "S4-242060")
+        assert chosen == marked
+
+    def test_marked_wins_regardless_of_filename(self, tmp_path: Path) -> None:
+        """No filename convention: the file whose *content* has revision marks
+        wins even when its name suggests otherwise ("_clean").
+        """
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        clean = extract_dir / "S4-242060_ATIAS_subjective_test_method_v2.docx"
+        _write_docx(clean, marked=False)
+        marked = extract_dir / "S4-242060_ATIAS_subjective_test_method_v2_clean.docx"
+        _write_docx(marked, marked=True)
+        chosen = _select_main_file(extract_dir, "S4-242060")
+        assert chosen == marked
+
+    def test_unmarked_pair_falls_back_to_newest_mtime(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        older = extract_dir / "S4-242060 title v2.docx"
+        _write_docx(older, marked=False)
+        newer = extract_dir / "S4-242060 title v3 clean.docx"
+        _write_docx(newer, marked=False)
+        os.utime(older, (1_000_000_000, 1_000_000_000))
+        os.utime(newer, (2_000_000_000, 2_000_000_000))
+        chosen = _select_main_file(extract_dir, "S4-242060")
+        assert chosen == newer
+
+    def test_corrupt_docx_counts_as_unmarked(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "S4-242060 title.docx").write_bytes(b"not a zip")
+        marked = extract_dir / "S4-242060 title other.docx"
+        _write_docx(marked, marked=True)
+        chosen = _select_main_file(extract_dir, "S4-242060")
+        assert chosen == marked
+
 
 class TestPrepareTDocFile:
     """Tests for prepare_tdoc_file: shared layout with checkout_tdoc."""
@@ -682,6 +780,14 @@ def _pin_clutter_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     regardless of any clutter-ignore file in the machine's cache dir.
     """
     monkeypatch.setattr(clutter, "get_clutter_spec", clutter.packaged_default_spec)
+
+
+def _write_docx(path: Path, *, marked: bool, text: str = "body") -> None:
+    """Write a minimal .docx zip; *marked* injects tracked-change elements."""
+    revision = '<w:ins w:id="1" w:author="t"><w:r><w:t>edit</w:t></w:r></w:ins>' if marked else ""
+    document = f"<w:document><w:body><w:p><w:r><w:t>{text}</w:t></w:r>{revision}</w:p></w:body></w:document>"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("word/document.xml", document)
 
 
 @pytest.fixture

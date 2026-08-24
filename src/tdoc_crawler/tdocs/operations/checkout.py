@@ -7,7 +7,9 @@ directory structure as the server.
 
 from __future__ import annotations
 
+import difflib
 import posixpath
+import re
 import shutil
 import zipfile
 from dataclasses import dataclass
@@ -20,6 +22,7 @@ from bs4 import BeautifulSoup
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.base import DocumentType
 from tdoc_crawler.tdocs.models import TDocStatus
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
 from tdoc_crawler.utils.clutter import is_clutter
@@ -30,7 +33,17 @@ from tdoc_crawler.utils.security import safe_extract_zip
 # also serves loose PDFs).  Defined locally to avoid pulling extraction
 # into the tdocs package -- the import would create a cycle through
 # ``extraction.fetch_tdoc`` -> ``tdocs.operations.checkout``.
-_TDOC_DOCUMENT_SUFFIXES: frozenset[str] = frozenset({".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".rtf", ".odt", ".odp", ".ods"})
+# Main-file type preference, best first. Declaration order of the
+# ``DocumentType`` StrEnum (see ``models/base.py``) IS the preference
+# order — keep the enum sorted accordingly.
+_TDOC_DOCUMENT_TYPE_ORDER: tuple[str, ...] = tuple(t.value for t in DocumentType)
+_TDOC_DOCUMENT_SUFFIXES: frozenset[str] = frozenset(_TDOC_DOCUMENT_TYPE_ORDER)
+
+# Tracked-change (revision marks) elements in OOXML word-processing parts.
+_REVISION_MARK_ELEMENTS = re.compile(rb"<w:(?:ins|del|moveFrom|moveTo)[ />]")
+
+# Minimum difflib similarity for the optional title match to count.
+_TITLE_MATCH_THRESHOLD = 0.6
 
 logger = get_logger(__name__)
 
@@ -106,7 +119,7 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
         extract_dir = checkout_tdoc(metadata, checkout_dir, session=session)
         if return_dir:
             return extract_dir
-        return _select_main_file(extract_dir, metadata.tdoc_id)
+        return _select_main_file(extract_dir, metadata.tdoc_id, title=metadata.title)
 
     # Non-zip: drop the file under the same mirror path the server uses.
     target_dir = get_checkout_path(metadata, checkout_dir)
@@ -123,27 +136,38 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
     return target_file
 
 
-def _select_main_file(extract_dir: Path, tdoc_id: str) -> Path:
+def _select_main_file(extract_dir: Path, tdoc_id: str, *, title: str | None = None) -> Path:
     """Pick the most likely "main" file inside an extracted TDoc directory.
 
     Candidates are filtered by the gitignore-style clutter patterns
     (``<cache-dir>/clutter-ignore``, see :mod:`tdoc_crawler.utils.clutter`)
     so that OS metadata (``__MACOSX/``, ``._*``, ``~$*`` ...) is never
     picked — even from checkout directories created before extraction
-    filtering existed. Among the remaining files, classification is
-    positive (by document suffix):
+    filtering existed.
 
-    Selection rules, in order:
-        1. Document-suffix file whose name starts with the TDoc ID
-           (e.g. ``S4-261599 ...docx``).
-        2. Largest document-suffix file (real 3GPP TDocs are one such file;
-           sidecars are tiny or have unknown suffixes).
-        3. Largest non-clutter file overall (last-ditch fallback).
+    When an archive holds two versions of the same document (one with,
+    one without revision marks), the tracked-changes version wins —
+    decided by inspecting the document *content* via
+    :func:`_has_revision_marks`, never by filename conventions.
+
+    Among the remaining document-suffix files the best-ranked candidate
+    wins, by these criteria in order:
+
+        1. Name is exactly the TDoc ID (e.g. ``S4-261599.docx``).
+        2. Highest similarity to ``<tdoc_id> <title>`` (only when *title*
+           is given; scores below the threshold count as zero).
+        3. Name starts with the TDoc ID (case-insensitive).
+        4. Document carries revision marks (content probe, ``.docx`` only).
+        5. Document type, in ``DocumentType`` declaration order.
+        6. Most recent file timestamp, then name (deterministic tie-break).
+
+    Fallbacks: largest remaining document-suffix file, then largest
+    non-clutter file of any type.
 
     Args:
         extract_dir: Directory holding the extracted TDoc contents.
-        tdoc_id: TDoc identifier (e.g. ``S4-261599``) used to bias toward
-            the file that matches the archive's name.
+        tdoc_id: TDoc identifier (e.g. ``S4-261599``).
+        title: Optional portal title of the TDoc, used for fuzzy matching.
 
     Returns:
         Path to the selected main file.
@@ -157,16 +181,51 @@ def _select_main_file(extract_dir: Path, tdoc_id: str) -> Path:
         if p.is_file() and p.suffix.lower() in _TDOC_DOCUMENT_SUFFIXES and not is_clutter(p.relative_to(extract_dir).as_posix())
     ]
     if documents:
-        prefixed = [p for p in documents if p.name.startswith(tdoc_id)]
-        if prefixed:
-            return sorted(prefixed, key=lambda p: (len(p.name), p.name))[0]
-        return max(documents, key=lambda p: p.stat().st_size)
+        if len(documents) == 1:
+            return documents[0]
+        id_folded = tdoc_id.casefold()
+        title_folded = re.sub(r"\W+", " ", f"{tdoc_id} {title or ''}".casefold()).strip()
+
+        def rank(path: Path) -> tuple[bool, float, bool, bool, int, float, str]:
+            stem_folded = path.stem.casefold()
+            exact = stem_folded == id_folded
+            title_score = 0.0
+            if title:
+                ratio = difflib.SequenceMatcher(None, stem_folded, title_folded).ratio()
+                if ratio >= _TITLE_MATCH_THRESHOLD:
+                    title_score = round(ratio, 3)
+            prefixed = stem_folded.startswith(id_folded)
+            marked = _has_revision_marks(path)
+            type_rank = -_TDOC_DOCUMENT_TYPE_ORDER.index(path.suffix.lower())
+            return (exact, title_score, prefixed, marked, type_rank, path.stat().st_mtime, path.name)
+
+        return max(documents, key=rank)
 
     all_files = [p for p in extract_dir.rglob("*") if p.is_file() and not is_clutter(p.relative_to(extract_dir).as_posix())]
     if not all_files:
         msg = "no-files-in-archive"
         raise FileNotFoundError(msg)
     return max(all_files, key=lambda p: p.stat().st_size)
+
+
+def _has_revision_marks(path: Path) -> bool:
+    """True when an OOXML document carries tracked changes (revision marks).
+
+    Scans the ``word/`` XML parts for insert/delete/move revision elements.
+    Non-OOXML files (PDF, legacy ``.doc``/``.xls``) cannot be checked
+    cheaply and count as unmarked; unreadable files likewise.
+
+    This is the *only* signal used to prefer a tracked-changes version
+    over a clean one — filename markers (``_clean``, ``_rm``, ...) are
+    inconsistent across authors and are never consulted.
+    """
+    if path.suffix.lower() != ".docx":
+        return False
+    try:
+        with zipfile.ZipFile(path) as archive:
+            return any(_REVISION_MARK_ELEMENTS.search(archive.read(name)) for name in archive.namelist() if name.startswith("word/") and name.endswith(".xml"))
+    except (zipfile.BadZipFile, OSError):
+        return False
 
 
 def get_checked_out_tdocs(checkout_dir: Path) -> list[str]:

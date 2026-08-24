@@ -6,6 +6,22 @@ from dataclasses import dataclass
 from enum import StrEnum, auto
 
 
+class DocumentType(StrEnum):
+    """Document types considered the "main" file of a TDoc archive.
+
+    Declaration order is the main-file selection preference order
+    (best first). Subjective ordering — make configurable if it ever bites.
+    """
+
+    DOCX = ".docx"
+    PPTX = ".pptx"
+    PPT = ".ppt"
+    PDF = ".pdf"
+    XLSX = ".xlsx"
+    DOC = ".doc"
+    XLS = ".xls"
+
+
 class OutputFormat(StrEnum):
     """Supported output formats for CLI responses."""
 
