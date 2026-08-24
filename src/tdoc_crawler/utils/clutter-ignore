@@ -1,0 +1,20 @@
+# Clutter patterns for extracted 3GPP archives and checkout directories.
+#
+# Syntax: gitignore (https://git-scm.com/docs/gitignore) — '#' comments,
+# '!' re-includes, trailing '/' matches directories at any depth.
+#
+# This file is copied to <cache-dir>/clutter-ignore (e.g.
+# ~/.3gpp-crawler/clutter-ignore) on first use and re-created if deleted.
+# Edit that copy to extend or narrow the filter — your edits are kept.
+
+# macOS archive metadata
+__MACOSX/
+._*
+.DS_Store
+
+# Windows shell metadata
+Thumbs.db
+desktop.ini
+
+# Office lock/temp files
+~$*

@@ -8,12 +8,22 @@ import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+from tdoc_crawler.utils.clutter import is_clutter
+
 
 def safe_extract_zip(zip_path: Path, extract_dir: Path) -> None:
-    """Extract a zip file safely by validating all member paths.
+    """Extract a zip file safely, validating member paths and dropping clutter.
 
-    Prevents path traversal attacks by ensuring no extracted member
-    escapes the target directory.
+    Two jobs, one boundary:
+
+    * Path-traversal protection: no member may escape ``extract_dir``.
+    * Clutter filtering: members matching the gitignore-style patterns in
+      ``<cache-dir>/clutter-ignore`` (defaults ship in the package) are not
+      extracted — see :mod:`tdoc_crawler.utils.clutter`.
+
+    Filtering here (not in consumers) is deliberate: macOS sidecars inherit
+    the original's suffix, so suffix-based consumers like PDF conversion
+    cannot distinguish them from real documents by name or extension.
 
     Args:
         zip_path: Path to the zip file to extract.
@@ -26,6 +36,8 @@ def safe_extract_zip(zip_path: Path, extract_dir: Path) -> None:
     extract_dir = extract_dir.resolve()
     with zipfile.ZipFile(zip_path) as zf:
         for member in zf.infolist():
+            if is_clutter(member.filename):
+                continue
             member_path = (extract_dir / member.filename).resolve()
             if not str(member_path).startswith(str(extract_dir)):
                 msg = f"Zip member {member.filename!r} escapes target directory {extract_dir}"
@@ -51,7 +63,7 @@ def validate_api_url(url: str) -> str:
     parsed = urlparse(url)
 
     if parsed.scheme not in ("http", "https"):
-        msg = f"Invalid API URL scheme {parsed.scheme!r} — only http and https are allowed"
+        msg = f"Invalid API URL scheme {parsed.scheme!r} -- only http and https are allowed"
         raise ValueError(msg)
 
     if not parsed.hostname:
@@ -61,7 +73,7 @@ def validate_api_url(url: str) -> str:
     try:
         ip = ipaddress.ip_address(parsed.hostname)
     except ValueError:
-        # Hostname is a domain name — resolve DNS and check all resulting IPs
+        # Hostname is a domain name -- resolve DNS and check all resulting IPs
         try:
             addr_infos = socket.getaddrinfo(parsed.hostname, None)
         except socket.gaierror:
@@ -75,7 +87,6 @@ def validate_api_url(url: str) -> str:
         return url
 
     if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local or ip.is_multicast:
-        msg = f"API URL hostname {parsed.hostname!r} resolves to a private/reserved address"
+        msg = f"API URL hostname {parsed.hostname!r} resolves to private/reserved address {ip}"
         raise ValueError(msg)
-
     return url

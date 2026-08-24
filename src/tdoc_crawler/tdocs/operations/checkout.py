@@ -10,7 +10,6 @@ from __future__ import annotations
 import posixpath
 import shutil
 import zipfile
-from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -23,7 +22,15 @@ from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.models import TDocStatus
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
+from tdoc_crawler.utils.clutter import is_clutter
 from tdoc_crawler.utils.security import safe_extract_zip
+
+# Suffixes we treat as a TDoc's "main document".  Mirrors the
+# ``OFFICE_FORMATS`` set in ``extraction/convert.py`` plus ``.pdf`` (3GPP
+# also serves loose PDFs).  Defined locally to avoid pulling extraction
+# into the tdocs package -- the import would create a cycle through
+# ``extraction.fetch_tdoc`` -> ``tdocs.operations.checkout``.
+_TDOC_DOCUMENT_SUFFIXES: frozenset[str] = frozenset({".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".rtf", ".odt", ".odp", ".ods"})
 
 logger = get_logger(__name__)
 
@@ -56,61 +63,56 @@ def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> 
 
 
 def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bool = False, session: requests.Session | None = None) -> Path:
-    """Prepare TDoc file for opening (download and extract if needed).
+    """Prepare the local file for a TDoc, downloading/extracting if needed.
+
+    Routes through :func:`checkout_tdoc` so that ``tdoc open`` and
+    ``tdoc checkout`` share a single business-logic path: the on-disk
+    layout mirrors the 3GPP server (under
+    ``tsg_<tsg>/<wg>/<meeting>/Docs/<tdoc_id>``); archive clutter is
+    filtered by the user-editable ``clutter-ignore`` patterns.
 
     Args:
         metadata: TDoc metadata with download URL.
-        checkout_dir: Checkout directory for downloads and extracted files.
-        return_dir: When True and TDoc is a zip, return the extract directory.
+        checkout_dir: Checkout directory (base of the mirror tree).
+        return_dir: When True, return the extract directory itself instead
+            of the picked "main file" inside it.
         session: Optional requests.Session to reuse for downloads.
 
     Returns:
-        Path to the downloaded file, or the extract directory when return_dir is True.
+        Path to the picked main file, or the extract directory when
+        ``return_dir`` is True. For non-zip URLs, returns the downloaded
+        file path.
 
     Raises:
-        FileNotFoundError: If download fails for non-withdrawn TDocs
+        FileNotFoundError: If the TDoc is withdrawn, the download fails,
+            or the archive contains no usable file.
+        ValueError: If ``metadata.url`` is missing.
     """
-    # Handle the case where metadata.url is None
     if metadata.url is None:
         msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None"
         raise ValueError(msg)
 
-    # Check if TDoc is withdrawn - if so, skip download and log debug message
     if metadata.status == TDocStatus.WITHDRAWN:
         logger.debug(f"Skipping download for withdrawn TDoc {metadata.tdoc_id}")
         msg = "withdrawn"
         raise FileNotFoundError(msg)
 
-    downloads_dir = Path(checkout_dir)
-    downloads_dir.mkdir(parents=True, exist_ok=True)
+    checkout_dir.mkdir(parents=True, exist_ok=True)
     url_path = urlparse(metadata.url).path
     filename = str(posixpath.basename(url_path))
     suffix = Path(filename).suffix.lower()
 
     if suffix == ".zip":
-        extract_dir = downloads_dir / metadata.tdoc_id
-        if extract_dir.exists():
-            files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
-            if files:
-                return extract_dir if return_dir else files[0]
-            shutil.rmtree(extract_dir)
-        zip_file = downloads_dir / f"{metadata.tdoc_id}.zip"
-        download_to_file(metadata.url, zip_file, session=session)
-        try:
-            safe_extract_zip(zip_file, extract_dir)
-        finally:
-            with suppress(FileNotFoundError):
-                zip_file.unlink()
-        files = sorted(p for p in extract_dir.rglob("*") if p.is_file())
-        if not files:
-            msg = "no-files-in-archive"
-            raise FileNotFoundError(msg)
-        return extract_dir if return_dir else files[0]
+        extract_dir = checkout_tdoc(metadata, checkout_dir, session=session)
+        if return_dir:
+            return extract_dir
+        return _select_main_file(extract_dir, metadata.tdoc_id)
 
-    # For non-zip files, download directly
-    target_suffix = suffix or ""
-    target_name = filename or f"{metadata.tdoc_id}{target_suffix or '.bin'}"
-    target_file = downloads_dir / target_name
+    # Non-zip: drop the file under the same mirror path the server uses.
+    target_dir = get_checkout_path(metadata, checkout_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_name = filename or f"{metadata.tdoc_id}{suffix or '.bin'}"
+    target_file = target_dir / target_name
     if not target_file.exists():
         try:
             download_to_file(metadata.url, target_file, session=session)
@@ -119,6 +121,52 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
             msg = f"failed-to-download ({status_code}): {metadata.url}"
             raise FileNotFoundError(msg) from exc
     return target_file
+
+
+def _select_main_file(extract_dir: Path, tdoc_id: str) -> Path:
+    """Pick the most likely "main" file inside an extracted TDoc directory.
+
+    Candidates are filtered by the gitignore-style clutter patterns
+    (``<cache-dir>/clutter-ignore``, see :mod:`tdoc_crawler.utils.clutter`)
+    so that OS metadata (``__MACOSX/``, ``._*``, ``~$*`` ...) is never
+    picked — even from checkout directories created before extraction
+    filtering existed. Among the remaining files, classification is
+    positive (by document suffix):
+
+    Selection rules, in order:
+        1. Document-suffix file whose name starts with the TDoc ID
+           (e.g. ``S4-261599 ...docx``).
+        2. Largest document-suffix file (real 3GPP TDocs are one such file;
+           sidecars are tiny or have unknown suffixes).
+        3. Largest non-clutter file overall (last-ditch fallback).
+
+    Args:
+        extract_dir: Directory holding the extracted TDoc contents.
+        tdoc_id: TDoc identifier (e.g. ``S4-261599``) used to bias toward
+            the file that matches the archive's name.
+
+    Returns:
+        Path to the selected main file.
+
+    Raises:
+        FileNotFoundError: If no usable file is present.
+    """
+    documents = [
+        p
+        for p in extract_dir.rglob("*")
+        if p.is_file() and p.suffix.lower() in _TDOC_DOCUMENT_SUFFIXES and not is_clutter(p.relative_to(extract_dir).as_posix())
+    ]
+    if documents:
+        prefixed = [p for p in documents if p.name.startswith(tdoc_id)]
+        if prefixed:
+            return sorted(prefixed, key=lambda p: (len(p.name), p.name))[0]
+        return max(documents, key=lambda p: p.stat().st_size)
+
+    all_files = [p for p in extract_dir.rglob("*") if p.is_file() and not is_clutter(p.relative_to(extract_dir).as_posix())]
+    if not all_files:
+        msg = "no-files-in-archive"
+        raise FileNotFoundError(msg)
+    return max(all_files, key=lambda p: p.stat().st_size)
 
 
 def get_checked_out_tdocs(checkout_dir: Path) -> list[str]:

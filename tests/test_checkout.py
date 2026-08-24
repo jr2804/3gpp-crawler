@@ -6,15 +6,21 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from pathspec import GitIgnoreSpec
 
 from tdoc_crawler.database.oxyde_models import TDocMetadata
+from tdoc_crawler.tdocs.models import TDocStatus
 from tdoc_crawler.tdocs.operations.checkout import (
     _resolve_corrected_url,
+    _select_main_file,
     checkout_tdoc,
     get_checked_out_tdocs,
     get_checkout_path,
+    prepare_tdoc_file,
     resolve_tdoc_checkout_path,
 )
+from tdoc_crawler.utils import clutter
+from tdoc_crawler.utils.security import safe_extract_zip
 
 
 class TestGetCheckoutPath:
@@ -410,6 +416,274 @@ class TestResolveTdocCheckoutPath:
         assert result is None
 
 
+class TestSelectMainFile:
+    """Tests for _select_main_file: picks the right file by type, not by name antipatterns."""
+
+    def test_picks_real_docx_over_macos_clutter(self, tmp_path: Path) -> None:
+        """The real .docx wins over __MACOSX/._* sidecars because suffix matches."""
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        macos = extract_dir / "__MACOSX"
+        macos.mkdir()
+        (macos / "._S4-261599 real.docx").write_bytes(b"clutter")
+        (extract_dir / "S4-261599 real.docx").write_bytes(b"real")
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+        assert chosen.name == "S4-261599 real.docx"
+        assert not chosen.parts[-2].startswith("_")
+
+    def test_unknown_suffix_files_are_not_picked_over_known_documents(self, tmp_path: Path) -> None:
+        """A .docx is preferred over a .png / .xml even if those are bigger."""
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "metadata.xml").write_bytes(b"x" * 10_000)
+        (extract_dir / "cover.png").write_bytes(b"x" * 5_000)
+        (extract_dir / "S4-261599 notes.docx").write_bytes(b"x" * 100)
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+        assert chosen.suffix == ".docx"
+
+    def test_largest_document_suffix_wins(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "small.docx").write_bytes(b"x")
+        (extract_dir / "big.docx").write_bytes(b"x" * 1000)
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+        assert chosen.name == "big.docx"
+
+    def test_pdf_is_treated_as_a_document(self, tmp_path: Path) -> None:
+        """3GPP also serves loose PDFs; a .pdf must be pickable."""
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "S4-261599 paper.pdf").write_bytes(b"%PDF-1.4")
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+        assert chosen.suffix == ".pdf"
+
+    def test_tdoc_id_prefix_wins_among_documents(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "cover.png").write_bytes(b"x" * 100)
+        (extract_dir / "S4-261599 on binaural capture.docx").write_bytes(b"x" * 50)
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+        assert chosen.name.startswith("S4-261599 ")
+
+    def test_only_clutter_in_archive_falls_back_to_largest(self, tmp_path: Path) -> None:
+        """If the zip contains only non-document files, pick the largest by suffix
+        fallback (not by name). Documents always take precedence; only when
+        there are zero documents do we fall back to a size-based pick of
+        whatever's there. This is a useful last-ditch signal -- the alternative
+        is to raise, which would block an open() over a real archive that just
+        doesn't happen to have an Office file in it.
+        """
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+        (extract_dir / "_notes.txt").write_bytes(b"x")
+        (extract_dir / "ghost.xml").write_bytes(b"x" * 1000)
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+        assert chosen.name == "ghost.xml"
+
+    def test_no_files_raises(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        extract_dir.mkdir()
+
+        with pytest.raises(FileNotFoundError, match="no-files-in-archive"):
+            _select_main_file(extract_dir, "S4-261599")
+
+
+class TestPrepareTDocFile:
+    """Tests for prepare_tdoc_file: shared layout with checkout_tdoc."""
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
+    def test_zip_uses_meeting_mirror_path(
+        self,
+        mock_download: Mock,
+        checkout_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """prepare_tdoc_file must lay out zips under the same mirror path as checkout_tdoc.
+        The macOS sidecar is dropped at extraction (AppleDouble magic), so only the
+        real document exists on disk and is picked.
+        """
+        tdoc_id = "S4-261599"
+        url = "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/S4-261599.zip"
+        metadata = _make_metadata(tdoc_id, url)
+
+        zip_path = tmp_path / "S4-261599.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("__MACOSX/._S4-261599 On binaural capture.docx", b"\x00\x05\x16\x07" + b"x" * 1000)
+            zf.writestr(f"{tdoc_id} On binaural capture.docx", b"real")
+
+        def _write_zip(url: str, dest: Path, session: object = None) -> None:
+            dest.write_bytes(zip_path.read_bytes())
+
+        mock_download.side_effect = _write_zip
+
+        result = prepare_tdoc_file(metadata, checkout_dir)
+
+        expected_dir = checkout_dir / "tsg_sa" / "WG4_CODEC" / "TSGS4_137-e" / "Docs" / tdoc_id
+        assert result.parent == expected_dir
+        assert result.name == f"{tdoc_id} On binaural capture.docx"
+        assert not (expected_dir / "__MACOSX").exists()
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
+    def test_zip_return_dir_returns_extract_dir(
+        self,
+        mock_download: Mock,
+        checkout_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        tdoc_id = "S4-261600"
+        url = f"https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/{tdoc_id}.zip"
+        metadata = _make_metadata(tdoc_id, url)
+
+        zip_path = tmp_path / f"{tdoc_id}.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr(f"{tdoc_id} doc.docx", b"x")
+
+        mock_download.side_effect = lambda u, d, session=None: d.write_bytes(zip_path.read_bytes())
+
+        result = prepare_tdoc_file(metadata, checkout_dir, return_dir=True)
+        expected_dir = checkout_dir / "tsg_sa" / "WG4_CODEC" / "TSGS4_137-e" / "Docs" / tdoc_id
+        assert result == expected_dir
+
+    def test_withdrawn_raises(self, checkout_dir: Path) -> None:
+        metadata = _make_metadata(
+            "S4-261601",
+            "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/S4-261601.zip",
+            status=TDocStatus.WITHDRAWN,
+        )
+        with pytest.raises(FileNotFoundError, match="withdrawn"):
+            prepare_tdoc_file(metadata, checkout_dir)
+
+    def test_missing_url_raises(self, checkout_dir: Path) -> None:
+        metadata = _make_metadata("S4-261602", None)
+        with pytest.raises(ValueError, match="URL is None"):
+            prepare_tdoc_file(metadata, checkout_dir)
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
+    def test_non_zip_uses_mirror_path(
+        self,
+        mock_download: Mock,
+        checkout_dir: Path,
+    ) -> None:
+        """Non-zip TDocs (e.g. a loose .docx) also live under the mirror path."""
+        tdoc_id = "S4-261603"
+        url = f"https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_137-e/Docs/{tdoc_id}.docx"
+        metadata = _make_metadata(tdoc_id, url)
+        mock_download.side_effect = lambda u, d, session=None: d.write_bytes(b"x")
+
+        result = prepare_tdoc_file(metadata, checkout_dir)
+        expected_dir = checkout_dir / "tsg_sa" / "WG4_CODEC" / "TSGS4_137-e" / "Docs" / tdoc_id
+        assert result.parent == expected_dir
+        assert result.name == f"{tdoc_id}.docx"
+
+
+class TestSafeExtractZipPathTraversal:
+    """Tests that safe_extract_zip's security job is path-traversal protection."""
+
+    def test_rejects_zip_slip(self, tmp_path: Path) -> None:
+        zip_path = tmp_path / "evil.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("../escaped.txt", b"x")
+            zf.writestr("inside.txt", b"y")
+
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="escapes target directory"):
+            safe_extract_zip(zip_path, out)
+
+
+class TestSafeExtractZipClutterIgnore:
+    """safe_extract_zip drops clutter per the gitignore-style pattern file."""
+
+    def test_drops_default_clutter_patterns(self, tmp_path: Path) -> None:
+        """The shipped defaults drop macOS/Windows/Office metadata."""
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr("__MACOSX/._real.docx", b"x" * 10)
+            zf.writestr("._real.docx", b"x" * 10)
+            zf.writestr("sub/.DS_Store", b"ds")
+            zf.writestr("Thumbs.db", b"t")
+            zf.writestr("~$real.docx", b"lock")
+            zf.writestr("real.docx", b"real")
+
+        out = self._extract(tmp_path)
+
+        assert (out / "real.docx").exists()
+        assert not (out / "__MACOSX").exists()
+        assert not any(out.rglob("._*"))
+        assert not any(out.rglob(".DS_Store"))
+        assert not (out / "Thumbs.db").exists()
+        assert not any(out.rglob("~$*"))
+
+    def test_user_patterns_extend_filtering(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A user clutter-ignore file adds patterns; ``!`` re-includes."""
+        ignore_file = tmp_path / "clutter-ignore"
+        ignore_file.write_text("*.png\n!keep.png\n", encoding="utf-8")
+        monkeypatch.setattr(clutter, "get_clutter_spec", lambda: GitIgnoreSpec.from_lines(["*.png", "!keep.png"]))
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr("cover.png", b"x")
+            zf.writestr("keep.png", b"x")
+            zf.writestr("real.docx", b"real")
+
+        out = self._extract(tmp_path)
+
+        assert (out / "keep.png").exists()
+        assert (out / "real.docx").exists()
+        assert not (out / "cover.png").exists()
+
+    def test_user_ignore_file_materialized_from_default(self, tmp_path: Path) -> None:
+        """user_ignore_file() writes the packaged defaults into the cache dir."""
+        target = clutter.user_ignore_file(tmp_path)
+
+        assert target == tmp_path / clutter.USER_IGNORE_FILENAME
+        assert target.exists()
+        assert GitIgnoreSpec.from_lines(target.read_text(encoding="utf-8").splitlines()).match_file("__MACOSX/._x")
+
+    def _extract(self, tmp_path: Path) -> Path:
+        out = tmp_path / "out"
+        out.mkdir()
+        safe_extract_zip(tmp_path / "src.zip", out)
+        return out
+
+
+class TestSelectMainFileIgnoresLegacyClutter:
+    """_select_main_file skips clutter even in pre-existing checkout dirs."""
+
+    def test_legacy_macos_dir_on_disk_is_skipped(self, tmp_path: Path) -> None:
+        """Old checkouts contain __MACOSX dirs on disk; the picker must skip them."""
+        extract_dir = tmp_path / "extracted"
+        macos = extract_dir / "__MACOSX"
+        macos.mkdir(parents=True)
+        # Sidecar is bigger and also .docx — must not win.
+        (macos / "._S4-261599 big.docx").write_bytes(b"x" * 10_000)
+        (extract_dir / "S4-261599 real.docx").write_bytes(b"x" * 100)
+
+        chosen = _select_main_file(extract_dir, "S4-261599")
+
+        assert chosen.name == "S4-261599 real.docx"
+
+    def test_only_clutter_on_disk_raises(self, tmp_path: Path) -> None:
+        extract_dir = tmp_path / "extracted"
+        macos = extract_dir / "__MACOSX"
+        macos.mkdir(parents=True)
+        (macos / "._S4-261599.docx").write_bytes(b"x")
+
+        with pytest.raises(FileNotFoundError, match="no-files-in-archive"):
+            _select_main_file(extract_dir, "S4-261599")
+
+
+@pytest.fixture(autouse=True)
+def _pin_clutter_spec(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin clutter filtering to the shipped defaults so tests are hermetic
+    regardless of any clutter-ignore file in the machine's cache dir.
+    """
+    monkeypatch.setattr(clutter, "get_clutter_spec", clutter.packaged_default_spec)
+
+
 @pytest.fixture
 def sample_tdoc_metadata() -> TDocMetadata:
     """Create sample TDoc metadata for testing."""
@@ -438,3 +712,25 @@ def sample_tdoc_metadata() -> TDocMetadata:
 def checkout_dir(tmp_path: Path) -> Path:
     """Create temporary checkout directory."""
     return tmp_path / "checkout"
+
+
+def _make_metadata(tdoc_id: str, url: str | None, *, status: str | None = None) -> TDocMetadata:
+    return TDocMetadata(
+        tdoc_id=tdoc_id,
+        meeting_id=1,
+        title=tdoc_id,
+        source="x",
+        contact="x",
+        agenda_item_nbr="1.0",
+        url=url,
+        tdoc_type="x",
+        for_purpose="x",
+        agenda_item_text="x",
+        status=status,
+        meeting_name="x",
+        is_revision_of=None,
+        file_size=None,
+        date_created=None,
+        validated=False,
+        validation_failed=False,
+    )
