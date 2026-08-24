@@ -68,44 +68,10 @@ class DocDatabase:
                 await self._database.disconnect()
         self._database = None
 
-    async def _ensure_schema(self) -> None:
-        """Verify the live DB schema matches the models; create if empty.
-
-        Two paths:
-
-        * Empty DB (``sqlite_master`` has no ``tdocmetadata`` table) → call
-          ``create_tables()`` and we're done.
-        * Existing DB → diff model columns against live columns. If they
-          match, return. Otherwise raise a hard error — we do not run
-          migrations, by design.
-        """
-        if self._database is None:
-            return
-        sentinel = TDocMetadata.get_table_name()
-        tables = await execute_raw("SELECT name FROM sqlite_master WHERE type='table'")
-        if not any(t["name"] == sentinel for t in tables):
-            await create_tables(self._database)
-            return
-
-        expected = extract_current_schema(dialect="sqlite").get("tables", {})
-        missing: list[tuple[str, str]] = []  # (table, column)
-        for table_name, table_def in expected.items():
-            rows = await execute_raw(f"PRAGMA table_info({table_name})")
-            existing = {row["name"] for row in rows}
-            desired = {f["name"] for f in table_def.get("fields", [])}
-            for col in sorted(desired - existing):
-                missing.append((table_name, col))
-        if missing:
-            details = ", ".join(f"{t}.{c}" for t, c in missing)
-            msg = "schema-mismatch"
-            raise DatabaseError(
-                msg,
-                detail=(
-                    f"Database schema is out of date (missing: {details}). "
-                    "Delete the database file and re-crawl, or set "
-                    "TDC_PATH_CACHE_DIR to a fresh directory."
-                ),
-            )
+    async def clear_tdocs(self) -> int:
+        """Clear all TDoc records from database."""
+        counts = await self._clear_tables([TDocMetadata])
+        return counts.get(TDocMetadata.get_table_name(), 0)
 
     # ------------------------------------------------------------------
     # Crawl logging
@@ -147,6 +113,45 @@ class DocDatabase:
             errors_count=errors_count,
             status="COMPLETED",
         )
+
+    async def _ensure_schema(self) -> None:
+        """Verify the live DB schema matches the models; create if empty.
+
+        Two paths:
+
+        * Empty DB (``sqlite_master`` has no ``tdocmetadata`` table) → call
+          ``create_tables()`` and we're done.
+        * Existing DB → diff model columns against live columns. If they
+          match, return. Otherwise raise a hard error — we do not run
+          migrations, by design.
+        """
+        if self._database is None:
+            return
+        sentinel = TDocMetadata.get_table_name()
+        tables = await execute_raw("SELECT name FROM sqlite_master WHERE type='table'")
+        if not any(t["name"] == sentinel for t in tables):
+            await create_tables(self._database)
+            return
+
+        expected = extract_current_schema(dialect="sqlite").get("tables", {})
+        missing: list[tuple[str, str]] = []  # (table, column)
+        for table_name, table_def in expected.items():
+            rows = await execute_raw(f"PRAGMA table_info({table_name})")
+            existing = {row["name"] for row in rows}
+            desired = {f["name"] for f in table_def.get("fields", [])}
+            for col in sorted(desired - existing):
+                missing.append((table_name, col))
+        if missing:
+            details = ", ".join(f"{t}.{c}" for t, c in missing)
+            msg = "schema-mismatch"
+            raise DatabaseError(
+                msg,
+                detail=(
+                    f"Database schema is out of date (missing: {details}). "
+                    "Delete the database file and re-crawl, or set "
+                    "TDC_PATH_CACHE_DIR to a fresh directory."
+                ),
+            )
 
     @staticmethod
     async def _seed_reference_data() -> None:
@@ -192,11 +197,6 @@ class DocDatabase:
                 _logger.exception("Failed to clear table %s: %s", table, exc)
                 counts[table] = 0
         return counts
-
-    async def clear_tdocs(self) -> int:
-        """Clear all TDoc records from database."""
-        counts = await self._clear_tables([TDocMetadata])
-        return counts.get(TDocMetadata.get_table_name(), 0)
 
     @staticmethod
     async def _table_rows(model_class: type) -> list:
