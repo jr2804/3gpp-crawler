@@ -188,25 +188,36 @@ class DocDatabase:
         if self._database is None:
             return
 
-        migrations = [
-            (
-                "tdocs",
-                "tbid",
-                "ALTER TABLE tdocs ADD COLUMN tbid INTEGER DEFAULT NULL",
-            ),
-        ]
+        # Compare the model's declared columns against the live table.
+        # extract_current_schema() is the same source of truth used by
+        # _ensure_tables_exist() for CREATE TABLE — so adding a field to the
+        # model is the only step required to ship a new migration.
+        new_schema = extract_current_schema(dialect="sqlite")
+        migrations: list[tuple[str, str, str]] = []
+        for table_name, table_def in new_schema.get("tables", {}).items():
+            desired_cols = {f["name"] for f in table_def.get("fields", [])}
+            rows = await execute_raw(f"PRAGMA table_info({table_name})")
+            existing_cols = {row["name"] for row in rows}
+            for col in sorted(desired_cols - existing_cols):
+                # python_type drives the column type; default to TEXT (covers
+                # str / datetime / int / bool — SQLite is dynamically typed).
+                field = next(f for f in table_def["fields"] if f["name"] == col)
+                py_type = field.get("python_type", "str")
+                sqlite_type = "INTEGER" if py_type == "int" else "TEXT"
+                migrations.append(
+                    (
+                        table_name,
+                        col,
+                        f"ALTER TABLE {table_name} ADD COLUMN {col} {sqlite_type}",
+                    )
+                )
 
         for table_name, column_name, alter_sql in migrations:
             try:
-                raw_ir = {"proto": 1, "op": "raw", "table": "", "sql": f"PRAGMA table_info({table_name})"}
-                result = await self._database.execute(raw_ir)
-                columns = [row[1] for row in result] if result else []
-                if column_name not in columns:
-                    _logger.info("Migrating %s: adding column %s", table_name, column_name)
-                    migrate_ir = {"proto": 1, "op": "raw", "table": "", "sql": alter_sql}
-                    await self._database.execute(migrate_ir)
+                _logger.info("Migrating %s: adding column %s", table_name, column_name)
+                await execute_raw(alter_sql)
             except Exception as exc:
-                _logger.debug("Migration check for %s.%s skipped: %s", table_name, column_name, exc)
+                _logger.warning("Migration failed for %s.%s: %s", table_name, column_name, exc)
 
     @staticmethod
     async def _ensure_reference_data() -> None:

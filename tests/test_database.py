@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -266,6 +267,26 @@ class TestTDocDatabase:
 
         with pytest.raises(DatabaseError):
             _ = db.connection
+
+    async def test_migrations_add_reservation_and_uploaded_columns(self, test_db_path: Path) -> None:
+        """Migration framework must add reservation_date + uploaded_at to tdocmetadata.
+
+        Regression: the columns were added to the model in #5 but not to existing
+        databases, causing ``no such column: tdocmetadata.reservation_date`` on
+        every query.
+        """
+        # Build a DB that mimics a pre-#5 schema: tdocmetadata without the new cols.
+        test_db_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(test_db_path) as conn:
+            conn.execute(
+                "CREATE TABLE tdocmetadata (tdoc_id TEXT PRIMARY KEY, title TEXT)"
+            )
+
+        async with TDocDatabase(test_db_path):
+            with sqlite3.connect(test_db_path) as conn:
+                columns = {row[1] for row in conn.execute("PRAGMA table_info(tdocmetadata)").fetchall()}
+        assert "reservation_date" in columns
+        assert "uploaded_at" in columns
 
     def _query_all(self, cache_dir: Path) -> TDocQueryConfig:
         _ = cache_dir
