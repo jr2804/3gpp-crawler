@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
@@ -15,9 +14,14 @@ from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
-from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
+from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult, is_orphan_tdoc
 
 from .conftest import insert_sample_meetings_async
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 runner = CliRunner()
 
@@ -242,9 +246,38 @@ class TestQueryCommand:
 
         assert result.exit_code == 0
         config = mock_db.query_tdocs.await_args.args[0]
-        assert config.working_groups is None, (
-            f"expected no working_group filter, got {config.working_groups!r}"
+        assert config.working_groups is None, f"expected no working_group filter, got {config.working_groups!r}"
+
+    @patch("tdoc_crawler.cli.query.tdocs.TDocDatabase")
+    def test_query_warns_on_orphans_without_refresh(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Query result containing an orphan must print a warning."""
+        orphan = TDocMetadata(
+            tdoc_id="SA4AA250001",
+            meeting_id=0,
+            tbid=0,
+            title="Orphan",
+            source="",
+            contact="",
+            tdoc_type="unknown",
+            for_purpose="unknown",
+            agenda_item_nbr="0",
+            agenda_item_text="Unknown",
+            status=None,
         )
+        assert is_orphan_tdoc(orphan)
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=[orphan])
+
+        result = runner.invoke(tdoc_app, ["query", "SA4AA250001", "--no-fetch"])
+
+        assert result.exit_code == 0
+        assert "orphan" in result.stdout
+        assert "--refresh-orphans" in result.stdout
 
 
 class TestQueryMeetingsCommand:

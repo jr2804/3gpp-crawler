@@ -6,10 +6,12 @@ abstraction to fetch metadata from various sources (WhatTheSpec, Portal, etc.).
 
 from __future__ import annotations
 
+import types
+import typing
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from pathlib import Path
 
-import niquests as requests
 from pydantic import ValidationError
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
@@ -17,7 +19,6 @@ from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.sources import (
     DocumentListSource,
@@ -25,6 +26,15 @@ from tdoc_crawler.tdocs.sources import (
     TDocSourceConfig,
     WhatTheSpecSource,
 )
+from tdoc_crawler.utils.misc import utc_now
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    import niquests as requests
+
+    from tdoc_crawler.tdocs.models import TDocQueryConfig
 
 logger = get_logger(__name__)
 
@@ -57,6 +67,190 @@ class FetchMissingResult:
         self.refreshed = refreshed
         self.fetch_result = fetch_result
         self.used_whatthespec_fallback = used_whatthespec_fallback
+
+
+@dataclass(frozen=True, slots=True)
+class _RefreshableField:
+    """A TDoc field WhatTheSpec can supply, with rules for when to overwrite.
+
+    Attributes:
+        field_name: Attribute name on ``TDocMetadata``.
+        is_empty_on_orphan: Predicate that returns True when the orphan's
+            current value is a default/placeholder that should be replaced.
+        is_meaningful_on_fresh: Predicate that returns True when the
+            WhatTheSpec-returned value is worth applying (non-empty, not a
+            known placeholder).
+    """
+
+    field_name: str
+    is_empty_on_orphan: Callable[[TDocMetadata], bool]
+    is_meaningful_on_fresh: Callable[[object], bool]
+
+
+def is_orphan_tdoc(record: TDocMetadata) -> bool:
+    """A TDoc is orphaned when both ``meeting_id`` and ``tbid`` are unset.
+
+    Orphans arise when a doc is fetched via WhatTheSpec (whose ``meeting``
+    field is the FTP directory name, not a local meeting identifier — see
+    memory #425) and the underlying meeting isn't local, so neither
+    ``resolve_meeting_id`` nor ``_resolve_tbid`` can fill in the linkage.
+    Orphan records are valid but their meeting/tbid is unrecoverable from
+    the local DB alone.
+    """
+    return record.meeting_id == 0 and record.tbid == 0
+
+
+def _is_meaningful(value: object) -> bool:
+    """Reject ``None`` and empty strings."""
+    if value is None:
+        return False
+    return not (isinstance(value, str) and not value)
+
+
+# Names of fields WhatTheSpec cannot supply, derived from ``TDocMetadata``
+# itself by type: db_pk, datetime, and bool audit fields are all server-side
+# facts that come from the local crawler, not WhatTheSpec. Adding a new field
+# of one of those types makes it unrefreshable automatically — no edit here
+# needed.
+_UNREFRESHABLE_FIELD_TYPES: tuple[type, ...] = (datetime, bool)
+
+
+def _build_unrefreshable_fields() -> frozenset[str]:
+    """Compute fields WhatTheSpec can't supply from ``TDocMetadata`` model.
+
+    Excludes: the primary key, anything typed as ``datetime`` or ``bool``
+    (server-side audit/timestamp fields), and ``meeting_id``/``tbid`` whose
+    linkage is structurally unrecoverable (see ``is_orphan_tdoc``).
+    """
+    excluded: set[str] = set()
+    for field_name, pydantic_field in TDocMetadata.model_fields.items():
+        if getattr(pydantic_field, "db_pk", False):
+            excluded.add(field_name)
+            continue
+        annotation = pydantic_field.annotation
+        if annotation is None:
+            continue
+        # Unwrap Optional[X] / Union[X, None] — only the non-None type matters.
+        non_none_types = set(_non_none_types(annotation))
+        if non_none_types & set(_UNREFRESHABLE_FIELD_TYPES):
+            excluded.add(field_name)
+    excluded.update({"meeting_id", "tbid"})
+    return frozenset(excluded)
+
+
+def _non_none_types(annotation: object) -> tuple[type, ...]:
+    """Return the non-``None`` types from an ``Optional``/``Union`` annotation.
+
+    ``str | None`` → ``(str,)``. ``Optional[datetime]`` → ``(datetime,)``.
+    Plain ``str`` → ``(str,)``.
+    """
+    origin = typing.get_origin(annotation)
+    if origin in (typing.Union, types.UnionType):
+        return tuple(t for t in typing.get_args(annotation) if t is not type(None))
+    if isinstance(annotation, type):
+        return (annotation,)
+    return ()
+
+
+def _build_orphan_refreshable_fields() -> tuple[_RefreshableField, ...]:
+    """Derive refreshable fields from ``TDocMetadata.model_fields``.
+
+    A field is refreshable iff:
+
+    * It has no non-trivial default factory (so we can detect "still at
+      default"); ``date_retrieved`` etc. have ``default_factory=utc_now`` and
+      are excluded automatically by ``_UNREFRESHABLE_FIELD_TYPES``.
+    * It is **not** unrefreshable (computed from the model by type — db_pk,
+      datetime, and bool audit fields are all server-side facts).
+
+    The orphan's "is empty" check compares against the model's declared
+    default — placeholder strings (``"unknown"``, ``"Unknown"``, …) come
+    from the single source of truth on the model, not duplicated here.
+    """
+    unrefreshable = _build_unrefreshable_fields()
+    fields: list[_RefreshableField] = []
+    for field_name, pydantic_field in TDocMetadata.model_fields.items():
+        if field_name in unrefreshable:
+            continue
+        if pydantic_field.default_factory is not None:
+            # Field has a non-trivial default (e.g. ``utc_now``); we can't
+            # statically detect "still at default", so skip it.
+            continue
+        # ``pydantic_field.default`` is the sentinel we compare against.
+        # For ``status: str | None = None`` it's ``None`` — meaning the field
+        # is "empty" iff it's currently ``None``. That's correct.
+        sentinel: object = pydantic_field.default
+
+        def _is_empty(
+            record: TDocMetadata,
+            _sentinel: object = sentinel,
+            _name: str = field_name,
+        ) -> bool:
+            return getattr(record, _name, None) == _sentinel
+
+        fields.append(
+            _RefreshableField(
+                field_name=field_name,
+                is_empty_on_orphan=_is_empty,
+                is_meaningful_on_fresh=_is_meaningful,
+            ),
+        )
+    return tuple(fields)
+
+
+_ORPHAN_REFRESHABLE_FIELDS: tuple[_RefreshableField, ...] = _build_orphan_refreshable_fields()
+
+
+async def refresh_orphan_metadata(
+    database: TDocDatabase,
+    orphan: TDocMetadata,
+    *,
+    session: requests.Session | None = None,
+    http_cache_file: Path | None = None,
+) -> TDocMetadata:
+    """Refresh an orphan TDoc's metadata from WhatTheSpec.
+
+    Updates only fields whose orphan value is a default/placeholder AND whose
+    WhatTheSpec-returned value is meaningful. Skips fields WhatTheSpec can't
+    provide (notably ``meeting_id`` and ``tbid``) so the orphan stays orphan
+    — the linkage is structurally unrecoverable without the local meeting
+    record. Refresh rules live in ``_ORPHAN_REFRESHABLE_FIELDS``; add new
+    fields there rather than hard-coding here.
+
+    Returns the (possibly mutated and re-persisted) record.
+    """
+    del database  # currently unused — kept for parity with other fetch helpers
+    config = TDocSourceConfig(
+        http_config=None,
+        http_cache_file=http_cache_file,
+    )
+    source = WhatTheSpecSource(config=config, session=session)
+    try:
+        fresh = source.fetch_by_id(orphan.tdoc_id)
+    except Exception as exc:
+        logger.warning("WhatTheSpec refresh failed for orphan %s: %s", orphan.tdoc_id, exc)
+        return orphan
+    if fresh is None:
+        logger.warning("WhatTheSpec returned no data for orphan %s", orphan.tdoc_id)
+        return orphan
+
+    updates: dict[str, object] = {}
+    for field in _ORPHAN_REFRESHABLE_FIELDS:
+        if not field.is_empty_on_orphan(orphan):
+            continue
+        new_value = getattr(fresh, field.field_name, None)
+        if not field.is_meaningful_on_fresh(new_value):
+            continue
+        updates[field.field_name] = new_value
+
+    if not updates:
+        return orphan
+
+    updates["date_updated"] = utc_now()
+    refreshed = TDocDatabase._clone_tdoc(orphan, updates)
+    await refreshed.save()
+    logger.info("Refreshed orphan %s with %d fields from WhatTheSpec", orphan.tdoc_id, len(updates))
+    return refreshed
 
 
 def create_source(

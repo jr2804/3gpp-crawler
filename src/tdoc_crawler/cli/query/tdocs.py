@@ -19,6 +19,7 @@ from tdoc_crawler.cli.args import (
     LimitOption,
     OrderOption,
     OutputFormatOption,
+    RefreshOrphansOption,
     SortKeyOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
@@ -41,7 +42,11 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.models.base import OutputFormat, SortKey, SortOrder
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdocs, resolve_tdoc_file_sizes
-from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
+from tdoc_crawler.tdocs.operations.fetch import (
+    fetch_missing_tdocs,
+    is_orphan_tdoc,
+    refresh_orphan_metadata,
+)
 from tdoc_crawler.utils.parse import parse_working_groups
 
 
@@ -66,6 +71,7 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     agenda: AgendaPatternOption = None,
     agenda_ex: AgendaPatternExcludeOption = None,
     tag: TagFilterOption = None,
+    refresh_orphans: RefreshOrphansOption = False,
     verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
 ) -> None:
     """Query TDoc metadata from database."""
@@ -124,6 +130,14 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     async def run_query() -> list:
         async with TDocDatabase(db_file) as database:
             results = await database.query_tdocs(config)
+            if refresh_orphans:
+                orphans = [r for r in results if is_orphan_tdoc(r)]
+                if orphans:
+                    with create_cached_session() as session:
+                        for orphan in orphans:
+                            console.print(f"[yellow]Refreshing orphan {orphan.tdoc_id} from WhatTheSpec...[/yellow]")
+                            await refresh_orphan_metadata(database, orphan, session=session)
+                    results = await database.query_tdocs(config)
             if fetch:
                 with create_cached_session() as session:
                     result = await fetch_missing_tdocs(
@@ -153,6 +167,20 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
 
     # Resolve file sizes from on-disk checkout directories for display
     resolve_tdoc_file_sizes(results, path_config.checkout_dir)
+
+    # Warn about orphans in the result set: their meeting/tbid is
+    # unrecoverable from local data alone. Use --refresh-orphans to fetch
+    # metadata from WhatTheSpec.
+    orphans_in_results = [r for r in results if is_orphan_tdoc(r)]
+    if orphans_in_results:
+        console.print(
+            f"[yellow]Warning: {len(orphans_in_results)} orphan TDoc(s) "
+            "(meeting_id=0, tbid=0) — linkage is unrecoverable from local "
+            "data; pass --refresh-orphans to pull metadata from "
+            "WhatTheSpec.[/yellow]",
+        )
+        for orphan in orphans_in_results:
+            console.print(f"  - {orphan.tdoc_id}: {orphan.title!r}")
 
     async def load_meeting_map() -> dict:
         async with MeetingDatabase(db_file) as meeting_db:

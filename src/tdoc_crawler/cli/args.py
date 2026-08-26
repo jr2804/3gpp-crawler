@@ -50,6 +50,13 @@ FetchOption = Annotated[
     bool,
     typer.Option("--fetch/--no-fetch", help="Enable/disable automatic fetching of missing TDocs from portal", envvar=ConfigEnvVar.TDC_FETCH.name),
 ]
+RefreshOrphansOption = Annotated[
+    bool,
+    typer.Option(
+        "--refresh-orphans",
+        help="Refresh orphan TDoc records (records with no meeting linkage) from WhatTheSpec",
+    ),
+]
 IncrementalOption = Annotated[
     bool,
     typer.Option(
