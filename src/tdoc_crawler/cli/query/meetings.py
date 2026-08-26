@@ -49,7 +49,8 @@ def query_meetings(
     """Query meeting metadata from database."""
     set_verbosity(verbosity)
     path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
-    working_groups = parse_working_groups(working_group)
+    # Query semantics: no working_group filter unless the user asked for one.
+    working_groups = parse_working_groups(working_group, working_group) if working_group else None
     subgroups = parse_subgroups(subgroup)
     try:
         sort_order_meetings = SortOrder(order.lower())

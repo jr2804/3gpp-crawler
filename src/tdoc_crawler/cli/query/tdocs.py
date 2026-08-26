@@ -72,7 +72,12 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     set_verbosity(verbosity)
     path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
 
-    working_groups = parse_working_groups(working_group)
+    # Query semantics: no working_group filter unless the user asked for one.
+    # Crawl-oriented parse_working_groups() defaults to [RAN, SA, CT] when no
+    # subgroup is supplied, which silently drops records whose tbid wasn't
+    # resolved (e.g. odd-numbered interim/telco docs whose meeting didn't
+    # land in the meetings table).
+    working_groups = parse_working_groups(working_group, working_group) if working_group else None
     start, end = _parse_date_range(start_date, end_date)
 
     try:

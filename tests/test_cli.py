@@ -220,6 +220,32 @@ class TestQueryCommand:
 
         assert result.exit_code == 0
 
+    @patch("tdoc_crawler.cli.query.tdocs.TDocDatabase")
+    def test_query_no_working_group_filter_when_not_requested(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+        sample_tdocs: list[TDocMetadata],
+    ) -> None:
+        """Querying without --working-group must not apply a tbid IN (...) filter.
+
+        Regression: parse_working_groups() defaults to [RAN, SA, CT] for crawls,
+        which silently dropped orphan records whose tbid wasn't resolved (e.g.
+        odd-numbered interim/telco docs whose meeting didn't land in the
+        meetings table).
+        """
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs[:1])
+
+        result = runner.invoke(tdoc_app, ["query", "SA4AA250001", "--no-fetch"])
+
+        assert result.exit_code == 0
+        config = mock_db.query_tdocs.await_args.args[0]
+        assert config.working_groups is None, (
+            f"expected no working_group filter, got {config.working_groups!r}"
+        )
+
 
 class TestQueryMeetingsCommand:
     """Tests for query-meetings command."""

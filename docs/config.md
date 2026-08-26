@@ -248,7 +248,6 @@ For backward compatibility, environment variables are still supported:
 | Variable | Description |
 |----------|-------------|
 | `TDC_CACHE_DIR` | Cache directory path |
-| `TDC_WORKSPACES_DIRNAME` | Workspaces subdirectory name |
 | `TDC_EOL_USERNAME` | ETSI Online username |
 | `TDC_EOL_PASSWORD` | ETSI Online password |
 | `TDC_TIMEOUT` | HTTP timeout in seconds |
