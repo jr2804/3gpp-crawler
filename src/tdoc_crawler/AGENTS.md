@@ -103,7 +103,7 @@ SQLite via `pydantic-sqlite`. Return Pydantic models. TDoc IDs use `.upper()` fo
 
 Refactor to eliminate circular dependencies. Extract shared types to `models/` layer — both modules import from neutral `models/`.
 
-Known hard cycle: `tdocs/operations/checkout.py` ← `extraction/fetch_tdoc.py` (extraction imports checkout's `checkout_tdoc`). Therefore `checkout.py` must never import from `extraction` at module level — that is why `_TDOC_DOCUMENT_SUFFIXES` is defined locally instead of reusing `OFFICE_FORMATS`. The former `cli/mcp_app.py` cycle was resolved structurally: the `tdoc checkout` command lives in `cli/checkout.py` (not `tdoc_app`) so `mcp_server` never imports `tdoc_app`. Inline imports are forbidden (csort hoists them) — resolve cycles by moving code, not by deferring imports.
+Known hard cycle: `tdocs/operations/checkout.py` ← `extraction/fetch_tdoc.py` (extraction imports checkout's `checkout_tdoc`). Therefore `checkout.py` must never import from `extraction` at module level — that is why `_TDOC_DOCUMENT_SUFFIXES` is defined locally instead of reusing `OFFICE_FORMATS`. The former `cli/mcp_app.py` cycle was resolved structurally: the `tdoc checkout` command lives in `cli/checkout.py` (not `tdoc_app`) so `mcp_server` never imports `tdoc_app`. Inline imports are forbidden (pyreorder hoists them) — resolve cycles by moving code, not by deferring imports.
 
 ## TDoc Checkout Layout
 

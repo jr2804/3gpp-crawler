@@ -1,0 +1,25 @@
+# pyreorder configuration. See https://github.com/jr2804/pyreorder
+
+[module]
+# Ordered list of section buckets; top-level statements are grouped into these.
+sections = ["imports", "typing_imports", "module_constants", "enums", "dataclasses", "classes", "functions", "main_block"]
+
+[strategy]
+# Per-section in-section strategy: keep | alpha | stepdown | abstraction.
+enums = "alpha"
+# Strategy for the functions section (stepdown/abstraction only affect functions/classes).
+functions = "stepdown"
+
+[class_methods]
+# Reorder methods within each class (undersort-style visibility + method-type order).
+enabled = true
+# Method visibility ordering.
+order = ["public", "protected", "private"]
+# Method-type ordering within each visibility bucket.
+method_type_order = ["instance", "class", "static"]
+
+[transforms]
+# Move imports nested inside function/class bodies to the top of the module.
+hoist_inline_imports = true
+# Delete if TYPE_CHECKING: guards and hoist the imports they contained.
+remove_type_checking = true

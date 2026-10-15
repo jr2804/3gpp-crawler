@@ -7,19 +7,6 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 
-class SpecSource(Protocol):
-    """Protocol for spec metadata sources."""
-
-    @property
-    def name(self) -> str:
-        """Name of the spec source."""
-        ...
-
-    def fetch(self, spec_number: str) -> dict[str, object]:
-        """Fetch metadata for the given spec number."""
-        ...
-
-
 @dataclass(frozen=True)
 class FunctionSpecSource:
     """Adapter that exposes a callable as a SpecSource."""
@@ -39,3 +26,16 @@ class FunctionSpecSource:
             Raw metadata payload for the spec.
         """
         return self.fetcher(spec_number, *self.fetcher_args, **self.fetcher_kwargs)
+
+
+class SpecSource(Protocol):
+    """Protocol for spec metadata sources."""
+
+    @property
+    def name(self) -> str:
+        """Name of the spec source."""
+        ...
+
+    def fetch(self, spec_number: str) -> dict[str, object]:
+        """Fetch metadata for the given spec number."""
+        ...

@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import types
 import typing
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 
+import niquests as requests
 from pydantic import ValidationError
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
@@ -19,6 +22,7 @@ from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.sources import (
     DocumentListSource,
@@ -28,15 +32,15 @@ from tdoc_crawler.tdocs.sources import (
 )
 from tdoc_crawler.utils.misc import utc_now
 
-if typing.TYPE_CHECKING:
-    from collections.abc import Callable
-    from pathlib import Path
-
-    import niquests as requests
-
-    from tdoc_crawler.tdocs.models import TDocQueryConfig
-
 logger = get_logger(__name__)
+
+
+# Names of fields WhatTheSpec cannot supply, derived from ``TDocMetadata``
+# itself by type: db_pk, datetime, and bool audit fields are all server-side
+# facts that come from the local crawler, not WhatTheSpec. Adding a new field
+# of one of those types makes it unrefreshable automatically — no edit here
+# needed.
+_UNREFRESHABLE_FIELD_TYPES: tuple[type, ...] = (datetime, bool)
 
 
 class FetchMethod(Enum):
@@ -46,6 +50,24 @@ class FetchMethod(Enum):
     PORTAL_FULL_METADATA = "portal_full_metadata"
     WHATTHESPEC = "whatthespec"
     DOCUMENT_LIST = "document_list"
+
+
+@dataclass(frozen=True, slots=True)
+class _RefreshableField:
+    """A TDoc field WhatTheSpec can supply, with rules for when to overwrite.
+
+    Attributes:
+        field_name: Attribute name on ``TDocMetadata``.
+        is_empty_on_orphan: Predicate that returns True when the orphan's
+            current value is a default/placeholder that should be replaced.
+        is_meaningful_on_fresh: Predicate that returns True when the
+            WhatTheSpec-returned value is worth applying (non-empty, not a
+            known placeholder).
+    """
+
+    field_name: str
+    is_empty_on_orphan: Callable[[TDocMetadata], bool]
+    is_meaningful_on_fresh: Callable[[object], bool]
 
 
 class FetchMissingResult:
@@ -69,24 +91,6 @@ class FetchMissingResult:
         self.used_whatthespec_fallback = used_whatthespec_fallback
 
 
-@dataclass(frozen=True, slots=True)
-class _RefreshableField:
-    """A TDoc field WhatTheSpec can supply, with rules for when to overwrite.
-
-    Attributes:
-        field_name: Attribute name on ``TDocMetadata``.
-        is_empty_on_orphan: Predicate that returns True when the orphan's
-            current value is a default/placeholder that should be replaced.
-        is_meaningful_on_fresh: Predicate that returns True when the
-            WhatTheSpec-returned value is worth applying (non-empty, not a
-            known placeholder).
-    """
-
-    field_name: str
-    is_empty_on_orphan: Callable[[TDocMetadata], bool]
-    is_meaningful_on_fresh: Callable[[object], bool]
-
-
 def is_orphan_tdoc(record: TDocMetadata) -> bool:
     """A TDoc is orphaned when both ``meeting_id`` and ``tbid`` are unset.
 
@@ -98,58 +102,6 @@ def is_orphan_tdoc(record: TDocMetadata) -> bool:
     the local DB alone.
     """
     return record.meeting_id == 0 and record.tbid == 0
-
-
-def _is_meaningful(value: object) -> bool:
-    """Reject ``None`` and empty strings."""
-    if value is None:
-        return False
-    return not (isinstance(value, str) and not value)
-
-
-# Names of fields WhatTheSpec cannot supply, derived from ``TDocMetadata``
-# itself by type: db_pk, datetime, and bool audit fields are all server-side
-# facts that come from the local crawler, not WhatTheSpec. Adding a new field
-# of one of those types makes it unrefreshable automatically — no edit here
-# needed.
-_UNREFRESHABLE_FIELD_TYPES: tuple[type, ...] = (datetime, bool)
-
-
-def _build_unrefreshable_fields() -> frozenset[str]:
-    """Compute fields WhatTheSpec can't supply from ``TDocMetadata`` model.
-
-    Excludes: the primary key, anything typed as ``datetime`` or ``bool``
-    (server-side audit/timestamp fields), and ``meeting_id``/``tbid`` whose
-    linkage is structurally unrecoverable (see ``is_orphan_tdoc``).
-    """
-    excluded: set[str] = set()
-    for field_name, pydantic_field in TDocMetadata.model_fields.items():
-        if getattr(pydantic_field, "db_pk", False):
-            excluded.add(field_name)
-            continue
-        annotation = pydantic_field.annotation
-        if annotation is None:
-            continue
-        # Unwrap Optional[X] / Union[X, None] — only the non-None type matters.
-        non_none_types = set(_non_none_types(annotation))
-        if non_none_types & set(_UNREFRESHABLE_FIELD_TYPES):
-            excluded.add(field_name)
-    excluded.update({"meeting_id", "tbid"})
-    return frozenset(excluded)
-
-
-def _non_none_types(annotation: object) -> tuple[type, ...]:
-    """Return the non-``None`` types from an ``Optional``/``Union`` annotation.
-
-    ``str | None`` → ``(str,)``. ``Optional[datetime]`` → ``(datetime,)``.
-    Plain ``str`` → ``(str,)``.
-    """
-    origin = typing.get_origin(annotation)
-    if origin in (typing.Union, types.UnionType):
-        return tuple(t for t in typing.get_args(annotation) if t is not type(None))
-    if isinstance(annotation, type):
-        return (annotation,)
-    return ()
 
 
 def _build_orphan_refreshable_fields() -> tuple[_RefreshableField, ...]:
@@ -196,6 +148,50 @@ def _build_orphan_refreshable_fields() -> tuple[_RefreshableField, ...]:
             ),
         )
     return tuple(fields)
+
+
+def _is_meaningful(value: object) -> bool:
+    """Reject ``None`` and empty strings."""
+    if value is None:
+        return False
+    return not (isinstance(value, str) and not value)
+
+
+def _build_unrefreshable_fields() -> frozenset[str]:
+    """Compute fields WhatTheSpec can't supply from ``TDocMetadata`` model.
+
+    Excludes: the primary key, anything typed as ``datetime`` or ``bool``
+    (server-side audit/timestamp fields), and ``meeting_id``/``tbid`` whose
+    linkage is structurally unrecoverable (see ``is_orphan_tdoc``).
+    """
+    excluded: set[str] = set()
+    for field_name, pydantic_field in TDocMetadata.model_fields.items():
+        if getattr(pydantic_field, "db_pk", False):
+            excluded.add(field_name)
+            continue
+        annotation = pydantic_field.annotation
+        if annotation is None:
+            continue
+        # Unwrap Optional[X] / Union[X, None] — only the non-None type matters.
+        non_none_types = set(_non_none_types(annotation))
+        if non_none_types & set(_UNREFRESHABLE_FIELD_TYPES):
+            excluded.add(field_name)
+    excluded.update({"meeting_id", "tbid"})
+    return frozenset(excluded)
+
+
+def _non_none_types(annotation: object) -> tuple[type, ...]:
+    """Return the non-``None`` types from an ``Optional``/``Union`` annotation.
+
+    ``str | None`` → ``(str,)``. ``Optional[datetime]`` → ``(datetime,)``.
+    Plain ``str`` → ``(str,)``.
+    """
+    origin = typing.get_origin(annotation)
+    if origin in (typing.Union, types.UnionType):
+        return tuple(t for t in typing.get_args(annotation) if t is not type(None))
+    if isinstance(annotation, type):
+        return (annotation,)
+    return ()
 
 
 _ORPHAN_REFRESHABLE_FIELDS: tuple[_RefreshableField, ...] = _build_orphan_refreshable_fields()
