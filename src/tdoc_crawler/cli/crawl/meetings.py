@@ -61,7 +61,7 @@ def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     cache_dir: CacheDirOption = None,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl meeting metadata from 3GPP portal."""
     set_verbosity(verbosity)

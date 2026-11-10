@@ -13,7 +13,7 @@ from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.tags import add_tags, list_tags, remove_tags
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
-from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.logging import LogLevel, set_verbosity
 from tdoc_crawler.models.base import TagKind
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_tdoc_id
@@ -65,7 +65,7 @@ def tag_add(
     kind: KindArgument,
     items: ItemsArgument,
     tags: TagsOption,
-    verbosity: Annotated[str, typer.Option("--verbosity", "-v", help="Verbosity level")] = str(DEFAULT_VERBOSITY),
+    verbosity: Annotated[LogLevel, typer.Option("--verbosity", "-v", help="Verbosity level")] = DEFAULT_VERBOSITY,
 ) -> None:
     """Add tags to one or more items."""
     set_verbosity(verbosity)
@@ -89,7 +89,7 @@ def tag_remove(
     kind: KindArgument,
     items: ItemsArgument,
     tags: Annotated[list[str], typer.Option("--tag", "-t", help="Tags to remove; omit to remove all tags")] = None,
-    verbosity: Annotated[str, typer.Option("--verbosity", "-v", help="Verbosity level")] = str(DEFAULT_VERBOSITY),
+    verbosity: Annotated[LogLevel, typer.Option("--verbosity", "-v", help="Verbosity level")] = DEFAULT_VERBOSITY,
 ) -> None:
     """Remove tags from one or more items (all tags if --tag is omitted)."""
     set_verbosity(verbosity)
@@ -120,7 +120,7 @@ def tag_list(
     kind: TagFilterKindOption = None,
     item: TagFilterItemOption = None,
     tag: TagFilterTagOption = None,
-    verbosity: Annotated[str, typer.Option("--verbosity", "-v", help="Verbosity level")] = str(DEFAULT_VERBOSITY),
+    verbosity: Annotated[LogLevel, typer.Option("--verbosity", "-v", help="Verbosity level")] = DEFAULT_VERBOSITY,
 ) -> None:
     """List tags, optionally filtered by kind, item, or tag name."""
     set_verbosity(verbosity)

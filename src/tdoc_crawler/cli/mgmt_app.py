@@ -23,7 +23,7 @@ from tdoc_crawler.cli.tag_app import app as tag_app
 from tdoc_crawler.cli.tdoc_app import tdoc_app
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
-from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.logging import LogLevel, set_verbosity
 
 mgmt_app = GlobSafeTyper(
     name="3gpp-crawler",
@@ -58,13 +58,13 @@ def _mgmt_app_callback(
         ),
     ] = None,
     verbosity: Annotated[
-        str,
+        LogLevel,
         typer.Option(
             "--verbosity",
             "-v",
             help="Logging verbosity level (DEBUG, INFO, WARNING, ERROR)",
         ),
-    ] = str(DEFAULT_VERBOSITY),
+    ] = DEFAULT_VERBOSITY,
 ) -> None:
     """Global CLI options for the 3gpp-crawler umbrella app."""
     config = load_cli_config(ctx, config_file)

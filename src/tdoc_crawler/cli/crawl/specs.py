@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import typer
-
 from tdoc_crawler.cli._shared import console, handle_clear_options
 from tdoc_crawler.cli.args import (
     CacheDirOption,
@@ -33,12 +31,12 @@ def crawl_specs(
     spec_numbers: SpecArgument = None,
     release: ReleaseOption = "latest",
     checkout: CheckoutOption = False,
-    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    output_format: OutputFormatOption = OutputFormat.TABLE,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
     spec_file: SpecFileOption = None,
     cache_dir: CacheDirOption = None,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl spec metadata from configured sources."""
     set_verbosity(verbosity)
@@ -49,11 +47,6 @@ def crawl_specs(
     spec_numbers = spec_numbers or []
 
     specs = collect_spec_numbers(spec_numbers, spec_file)
-    try:
-        output = OutputFormat(output_format.lower())
-    except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, ison, toon, or yaml")
-        raise typer.Exit(code=2) from exc
 
     sources = build_default_spec_sources()
 
@@ -90,8 +83,8 @@ def crawl_specs(
 
         asyncio.run(checkout_specs_db())
 
-    if output is OutputFormat.TABLE:
+    if output_format is OutputFormat.TABLE:
         print_spec_crawl_table(results)
     else:
         data = [spec_crawl_to_dict(result) for result in results]
-        console.print(format_output(data, output))
+        console.print(format_output(data, output_format))

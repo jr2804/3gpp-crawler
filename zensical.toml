@@ -21,7 +21,6 @@ nav = [
     { "MCP Server" = "mcp.md" },
     { "Configuration" = "config.md" },
     { "HTTP Caching & Misc" = "misc.md" },
-    { "Convert-LO Usage" = "convert-lo-usage.md" },
   ] },
   { "Development" = [
     { "Development Guide" = "development.md" },

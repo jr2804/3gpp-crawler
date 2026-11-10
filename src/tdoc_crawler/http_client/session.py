@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from dataclasses import dataclass
 from gzip import decompress as gzip_decompress
 from pathlib import Path
-from typing import cast
 from zlib import decompress as zlib_decompress
 
 import brotli
 import niquests as requests
-from hishel import SyncBaseStorage, SyncSqliteStorage
-from hishel._core._headers import Headers
-from hishel._core.models import Request, Response
-from hishel.requests import CacheAdapter, extract_metadata_from_headers, snake_to_header
+from hishel import BaseStorage, CacheOptions, Headers, Request, Response, SqliteStorage
+from hishel._sync_rfc import handle_request_with_rfc  # hishel exposes no public sync RFC state machine
 from niquests.adapters import HTTPAdapter
+from urllib3 import HTTPHeaderDict
 from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
 
@@ -50,12 +49,17 @@ class PoolConfig:
     retry_attempts: int = 3
 
 
-class _NiquetsCacheAdapter(CacheAdapter):
-    """Bridges niquests PreparedRequest to hishel CacheAdapter.
+class _NiquetsCacheAdapter(HTTPAdapter):
+    """RFC 9111 cache adapter for niquests, driven by hishel's sync state machine.
 
-    niquests.PreparedRequest does not inherit requests.PreparedRequest,
-    so hishel's isinstance checks would fail without this bridge.
+    hishel's own requests adapter only accepts requests.PreparedRequest, and
+    niquests.PreparedRequest does not inherit from it, so the send flow is
+    reimplemented here with niquests objects.
     """
+
+    def __init__(self, *, storage: BaseStorage, **kwargs: object) -> None:
+        super().__init__(**kwargs)  # type: ignore[arg-type]
+        self.storage = storage
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
         """Disable HTTP/3 to prevent MustDowngradeError from 3GPP servers."""
@@ -70,60 +74,86 @@ class _NiquetsCacheAdapter(CacheAdapter):
     def send(
         self,
         request: requests.models.PreparedRequest,
+        stream: bool = False,
+        timeout: float | tuple[float, float] | None = None,
+        verify: bool | str = True,
+        cert: str | tuple[str, str] | None = None,
+        proxies: dict[str, str] | None = None,
         **_kwargs: object,
     ) -> requests.models.Response:
-        """Bridge niquests request/response objects to hishel cache internals."""
-        internal_request = _niquests_to_internal_request(request)
-        internal_response = self._cache_proxy.handle_request(internal_request)
-        response = _internal_to_niquests_response(internal_response)
-        response.request = request
-        response.connection = self  # type: ignore[assignment]
-        return response
+        """Answer from the cache when possible, otherwise fetch upstream and store the result."""
+
+        def send_upstream(prepared: requests.models.PreparedRequest) -> requests.models.Response:
+            # Always streamed: the body is read from the cache layer, not by the caller.
+            return super(_NiquetsCacheAdapter, self).send(prepared, stream=True, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
+
+        internal_request = _request_to_internal(request)
+        key = hashlib.sha256(internal_request.url.encode()).hexdigest()
+        upstream: requests.models.Response | None = None
+
+        def send(state_request: Request) -> Response:
+            nonlocal upstream
+            # Only the state machine's revalidation headers differ from the caller's request.
+            prepared = request.copy()
+            for name, value in state_request.headers.items():
+                if internal_request.headers.get(name) != value:
+                    prepared.headers[name] = value
+
+            response = send_upstream(prepared)
+            if response.status_code == 304:
+                # The cached body is served instead, so this connection is done.
+                response.raw.read()
+            else:
+                upstream = response
+            return _response_to_internal(response)
+
+        response, _status = handle_request_with_rfc(internal_request, send, self.storage, key, CacheOptions())
+        result = _internal_to_niquests_response(response)
+        result.request = request
+        result.connection = self  # type: ignore[assignment]
+        return result
+
+    def close(self) -> None:
+        super().close()
+        self.storage.close()
 
 
-def _niquests_to_internal_request(model: requests.models.PreparedRequest) -> Request:
-    """Convert niquests prepared request into hishel internal request model."""
-    body: bytes
-    if isinstance(model.body, str):
-        body = model.body.encode("utf-8")
-    elif isinstance(model.body, bytes):
-        body = model.body
-    else:
-        body = b""
-
+def _request_to_internal(model: requests.models.PreparedRequest) -> Request:
+    """Convert a niquests prepared request into a hishel request."""
     if model.method is None:
         msg = "prepared request method must not be None"
         raise ValueError(msg)
+    headers = {key.lower(): value.decode("latin-1") if isinstance(value, bytes) else value for key, value in model.headers.items()}
+    return Request(method=model.method, url=str(model.url), headers=Headers(headers))
 
-    return Request(
-        method=model.method,
-        url=str(model.url),
-        headers=Headers(model.headers),
-        stream=iter([body]),
-        metadata=extract_metadata_from_headers(model.headers),
-    )
+
+def _response_to_internal(model: requests.models.Response) -> Response:
+    """Convert an upstream niquests response into a hishel response, keeping raw (undecoded) bytes."""
+    # Raw headers keep repeated values apart; the response's own headers join them with commas.
+    raw_headers = model.raw.headers
+    headers = {key.lower(): raw_headers.getlist(key) for key in raw_headers}
+    # The stored body is not re-framed, so its transfer encoding is dropped.
+    headers.pop("transfer-encoding", None)
+    return Response(status_code=model.status_code, headers=Headers(headers), stream=model.raw.stream(decode_content=False))
 
 
 def _internal_to_niquests_response(model: Response) -> requests.models.Response:
     response = requests.models.Response()
 
     raw_body = b"".join(model.stream) if model.stream is not None else b""
-    metadata_headers = {snake_to_header(key): str(value) for key, value in model.metadata.items()}
-    merged_headers = {**model.headers, **metadata_headers}
-
-    content_encoding = merged_headers.get("content-encoding", "")
+    headers = HTTPHeaderDict([(key, value) for key in model.headers for value in model.headers.get_list(key) or []])
+    content_encoding = model.headers.get("content-encoding", "")
     body = _decompress_body(raw_body, content_encoding) if content_encoding else raw_body
 
     response.raw = HTTPResponse(
         body=raw_body,
-        headers=merged_headers,
+        headers=headers,
         status=model.status_code,
         preload_content=False,
         decode_content=False,
     )
     response.status_code = model.status_code
-    response.headers.update(model.headers)
-    response.headers.update(metadata_headers)
+    response.headers.update({key: ", ".join(model.headers.get_list(key) or []) for key in model.headers})
     response._content = body
     response._content_consumed = True
     response.url = ""
@@ -284,11 +314,10 @@ def create_cached_session(
     connection = sqlite3.connect(str(cache_path), check_same_thread=False)
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA synchronous=NORMAL")
-    storage = SyncSqliteStorage(
+    storage = SqliteStorage(
         connection=connection,
         default_ttl=ttl,
     )
-    storage = cast("SyncBaseStorage", storage)
 
     # Configure retry strategy for the cache adapter.
     # If pool_config is set, reuse its retry settings so caching + pooling share one adapter.
@@ -301,7 +330,6 @@ def create_cached_session(
     )
 
     # Create a single cache adapter with pool settings so both behaviors are active.
-    # _NiquetsCacheAdapter bridges niquests<->hishel type incompatibility in send().
     cache_adapter = _NiquetsCacheAdapter(
         pool_connections=pool_config.max_connections if pool_config is not None else 10,
         pool_maxsize=pool_config.max_per_host if pool_config is not None else 10,

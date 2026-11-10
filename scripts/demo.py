@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.query import query_tdocs
-from tdoc_crawler.logging import get_console
+from tdoc_crawler.logging import LogLevel, get_console
 
 this_dir = Path(__file__).parent
 
@@ -41,7 +41,7 @@ def demo_tdocs_crawl() -> None:
         subgroup=["SA4"],
         limit_meetings=10,
         cache_dir=cache_dir,
-        verbosity="debug",
+        verbosity=LogLevel.DEBUG,
     )
 
     # Force garbage collection and delay to release SQLite locks

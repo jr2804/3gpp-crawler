@@ -39,7 +39,7 @@ def _spec_app_callback(
             readable=True,
         ),
     ] = None,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Global CLI options for the spec-only app."""
     # Load and validate config at startup

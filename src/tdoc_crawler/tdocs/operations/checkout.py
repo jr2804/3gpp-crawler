@@ -28,11 +28,6 @@ from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_
 from tdoc_crawler.utils.clutter import is_clutter
 from tdoc_crawler.utils.security import safe_extract_zip
 
-# Suffixes we treat as a TDoc's "main document".  Mirrors the
-# ``OFFICE_FORMATS`` set in ``extraction/convert.py`` plus ``.pdf`` (3GPP
-# also serves loose PDFs).  Defined locally to avoid pulling extraction
-# into the tdocs package -- the import would create a cycle through
-# ``extraction.fetch_tdoc`` -> ``tdocs.operations.checkout``.
 # Main-file type preference, best first. Declaration order of the
 # ``DocumentType`` StrEnum (see ``models/base.py``) IS the preference
 # order — keep the enum sorted accordingly.

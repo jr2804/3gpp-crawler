@@ -147,9 +147,7 @@ class DocDatabase:
             raise DatabaseError(
                 msg,
                 detail=(
-                    f"Database schema is out of date (missing: {details}). "
-                    "Delete the database file and re-crawl, or set "
-                    "TDC_PATH_CACHE_DIR to a fresh directory."
+                    f"Database schema is out of date (missing: {details}). Delete the database file and re-crawl, or set TDC_CACHE_DIR to a fresh directory."
                 ),
             )
 

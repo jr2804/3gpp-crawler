@@ -9,14 +9,14 @@ Domain-oriented architecture for crawling and querying 3GPP TDoc, Spec, and Meet
 from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from tdoc_crawler.tdocs.models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 
 # Meeting operations
 from tdoc_crawler.meetings.operations import MeetingCrawler
 
 # Spec operations
 from tdoc_crawler.database import SpecDatabase
-from tdoc_crawler.specs.operations.checkout import checkout_spec
+from tdoc_crawler.specs.operations.checkout import checkout_specs
 ```
 
 **Note:** Domain packages do not re-export operations to avoid circular imports.
@@ -59,7 +59,7 @@ session = requests.Session()
 
 ### 2. `_NiquetsCacheAdapter.init_poolmanager()` — for hishel cached sessions
 
-`create_cached_session()` mounts a `_NiquetsCacheAdapter` (hishel `CacheAdapter` subclass). On cache misses, hishel delegates to `requests.adapters.HTTPAdapter.send()` → `urllib3` transport. Since niquests installs `urllib3-future` (which supports HTTP/3), the `disable_http3=True` on the `Session` has **no effect** — the hishel adapter creates its own connection pool.
+`create_cached_session()` mounts a `_NiquetsCacheAdapter` (niquests `HTTPAdapter` subclass running hishel's RFC 9111 state machine). On cache misses it calls its own niquests `HTTPAdapter.send()` → `urllib3` transport. Since niquests installs `urllib3-future` (which supports HTTP/3), the `disable_http3=True` on the `Session` has **no effect** — the adapter creates its own connection pool.
 
 The fix: `_NiquetsCacheAdapter.init_poolmanager()` injects `disabled_svn={HttpVersion.h3}` into the pool manager kwargs, disabling HTTP/3 at the `urllib3-future` connection level.
 
@@ -97,19 +97,21 @@ Search before implementing. Check relevant domain package (`tdocs/`, `meetings/`
 
 ## Database
 
-SQLite via `pydantic-sqlite`. Return Pydantic models. TDoc IDs use `.upper()` for case-insensitive comparison.
+SQLite via Oxyde ORM (see `database/AGENTS.md`). TDoc IDs use `.upper()` for case-insensitive comparison.
 
 ## Circular Import Prevention
 
 Refactor to eliminate circular dependencies. Extract shared types to `models/` layer — both modules import from neutral `models/`.
 
-Known hard cycle: `tdocs/operations/checkout.py` ← `extraction/fetch_tdoc.py` (extraction imports checkout's `checkout_tdoc`). Therefore `checkout.py` must never import from `extraction` at module level — that is why `_TDOC_DOCUMENT_SUFFIXES` is defined locally instead of reusing `OFFICE_FORMATS`. The former `cli/mcp_app.py` cycle was resolved structurally: the `tdoc checkout` command lives in `cli/checkout.py` (not `tdoc_app`) so `mcp_server` never imports `tdoc_app`. Inline imports are forbidden (pyreorder hoists them) — resolve cycles by moving code, not by deferring imports.
+Constraints in force: `tdocs/operations/checkout.py` must not import anything that imports it back. `mcp_server` must never import `tdoc_app`, which is why `tdoc checkout` lives in `cli/checkout.py`. Inline imports are forbidden (pyreorder hoists them) — resolve cycles by moving code, not by deferring imports.
 
 ## TDoc Checkout Layout
 
 `tdoc open` (`prepare_tdoc_file`) and `tdoc checkout` (`checkout_tdocs` in `cli/checkout.py`) MUST share one business-logic path: both compute the on-disk location via `get_checkout_path()` (mirrors the 3GPP server URL: `checkout_dir/<tsg>/<wg>/<meeting>/Docs/<tdoc_id>`). Never introduce a parallel layout.
 
-The "main file" inside an extracted zip is picked by `_select_main_file()` (optional `title` kwarg enables a difflib fuzzy rung). Clean/revision-marks twin pairs (`X.docx`+`X_rm.docx` → keep `_rm`; `X.docx`+`X_cl/X_clean.docx` → keep plain) are resolved to the marked copy BEFORE ranking (`_resolve_marks_twins`). Ranking: exact `<tdoc_id>.<ext>` > title similarity (threshold 0.6) > ID prefix (case-insensitive) > type order `_TDOC_DOCUMENT_SUFFIX_ORDER` (`.docx > .pptx > .ppt > .pdf > .xlsx > .doc > .xls`, subjective — make configurable if it ever bites) > shortest name. Fallbacks: largest document, largest non-clutter file. Clutter filtering as below. OS/archive clutter is filtered by gitignore-style patterns from `utils/clutter.py`: defaults ship as packaged data (`utils/clutter-ignore`), copied to `<cache-dir>/clutter-ignore` for user editing (`!` negation re-includes; deleting the file restores defaults). The filter runs at BOTH the extraction boundary (`safe_extract_zip`) — because sidecars inherit the original's suffix, so suffix-based consumers like `--pdf` conversion cannot distinguish them — and in `_select_main_file` (covers pre-existing checkout dirs with legacy clutter on disk).
+The main file inside an extracted zip is picked by `_select_main_file()` in `tdocs/operations/checkout.py` (optional `title` kwarg enables a difflib fuzzy match). Ranking, in order: exact `<tdoc_id>.<ext>` name > title similarity (threshold 0.6) > name starts with the TDoc ID (case-insensitive) > carries revision marks (content probe, `.docx` only, `_has_revision_marks`) > `DocumentType` declaration order (`models/base.py`: `.docx > .pptx > .ppt > .pdf > .xlsx > .doc > .xls`; subjective, make configurable if it ever bites) > most recent mtime, then name. Fallbacks: largest document-suffix file, then largest non-clutter file.
+
+Clutter filtering: gitignore-style patterns from `utils/clutter.py`. Defaults ship as packaged data (`utils/clutter-ignore`), copied to `<cache-dir>/clutter-ignore` for user editing (`!` negation re-includes; deleting the file restores defaults). The filter runs at zip extraction (`safe_extract_zip`), because sidecars inherit the original's suffix and suffix-based consumers cannot tell them apart, and in `_select_main_file` (covers checkout dirs with legacy clutter on disk).
 
 ## Testing
 

@@ -179,14 +179,12 @@ def query_meetings(
 def checkout_tdocs(
     tdoc_ids: list[str],
     force: bool = False,
-    pdf: bool = False,
 ) -> str:
     return _run_captured(
         cli_checkout_tdoc,
         ctx=_DummyContext(),
         tdoc_ids=tdoc_ids,
         force=force,
-        pdf=pdf,
     )
 
 
@@ -195,14 +193,12 @@ def checkout_specs(
     spec_numbers: list[str],
     release: str = "latest",
     doc_only: bool = False,
-    pdf: bool = False,
 ) -> str:
     return _run_captured(
         cli_checkout_spec,
         spec_numbers=spec_numbers,
         release=release,
         doc_only=doc_only,
-        pdf=pdf,
     )
 
 

@@ -12,7 +12,6 @@ from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
     CheckoutDirOption,
     DocOnlyOption,
-    PdfOption,
     ReleaseOption,
     SpecArgument,
     SpecFileOption,
@@ -22,7 +21,6 @@ from tdoc_crawler.cli.printing import print_checkout_results
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
-from tdoc_crawler.extraction import convert_dir_to_pdf
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.specs.downloads import SpecDownloads
@@ -38,8 +36,7 @@ def checkout_spec(
     doc_only: DocOnlyOption = False,
     spec_file: SpecFileOption = None,
     checkout_dir: CheckoutDirOption = None,
-    pdf: PdfOption = False,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract spec documents."""
     set_verbosity(verbosity)
@@ -63,10 +60,6 @@ def checkout_spec(
 
     results = asyncio.run(_run_checkout())
 
-    if pdf:
-        converted, failed_pdfs = convert_dir_to_pdf(effective_checkout_dir)
-        console.print(f"[cyan]{converted} file(s) converted to PDF, {failed_pdfs} failed[/cyan]")
-
     print_checkout_results(results)
 
 
@@ -74,7 +67,7 @@ def open_spec(
     spec: Annotated[str, typer.Argument(help="Spec number")],
     release: ReleaseOption = "latest",
     doc_only: DocOnlyOption = False,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and open a spec document."""
     set_verbosity(verbosity)

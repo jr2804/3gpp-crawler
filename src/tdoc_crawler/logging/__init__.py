@@ -7,13 +7,25 @@ configured for consistent console output across the application.
 import functools
 import logging
 import sys
+from enum import StrEnum
 from typing import Final
 
 from rich.console import Console
 from rich.logging import RichHandler
 
+
+class LogLevel(StrEnum):
+    """Logging levels accepted by CLI verbosity options."""
+
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
+
+
 # Default logging level for all loggers
-DEFAULT_LEVEL: Final[int] = logging.WARNING
+DEFAULT_LEVEL: Final[LogLevel] = LogLevel.WARNING
 
 
 @functools.cache
@@ -70,31 +82,19 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def set_verbosity(level: int | str) -> None:
+def set_verbosity(level: LogLevel) -> None:
     """Set the logging level for all loggers.
 
     This updates the root logger level, which affects all child loggers
     created via get_logger().
 
     Args:
-        level: The logging level (e.g., logging.DEBUG, logging.INFO, etc.)
-                   Accepts integer values (0-50), logging constants, or string names of levels.
+        level: The logging level as a LogLevel member.
 
     Examples:
-        >>> set_verbosity(logging.DEBUG)
-        >>> set_verbosity(10)  # DEBUG level
+        >>> set_verbosity(LogLevel.DEBUG)
     """
-    if isinstance(level, str):
-        level = level.upper()
-        if level_int := logging._nameToLevel.get(level):
-            level = level_int
-        elif level.isnumeric():
-            level = int(level)
-        else:
-            msg = f"Invalid logging level name: {level}"
-            raise ValueError(msg)
-
-    logging.root.setLevel(level)
+    logging.root.setLevel(level.value)
 
 
 # initialize logger configuration on first import (@functools.cache ensures this runs only once)

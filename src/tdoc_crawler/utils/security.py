@@ -22,7 +22,7 @@ def safe_extract_zip(zip_path: Path, extract_dir: Path) -> None:
       extracted — see :mod:`tdoc_crawler.utils.clutter`.
 
     Filtering here (not in consumers) is deliberate: macOS sidecars inherit
-    the original's suffix, so suffix-based consumers like PDF conversion
+    the original's suffix, so suffix-based consumers
     cannot distinguish them from real documents by name or extension.
 
     Args:

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import typer
-
 from tdoc_crawler.cli._shared import console, handle_clear_options
 from tdoc_crawler.cli.args import (
     CacheDirOption,
@@ -39,14 +37,14 @@ def query_specs(
     title: TitleOption = None,
     working_group: WorkingGroupOption = None,
     status: StatusOption = None,
-    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    output_format: OutputFormatOption = OutputFormat.TABLE,
     checkout: CheckoutOption = False,
     clear_tdocs: ClearTDocsOption = False,
     clear_specs: ClearSpecsOption = False,
     spec_file: SpecFileOption = None,
     cache_dir: CacheDirOption = None,
     tag: TagFilterOption = None,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query spec metadata from database."""
     set_verbosity(verbosity)
@@ -61,12 +59,6 @@ def query_specs(
         working_group=wg_filter,
         status=status,
     )
-
-    try:
-        output = OutputFormat(output_format.lower())
-    except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, jsonl, toon, or yaml")
-        raise typer.Exit(code=2) from exc
 
     db_file = path_config.db_file
     asyncio.run(
@@ -103,8 +95,8 @@ def query_specs(
 
         asyncio.run(load_specs_for_checkout())
 
-    if output is OutputFormat.TABLE:
+    if output_format is OutputFormat.TABLE:
         print_spec_table(results)
     else:
         data = [spec_query_to_dict(result) for result in results]
-        console.print(format_output(data, output))
+        console.print(format_output(data, output_format))

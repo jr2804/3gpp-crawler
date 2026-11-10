@@ -75,7 +75,7 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     agenda_ex: AgendaPatternExcludeOption = None,
     cache_dir: CacheDirOption = None,
     http_cache_enabled: HttpCacheOption = None,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Crawl TDoc metadata from 3GPP meeting document lists (Excel).
 

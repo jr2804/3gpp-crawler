@@ -26,60 +26,23 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 
 **Rule of thumb:** If useful to a Python developer using `tdoc_crawler` as a library, it belongs in the core.
 
-## CRITICAL: Spec Source Directory Naming
-
-Spec source directories under `wiki/<workspace>/sources/` **MUST** include the `-REL<version>` suffix:
-
-```text
-# CORRECT
-wiki/atias/sources/26260-REL18.0.0/
-wiki/atias/sources/26131-REL19.0.0/
-
-# WRONG — NEVER do this
-wiki/atias/sources/26260/
-wiki/atias/sources/26131/
-```
-
-When processing a spec workspace member:
-
-1. If the member ID already has `-REL` (e.g. `26260-REL18.0.0`), use it as-is.
-1. If the member ID is bare (e.g. `26131`), resolve the release from the database and construct the full ID.
-1. If the release cannot be resolved, fall back to the bare ID.
-
-This applies to **all** code paths that create or reference spec source directories:
-
-- `_effective_source_id()` / `_resolve_spec_source_id()`
-- `_process_member()` — `wiki_source_dir` construction
-- `_should_skip_member()` — existing output detection
-
-A regression test exists in `TestSpecSourceDirNaming` (test_workspaces.py).
-
-## Idempotent Processing
-
-`workspace process` MUST be idempotent — running it twice without `--force` produces the same result as running it once. Existing output files are never overwritten.
-
-Two-layer protection:
-
-1. **`_should_skip_member()`** (fast path): Checks if output artifacts exist before entering `convert_for_wiki()`. Controlled by `--skip-existing` (default: True).
-
-1. **`convert_for_wiki()`** (hard guarantee): Each profile branch checks for existing output and returns early when `force=False`:
-
-   - `PDF_ONLY`: `ensure_pdf()` skips if PDF exists
-   - `MARKDOWN_ONLY`: skips if `.md` exists
-   - `DEFAULT`/`ADVANCED`: skips if both `.md` and `.json` exist
-
-The `--force` flag is the ONLY way to overwrite existing output. It defaults to `False`.
-
 ## Module Responsibilities
 
 | Module | Responsibility |
 |--------|----------------|
-| `app.py` | Typer command definitions |
-| `args.py` | Typer Annotated types |
-| `checkout.py` | `tdoc checkout` command — standalone module so `mcp_server` can import it without cycling through `tdoc_app` |
-| `console.py` | Rich Console singleton |
-| `utils.py` | CLI helpers (check classification rules) |
-| `printing.py` | Table and output formatting |
+| `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `config`, `tag`, `mcp` |
+| `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, open, stats, checkout |
+| `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
+| `config_app.py` | `config init`, `show`, `validate`, `docs` |
+| `tag_app.py` | `tag add`, `remove`, `list` |
+| `mcp_app.py` | `mcp` command (Model Context Protocol server) |
+| `checkout.py` | `tdoc checkout` command; standalone so `mcp_server` can import it without cycling through `tdoc_app` |
+| `specs.py` | `spec checkout` and `spec open` commands |
+| `crawl/`, `query/` | Command implementations for the crawl and query subcommands |
+| `args.py` | Typer `Annotated` option and argument types |
+| `_shared.py` | Shared Typer helpers (`GlobSafeTyper`) |
+| `utils.py`, `formatting.py`, `printing.py` | CLI helpers, output formatting, Rich tables |
+| `constants.py`, `config.py` | CLI constants; `load_cli_config` |
 
 ## Import Direction
 
@@ -92,25 +55,21 @@ The `--force` flag is the ONLY way to overwrite existing output. It defaults to 
 CLI options accepting two or more fixed string values **MUST** be backed by `StrEnum` classes — never bare `str` with manual validation.
 
 ```python
-# CORRECT — StrEnum defined alongside ExtractionProfile in profiles.py
-class FiguresMode(StrEnum):
-    EMBED = "embed"
-    REFERENCE = "reference"
+# CORRECT — the enum is the single source of truth
+class Mode(StrEnum):
+    FAST = "fast"
+    FULL = "full"
 
-# CLI option uses the enum type directly
-FiguresModeOption = Annotated[
-    FiguresMode,
-    typer.Option("--figures", ...),
+ModeOption = Annotated[
+    Mode,
+    typer.Option("--mode", ...),
 ]
 
 # WRONG — bare str with manual if/else validation
-FiguresModeOption = Annotated[str, typer.Option("--figures", ...)]
-# ... then later:
-if figures not in ("embed", "reference"):  # ← NEVER do this
+ModeOption = Annotated[str, typer.Option("--mode", ...)]
+if mode not in ("fast", "full"):  # ← NEVER do this
 ```
 
-**Why:** Typer validates enum values automatically. No manual string checks, no typos, no forgotten cases. The enum is the single source of truth for valid values.
+**Why:** Typer validates enum values automatically. No manual string checks, no typos, no forgotten cases.
 
-**Where to define:** Extraction-related enums go in `extraction/profiles.py` alongside `ExtractionProfile`. Domain-agnostic enums go in `models/base.py`.
-
-**Current enums:** `ExtractionProfile`, `FiguresMode`, `TablesMode`, `DeviceType`, `SourceKind`, `TDocStatus`, `OutputFormat`, `SortOrder`.
+**Where to define:** Domain-agnostic enums go in `models/base.py`; the logging level enum `LogLevel` lives in `logging/__init__.py` next to `set_verbosity()`. Domain enums stay in their domain module (e.g. `tdocs/models.py`, `models/working_groups.py`). Find current ones with `grep -rn "(StrEnum)" src/`.

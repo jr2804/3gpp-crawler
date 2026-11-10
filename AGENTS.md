@@ -95,11 +95,10 @@ relevant child AGENTS.md.
 | Path | Scope |
 |------|-------|
 | `src/tdoc_crawler/AGENTS.md` | Core library: domain packages, import patterns, HTTP caching, data sources |
-| `src/tdoc_crawler/cli/AGENTS.md` | CLI-only conventions: thin wrappers, StrEnum options, spec source dir naming |
+| `src/tdoc_crawler/cli/AGENTS.md` | CLI-only conventions: thin wrappers, StrEnum options |
 | `src/tdoc_crawler/config/AGENTS.md` | ThreeGPPConfig + CacheManager rules |
 | `src/tdoc_crawler/database/AGENTS.md` | Persistence: Oxyde models, model choice guide |
 | `tests/AGENTS.md` | Test conventions, fixtures, coverage requirements |
-| `packages/convert-lo/AGENTS.md` | LibreOffice conversion package |
 
 ## State files — `.agents/`, demand-loaded, not always injected
 
@@ -146,8 +145,7 @@ _Always-injected_ — keep minimal. Everything else → `.agents/` files.
 6. **Scoped AGENTS.md** — read the child AGENTS.md before editing files in
    a directory that has one.
 7. **Multi-value CLI options** must be `StrEnum` — see `src/tdoc_crawler/cli/AGENTS.md`.
-8. **Spec source dirs** must include `-REL<version>` suffix — see `src/tdoc_crawler/cli/AGENTS.md`.
-9. **SQLite** via Oxyde, one model per table in
+8. **SQLite** via Oxyde, one model per table in
    `database/oxyde_models.py` — see `src/tdoc_crawler/database/AGENTS.md`.
 
 ## ⛔ No Patching

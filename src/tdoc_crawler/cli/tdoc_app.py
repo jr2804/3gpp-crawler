@@ -96,7 +96,7 @@ def open_tdoc(
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download, extract, and open a TDoc file."""
     set_verbosity(verbosity)
@@ -155,7 +155,7 @@ def open_tdoc(
 @tdoc_app.command("stats", rich_help_panel=HELP_PANEL_MAIN)
 def stats(
     ctx: typer.Context,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Display database statistics."""
     set_verbosity(verbosity)

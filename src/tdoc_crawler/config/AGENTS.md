@@ -18,11 +18,10 @@ config.credentials.username  # Portal credentials
 config.crawl.workers  # Concurrent workers
 ```
 
-**Config discovery** (later overrides earlier):
+**Config discovery** (later overrides earlier; implemented in `config/sources.py`):
 
-1. Global: `~/.config/3gpp-crawler/config.toml`
-1. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
-1. Config dir: `.config/.3gpp-crawler/conf.d/*.toml`
+1. Global: `~/.config/3gpp-crawler/config.toml`, then `~/.config/3gpp-crawler/conf.d/*.toml` (alphabetical)
+1. Project (CWD): `.config/.3gpp-crawler/conf.d/*.toml`, `.config/.3gpp-crawler/config.toml`, `.config/3gpp-crawler.toml`, `.3gpp-crawler/config.toml`, `.3gpp-crawler.toml`, `3gpp-crawler.toml` (highest project precedence)
 
 **Precedence:** CLI args > Config file > Env vars > Defaults
 
@@ -39,7 +38,7 @@ manager = resolve_cache_manager()
 manager.root  # cache root directory
 manager.db_file  # SQLite database
 manager.http_cache_file  # HTTP cache
-manager.checkout_dir  # Spec checkout directory
+manager.checkout_dir  # checkout root (TDoc and spec checkouts)
 ```
 
 ## Key Rules
@@ -64,7 +63,9 @@ manager = resolve_cache_manager()
 
 ## CLI Config Commands
 
+`config` is mounted on the `3gpp-crawler` entry point (`cli/mgmt_app.py`), not on `tdoc-crawler`.
+
 ```bash
-tdoc-crawler config init --output 3gpp-crawler.toml
-tdoc-crawler config show
+3gpp-crawler config init --output 3gpp-crawler.toml
+3gpp-crawler config show
 ```

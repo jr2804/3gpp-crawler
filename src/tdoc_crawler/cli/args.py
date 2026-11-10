@@ -8,14 +8,14 @@ from typing import Annotated
 import typer
 
 from tdoc_crawler.config import ConfigEnvVar
-from tdoc_crawler.models.base import SortKey
+from tdoc_crawler.logging import LogLevel
+from tdoc_crawler.models.base import OutputFormat, SortKey, SortOrder
 
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
 TDocIdArgument = Annotated[str, typer.Argument(help="TDoc identifier to download and open")]
 CheckoutTDocIdsArgument = Annotated[list[str], typer.Argument(help="TDoc identifier(s) to checkout")]
 SpecArgument = Annotated[list[str] | None, typer.Argument(help="Spec number(s) to query (dotted or undotted)")]
-WorkspaceItemsArgument = Annotated[list[str] | None, typer.Argument(help="Items to add: TDoc IDs, spec numbers, or ranges like 26.260-26.266 / 26250:258")]
 
 # Options - TDocs/Meetings
 WorkingGroupOption = Annotated[
@@ -33,7 +33,7 @@ LimitMeetingsPerSubWgOption = Annotated[
 ]
 LimitSubWgsOption = Annotated[int | None, typer.Option("--limit-subwgs", help="Limit number of sub-working groups")]
 LimitOption = Annotated[int | None, typer.Option("--limit", "-l", help="Maximum number of rows")]
-OrderOption = Annotated[str, typer.Option("--order", help="Sort order (asc|desc)")]
+OrderOption = Annotated[SortOrder, typer.Option("--order", help="Sort order (asc|desc)")]
 SortKeyOption = Annotated[
     SortKey,
     typer.Option("--sort-by", help="Sort key: meeting_date, reservation_date, uploaded_at, tdoc_id"),
@@ -67,7 +67,10 @@ IncrementalOption = Annotated[
 ]
 LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar=ConfigEnvVar.TDC_LIMIT_TDOCS.name)]
 ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
-OutputFormatOption = Annotated[str, typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar=ConfigEnvVar.TDC_OUTPUT.name)]
+OutputFormatOption = Annotated[
+    OutputFormat,
+    typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar=ConfigEnvVar.TDC_OUTPUT.name),
+]
 EolUsernameOption = Annotated[str | None, typer.Option("--eol-username", help="ETSI Online account username", envvar=ConfigEnvVar.TDC_EOL_USERNAME.name)]
 EolPasswordOption = Annotated[str | None, typer.Option("--eol-password", help="ETSI Online account password", envvar=ConfigEnvVar.TDC_EOL_PASSWORD.name)]
 PromptCredentialsOption = Annotated[
@@ -141,10 +144,6 @@ ReleaseOption = Annotated[
 DocOnlyOption = Annotated[bool, typer.Option("--doc-only/--no-doc-only", help="Attempt document-only download", envvar=ConfigEnvVar.TDC_DOC_ONLY.name)]
 
 # Options - General/Common
-PdfOption = Annotated[
-    bool,
-    typer.Option("--pdf", help="Convert extracted Office documents to PDF next to their sources (LibreOffice, remote fallback)"),
-]
 TagFilterOption = Annotated[
     list[str] | None,
     typer.Option("--tag", "-t", help="Filter by tags: comma-separated values are OR-combined; repeat the option to AND-combine groups"),
@@ -168,7 +167,7 @@ ExecutorOption = Annotated[
 MaxRetriesOption = Annotated[int, typer.Option("--max-retries", help="HTTP retry attempts", envvar=ConfigEnvVar.TDC_MAX_RETRIES.name)]
 TimeoutOption = Annotated[int, typer.Option("--timeout", help="HTTP timeout seconds", envvar=ConfigEnvVar.TDC_TIMEOUT.name)]
 VerbosityOption = Annotated[
-    str,
+    LogLevel,
     typer.Option("--verbosity", "-v", help="Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)", envvar=ConfigEnvVar.TDC_VERBOSITY.name),
 ]
 
@@ -201,13 +200,4 @@ HttpCacheOption = Annotated[
 ProgressOption = Annotated[
     bool,
     typer.Option("--progress/--no-progress", help="Enable/disable progress bar (disable for scripts and CI)", envvar=ConfigEnvVar.TDC_PROGRESS.name),
-]
-
-WorkspaceProcessForceOption = Annotated[
-    bool,
-    typer.Option("--force", help="Re-process existing artifacts"),
-]
-ProcessLimitOption = Annotated[
-    int | None,
-    typer.Option("--limit", help="Limit number of members to process"),
 ]

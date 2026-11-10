@@ -26,7 +26,7 @@ from typing import ClassVar
 
 # Single source of truth for default filenames/dirnames
 DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
-DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
+DEFAULT_HTTP_CACHE_FILENAME = "http-cache-v2.sqlite3"
 DEFAULT_CHECKOUT_DIRNAME = "checkout"
 
 

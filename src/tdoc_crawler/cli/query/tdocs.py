@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import typer
-
 from tdoc_crawler.cli._shared import console, handle_clear_options
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
@@ -56,9 +54,9 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     limit: LimitOption = None,
-    order: OrderOption = SortOrder.ASC.value,
+    order: OrderOption = SortOrder.ASC,
     sort_by: SortKeyOption = SortKey.MEETING_DATE,
-    output_format: OutputFormatOption = OutputFormat.TABLE.value,
+    output_format: OutputFormatOption = OutputFormat.TABLE,
     checkout: CheckoutOption = False,
     fetch: FetchOption = True,
     clear_tdocs: ClearTDocsOption = False,
@@ -72,7 +70,7 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     agenda_ex: AgendaPatternExcludeOption = None,
     tag: TagFilterOption = None,
     refresh_orphans: RefreshOrphansOption = False,
-    verbosity: VerbosityOption = str(DEFAULT_VERBOSITY),
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Query TDoc metadata from database."""
     set_verbosity(verbosity)
@@ -86,26 +84,14 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     working_groups = parse_working_groups(working_group, working_group) if working_group else None
     start, end = _parse_date_range(start_date, end_date)
 
-    try:
-        sort_order = SortOrder(order.lower())
-    except ValueError as exc:
-        console.print("[red]Invalid order value; use asc or desc")
-        raise typer.Exit(code=2) from exc
-
-    try:
-        format_val = OutputFormat(output_format.lower())
-    except ValueError as exc:
-        console.print("[red]Invalid output format; use table, json, jsonl, toon, or yaml")
-        raise typer.Exit(code=2) from exc
-
     config = TDocQueryConfig(
-        output_format=format_val,
+        output_format=output_format,
         tdoc_ids=tdoc_ids,
         working_groups=working_groups,
         start_date=start,
         end_date=end,
         limit=limit,
-        order=sort_order,
+        order=order,
         sort_key=sort_by,
         source_pattern=source,
         source_pattern_exclude=source_ex,

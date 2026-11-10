@@ -24,7 +24,7 @@ from tdoc_crawler.config.sources import discover_config_files, load_config_file,
 # Actual paths are resolved by CacheManager at runtime
 _DEFAULT_CACHE_DIR_STR = "~/.3gpp-crawler"
 _DEFAULT_DATABASE_FILENAME = "3gpp_crawler.db"
-_DEFAULT_HTTP_CACHE_FILENAME = "http-cache.sqlite3"
+_DEFAULT_HTTP_CACHE_FILENAME = "http-cache-v2.sqlite3"
 _DEFAULT_CHECKOUT_DIRNAME = "checkout"
 
 
