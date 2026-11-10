@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import asyncio
 
-from tdoc_crawler.cli._shared import console, handle_clear_options
+from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutOption,
-    ClearSpecsOption,
-    ClearTDocsOption,
     IncludeWithoutFilesOption,
     LimitOption,
     OrderOption,
@@ -39,8 +37,6 @@ def query_meetings(
     output_format: OutputFormatOption = OutputFormat.TABLE,
     checkout: CheckoutOption = False,
     include_without_files: IncludeWithoutFilesOption = False,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
@@ -59,15 +55,6 @@ def query_meetings(
     )
 
     db_file = path_config.db_file
-    asyncio.run(
-        handle_clear_options(
-            db_file,
-            path_config.checkout_dir,
-            MeetingDatabase,
-            clear_tdocs=clear_tdocs,
-            clear_specs=clear_specs,
-        ),
-    )
 
     async def run_query() -> list:
         async with MeetingDatabase(db_file) as database:

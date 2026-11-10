@@ -151,7 +151,7 @@ class DocDatabase:
                 msg,
                 detail=(
                     f"Database schema is out of date (missing: {details}). "
-                    "Rebuild it with `3gpp-crawler tdoc crawl-meetings --clear-db` "
+                    "Rebuild it with `3gpp-crawler database clear-all` "
                     "(deletes the database, keeps tags by re-importing them, and clears TDoc checkout entries), "
                     "then run `3gpp-crawler tdoc crawl` again."
                 ),

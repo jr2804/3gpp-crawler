@@ -42,6 +42,14 @@ class TableColumnSpec:
     justify: Literal["default", "left", "center", "right", "full"] = "left"
 
 
+# Columns for tag listings shared by `tag list` and `database export-tags`
+TAG_COLUMNS = [
+    TableColumnSpec(key="kind", header="Kind", style="cyan"),
+    TableColumnSpec(key="item_id", header="Item", style="white"),
+    TableColumnSpec(key="tag", header="Tag", style="green"),
+]
+
+
 def print_structured_output(
     data: StructuredData,
     output_format: OutputFormat,
@@ -171,4 +179,4 @@ def _dataframe_to_payload(df: pd.DataFrame, input_kind: str) -> Any:
     return records
 
 
-__all__ = ["TableColumnSpec", "format_output", "print_structured_output"]
+__all__ = ["TAG_COLUMNS", "TableColumnSpec", "format_output", "print_structured_output"]

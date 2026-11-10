@@ -23,6 +23,18 @@ class MeetingDatabase(DocDatabase):
     # ------------------------------------------------------------------
     # Meeting operations
     # ------------------------------------------------------------------
+    async def clear_meetings(self) -> int:
+        """Clear all meeting records from the database.
+
+        TDoc records are kept; their ``meeting_id`` values may then reference
+        meetings that no longer exist.
+
+        Returns:
+            Number of deleted meeting rows.
+        """
+        counts = await self._clear_tables([MeetingMetadata])
+        return counts.get(MeetingMetadata.get_table_name(), 0)
+
     async def upsert_meeting(self, metadata: MeetingMetadata) -> tuple[bool, bool]:
         """Insert or update a meeting record.
 

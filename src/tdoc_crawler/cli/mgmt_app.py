@@ -1,9 +1,9 @@
 """Main CLI application — 3gpp-crawler umbrella entry point.
 
 ``3gpp-crawler`` is the main CLI: it mounts the TDoc group (``tdoc``),
-the Spec group (``spec``), plus top-level ``config``, ``tag``, and ``mcp``.
-``tdoc-crawler`` and ``spec-crawler`` are thin shortcuts that invoke the
-same sub-apps directly.
+the Spec group (``spec``), plus top-level ``config``, ``tag``, ``database``,
+and ``mcp``. ``tdoc-crawler`` and ``spec-crawler`` are thin shortcuts that
+invoke the same sub-apps directly.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from tdoc_crawler import __version__
 from tdoc_crawler.cli._shared import GlobSafeTyper, console
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
+from tdoc_crawler.cli.database_app import app as database_app
 from tdoc_crawler.cli.mcp_app import app as mcp_app
 from tdoc_crawler.cli.spec_app import spec_app
 from tdoc_crawler.cli.tag_app import app as tag_app
@@ -41,6 +42,8 @@ mgmt_app.add_typer(tdoc_app, name="tdoc", help="TDocs and meetings (shortcut: td
 mgmt_app.add_typer(spec_app, name="spec", help="Technical specifications (shortcut: spec-crawler)")
 mgmt_app.add_typer(config_app, name="config", help="Manage configuration")
 mgmt_app.add_typer(tag_app, name="tag", help="Manage tags for TDocs, specs, and other items")
+mgmt_app.add_typer(database_app, name="database", help="Database maintenance: clear, rebuild, import/export tags (shortcut: db)")
+mgmt_app.add_typer(database_app, name="db", help="Shortcut for `database`", hidden=True)
 mgmt_app.add_typer(mcp_app, name="mcp", help="Run as Model Context Protocol (MCP) server")
 
 

@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import asyncio
 
-from tdoc_crawler.cli._shared import console, handle_clear_options
+from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutOption,
-    ClearSpecsOption,
-    ClearTDocsOption,
     OutputFormatOption,
     ReleaseOption,
     SpecArgument,
@@ -32,8 +30,6 @@ def crawl_specs(
     release: ReleaseOption = "latest",
     checkout: CheckoutOption = False,
     output_format: OutputFormatOption = OutputFormat.TABLE,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
     spec_file: SpecFileOption = None,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
@@ -49,16 +45,6 @@ def crawl_specs(
     specs = collect_spec_numbers(spec_numbers, spec_file)
 
     sources = build_default_spec_sources()
-
-    asyncio.run(
-        handle_clear_options(
-            crawler_config.path.db_file,
-            crawler_config.path.checkout_dir,
-            SpecDatabase,
-            clear_tdocs=clear_tdocs,
-            clear_specs=clear_specs,
-        ),
-    )
 
     async def crawl_specs_db() -> list:
         async with SpecDatabase(crawler_config.path.db_file) as database:

@@ -10,10 +10,15 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
+from tdoc_crawler.cli.mgmt_app import mgmt_app
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
+from tdoc_crawler.database.tags import add_tags, list_tags
+from tdoc_crawler.meetings.models import MeetingQueryConfig
+from tdoc_crawler.models.base import TagKind
 from tdoc_crawler.models.working_groups import WorkingGroup
+from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult, is_orphan_tdoc
 
@@ -988,3 +993,150 @@ class TestEnvironmentVariables:
         result = runner.invoke(tdoc_app, ["stats"])
 
         assert result.exit_code == 0
+
+
+class TestDatabaseCommand:
+    """Tests for the `database` command group (alias `db`)."""
+
+    def test_database_help_lists_commands(self) -> None:
+        """The database group shows the clear and tag transfer commands."""
+        result = runner.invoke(mgmt_app, ["database", "--help"])
+
+        assert result.exit_code == 0
+        for name in ("clear-tdocs", "clear-specs", "clear-meetings", "clear-all", "export-tags", "import-tags"):
+            assert name in result.output
+
+    def test_db_alias_resolves(self) -> None:
+        """The short alias `db` mounts the same command group."""
+        result = runner.invoke(mgmt_app, ["db", "--help"])
+
+        assert result.exit_code == 0
+        assert "clear-all" in result.output
+
+    def test_clear_all_deletes_db_and_preserves_tags(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """clear-all rebuilds the database and re-imports the saved tags."""
+
+        async def seed() -> None:
+            async with TDocDatabase(test_db_path) as db:
+                await insert_sample_meetings_async(db, sample_meetings)
+                await db.upsert_tdoc(sample_tdocs[0])
+                await add_tags(TagKind.TDOC, "S4-250001", ["keepme"])
+
+        asyncio.run(seed())
+
+        result = runner.invoke(mgmt_app, ["database", "clear-all", "--yes"])
+
+        assert result.exit_code == 0
+        assert "Restored 1 tag(s)" in result.output
+        backup_file = test_db_path.parent / "tags-backup.json"
+        assert not backup_file.exists()
+        assert test_db_path.exists()  # recreated with fresh schema
+
+        async def verify() -> tuple[list, list]:
+            async with TDocDatabase(test_db_path) as db:
+                remaining = await db.query_tdocs(TDocQueryConfig(tdoc_ids=[sample_tdocs[0].tdoc_id]))
+                tags = await list_tags()
+            return remaining, tags
+
+        remaining, tags = asyncio.run(verify())
+        assert remaining == []
+        assert [(t.kind, t.item_id, t.tag) for t in tags] == [(TagKind.TDOC, "S4-250001", "keepme")]
+
+    def test_clear_all_prompts_and_aborts_without_yes(self, test_db_path: Path) -> None:
+        """Without --yes, declining the confirmation keeps the database."""
+
+        async def seed() -> None:
+            async with TDocDatabase(test_db_path):
+                pass  # create the file
+
+        asyncio.run(seed())
+
+        result = runner.invoke(mgmt_app, ["database", "clear-all"], input="n\n")
+
+        assert result.exit_code != 0
+        assert test_db_path.exists()
+
+    def test_clear_meetings_keeps_tdocs(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """clear-meetings only removes meeting records."""
+
+        async def seed() -> None:
+            async with TDocDatabase(test_db_path) as db:
+                await insert_sample_meetings_async(db, sample_meetings)
+                await db.upsert_tdoc(sample_tdocs[0])
+
+        asyncio.run(seed())
+
+        result = runner.invoke(mgmt_app, ["database", "clear-meetings"])
+
+        assert result.exit_code == 0
+
+        async def verify() -> tuple[list, list]:
+            async with TDocDatabase(test_db_path) as db:
+                tdocs = await db.query_tdocs(TDocQueryConfig())
+                meetings = await db.query_meetings(MeetingQueryConfig(limit=10))
+            return tdocs, meetings
+
+        tdocs, meetings = asyncio.run(verify())
+        assert len(tdocs) == 1
+        assert meetings == []
+
+    def test_clear_tdocs_removes_tdocs_keeps_tags(self, test_db_path: Path, sample_tdocs: list[TDocMetadata]) -> None:
+        """clear-tdocs wipes TDoc records but leaves tag rows untouched."""
+
+        async def seed() -> None:
+            async with TDocDatabase(test_db_path) as db:
+                await db.upsert_tdoc(sample_tdocs[0])
+                await add_tags(TagKind.TDOC, sample_tdocs[0].tdoc_id, ["keepme"])
+
+        asyncio.run(seed())
+
+        result = runner.invoke(mgmt_app, ["database", "clear-tdocs"])
+
+        assert result.exit_code == 0
+
+        async def verify() -> tuple[list, list]:
+            async with TDocDatabase(test_db_path) as db:
+                tdocs = await db.query_tdocs(TDocQueryConfig())
+                tags = await list_tags()
+            return tdocs, tags
+
+        tdocs, tags = asyncio.run(verify())
+        assert tdocs == []
+        assert [t.tag for t in tags] == ["keepme"]
+
+    def test_export_tags_json(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        tmp_path: Path,
+    ) -> None:
+        """export-tags writes the natural-key dump to the requested file."""
+
+        async def seed() -> None:
+            async with TDocDatabase(test_db_path) as db:
+                await db.upsert_tdoc(sample_tdocs[0])
+                await add_tags(TagKind.TDOC, sample_tdocs[0].tdoc_id, ["keepme"])
+
+        asyncio.run(seed())
+        dump = tmp_path / "tags.json"
+
+        result = runner.invoke(mgmt_app, ["database", "export-tags", "--output", "json", "--file", str(dump)])
+
+        assert result.exit_code == 0
+        assert dump.exists()
+        assert sample_tdocs[0].tdoc_id in dump.read_text(encoding="utf-8")
+
+        result = runner.invoke(mgmt_app, ["database", "import-tags", str(dump), "--output", "json"])
+
+        assert result.exit_code == 0
+        assert '"added": 0' in result.output  # already imported, idempotent

@@ -3,7 +3,7 @@
 Tag rows are identified by ``kind`` + ``item_id`` (TDoc id, spec number or
 free-text id), never by the generated ``tag_id``, so dumps stay valid across
 database rebuilds. Reading works without the ORM, so a stale schema can still
-be exported before ``--clear-db`` deletes it.
+be exported before ``database clear-all`` deletes it.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def read_tags_from_database_file(db_file: Path) -> list[TagRecord]:
 
 
 def read_tag_file(path: Path) -> list[TagRecord]:
-    """Load a JSON or YAML tag dump written by ``tag export`` or the backup."""
+    """Load a JSON or YAML tag dump written by ``database export-tags`` or the backup."""
     text = path.read_text(encoding="utf-8")
     suffix = path.suffix.lower()
     try:

@@ -5,14 +5,12 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
-from tdoc_crawler.cli._shared import console, create_progress_bar, handle_clear_options
+from tdoc_crawler.cli._shared import console, create_progress_bar
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
     CacheDirOption,
     CheckoutOption,
-    ClearSpecsOption,
-    ClearTDocsOption,
     EndDateOption,
     ExecutorOption,
     HttpCacheOption,
@@ -58,8 +56,6 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     limit_subwgs: LimitSubWgsOption = None,
     checkout: CheckoutOption = False,
     incremental: IncrementalOption = True,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
     workers: WorkersOption = 4,
     executor: ExecutorOption = None,
     timeout: TimeoutOption = 30,
@@ -131,16 +127,6 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     scope_parts = _build_scope_description(meetings, subgroups, working_groups)
 
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")
-
-    asyncio.run(
-        handle_clear_options(
-            db_file,
-            crawler_config.path.checkout_dir,
-            TDocDatabase,
-            clear_tdocs=clear_tdocs,
-            clear_specs=clear_specs,
-        ),
-    )
 
     async def run_tdoc_crawl() -> tuple:
         async with TDocDatabase(db_file) as database:

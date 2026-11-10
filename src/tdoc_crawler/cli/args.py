@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -9,7 +10,7 @@ import typer
 
 from tdoc_crawler.config import ConfigEnvVar
 from tdoc_crawler.logging import LogLevel
-from tdoc_crawler.models.base import OutputFormat, SortKey, SortOrder
+from tdoc_crawler.models.base import OutputFormat, SortKey, SortOrder, TagKind
 
 # Arguments
 TDocIdsArgument = Annotated[list[str] | None, typer.Argument(help="TDoc identifiers to query")]
@@ -66,7 +67,6 @@ IncrementalOption = Annotated[
     ),
 ]
 LimitTDocsOption = Annotated[int | None, typer.Option("--limit-tdocs", help="Limit number of TDocs", envvar=ConfigEnvVar.TDC_LIMIT_TDOCS.name)]
-ClearTDocsOption = Annotated[bool, typer.Option("--clear-tdocs", help="Clear all TDocs before crawling")]
 OutputFormatOption = Annotated[
     OutputFormat,
     typer.Option("--output", "-o", help="Output format (table, json, ison, toon, yaml)", envvar=ConfigEnvVar.TDC_OUTPUT.name),
@@ -125,7 +125,6 @@ AgendaPatternExcludeOption = Annotated[
 
 
 # Options - Specs
-ClearSpecsOption = Annotated[bool, typer.Option("--clear-specs", help="Clear all specs before crawling")]
 TitleOption = Annotated[str | None, typer.Option("--title", help="Filter by title contains")]
 StatusOption = Annotated[str | None, typer.Option("--status", help="Filter by status")]
 
@@ -149,7 +148,6 @@ TagFilterOption = Annotated[
     typer.Option("--tag", "-t", help="Filter by tags: comma-separated values are OR-combined; repeat the option to AND-combine groups"),
 ]
 CacheDirOption = Annotated[Path | None, typer.Option("--cache-dir", "-c", help="Cache directory", envvar=ConfigEnvVar.TDC_CACHE_DIR.name)]
-ClearDbOption = Annotated[bool, typer.Option("--clear-db", help="Clear all meetings and TDocs before crawling")]
 CheckoutOption = Annotated[
     bool,
     typer.Option("--checkout/--no-checkout", help="Download and extract metadata results to checkout folder", envvar=ConfigEnvVar.TDC_CHECKOUT.name),
@@ -208,4 +206,32 @@ HttpCacheOption = Annotated[
 ProgressOption = Annotated[
     bool,
     typer.Option("--progress/--no-progress", help="Enable/disable progress bar (disable for scripts and CI)", envvar=ConfigEnvVar.TDC_PROGRESS.name),
+]
+
+# Options - Tags
+
+
+class TagKindChoice(StrEnum):
+    """Item kind for tag operations."""
+
+    TDOC = "tdoc"
+    SPEC = "spec"
+    OTHER = "other"
+
+    def to_kind(self) -> TagKind:
+        """Map CLI choice to TagKind."""
+        return TagKind(self.value)
+
+
+TagFilterKindOption = Annotated[
+    TagKindChoice | None,
+    typer.Option("--kind", "-k", help="Filter by item kind"),
+]
+ExportFileOption = Annotated[
+    Path | None,
+    typer.Option("--file", "-f", help="Write the dump to this file instead of stdout"),
+]
+TagFileArgument = Annotated[
+    Path,
+    typer.Argument(help="Tag dump to import (.json, .yaml or .yml)", exists=True, dir_okay=False, readable=True),
 ]

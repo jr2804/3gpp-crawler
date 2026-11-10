@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import asyncio
 
-from tdoc_crawler.cli._shared import console, handle_clear_options
+from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
     CacheDirOption,
     CheckoutOption,
-    ClearSpecsOption,
-    ClearTDocsOption,
     EndDateOption,
     FetchOption,
     LimitOption,
@@ -60,8 +58,6 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     output_format: OutputFormatOption = OutputFormat.TABLE,
     checkout: CheckoutOption = False,
     fetch: FetchOption = True,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
     cache_dir: CacheDirOption = None,
     source: SourcePatternOption = None,
     source_ex: SourcePatternExcludeOption = None,
@@ -104,15 +100,6 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     )
 
     db_file = path_config.db_file
-    asyncio.run(
-        handle_clear_options(
-            db_file,
-            path_config.checkout_dir,
-            TDocDatabase,
-            clear_tdocs=clear_tdocs,
-            clear_specs=clear_specs,
-        ),
-    )
 
     async def run_query() -> list:
         async with TDocDatabase(db_file) as database:

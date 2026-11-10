@@ -2,45 +2,26 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from tdoc_crawler.cli._shared import GlobSafeTyper, console
-from tdoc_crawler.cli.args import OutputFormatOption
-from tdoc_crawler.cli.formatting import TableColumnSpec, format_output, print_structured_output
+from tdoc_crawler.cli.args import OutputFormatOption, TagFilterKindOption, TagKindChoice
+from tdoc_crawler.cli.formatting import TAG_COLUMNS, TableColumnSpec, print_structured_output
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.database.tag_transfer import (
-    export_tags,
-    import_tags,
-    normalize_item_id,
-    read_tag_file,
-    tag_records_to_payload,
-)
+from tdoc_crawler.database.tag_transfer import normalize_item_id
 from tdoc_crawler.database.tags import add_tags, list_tags, remove_tags
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import LogLevel, set_verbosity
-from tdoc_crawler.models.base import OutputFormat, TagKind
+from tdoc_crawler.models.base import OutputFormat
 from tdoc_crawler.utils.async_helpers import run_async
 
 HELP_PANEL = "Tag Commands"
 
 app = GlobSafeTyper(help="Manage tags for TDocs, specs, and other items")
-
-
-class TagKindChoice(StrEnum):
-    """Item kind for tag operations."""
-
-    TDOC = "tdoc"
-    SPEC = "spec"
-    OTHER = "other"
-
-    def to_kind(self) -> TagKind:
-        """Map CLI choice to TagKind."""
-        return TagKind(self.value)
 
 
 KindArgument = Annotated[
@@ -55,16 +36,6 @@ TagsOption = Annotated[
     list[str],
     typer.Option("--tag", "-t", help="Tags to apply; comma-separate multiple values (repeatable)"),
 ]
-TagFilterKindOption = Annotated[
-    TagKindChoice | None,
-    typer.Option("--kind", "-k", help="Filter by item kind"),
-]
-
-TAG_COLUMNS = [
-    TableColumnSpec(key="kind", header="Kind", style="cyan"),
-    TableColumnSpec(key="item_id", header="Item", style="white"),
-    TableColumnSpec(key="tag", header="Tag", style="green"),
-]
 TagFilterItemOption = Annotated[
     str | None,
     typer.Option("--item", "-i", help="Filter by item id"),
@@ -72,14 +43,6 @@ TagFilterItemOption = Annotated[
 TagFilterTagOption = Annotated[
     str | None,
     typer.Option("--tag", "-t", help="Filter by tag name"),
-]
-TagFileArgument = Annotated[
-    Path,
-    typer.Argument(help="Tag dump to import (.json, .yaml or .yml)", exists=True, dir_okay=False, readable=True),
-]
-ExportFileOption = Annotated[
-    Path | None,
-    typer.Option("--file", "-f", help="Write the dump to this file instead of stdout"),
 ]
 
 
@@ -170,60 +133,6 @@ def tag_list(
     )
 
 
-def tag_export(
-    kind: TagFilterKindOption = None,
-    file: ExportFileOption = None,
-    output_format: Annotated[OutputFormat, typer.Option("--output", "-o", help="Dump format (json, yaml, toon, ison, table)")] = OutputFormat.JSON,
-    verbosity: Annotated[LogLevel, typer.Option("--verbosity", "-v", help="Verbosity level")] = DEFAULT_VERBOSITY,
-) -> None:
-    """Export tags as natural-key records (kind, item_id, tag) for backup or batch import."""
-    set_verbosity(verbosity)
-    if file is not None and output_format is OutputFormat.TABLE:
-        console.print("[red]--file needs a machine-readable --output (json, yaml, toon or ison)[/red]")
-        raise typer.Exit(1)
-
-    async def run() -> list:
-        async with TDocDatabase(_db_file()):
-            return await export_tags(kind.to_kind() if kind is not None else None)
-
-    records = run_async(run())
-    payload = tag_records_to_payload(records)
-    if output_format is OutputFormat.TABLE:
-        print_structured_output(payload, output_format, table_title="Tags", table_columns=TAG_COLUMNS)
-        return
-    text = format_output(payload, output_format)
-    if file is None:
-        typer.echo(text)
-        return
-    file.write_text(text + "\n", encoding="utf-8")
-    console.print(f"[green]Exported {len(records)} tag(s) to {file}[/green]")
-
-
-def tag_import(
-    file: TagFileArgument,
-    output_format: OutputFormatOption = OutputFormat.TABLE,
-    verbosity: Annotated[LogLevel, typer.Option("--verbosity", "-v", help="Verbosity level")] = DEFAULT_VERBOSITY,
-) -> None:
-    """Import tags from a JSON or YAML dump (existing tag rows are skipped)."""
-    set_verbosity(verbosity)
-    try:
-        records = read_tag_file(file)
-    except (ValueError, OSError) as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1) from exc
-
-    async def run() -> int:
-        async with TDocDatabase(_db_file()):
-            return await import_tags(records)
-
-    added = run_async(run())
-    print_structured_output(
-        {"file": str(file), "records": len(records), "added": added},
-        output_format,
-        table_title="Tags imported",
-    )
-
-
 def _db_file() -> Path:
     """Resolve the database file from the default PathConfig."""
     return PathConfig().db_file
@@ -232,7 +141,5 @@ def _db_file() -> Path:
 app.command("add", rich_help_panel=HELP_PANEL)(tag_add)
 app.command("remove", rich_help_panel=HELP_PANEL)(tag_remove)
 app.command("list", rich_help_panel=HELP_PANEL)(tag_list)
-app.command("export", rich_help_panel=HELP_PANEL)(tag_export)
-app.command("import", rich_help_panel=HELP_PANEL)(tag_import)
 
 __all__ = ["app"]

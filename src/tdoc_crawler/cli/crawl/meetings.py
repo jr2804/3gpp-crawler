@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import asyncio
 
-from tdoc_crawler.cli._shared import console, create_progress_bar, handle_clear_options
+from tdoc_crawler.cli._shared import console, create_progress_bar
 from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutOption,
-    ClearDbOption,
-    ClearSpecsOption,
-    ClearTDocsOption,
     EndDateOption,
     EolPasswordOption,
     EolUsernameOption,
@@ -50,9 +47,6 @@ def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
     checkout: CheckoutOption = False,
     incremental: IncrementalOption = True,
     include_without_files: IncludeWithoutFilesOption = False,
-    clear_db: ClearDbOption = False,
-    clear_tdocs: ClearTDocsOption = False,
-    clear_specs: ClearSpecsOption = False,
     timeout: TimeoutOption = 30,
     max_retries: MaxRetriesOption = 3,
     eol_username: EolUsernameOption = None,
@@ -97,17 +91,6 @@ def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
     else:
         scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
-
-    asyncio.run(
-        handle_clear_options(
-            db_file,
-            crawler_config.path.checkout_dir,
-            MeetingDatabase,
-            clear_tdocs=clear_tdocs,
-            clear_specs=clear_specs,
-            clear_db=clear_db,
-        ),
-    )
 
     async def run_meeting_crawl() -> object:
         async with MeetingDatabase(db_file) as database:
