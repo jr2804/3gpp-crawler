@@ -23,7 +23,7 @@ If this file grows past its size budget, split detail into
 | ---- | ---- | ------- |
 | `uv` | Python deps & scripts | Package manager: `uv run`, `uv add` |
 | `mise` | Running tasks | Task runner; definitions in `.config/mise/conf.d/*.toml` |
-| `bd` / beads | Issue tracking | Task lifecycle, dependencies, session persistence |
+| `bd` / beads | Issue tracking | Task lifecycle, dependencies, session persistence; embedded Dolt store synced to private repo `3gpp-crawler-beads` (push: `DOLT_REMOTE_USER=oauth2 DOLT_REMOTE_PASSWORD=$GITLAB_TOKEN bd dolt push`) |
 | `glab` | GitLab (forge.3gpp.org) | MRs, issues, releases; upstream remote `3gpp` |
 
 ## MCP servers
