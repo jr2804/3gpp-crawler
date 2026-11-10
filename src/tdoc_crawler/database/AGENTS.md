@@ -78,8 +78,10 @@ Schema is owned by Oxyde. On startup:
    `DatabaseError("schema-mismatch")` pointing the caller at regeneration.
 
 We deliberately do **not** run ALTER TABLE migrations on existing DBs. Adding
-a column to a model requires the user to delete the old DB or point
-`TDC_CACHE_DIR` at a fresh directory. Silent drift between model and table is the failure this avoids.
+a column or table to a model requires the user to rebuild the DB:
+`3gpp-crawler tdoc crawl-meetings --clear-db` deletes the DB file before any DB is opened (works even on a stale schema), then re-crawl. The `schema-mismatch` message names this command. Silent drift between model and table is the failure this avoids.
+
+Tags survive the rebuild: `--clear-db` first saves tags with `read_tags_from_database_file()` (raw `sqlite3`, no ORM, so it works on a stale schema) to `tags-backup.json`, then re-imports them with `import_tags()` after recreation. The natural-key transfer code lives in `database/tag_transfer.py` (export/import/backup); it is the only place that reads `tagentry` without the ORM.
 
 ## Common Mistakes
 

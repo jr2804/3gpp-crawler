@@ -35,7 +35,30 @@ directories, no copying.
 3gpp-crawler tag list --kind tdoc         # only TDoc tags
 3gpp-crawler tag list --item S4-250638    # tags on one item
 3gpp-crawler tag list --tag codec         # items carrying a tag
+3gpp-crawler tag list -o json             # machine-readable (table, json, yaml, toon, ison)
 ```
+
+### `tag export` and `tag import`
+
+Tags are exported with their natural keys (`kind`, `item_id`, `tag`), never
+the internal row ID, so a dump stays valid after the database is rebuilt.
+
+```bash
+3gpp-crawler tag export                          # JSON to stdout
+3gpp-crawler tag export --kind spec -o yaml      # YAML to stdout
+3gpp-crawler tag export -f tags.json             # write a backup file
+3gpp-crawler tag import tags.json                # batch import (existing tags skipped)
+```
+
+`tag import` accepts `.json`, `.yaml` and `.yml` files. Re-importing a dump is
+safe: rows that already exist are skipped.
+
+### Rebuilding the database keeps tags
+
+`tdoc crawl-meetings --clear-db` deletes the database, so it first saves all
+tags to `tags-backup.json` next to the database, then restores them into the
+new database. The backup file is deleted after a successful restore; if the
+restore fails, it is kept so the tags can be imported manually with `tag import`.
 
 ## Tag filters on queries
 

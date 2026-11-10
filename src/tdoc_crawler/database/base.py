@@ -150,7 +150,10 @@ class DocDatabase:
             raise DatabaseError(
                 msg,
                 detail=(
-                    f"Database schema is out of date (missing: {details}). Delete the database file and re-crawl, or set TDC_CACHE_DIR to a fresh directory."
+                    f"Database schema is out of date (missing: {details}). "
+                    "Rebuild it with `3gpp-crawler tdoc crawl-meetings --clear-db` "
+                    "(deletes the database, keeps tags by re-importing them, and clears TDoc checkout entries), "
+                    "then run `3gpp-crawler tdoc crawl` again."
                 ),
             )
 
