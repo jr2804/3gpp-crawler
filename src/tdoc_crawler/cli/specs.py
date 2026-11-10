@@ -12,6 +12,7 @@ from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
     CheckoutDirOption,
     DocOnlyOption,
+    OutputFormatOption,
     RefreshListingOption,
     ReleaseOption,
     SpecArgument,
@@ -24,6 +25,7 @@ from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
+from tdoc_crawler.models.base import OutputFormat
 from tdoc_crawler.specs.downloads import SpecDownloads
 from tdoc_crawler.specs.operations.checkout import build_default_spec_sources
 from tdoc_crawler.utils.parse import collect_spec_numbers
@@ -37,6 +39,7 @@ def checkout_spec(
     doc_only: DocOnlyOption = False,
     spec_file: SpecFileOption = None,
     checkout_dir: CheckoutDirOption = None,
+    output_format: OutputFormatOption = OutputFormat.TABLE,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download and extract spec documents."""
@@ -61,13 +64,14 @@ def checkout_spec(
 
     results = asyncio.run(_run_checkout())
 
-    print_checkout_results(results)
+    print_checkout_results(results, output_format)
 
 
 def list_spec_files(
     spec_number: Annotated[str, typer.Argument(help="Spec number")],
     release: ReleaseOption = "latest",
     refresh: RefreshListingOption = False,
+    output_format: OutputFormatOption = OutputFormat.TABLE,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """List the files inside a spec's zip archive (remote listing on first use, then stored)."""
@@ -84,7 +88,7 @@ def list_spec_files(
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1) from exc
-    print_archive_members(members, title=f"Files in spec {normalized} ({release})")
+    print_archive_members(members, title=f"Files in spec {normalized} ({release})", output_format=output_format)
 
 
 def open_spec(

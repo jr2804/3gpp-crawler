@@ -20,6 +20,7 @@ from tdoc_crawler.cli.args import (
     EolPasswordOption,
     EolUsernameOption,
     FullMetadataOption,
+    OutputFormatOption,
     PromptCredentialsOption,
     TDocIdArgument,
     UseWhatTheSpecOption,
@@ -29,6 +30,7 @@ from tdoc_crawler.cli.checkout import checkout_tdocs, list_tdoc_files
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
+from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.mcp_app import app as mcp_app
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.tag_app import app as tag_app
@@ -39,6 +41,7 @@ from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
+from tdoc_crawler.models.base import OutputFormat
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
@@ -158,6 +161,7 @@ tdoc_app.command("files", rich_help_panel=HELP_PANEL_MAIN)(list_tdoc_files)
 @tdoc_app.command("stats", rich_help_panel=HELP_PANEL_MAIN)
 def stats(
     ctx: typer.Context,
+    output_format: OutputFormatOption = OutputFormat.TABLE,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Display database statistics."""
@@ -177,6 +181,10 @@ def stats(
             return cast("dict[str, Any]", await database.get_statistics())
 
     stats_dict = asyncio.run(_load_stats())
+
+    if output_format is not OutputFormat.TABLE:
+        console.print(format_output(stats_dict, output_format))
+        return
 
     table = Table(title="TDoc and meeting database statistics")
 
