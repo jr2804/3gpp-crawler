@@ -15,6 +15,7 @@ def run_mcp_server(ctx: typer.Context) -> None:
     """Start the stdio MCP server for AI agent integrations."""
     if ctx.invoked_subcommand is not None:
         return
+
     try:
         run_mcp()
     except Exception as exc:
