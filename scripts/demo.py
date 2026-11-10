@@ -7,13 +7,13 @@ from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.query import query_tdocs
 from tdoc_crawler.logging import LogLevel, get_console
 
-this_dir = Path(__file__).parent
-
 # Example data
 TDOC1 = "S4-260001"  # docx
 TDOC2 = "S4-260002"  # xlsx
 TDOC3 = "S4-260003"  # pptx
 TDOCS = [TDOC1, TDOC2, TDOC3]
+
+this_dir = Path(__file__).parent
 
 console = get_console()
 cache_dir = this_dir / "cache"  # Default cache dir if not using temp dir
@@ -24,10 +24,8 @@ common_args = {
 }
 
 
-def clean_cache() -> None:
-    shutil.rmtree(cache_dir, ignore_errors=True)
-    # Small delay to ensure files are released on Windows
-    time.sleep(0.5)
+def main() -> None:
+    demo_tdocs_crawl()
 
 
 def demo_tdocs_crawl() -> None:
@@ -61,8 +59,10 @@ def demo_tdocs_crawl() -> None:
     query_tdocs(tdoc_ids=[TDOC1], **common_args)
 
 
-def main() -> None:
-    demo_tdocs_crawl()
+def clean_cache() -> None:
+    shutil.rmtree(cache_dir, ignore_errors=True)
+    # Small delay to ensure files are released on Windows
+    time.sleep(0.5)
 
 
 if __name__ == "__main__":

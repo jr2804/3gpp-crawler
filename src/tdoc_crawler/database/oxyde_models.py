@@ -207,20 +207,18 @@ class SpecificationVersion(Model):
         is_table = True
 
 
-class SpecificationDownload(Model):
-    """Download and extraction outcome for spec versions."""
+class ArchiveMember(Model):
+    """One file inside a TDoc or spec zip (kind + item_id is the pointer, no FK)."""
 
-    record_id: str = Field(db_pk=True)
-    spec_number: str
-    version: SpecVersion
-    download_url: str
-    checkout_path: str
-    document_path: str
-    attachment_paths: list[str] = Field(default_factory=list)
-    doc_only_used: bool = Field(default=False)
-    outcome_status: str
-    outcome_message: str | None = None
-    extracted_at: datetime | None = None
+    member_id: str = Field(db_pk=True)
+    kind: str
+    item_id: str
+    archive_name: str
+    member_path: str
+    file_size: int | None = None
+    is_clutter: bool = Field(default=False)
+    classification: str | None = None
+    recorded_at: datetime = Field(default_factory=utc_now)
 
     class Meta:
         """Oxyde table configuration."""
@@ -229,10 +227,10 @@ class SpecificationDownload(Model):
 
 
 __all__ = [
+    "ArchiveMember",
     "CrawlLogEntry",
     "MeetingMetadata",
     "Specification",
-    "SpecificationDownload",
     "SpecificationSourceRecord",
     "SpecificationVersion",
     "SubWorkingGroupRecord",

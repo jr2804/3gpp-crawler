@@ -7,15 +7,16 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 
+from tdoc_crawler.database.archives import clear_archive_members
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.database.oxyde_models import (
     Specification,
-    SpecificationDownload,
     SpecificationSourceRecord,
     SpecificationVersion,
 )
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.archives import ArchiveKind
 from tdoc_crawler.specs.models import SpecQueryFilters, SpecQueryResult
 from tdoc_crawler.specs.sources.base import SpecSource
 from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
@@ -109,7 +110,9 @@ class SpecDatabase(DocDatabase):
         Returns:
             Mapping of table name to deleted row count.
         """
-        return await self._clear_tables([SpecificationDownload, SpecificationVersion, SpecificationSourceRecord, Specification])
+        counts = await self._clear_tables([SpecificationVersion, SpecificationSourceRecord, Specification])
+        counts["archivemember"] = await clear_archive_members(ArchiveKind.SPEC)
+        return counts
 
     async def crawl_specs(
         self,

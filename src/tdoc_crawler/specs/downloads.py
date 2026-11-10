@@ -8,10 +8,14 @@ from unzip_http import RemoteZipFile
 
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
+from tdoc_crawler.database.archives import archive_members_for, replace_archive_members
+from tdoc_crawler.database.oxyde_models import ArchiveMember
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.archives import ArchiveKind, ArchiveMemberInfo, ArchiveRecord
 from tdoc_crawler.specs.sources.base import SpecSource
+from tdoc_crawler.utils.archive import list_zip_members, remote_zip_members
 from tdoc_crawler.utils.async_helpers import run_async
 from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
 from tdoc_crawler.utils.parse import parse_spec_version, parse_spec_version_nbr
@@ -66,6 +70,12 @@ class SpecDownloads:
 
         return results
 
+    async def list_archive_members(self, spec: str, release: str = "latest", *, refresh: bool = False) -> list[ArchiveMember]:
+        """List the files inside a spec's zip archive (stored listing, or a remote listing on first use)."""
+        normalized = normalize_spec_number(spec)
+        url, _ = await self._resolve_spec_url(spec, release)
+        return await archive_members_for(ArchiveKind.SPEC, normalized, url, refresh=refresh)
+
     def open_spec(
         self,
         spec: str,
@@ -113,21 +123,24 @@ class SpecDownloads:
             if sources:
                 _logger.info("Found URL: %s", url)
 
-            doc_only_success = False
+            doc_only_entries: list[ArchiveMemberInfo] | None = None
             if doc_only:
-                doc_only_success = await self._attempt_doc_only_async(url, normalized, target_dir)
+                doc_only_entries = await self._attempt_doc_only_async(url, normalized, target_dir)
 
-            if not doc_only_success:
-                extract_subdir = target_dir / Path(filename).stem
-                # Skip download if the extract directory already has files
-                if extract_subdir.is_dir() and any(extract_subdir.rglob("*")):
-                    _logger.debug("Spec %s already extracted at %s", spec, extract_subdir)
-                    return extract_subdir
-                self._download_full_zip(url, target_dir / filename)
-                self._extract_zip(target_dir / filename, extract_subdir)
+            if doc_only_entries is not None:
+                await replace_archive_members(ArchiveRecord(kind=ArchiveKind.SPEC, item_id=normalized, archive_name=filename, members=doc_only_entries))
+                return target_dir
+
+            extract_subdir = target_dir / Path(filename).stem
+            # Skip download if the extract directory already has files
+            if extract_subdir.is_dir() and any(extract_subdir.rglob("*")):
+                _logger.debug("Spec %s already extracted at %s", spec, extract_subdir)
                 return extract_subdir
-
-            return target_dir
+            self._download_full_zip(url, target_dir / filename)
+            self._extract_zip(target_dir / filename, extract_subdir)
+            members = list_zip_members(target_dir / filename)
+            await replace_archive_members(ArchiveRecord(kind=ArchiveKind.SPEC, item_id=normalized, archive_name=filename, members=members))
+            return extract_subdir
         except (ValueError, OSError, requests.RequestException) as exc:
             _logger.warning("Failed to checkout %s: %s", spec, exc)
             return None
@@ -233,28 +246,31 @@ class SpecDownloads:
         return target_dir
 
     @staticmethod
-    async def _attempt_doc_only_async(url: str, normalized: str, target_dir: Path) -> bool:
-        """Attempt to download only the document file from remote zip."""
+    async def _attempt_doc_only_async(url: str, normalized: str, target_dir: Path) -> list[ArchiveMemberInfo] | None:
+        """Attempt to download only the document file from remote zip.
+
+        Returns the full member listing of the remote zip on success, None otherwise.
+        """
         try:
             rzf = RemoteZipFile(url)
             entries = rzf.namelist()
             if not entries:
                 _logger.info("Doc-only: No entries found in %s", url)
-                return False
+                return None
 
             doc_file = _select_doc_entry(entries, normalized)
 
             if not doc_file:
                 _logger.info("Doc-only: No document found in %s", url)
-                return False
+                return None
 
             target_file = target_dir / doc_file.split("/")[-1]
             with target_file.open("wb") as f:
                 f.write(rzf.open(doc_file).read())
-            return True
+            return remote_zip_members(rzf)
         except (OSError, ValueError, requests.RequestException) as exc:
             _logger.warning("Doc-only download failed for %s: %s", url, exc)
-            return False
+            return None
 
     @staticmethod
     def _extract_zip(zip_file: Path, extract_dir: Path, keep_zip: bool = True) -> None:

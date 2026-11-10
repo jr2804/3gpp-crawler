@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from pool_executors import ExecutorType
 
 from tdoc_crawler.cli.checkout import checkout_tdocs as cli_checkout_tdoc
+from tdoc_crawler.cli.checkout import list_tdoc_files as cli_list_tdoc_files
 from tdoc_crawler.cli.config_app import (
     config_show as cli_config_show,
 )
@@ -25,6 +26,7 @@ from tdoc_crawler.cli.query.meetings import query_meetings as cli_query_meetings
 from tdoc_crawler.cli.query.specs import query_specs as cli_query_specs
 from tdoc_crawler.cli.query.tdocs import query_tdocs as cli_query_tdocs
 from tdoc_crawler.cli.specs import checkout_spec as cli_checkout_spec
+from tdoc_crawler.cli.specs import list_spec_files as cli_list_spec_files
 from tdoc_crawler.cli.tag_app import (
     TagKindChoice,
 )
@@ -179,12 +181,27 @@ def query_meetings(
 def checkout_tdocs(
     tdoc_ids: list[str],
     force: bool = False,
+    keep_zip: bool = False,
 ) -> str:
     return _run_captured(
         cli_checkout_tdoc,
         ctx=_DummyContext(),
         tdoc_ids=tdoc_ids,
         force=force,
+        keep_zip=keep_zip,
+    )
+
+
+@mcp.tool(name="list_tdoc_files", description="List the files inside a TDoc's zip archive (stored listing, remote listing on first use)")
+def list_tdoc_files(
+    tdoc_id: str,
+    refresh: bool = False,
+) -> str:
+    return _run_captured(
+        cli_list_tdoc_files,
+        ctx=_DummyContext(),
+        tdoc_id=tdoc_id,
+        refresh=refresh,
     )
 
 
@@ -199,6 +216,20 @@ def checkout_specs(
         spec_numbers=spec_numbers,
         release=release,
         doc_only=doc_only,
+    )
+
+
+@mcp.tool(name="list_spec_files", description="List the files inside a 3GPP specification's zip archive (stored listing, remote listing on first use)")
+def list_spec_files(
+    spec_number: str,
+    release: str = "latest",
+    refresh: bool = False,
+) -> str:
+    return _run_captured(
+        cli_list_spec_files,
+        spec_number=spec_number,
+        release=release,
+        refresh=refresh,
     )
 
 

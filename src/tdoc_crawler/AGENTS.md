@@ -113,6 +113,14 @@ The main file inside an extracted zip is picked by `_select_main_file()` in `tdo
 
 Clutter filtering: gitignore-style patterns from `utils/clutter.py`. Defaults ship as packaged data (`utils/clutter-ignore`), copied to `<cache-dir>/clutter-ignore` for user editing (`!` negation re-includes; deleting the file restores defaults). The filter runs at zip extraction (`safe_extract_zip`), because sidecars inherit the original's suffix and suffix-based consumers cannot tell them apart, and in `_select_main_file` (covers checkout dirs with legacy clutter on disk).
 
+## Archive Member Tracking
+
+Zip member listings are stored in the `ArchiveMember` table (`database/archives.py`, `utils/archive.py`), keyed `kind:item_id:member_path` (`kind` = `tdoc` | `spec`). Rows are written only on checkout (local zip listing) and on explicit `tdoc files` / `spec files` / `list_*_files` requests (remote HTTP range listing via `unzip_http.RemoteZipFile`). Nothing is crawled eagerly.
+
+- `tdoc checkout` deletes the TDoc zip after extraction unless `--keep-zip` (MCP `keep_zip`). Spec zips are always kept under the spec target dir.
+- The remote listing uses `unzip_http`'s own urllib3 pool, NOT `create_cached_session()`. Exception to the HTTP caching rule, inherited from the spec doc-only path; the listing is cached in the DB instead.
+- `--refresh` (MCP `refresh`) re-reads the remote listing and replaces stored rows.
+
 ## Testing
 
 See `tests/AGENTS.md`.

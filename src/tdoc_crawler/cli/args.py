@@ -187,6 +187,14 @@ AutoCrawlSpecsOption = Annotated[
 
 
 ForceOption = Annotated[bool, typer.Option("--force", "-f", help="Re-download even if already checked out")]
+KeepZipOption = Annotated[
+    bool,
+    typer.Option("--keep-zip", help="Keep the downloaded TDoc zip next to the extracted files (default: delete it after extraction)"),
+]
+RefreshListingOption = Annotated[
+    bool,
+    typer.Option("--refresh", help="Re-read the archive listing from the server instead of the stored listing"),
+]
 
 HttpCacheOption = Annotated[
     bool | None,

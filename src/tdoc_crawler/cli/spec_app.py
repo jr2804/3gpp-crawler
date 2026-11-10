@@ -14,7 +14,7 @@ from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_specs
 from tdoc_crawler.cli.query import query_specs
-from tdoc_crawler.cli.specs import checkout_spec, open_spec
+from tdoc_crawler.cli.specs import checkout_spec, list_spec_files, open_spec
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 
@@ -58,6 +58,7 @@ spec_app.command("query", rich_help_panel=HELP_PANEL_QUERY)(query_specs)
 # Register spec commands
 spec_app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)(checkout_spec)
 spec_app.command("open", rich_help_panel=HELP_PANEL_MAIN)(open_spec)
+spec_app.command("files", rich_help_panel=HELP_PANEL_MAIN)(list_spec_files)
 
 
 __all__ = ["spec_app"]

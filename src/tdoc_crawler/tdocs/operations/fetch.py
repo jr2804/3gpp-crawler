@@ -32,15 +32,14 @@ from tdoc_crawler.tdocs.sources import (
 )
 from tdoc_crawler.utils.misc import utc_now
 
-logger = get_logger(__name__)
-
-
 # Names of fields WhatTheSpec cannot supply, derived from ``TDocMetadata``
 # itself by type: db_pk, datetime, and bool audit fields are all server-side
 # facts that come from the local crawler, not WhatTheSpec. Adding a new field
 # of one of those types makes it unrefreshable automatically — no edit here
 # needed.
 _UNREFRESHABLE_FIELD_TYPES: tuple[type, ...] = (datetime, bool)
+
+logger = get_logger(__name__)
 
 
 class FetchMethod(Enum):

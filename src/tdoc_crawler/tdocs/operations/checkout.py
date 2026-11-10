@@ -12,7 +12,7 @@ import posixpath
 import re
 import shutil
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -22,9 +22,11 @@ from bs4 import BeautifulSoup
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.archives import ArchiveKind, ArchiveRecord
 from tdoc_crawler.models.base import DocumentType
 from tdoc_crawler.tdocs.models import TDocStatus
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
+from tdoc_crawler.utils.archive import list_zip_members
 from tdoc_crawler.utils.clutter import is_clutter
 from tdoc_crawler.utils.security import safe_extract_zip
 
@@ -50,6 +52,7 @@ class CheckoutResult:
     success_count: int
     error_count: int
     errors: list[str]
+    archives: list[ArchiveRecord] = field(default_factory=list)
 
 
 def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> None:
@@ -319,6 +322,7 @@ def checkout_tdocs(
     force: bool = False,
     session: requests.Session | None = None,
     cache_manager_name: str | None = None,
+    keep_zip: bool = False,
 ) -> CheckoutResult:
     """Checkout multiple TDoc files to the checkout directory.
 
@@ -328,9 +332,11 @@ def checkout_tdocs(
         force: If True, re-download even if already exists
         session: Optional requests.Session to reuse for downloads
         cache_manager_name: Optional cache manager name for HTTP caching
+        keep_zip: If True, keep each downloaded zip next to its extracted files
 
     Returns:
-        CheckoutResult with success/error counts
+        CheckoutResult with success/error counts and the archive listings
+        recorded during this run (persist them with ``save_archive_records``)
     """
     if not results:
         return CheckoutResult(success_count=0, error_count=0, errors=[])
@@ -338,13 +344,14 @@ def checkout_tdocs(
     success_count = 0
     error_count = 0
     errors: list[str] = []
+    archives: list[ArchiveRecord] = []
 
     for metadata in results:
         try:
             if not metadata.url:
                 msg = "missing URL"
                 raise ValueError(msg)
-            checkout_tdoc(metadata, checkout_dir, force=force, session=session)
+            checkout_tdoc(metadata, checkout_dir, force=force, session=session, keep_zip=keep_zip, archive_sink=archives)
             success_count += 1
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             error_message = str(exc)
@@ -355,7 +362,7 @@ def checkout_tdocs(
                 errors.append(f"{metadata.tdoc_id}: {exc}")
                 error_count += 1
 
-    return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors)
+    return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors, archives=archives)
 
 
 def checkout_tdoc(
@@ -364,6 +371,8 @@ def checkout_tdoc(
     *,
     force: bool = False,
     session: requests.Session | None = None,
+    keep_zip: bool = False,
+    archive_sink: list[ArchiveRecord] | None = None,
 ) -> Path:
     """Download and extract a TDoc to the checkout folder.
 
@@ -372,6 +381,9 @@ def checkout_tdoc(
         checkout_dir: Base checkout directory
         force: If True, re-download even if already exists
         session: Optional requests.Session to reuse for downloads
+        keep_zip: If True, keep the downloaded zip in the checkout folder
+        archive_sink: If given, the zip member listing is appended to it when
+            a download happens (an already checked-out TDoc records nothing)
 
     Returns:
         Path to the extracted TDoc directory
@@ -413,20 +425,22 @@ def checkout_tdoc(
             else:
                 raise
         try:
-            with zipfile.ZipFile(temp_zip_file) as _zf:
-                pass
+            archive_members = list_zip_members(temp_zip_file)
         except zipfile.BadZipFile:
             corrected_url = _resolve_corrected_url(metadata)
             if corrected_url and corrected_url != metadata.url:
                 logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
                 with requests.Session(disable_http3=True) as plain_session:
                     download_to_file(corrected_url, temp_zip_file, session=plain_session)
+                archive_members = list_zip_members(temp_zip_file)
             else:
                 raise
         safe_extract_zip(temp_zip_file, checkout_path)
+        if archive_sink is not None:
+            archive_sink.append(ArchiveRecord(kind=ArchiveKind.TDOC, item_id=metadata.tdoc_id, archive_name=temp_zip_file.name, members=archive_members))
         logger.info("Checked out %s to %s", metadata.tdoc_id, checkout_path)
     finally:
-        if temp_zip_file.exists():
+        if not keep_zip and temp_zip_file.exists():
             temp_zip_file.unlink()
 
     return checkout_path

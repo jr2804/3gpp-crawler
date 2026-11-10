@@ -813,6 +813,7 @@ class TestEnvironmentVariables:
         self,
         mock_db_class: MagicMock,
         mock_crawler_class: MagicMock,
+        test_cache_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_WORKERS environment variable sets worker count."""
@@ -870,6 +871,7 @@ class TestEnvironmentVariables:
     def test_env_var_output_format(
         self,
         mock_db_class: MagicMock,
+        test_cache_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_OUTPUT environment variable sets output format."""
@@ -947,6 +949,7 @@ class TestEnvironmentVariables:
     def test_env_var_limit(
         self,
         mock_db_class: MagicMock,
+        test_cache_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that TDC_LIMIT environment variables set limits."""

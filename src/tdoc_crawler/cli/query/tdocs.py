@@ -34,6 +34,7 @@ from tdoc_crawler.cli.printing import print_tdoc_table, tdoc_to_dict
 from tdoc_crawler.cli.query._helpers import _parse_date_range
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database.archives import save_archive_records
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
@@ -149,7 +150,13 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
 
     if checkout:
         with create_cached_session() as session:
-            checkout_tdocs(results, path_config.checkout_dir, force=False, session=session)
+            checkout_result = checkout_tdocs(results, path_config.checkout_dir, force=False, session=session)
+
+        async def _save_archives() -> None:
+            async with TDocDatabase(db_file):
+                await save_archive_records(checkout_result.archives)
+
+        asyncio.run(_save_archives())
 
     # Resolve file sizes from on-disk checkout directories for display
     resolve_tdoc_file_sizes(results, path_config.checkout_dir)

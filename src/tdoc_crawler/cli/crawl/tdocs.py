@@ -37,6 +37,7 @@ from tdoc_crawler.cli.args import (
 from tdoc_crawler.cli.crawl._helpers import _build_scope_description, _parse_date, _print_crawl_result
 from tdoc_crawler.config import ThreeGPPConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database.archives import save_archive_records
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
@@ -194,6 +195,7 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
 
                 with create_cached_session(http_cache_enabled=http_cache_enabled) as session:
                     checkout_result = checkout_tdocs(results, crawler_config.path.checkout_dir, force=False, session=session)
+                await save_archive_records(checkout_result.archives)
 
                 console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
                 if checkout_result.error_count:

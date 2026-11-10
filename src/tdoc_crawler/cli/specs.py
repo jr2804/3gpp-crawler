@@ -12,12 +12,13 @@ from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
     CheckoutDirOption,
     DocOnlyOption,
+    RefreshListingOption,
     ReleaseOption,
     SpecArgument,
     SpecFileOption,
     VerbosityOption,
 )
-from tdoc_crawler.cli.printing import print_checkout_results
+from tdoc_crawler.cli.printing import print_archive_members, print_checkout_results
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database.specs import SpecDatabase
@@ -61,6 +62,29 @@ def checkout_spec(
     results = asyncio.run(_run_checkout())
 
     print_checkout_results(results)
+
+
+def list_spec_files(
+    spec_number: Annotated[str, typer.Argument(help="Spec number")],
+    release: ReleaseOption = "latest",
+    refresh: RefreshListingOption = False,
+    verbosity: VerbosityOption = DEFAULT_VERBOSITY,
+) -> None:
+    """List the files inside a spec's zip archive (remote listing on first use, then stored)."""
+    set_verbosity(verbosity)
+    normalized = spec_number.strip()
+    db_file = PathConfig().db_file
+
+    async def _run_list() -> list:
+        async with SpecDatabase(db_file) as database:
+            return await SpecDownloads(database).list_archive_members(normalized, release, refresh=refresh)
+
+    try:
+        members = asyncio.run(_run_list())
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    print_archive_members(members, title=f"Files in spec {normalized} ({release})")
 
 
 def open_spec(

@@ -25,7 +25,7 @@ from tdoc_crawler.cli.args import (
     UseWhatTheSpecOption,
     VerbosityOption,
 )
-from tdoc_crawler.cli.checkout import checkout_tdocs
+from tdoc_crawler.cli.checkout import checkout_tdocs, list_tdoc_files
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
@@ -150,6 +150,9 @@ def open_tdoc(
 
         console.print(f"[green]Opening {tdoc_file}")
         launch_file(tdoc_file)
+
+
+tdoc_app.command("files", rich_help_panel=HELP_PANEL_MAIN)(list_tdoc_files)
 
 
 @tdoc_app.command("stats", rich_help_panel=HELP_PANEL_MAIN)

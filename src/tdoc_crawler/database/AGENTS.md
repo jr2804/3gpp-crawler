@@ -65,8 +65,9 @@ For non-primitive types stored as strings in SQLite, subclass `_VersionField` in
 | `MeetingDatabase` | `meetings.py` | Meeting CRUD, queries, statistics |
 | `SpecDatabase` | `specs.py` | Spec CRUD, version management |
 | `DocDatabase` | `base.py` | Base class with shared helpers |
+| `ArchiveMember` (Oxyde model) | `archives.py` | Zip member listing per TDoc / spec archive (`database/archives.py`) |
 
-## Schema Management — No Migrations
+## Schema Management - No Migrations
 
 Schema is owned by Oxyde. On startup:
 

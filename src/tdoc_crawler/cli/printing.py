@@ -6,8 +6,10 @@ import re
 from datetime import date
 from typing import Any
 
+from rich.table import Table
+
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
-from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.database.oxyde_models import ArchiveMember, MeetingMetadata, TDocMetadata
 from tdoc_crawler.database.specs import SpecCrawlResult
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.models.base import OutputFormat
@@ -16,6 +18,18 @@ from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.specs.models import SpecQueryResult
 
 console = get_console()
+
+
+def print_archive_members(members: list[ArchiveMember], title: str) -> None:
+    """Print the member listing of one archive as a table."""
+    table = Table(title=title)
+    table.add_column("Member")
+    table.add_column("Size", justify="right")
+    table.add_column("Clutter")
+    for member in members:
+        size = "" if member.file_size is None else str(member.file_size)
+        table.add_row(member.member_path, size, "yes" if member.is_clutter else "")
+    console.print(table)
 
 
 def tdoc_to_dict(

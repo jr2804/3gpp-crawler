@@ -19,6 +19,7 @@ from oxyde import AsyncDatabase, execute_raw
 from oxyde.db.schema import create_tables
 from oxyde.migrations import extract_current_schema
 
+from tdoc_crawler.database.archives import clear_archive_members
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.database.oxyde_models import (
     CrawlLogEntry,
@@ -27,6 +28,7 @@ from tdoc_crawler.database.oxyde_models import (
     WorkingGroupRecord,
 )
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.archives import ArchiveKind
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS
 
@@ -69,8 +71,9 @@ class DocDatabase:
         self._database = None
 
     async def clear_tdocs(self) -> int:
-        """Clear all TDoc records from database."""
+        """Clear all TDoc records (and their archive listings) from database."""
         counts = await self._clear_tables([TDocMetadata])
+        await clear_archive_members(ArchiveKind.TDOC)
         return counts.get(TDocMetadata.get_table_name(), 0)
 
     # ------------------------------------------------------------------
