@@ -30,8 +30,7 @@ Tools mirror the CLI groups:
 | config | `config_validate` | `config validate` |
 
 Notable parameters: `query_tdocs` accepts a `tag` list (comma = OR,
-repeated = AND, same as the CLI); `checkout_*` accept `pdf: true` for
-[PDF conversion](utils.md#checkout).
+repeated = AND, same as the CLI).
 
 ## Client configuration
 

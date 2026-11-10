@@ -16,13 +16,10 @@ application.
 ### `checkout`
 
 Download and extract TDoc(s) to the checkout folder for offline access.
-Add `--pdf` to convert extracted Office documents to PDF next to their
-sources (requires [LibreOffice](https://www.libreoffice.org/) or a remote
-fallback provider).
 
 ```bash
 3gpp-crawler tdoc checkout S4-250638
-3gpp-crawler tdoc checkout S4-250638 S4-250639 --pdf
+3gpp-crawler tdoc checkout S4-250638 S4-250639
 ```
 
 ## Specifications
@@ -45,11 +42,10 @@ Batch download specification documents to the checkout folder.
 - Progress bar for multi-spec operations.
 - Range syntax support (e.g. `26130-26140`).
 - `--release` selector (`latest` or e.g. `18.0`).
-- `--pdf` conversion, same as TDoc checkout.
 
 ```bash
 3gpp-crawler spec checkout 26130-26140
-3gpp-crawler spec checkout 26260 --release 18.0 --pdf
+3gpp-crawler spec checkout 26260 --release 18.0
 ```
 
 ## Diagnostics

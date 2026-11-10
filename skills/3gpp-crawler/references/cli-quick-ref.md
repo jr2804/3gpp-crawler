@@ -54,7 +54,7 @@ tdoc-crawler open S4-250638                      # download + open
 
 ```bash
 tdoc-crawler checkout S4-250638                  # download + extract
-tdoc-crawler checkout S4-250638 S4-250639 --pdf  # batch + PDF conversion
+tdoc-crawler checkout S4-250638 S4-250639     # batch download
 ```
 
 ### stats
@@ -94,7 +94,7 @@ spec-crawler open 26260 --release 18.0           # specific release
 ```bash
 spec-crawler checkout 26260                      # latest release
 spec-crawler checkout 26260 --release 18.0       # specific release
-spec-crawler checkout 26260 26261 --pdf          # batch + PDF
+spec-crawler checkout 26260 26261                  # batch download
 ```
 
 ## 3gpp-crawler tag (top-level)
@@ -135,5 +135,3 @@ Also available nested: `3gpp-crawler tdoc tag …` / `tdoc-crawler tag …`.
 | `TDC_EOL_USERNAME` | ETSI Online username |
 | `TDC_EOL_PASSWORD` | ETSI Online password |
 | `TDC_WORKING_GROUP` | Default working group filter |
-| `CLOUDCONVERT_API_KEY` | CloudConvert PDF conversion |
-| `ADOBE_CLIENT_ID` / `ADOBE_CLIENT_SECRET` | Adobe PDF conversion |

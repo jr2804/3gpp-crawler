@@ -191,11 +191,10 @@ Avoid `typing.TYPE_CHECKING` as a workaround for circular imports. It indicates 
 ├── checkout/          # Downloaded/extracted documents (TDocs, Specs)
 ├── tdocs/             # Crawled TDoc files
 ├── 3gpp_crawler.db
-└── http-cache.sqlite3
+└── http-cache-v2.sqlite3
 ```
 
-Checkouts contain the raw downloaded/extracted source files plus optional
-PDF conversions written next to their sources (`checkout --pdf`).
+Checkouts contain the raw downloaded/extracted source files.
 
 ### SourceKind-Aware Processing
 

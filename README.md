@@ -17,7 +17,6 @@ A command-line tool for crawling the 3GPP FTP server, caching 3GPP document meta
 - **Incremental Updates**: Only fetch new data on subsequent crawls
 - **Rich CLI**: Beautiful terminal output with progress indicators
 - **Tag System**: Organize TDocs and specs with lightweight tags (no workspace needed)
-- **PDF Conversion**: Extract Office docs and convert to PDF via `--pdf` flag on checkout
 - **MCP Server**: Run as stdio MCP server for AI agent integrations (`tdoc-crawler mcp`)
 
 ## Installation
@@ -104,13 +103,13 @@ NOTE:    If no credentials are provided, the tool will prompt you interactively 
 | `tdoc query` | `qt` | Search for TDocs (auto-fetches if missing) |
 | `tdoc query-meetings` | `qm` | Search and display meeting metadata |
 | `tdoc open` | | Download and open a TDoc |
-| `tdoc checkout` | | Batch download TDocs (use `--pdf` for PDF conversion) |
+| `tdoc checkout` | | Batch download TDocs |
 | `tdoc stats` | | View database statistics |
 | **spec group** | | |
 | `spec crawl` | | Crawl technical specification metadata |
 | `spec query` | | Search technical specifications |
 | `spec open` | | Download and open latest spec document |
-| `spec checkout` | | Batch download specifications (use `--pdf` for PDF conversion) |
+| `spec checkout` | | Batch download specifications |
 
 ### 1. Crawl Metadata
 

@@ -37,7 +37,6 @@ shortcuts for the `tdoc` and `spec` groups.
 - [**MCP Server**](mcp.md) — Use 3gpp-crawler from AI agents.
 - [**Configuration**](config.md) — Config files, environment variables.
 - [**HTTP Caching & Misc**](misc.md) — Caching behavior, credentials.
-- [**Convert-LO Usage**](convert-lo-usage.md) — LibreOffice conversion package.
 
 ### Development
 
