@@ -111,8 +111,8 @@ spec-crawler files 26260 --release 18.0            # list zip members (--refresh
 3gpp-crawler tag list                            # list all tags
 3gpp-crawler tag list --kind tdoc                # filter by kind
 3gpp-crawler tag list --tag codec                # filter by tag
-3gpp-crawler tag export -f tags.json              # backup dump (natural keys)
-3gpp-crawler tag import tags.json                 # batch import, skips existing
+3gpp-crawler database export-tags -f tags.json     # backup dump (natural keys)
+3gpp-crawler database import-tags tags.json        # batch import, skips existing
 ```
 
 Also available nested: `3gpp-crawler tdoc tag …` / `tdoc-crawler tag …`.

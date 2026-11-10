@@ -28,11 +28,22 @@ Tools mirror the CLI groups:
 | tag | `tag_add` | `tag add` |
 | tag | `tag_remove` | `tag remove` |
 | tag | `tag_list` | `tag list` |
+| database | `database_clear_tdocs` | `database clear-tdocs` |
+| database | `database_clear_specs` | `database clear-specs` |
+| database | `database_clear_meetings` | `database clear-meetings` |
+| database | `database_clear_all` | `database clear-all` |
+| database | `database_export_tags` | `database export-tags` |
+| database | `database_import_tags` | `database import-tags` |
 | config | `config_show` | `config show` |
 | config | `config_validate` | `config validate` |
 
 Notable parameters: `query_tdocs` accepts a `tag` list (comma = OR,
 repeated = AND, same as the CLI).
+
+The destructive `database_clear_*` tools refuse to run unless called with
+`confirm=true` — there is no interactive prompt over MCP, so the explicit
+flag is the confirmation (and costs agents one deliberate extra round-trip).
+Prefer `database_export_tags` first when a backup would help.
 
 ## Client configuration
 

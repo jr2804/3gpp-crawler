@@ -43,7 +43,7 @@ crawl-meetings → crawl → query → tag → checkout
 3gpp-crawler tag add tdoc S4-250638 --tag codec
 3gpp-crawler tag add spec 26260 --tag rel-18
 3gpp-crawler tag list --kind tdoc
-3gpp-crawler tag export -f tags.json              # backup; import later with `tag import`
+3gpp-crawler database export-tags -f tags.json     # backup; import later with `database import-tags`
 
 # Checkout
 3gpp-crawler tdoc checkout S4-250638
@@ -74,6 +74,7 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 | query | `query_tdocs`, `query_specs`, `query_meetings` |
 | checkout | `checkout_tdocs`, `checkout_specs`, `list_tdoc_files`, `list_spec_files` |
 | tag | `tag_add`, `tag_remove`, `tag_list` |
+| database | `database_clear_tdocs`, `database_clear_specs`, `database_clear_meetings`, `database_clear_all` (destructive, need `confirm=true`), `database_export_tags`, `database_import_tags` |
 | config | `config_show`, `config_validate` |
 
 ## Common patterns
