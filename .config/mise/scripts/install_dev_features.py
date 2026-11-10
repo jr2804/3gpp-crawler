@@ -188,7 +188,7 @@ def add_mcp_servers(agent: str, mise_env: str | None = None) -> int:
     for feature in _features():
         if not feature.enabled:
             if feature.tool:
-                Command(("mise", "remove", "--env", "local", feature.tool)).run()
+                Command(("mise", "uninstall", "--env", "local", feature.tool)).run()
             if feature.mcp_name:
                 Command(("bun", "x", "add-mcp", "remove", feature.mcp_name)).opt("-a", agent).opt("-y").run()
             continue
