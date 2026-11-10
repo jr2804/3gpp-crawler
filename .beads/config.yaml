@@ -73,3 +73,5 @@
 
 sync:
     remote: "https://forge.3gpp.org/rep/reimes/3gpp-crawler-beads.git"
+export:
+    auto: true

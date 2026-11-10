@@ -1,8 +1,8 @@
 site_name: 3GPP Crawler
 site_description: Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI.
 site_author: Jan Reimes
-site_url: https://forge.3gpp.org/rep/reimes/3gpp-crawler
-repo_url: https://forge.3gpp.org/rep/reimes/3gpp-crawler
+site_url: https://jr2804.github.io/3gpp-crawler/
+repo_url: https://github.com/jr2804/3gpp-crawler
 repo_name: 3gpp-crawler
 copyright: Copyright &copy; 2026 Jan Reimes
 
@@ -74,7 +74,7 @@ theme:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://forge.3gpp.org/rep/reimes/3gpp-crawler
+      link: https://github.com/jr2804/3gpp-crawler
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/3gpp-crawler/
 

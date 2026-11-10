@@ -4,7 +4,7 @@
 
 A command-line tool for crawling the 3GPP FTP server, caching 3GPP document metadata in a local database, and querying structured data via JSON/YAML output.
 
-**Github repository**: <https://forge.3gpp.org/rep/reimes/3gpp-crawler/>
+**Github repository**: <https://github.com/jr2804/3gpp-crawler>
 
 ## Features
 
@@ -25,7 +25,7 @@ A command-line tool for crawling the 3GPP FTP server, caching 3GPP document meta
 ### Install as uv tool (recommended)
 
 ```bash
-uv tool install https://forge.3gpp.org/rep/reimes/3gpp-crawler.git
+uv tool install git+https://github.com/jr2804/3gpp-crawler.git
 uvx tdoc-crawler --help
 ```
 
