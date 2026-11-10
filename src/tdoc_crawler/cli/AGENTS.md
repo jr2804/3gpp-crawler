@@ -30,11 +30,12 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 
 | Module | Responsibility |
 |--------|----------------|
-| `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `config`, `tag`, `mcp` |
+| `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `config`, `tag`, `database`, `mcp` |
 | `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, open, stats, checkout |
 | `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
 | `config_app.py` | `config init`, `show`, `validate`, `docs` |
-| `tag_app.py` | `tag add`, `remove`, `list`, `export`, `import` |
+| `tag_app.py` | `tag add`, `remove`, `list` |
+| `database_app.py` | `database` (alias `db`): `clear-tdocs`, `clear-specs`, `clear-meetings`, `clear-all`, `export-tags`, `import-tags`; owns all destructive DB operations |
 | `mcp_app.py` | `mcp` command (Model Context Protocol server) |
 | `checkout.py` | `tdoc checkout` command; standalone so `mcp_server` can import it without cycling through `tdoc_app` |
 | `specs.py` | `spec checkout` and `spec open` commands |
