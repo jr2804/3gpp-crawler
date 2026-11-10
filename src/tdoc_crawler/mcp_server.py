@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -22,6 +23,24 @@ from tdoc_crawler.cli.config_app import (
 from tdoc_crawler.cli.crawl.meetings import crawl_meetings as cli_crawl_meetings
 from tdoc_crawler.cli.crawl.specs import crawl_specs as cli_crawl_specs
 from tdoc_crawler.cli.crawl.tdocs import crawl_tdocs as cli_crawl_tdocs
+from tdoc_crawler.cli.database_app import (
+    clear_all as cli_database_clear_all,
+)
+from tdoc_crawler.cli.database_app import (
+    clear_meetings as cli_database_clear_meetings,
+)
+from tdoc_crawler.cli.database_app import (
+    clear_specs as cli_database_clear_specs,
+)
+from tdoc_crawler.cli.database_app import (
+    clear_tdocs as cli_database_clear_tdocs,
+)
+from tdoc_crawler.cli.database_app import (
+    tag_export as cli_database_export_tags,
+)
+from tdoc_crawler.cli.database_app import (
+    tag_import as cli_database_import_tags,
+)
 from tdoc_crawler.cli.query.meetings import query_meetings as cli_query_meetings
 from tdoc_crawler.cli.query.specs import query_specs as cli_query_specs
 from tdoc_crawler.cli.query.tdocs import query_tdocs as cli_query_tdocs
@@ -48,6 +67,14 @@ from tdoc_crawler.config import PathConfig
 # ExecutorType.SUBINTERPRETER on older Pythons, so we have to pick ourselves
 # rather than passing SUBINTERPRETER unconditionally.
 _MCP_EXECUTOR: ExecutorType = ExecutorType.SUBINTERPRETER if sys.version_info >= (3, 14) else ExecutorType.THREADING
+
+
+# --- DATABASE GROUP ---
+
+# MCP callers are agents, not humans: typer.confirm() has nobody to answer it.
+# Destructive tools therefore refuse to run unless the caller explicitly sets
+# confirm=true — a deliberate speed bump that costs one extra tool round-trip.
+_DATABASE_REFUSAL = "Refused: destructive database operation. Re-invoke with confirm=true to proceed."
 
 mcp = FastMCP("3gpp-crawler", instructions="3GPP specification & TDoc crawler MCP server")
 
@@ -276,6 +303,71 @@ def tag_list(
         item=item,
         tag=tag,
     )
+
+
+@mcp.tool(
+    name="database_clear_tdocs",
+    description="Delete all TDoc records and their checkout entries from the database (destructive)",
+)
+def database_clear_tdocs(confirm: bool = False) -> str:
+    if not confirm:
+        return _DATABASE_REFUSAL
+    return _run_captured(cli_database_clear_tdocs)
+
+
+@mcp.tool(
+    name="database_clear_specs",
+    description="Delete all specification records and their checkout entries from the database (destructive)",
+)
+def database_clear_specs(confirm: bool = False) -> str:
+    if not confirm:
+        return _DATABASE_REFUSAL
+    return _run_captured(cli_database_clear_specs)
+
+
+@mcp.tool(
+    name="database_clear_meetings",
+    description="Delete all meeting records from the database, keeping TDoc records (destructive)",
+)
+def database_clear_meetings(confirm: bool = False) -> str:
+    if not confirm:
+        return _DATABASE_REFUSAL
+    return _run_captured(cli_database_clear_meetings)
+
+
+@mcp.tool(
+    name="database_clear_all",
+    description=(
+        "Delete the whole database file and recreate it on next use, preserving tags (destructive; this is the rebuild path named by schema-mismatch errors)"
+    ),
+)
+def database_clear_all(confirm: bool = False) -> str:
+    if not confirm:
+        return _DATABASE_REFUSAL
+    return _run_captured(cli_database_clear_all, yes=True)
+
+
+@mcp.tool(
+    name="database_export_tags",
+    description="Export tags as natural-key records (kind, item_id, tag); pass file to write a backup dump, otherwise returns the dump text (JSON)",
+)
+def database_export_tags(
+    kind: str | None = None,
+    file: str | None = None,
+) -> str:
+    return _run_captured(
+        cli_database_export_tags,
+        kind=TagKindChoice(kind.lower()) if kind else None,
+        file=Path(file) if file else None,
+    )
+
+
+@mcp.tool(
+    name="database_import_tags",
+    description="Import tags from a JSON or YAML dump written by database_export_tags (existing tag rows are skipped)",
+)
+def database_import_tags(file: str) -> str:
+    return _run_captured(cli_database_import_tags, Path(file))
 
 
 # --- CONFIG GROUP ---
