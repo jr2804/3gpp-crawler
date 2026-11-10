@@ -44,7 +44,7 @@ class TestSpecDownloads:
 def downloader(mock_db: MagicMock, tmp_path: Path) -> SpecDownloads:
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    http_cache_file = cache_dir / "http-cache.sqlite3"
+    http_cache_file = cache_dir / "http-cache-v2.sqlite3"
     return SpecDownloads(mock_db, http_cache_file=http_cache_file)
 
 

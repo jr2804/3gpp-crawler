@@ -8,13 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import niquests as requests
 import pytest
-from hishel.requests import CacheAdapter
 from niquests.adapters import HTTPAdapter
 
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.http_client import PoolConfig, create_cached_session, download_to_file
-from tdoc_crawler.http_client.session import resolve_ssl_verify
+from tdoc_crawler.http_client.session import _NiquetsCacheAdapter, resolve_ssl_verify
 
 
 class TestCreateCachedSession:
@@ -88,9 +87,9 @@ class TestCreateCachedSession:
         assert "http://" in session.adapters
         assert "https://" in session.adapters
 
-        # Check that the adapters are CacheAdapter instances
-        assert isinstance(session.adapters["http://"], CacheAdapter)
-        assert isinstance(session.adapters["https://"], CacheAdapter)
+        # Check that the adapters are _NiquetsCacheAdapter instances
+        assert isinstance(session.adapters["http://"], _NiquetsCacheAdapter)
+        assert isinstance(session.adapters["https://"], _NiquetsCacheAdapter)
 
         session.close()
 
@@ -105,8 +104,8 @@ class TestCreateCachedSession:
         http_adapter = session.adapters["http://"]
         https_adapter = session.adapters["https://"]
 
-        assert isinstance(http_adapter, CacheAdapter)
-        assert isinstance(https_adapter, CacheAdapter)
+        assert isinstance(http_adapter, _NiquetsCacheAdapter)
+        assert isinstance(https_adapter, _NiquetsCacheAdapter)
         assert http_adapter._pool_connections == 7
         assert http_adapter._pool_maxsize == 11
         assert https_adapter._pool_connections == 7
@@ -127,8 +126,8 @@ class TestCreateCachedSession:
 
         assert isinstance(http_adapter, HTTPAdapter)
         assert isinstance(https_adapter, HTTPAdapter)
-        assert not isinstance(http_adapter, CacheAdapter)
-        assert not isinstance(https_adapter, CacheAdapter)
+        assert not isinstance(http_adapter, _NiquetsCacheAdapter)
+        assert not isinstance(https_adapter, _NiquetsCacheAdapter)
         assert http_adapter._pool_connections == 4
         assert http_adapter._pool_maxsize == 9
         assert https_adapter._pool_connections == 4
@@ -294,7 +293,7 @@ class TestSslContextAdapters:
         try:
             assert isinstance(session.adapters["http://"], HTTPAdapter)
             assert isinstance(session.adapters["https://"], HTTPAdapter)
-            assert not isinstance(session.adapters["http://"], CacheAdapter)
+            assert not isinstance(session.adapters["http://"], _NiquetsCacheAdapter)
             assert session.verify is True
         finally:
             session.close()
@@ -305,17 +304,17 @@ class TestSslContextAdapters:
         try:
             assert isinstance(session.adapters["http://"], HTTPAdapter)
             assert isinstance(session.adapters["https://"], HTTPAdapter)
-            assert not isinstance(session.adapters["http://"], CacheAdapter)
+            assert not isinstance(session.adapters["http://"], _NiquetsCacheAdapter)
             assert session.verify is False
         finally:
             session.close()
 
     def test_cached_verify_true_uses_cache_adapter(self, test_cache_dir: Path) -> None:
-        """Cached sessions mount a CacheAdapter regardless of verify setting."""
+        """Cached sessions mount a _NiquetsCacheAdapter regardless of verify setting."""
         session = create_cached_session(http_cache_file=test_cache_dir / DEFAULT_HTTP_CACHE_FILENAME, verify=True)
         try:
-            assert isinstance(session.adapters["http://"], CacheAdapter)
-            assert isinstance(session.adapters["https://"], CacheAdapter)
+            assert isinstance(session.adapters["http://"], _NiquetsCacheAdapter)
+            assert isinstance(session.adapters["https://"], _NiquetsCacheAdapter)
             assert session.verify is True
         finally:
             session.close()
@@ -351,8 +350,8 @@ class TestHttpSessionWithConfig:
 
         # Session should be plain requests session (no cache adapter)
         assert session is not None
-        # When caching is disabled, it should use HTTPAdapter, not CacheAdapter
-        assert not isinstance(session.adapters["http://"], CacheAdapter)
+        # When caching is disabled, it should use HTTPAdapter, not _NiquetsCacheAdapter
+        assert not isinstance(session.adapters["http://"], _NiquetsCacheAdapter)
         session.close()
 
     def test_create_cached_session_explicit_overrides_config(self, test_cache_dir: Path) -> None:
@@ -369,7 +368,7 @@ class TestHttpSessionWithConfig:
         assert session is not None
         # Should have plain HTTP adapter since caching is explicitly disabled (no pool_config)
         assert isinstance(session.adapters["http://"], HTTPAdapter)
-        assert not isinstance(session.adapters["http://"], CacheAdapter)
+        assert not isinstance(session.adapters["http://"], _NiquetsCacheAdapter)
         session.close()
 
 

@@ -7,23 +7,23 @@ Test conventions, fixtures, and coverage requirements.
 - **Framework:** pytest
 - **Run:** `uv run pytest -v`
 - **Coverage:** `uv run pytest --cov=src --cov-report=term-missing`
-- **Standard locations:** Cache `./tests/test-cache`, DB `./tests/test-cache/tdoc_crawler.db`
+- **Paths:** use the `test_cache_dir` / `test_db_path` fixtures (tmp_path based). `test_cache_dir` also sets `TDC_CACHE_DIR`. Never write to a fixed path.
 
 ## Import Patterns
 
 ```python
-from pool_executors.pool_executors import SerialPoolExecutor, create_executor
-from tdoc_crawler.tdocs import TDocCrawler
+from pool_executors import SerialPoolExecutor, create_executor
+from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
-from tdoc_crawler.meetings import MeetingCrawler
-from tdoc_crawler.specs import SpecDatabase
+from tdoc_crawler.meetings.operations import MeetingCrawler
+from tdoc_crawler.database import MeetingDatabase, SpecDatabase, TDocDatabase
 ```
 
 ## Anti-Duplication
 
 Do not re-implement logic from `src/` or `packages/` into `tests/`. Import and verify actual implementation. If code is hard to test, refactor it to be more testable.
 
-Use fixtures from `conftest.py`:
+Use fixtures from `conftest.py` (`_reset_cache_manager` is autouse and resets the `CacheManager` singleton per test):
 
 - `test_cache_dir` — Temporary cache directory
 - `test_db_path` — Path to test database
@@ -33,8 +33,8 @@ Use fixtures from `conftest.py`:
 
 ## Pool Executor Tests
 
-- `test_executor_adapter.py` — `Runner` class tests
-- `test_serial_executor.py` — `SerialPoolExecutor`, `SerialFuture`, `create_executor`
+- `tests/pool_executor/test_executor_adapter.py` — `Runner` class tests
+- `tests/pool_executor/test_serial_executor.py` — `SerialPoolExecutor`, `SerialFuture`, `create_executor`
 - **Coverage target:** >90%
 
 ```bash

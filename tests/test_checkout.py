@@ -444,11 +444,16 @@ class TestSelectMainFile:
         chosen = _select_main_file(extract_dir, "S4-261599")
         assert chosen.suffix == ".docx"
 
-    def test_largest_document_suffix_wins(self, tmp_path: Path) -> None:
+    def test_later_mtime_wins_among_same_suffix_documents(self, tmp_path: Path) -> None:
+        """Same suffix, no TDoc prefix: the more recently modified file wins (size is not ranked)."""
         extract_dir = tmp_path / "extracted"
         extract_dir.mkdir()
-        (extract_dir / "small.docx").write_bytes(b"x")
-        (extract_dir / "big.docx").write_bytes(b"x" * 1000)
+        older = extract_dir / "small.docx"
+        newer = extract_dir / "big.docx"
+        older.write_bytes(b"x")
+        newer.write_bytes(b"x" * 1000)
+        os.utime(older, (1_000_000_000, 1_000_000_000))
+        os.utime(newer, (2_000_000_000, 2_000_000_000))
 
         chosen = _select_main_file(extract_dir, "S4-261599")
         assert chosen.name == "big.docx"

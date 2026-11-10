@@ -68,7 +68,7 @@ class TestCacheManager:
     def test_http_cache_file_path(self, tmp_path: Path) -> None:
         """Test http_cache_file property returns correct path."""
         manager = CacheManager(tmp_path)
-        assert manager.http_cache_file == tmp_path / "http-cache.sqlite3"
+        assert manager.http_cache_file == tmp_path / "http-cache-v2.sqlite3"
 
     def test_checkout_dir_path(self, tmp_path: Path) -> None:
         """Test checkout_dir property returns correct path."""

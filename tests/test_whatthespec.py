@@ -70,7 +70,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "S4-260001",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
                 timeout=30,
             )
 
@@ -104,7 +104,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "INVALID-ID",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
             assert result is None
@@ -124,7 +124,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "S4-260001",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
             assert result is not None
@@ -150,7 +150,7 @@ class TestWhatTheSpecResolution:
                 resolve_via_whatthespec(
                     "S4-260001",
                     http_config=http_cache_config,
-                    http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                    http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
                     timeout=5,
                 )
 
@@ -173,7 +173,7 @@ class TestWhatTheSpecResolution:
                 resolve_via_whatthespec(
                     "S4-260001",
                     http_config=http_cache_config,
-                    http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                    http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
                 )
 
             assert "WhatTheSpec request failed" in str(exc_info.value)
@@ -197,7 +197,7 @@ class TestWhatTheSpecResolution:
             resolve_via_whatthespec(
                 "S4-260001",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
     def test_field_mapping_correctness(self, test_cache_dir: Path, http_cache_config: HttpConfig) -> None:
@@ -231,7 +231,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "R1-250123",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
             assert result is not None
@@ -270,7 +270,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "S2-250456",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
             assert result is not None
@@ -306,7 +306,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "C1-250789",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
             assert result is not None
@@ -351,7 +351,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "S4-2301890",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
                 db_file=test_db_path,
             )
 
@@ -382,7 +382,7 @@ class TestWhatTheSpecResolution:
             result = resolve_via_whatthespec(
                 "r1-250999",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
             assert result is not None
@@ -402,7 +402,7 @@ class TestWhatTheSpecResolution:
             resolve_via_whatthespec(
                 "S4-260001",
                 http_config=http_cache_config,
-                http_cache_file=test_cache_dir / "http-cache.sqlite3",
+                http_cache_file=test_cache_dir / "http-cache-v2.sqlite3",
             )
 
             mock_session.close.assert_called_once()
