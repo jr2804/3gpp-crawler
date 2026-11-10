@@ -34,7 +34,7 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 | `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, open, stats, checkout |
 | `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
 | `config_app.py` | `config init`, `show`, `validate`, `docs` |
-| `tag_app.py` | `tag add`, `remove`, `list` |
+| `tag_app.py` | `tag add`, `remove`, `list`, `export`, `import` |
 | `mcp_app.py` | `mcp` command (Model Context Protocol server) |
 | `checkout.py` | `tdoc checkout` command; standalone so `mcp_server` can import it without cycling through `tdoc_app` |
 | `specs.py` | `spec checkout` and `spec open` commands |
@@ -73,3 +73,9 @@ if mode not in ("fast", "full"):  # ← NEVER do this
 **Why:** Typer validates enum values automatically. No manual string checks, no typos, no forgotten cases.
 
 **Where to define:** Domain-agnostic enums go in `models/base.py`; the logging level enum `LogLevel` lives in `logging/__init__.py` next to `set_verbosity()`. Domain enums stay in their domain module (e.g. `tdocs/models.py`, `models/working_groups.py`). Find current ones with `grep -rn "(StrEnum)" src/`.
+
+## CRITICAL: Every Data Output Command Has `--output`
+
+Any command that prints data or results (tables, lists, summaries, dumps) MUST accept `--output` / `-o` typed `OutputFormat` (`OutputFormatOption` in `args.py`, default `OutputFormat.TABLE`) and route through `print_structured_output()` / `format_output()` from `cli/formatting.py`. Machine formats must stay clean: no progress bars or status prose on stdout.
+
+Exceptions (text-only by design): `version`, `open` (launches a file), `config init` (writes a file; its target path is a positional argument), `config docs`, and `crawl tdocs` / `crawl-meetings` (progress and status only).

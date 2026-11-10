@@ -43,6 +43,7 @@ crawl-meetings → crawl → query → tag → checkout
 3gpp-crawler tag add tdoc S4-250638 --tag codec
 3gpp-crawler tag add spec 26260 --tag rel-18
 3gpp-crawler tag list --kind tdoc
+3gpp-crawler tag export -f tags.json              # backup; import later with `tag import`
 
 # Checkout
 3gpp-crawler tdoc checkout S4-250638
