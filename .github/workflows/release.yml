@@ -7,8 +7,6 @@ on:
 
 # Append [skip release] to the last commit message to skip this workflow
 # (including the forge mirror, which catches up on the next ordinary push).
-if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]') }}
-
 permissions:
   contents: read
 
@@ -18,6 +16,7 @@ concurrency:
 
 jobs:
   version:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -37,7 +36,7 @@ jobs:
 
   release:
     needs: version
-    if: needs.version.outputs.new == 'true'
+    if: (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]')) && needs.version.outputs.new == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -87,7 +86,7 @@ jobs:
 
   mirror:
     needs: [version, release]
-    if: always() && needs.version.result != 'failure' && needs.release.result != 'failure'
+    if: always() && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]')) && needs.version.result != 'failure' && needs.release.result != 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: read
