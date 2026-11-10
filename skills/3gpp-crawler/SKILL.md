@@ -24,7 +24,7 @@ crawl-meetings → crawl → query → tag → checkout
 2. **Crawl TDocs/specs** — pull metadata from 3GPP portal/FTP. Incremental by default.
 3. **Query** — search by ID, working group, date range, title, agenda pattern. `--tag` filters narrow results.
 4. **Tag** — lightweight grouping (spec, tdoc, or other kinds).
-5. **Checkout** — download + extract.
+5. **Checkout** - download + extract. `tdoc files` / `spec files` list a document's zip members.
 
 ## Quick commands
 
@@ -71,7 +71,7 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 |-------|-------|
 | crawl | `crawl_tdocs`, `crawl_specs`, `crawl_meetings` |
 | query | `query_tdocs`, `query_specs`, `query_meetings` |
-| checkout | `checkout_tdocs`, `checkout_specs` |
+| checkout | `checkout_tdocs`, `checkout_specs`, `list_tdoc_files`, `list_spec_files` |
 | tag | `tag_add`, `tag_remove`, `tag_list` |
 | config | `config_show`, `config_validate` |
 

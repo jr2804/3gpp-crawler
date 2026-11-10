@@ -20,6 +20,16 @@ Download and extract TDoc(s) to the checkout folder for offline access.
 ```bash
 3gpp-crawler tdoc checkout S4-250638
 3gpp-crawler tdoc checkout S4-250638 S4-250639
+3gpp-crawler tdoc checkout S4-250638 --keep-zip   # keep the downloaded zip next to the extracted files
+```
+
+### `files`
+
+List the files inside a TDoc's zip archive. The first call reads the listing from the server (HTTP range reads, no full download) and stores it; later calls use the stored listing. `--refresh` re-reads it.
+
+```bash
+3gpp-crawler tdoc files S4-250638
+3gpp-crawler tdoc files S4-250638 --refresh
 ```
 
 ## Specifications
@@ -46,6 +56,15 @@ Batch download specification documents to the checkout folder.
 ```bash
 3gpp-crawler spec checkout 26130-26140
 3gpp-crawler spec checkout 26260 --release 18.0
+```
+
+### `files`
+
+List the files inside a specification's zip archive. Stored from checkout; if nothing is stored yet, the listing is read from the server (HTTP range reads) and kept.
+
+```bash
+3gpp-crawler spec files 26260 --release 18.0
+3gpp-crawler spec files 26260 --refresh
 ```
 
 ## Diagnostics

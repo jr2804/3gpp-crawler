@@ -23,6 +23,8 @@ Tools mirror the CLI groups:
 | query | `query_meetings` | `tdoc query-meetings` |
 | checkout | `checkout_tdocs` | `tdoc checkout` |
 | checkout | `checkout_specs` | `spec checkout` |
+| checkout | `list_tdoc_files` | `tdoc files` |
+| checkout | `list_spec_files` | `spec files` |
 | tag | `tag_add` | `tag add` |
 | tag | `tag_remove` | `tag remove` |
 | tag | `tag_list` | `tag list` |

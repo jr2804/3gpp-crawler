@@ -55,6 +55,8 @@ tdoc-crawler open S4-250638                      # download + open
 ```bash
 tdoc-crawler checkout S4-250638                  # download + extract
 tdoc-crawler checkout S4-250638 S4-250639     # batch download
+tdoc-crawler checkout S4-250638 --keep-zip    # keep the TDoc zip after extraction
+tdoc-crawler files S4-250638                  # list zip members (--refresh re-reads)
 ```
 
 ### stats
@@ -95,6 +97,7 @@ spec-crawler open 26260 --release 18.0           # specific release
 spec-crawler checkout 26260                      # latest release
 spec-crawler checkout 26260 --release 18.0       # specific release
 spec-crawler checkout 26260 26261                  # batch download
+spec-crawler files 26260 --release 18.0            # list zip members (--refresh re-reads)
 ```
 
 ## 3gpp-crawler tag (top-level)
