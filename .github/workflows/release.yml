@@ -66,22 +66,6 @@ jobs:
           name: dist
           path: dist/
 
-  pypi:
-    needs: [version, release]
-    if: vars.PYPI_PUBLISH == 'true'
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/3gpp-crawler/
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
-
   mirror:
     needs: [version, release]
     if: always() && needs.version.result != 'failure' && needs.release.result != 'failure'
