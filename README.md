@@ -17,7 +17,7 @@ A command-line tool for crawling the 3GPP FTP server, caching 3GPP document meta
 - **Incremental Updates**: Only fetch new data on subsequent crawls
 - **Rich CLI**: Beautiful terminal output with progress indicators
 - **Tag System**: Organize TDocs and specs with lightweight tags (no workspace needed)
-- **MCP Server**: Run as stdio MCP server for AI agent integrations (`tdoc-crawler mcp`)
+- **MCP Server**: Run as stdio MCP server for AI agent integrations (`3gpp-crawler mcp`)
 
 ## Installation
 
@@ -96,6 +96,7 @@ NOTE:    If no credentials are provided, the tool will prompt you interactively 
 | `spec {subcommand}` | `spec-crawler` | Technical specifications (see below) |
 | `config {init,show,validate,docs}` | | Manage configuration |
 | `tag {add,remove,list}` | | Manage lightweight tags on TDocs and specs |
+| `database {clear-tdocs,clear-specs,clear-meetings,clear-all,export-tags,import-tags}` | `db` | Database maintenance: selective/all clears, tag backup & restore |
 | `mcp` | | Run as MCP server for AI agents |
 | **tdoc group** | | |
 | `tdoc crawl` | `ct` | Crawl TDoc metadata from FTP |

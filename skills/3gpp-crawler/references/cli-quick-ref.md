@@ -115,8 +115,6 @@ spec-crawler files 26260 --release 18.0            # list zip members (--refresh
 3gpp-crawler database import-tags tags.json        # batch import, skips existing
 ```
 
-Also available nested: `3gpp-crawler tdoc tag …` / `tdoc-crawler tag …`.
-
 ## 3gpp-crawler config
 
 ```bash

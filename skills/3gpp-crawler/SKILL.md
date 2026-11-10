@@ -9,7 +9,7 @@ Crawl, query, tag, and download 3GPP documents locally. One SQLite DB, one main 
 
 | Command | Purpose |
 |---------|---------|
-| `3gpp-crawler` | **Main CLI** — everything below via groups: `tdoc`, `spec`, `config`, `tag`, `mcp` |
+| `3gpp-crawler` | **Main CLI** - everything below via groups: `tdoc`, `spec`, `config`, `tag`, `database` (alias `db`), `mcp` |
 | `tdoc-crawler` | Shortcut for the `tdoc` group |
 | `spec-crawler` | Shortcut for the `spec` group |
 
