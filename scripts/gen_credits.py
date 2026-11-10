@@ -6,7 +6,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd()
 
 
 def load_credits() -> str:
@@ -25,5 +25,5 @@ def load_credits() -> str:
     return "\n".join(lines)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" or "__file__" not in globals():
     print(load_credits())

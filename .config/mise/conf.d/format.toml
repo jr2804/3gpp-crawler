@@ -1,11 +1,11 @@
 [tasks.format]
-description = "Format code (pyreorder, ruff)"
+description = "Format code (ruff, isort, pyreorder)"
 run = [
-	"pyreorder run src/ tests/ packages/ --config .config/pyreorder.toml",
-	"ruff check --select I --fix", # isort-equivalent sorting of imports
-	"ruff format src/ packages/ tests/ --exclude .config",
+	"pyreorder run src/ tests/ scripts/ --config .config/pyreorder.toml",
+	"ruff format src/ tests/",
+	"ruff check src/ tests/ --select I --fix",
 ]
 
 [tasks.format-md]
 description = "Lint and reformat Markdown files with rumdl"
-run = "rumdl fmt --config .config/rumdl.toml src/ docs/ tests/ packages/ ./"
+run = "rumdl fmt --config .config/rumdl.toml src/ docs/ tests/ ./"

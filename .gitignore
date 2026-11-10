@@ -283,3 +283,21 @@ mise.local.toml
 # Beads / Dolt files (added by bd init)
 .beads/proxieddb/
 *.gate.lock*
+
+# Native build artifacts & docs output (copier-uv-plus 2026.11)
+site/
+*.dll
+*.pyd
+*.dylib
+*.exe
+*.pdb
+
+# Local agent dirs & temp (copier-uv-plus 2026.11)
+/.tmp
+/tmp
+/temp
+/.opencode
+opencode.jsonc
+.pi/
+.codex/
+.claude/

@@ -48,5 +48,5 @@ If this file grows past its size budget, split detail into
 | ------- | ------- |
 | `mise run lint` / `typecheck` / `test` | Ruff / ty / pytest+coverage |
 | `mise run format-md` | rumdl markdown lint+fmt |
-| `mise run docs` | MkDocs build |
+| `mise run docs` | zensical build (`docs:mkdocs` = mkdocs for the Pages workflow) |
 | `mise run add-mcp-servers` / `add-skills` | Install from `data/dev-features.csv` / `data/skills.csv` |

@@ -3,32 +3,29 @@
 
 [tools]
 # basic frameworks that should always be available
-node = "latest"
+#node = "latest"
 bun = "latest"
 
+# CLIs to access Github/3GPP Forge
 "gitlab:gitlab-org/cli" = "latest"
+"github:cli/cli" = "latest"
 
 # Linter/formatter/type checker tools
 "ruff" = "latest"
 "ty" = "latest"
 "rumdl" = "latest"
-"pipx:undersort" = "latest"
-"pipx:codespell" = "latest"
-"pipx:git+https://github.com/jr2804/pyreorder.git" = "latest"
+"pypi:codespell" = "latest"
+"pypi:pyreorder" = "latest"
 
 # CLI tools rg and tree-cli -> use `rg --files | tree-cli --fromfile` to get a nice tree view of the project files
 ripgrep = "latest"
 "github:peteretelej/tree" = { version = "latest", rename_exe = "tree-cli" }
 
 # AI/dev tools
-"aqua:steveyegge/beads" = "latest"
-"github:yoanbernabeu/grepai" = "latest"
-"github:djinn-soul/CytoScnPy" = "latest"
-"github:AlmogBaku/debug-skill" = "latest"
-"github:rtk-ai/rtk" = "latest"
 "github:gastownhall/beads" = "latest"
-"pipx:beads-mcp" = "latest"
-"pipx:repowise" = "latest"
+"pypi:beads-mcp" = "latest"
+
+"github:microsoft/coreutils" = "latest"
 #"github:arabold/docs-mcp-server" = "latest"
 
 [env]
@@ -37,5 +34,5 @@ GITLAB_HOST = "forge.3gpp.org"
 [settings.npm]
 package_manager = "bun"
 
-[settings.pipx]
+[settings.pypi]
 uvx = true

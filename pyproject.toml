@@ -1,6 +1,6 @@
 [project]
 name = "3gpp-crawler"
-version = "2026.11.4"
+version = "2026.11.5"
 description = "Crawl 3GPP FTP server, cache all(!) 3GPP document data, return structured JSON/YAML for each document - all via CLI."
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
@@ -15,30 +15,28 @@ classifiers = [
 ]
 
 dependencies = [
-    "beautifulsoup4>=4.14.2",
-    "brotli>=1.2.0",
-    "convert-lo",
+    "beautifulsoup4>=4.15.0",
+    "brotli>=1.2.1",
     # "doc2txt>=1.0.8",
-    "hishel>=1.1.8",
-    "packaging>=24.0",
-    "pathspec>=0.12",
-    "pandas>=3.0.0",
-    "pydantic>=2.12.2",
-    "python-calamine>=0.5.3",
-    "python-dotenv>=1.1.1",
+    "hishel>=2.0.0",
+    "packaging>=26.3",
+    "pathspec>=1.1.1",
+    "pandas>=3.1.1",
+    "pydantic>=2.14.3",
+    "python-calamine>=0.9.1",
+    "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
-    "rich>=14.2.0",
-    "typer>=0.19.2",
-    "xlsxwriter>=3.2.9",
-    "unzip-http>=0.7",
+    "rich>=15.0.0",
+    "typer>=0.29.0",
+    "xlsxwriter>=3.3.1",
+    "unzip-http>=0.9",
     "pool-executors",
-    "oxyde>=0.4.0",
-    "ison-py>=1.0.2",
-    "toon-format",
-    "pydantic-settings>=2.13.1",
-    "niquests>=3.18.4",
-    "pdf-remote-converter",
-    "fastmcp>=3.4.7",
+    "oxyde>=0.8.0",
+    "ison-py>=1.2.0",
+    "toon-format>=1.2.0",
+    "pydantic-settings>=2.16.2",
+    "niquests>=3.21.3",
+    "fastmcp>=4.1.7",
 ]
 
 [project.urls]
@@ -100,20 +98,6 @@ skip_empty = true
 branch = true
 source = ["src"]
 
-[tool.undersort]
-# Method visibility ordering: public (no underscore), protected (single underscore), private (double underscore)
-# Customize the order by specifying: "public", "protected", "private"
-order = ["public", "protected", "private"]
-
-# Method type ordering within each visibility level (optional)
-# Options: "class" (classmethod), "static" (staticmethod), "instance" (regular methods)
-# Default order if not specified: ["instance", "class", "static"]
-method_type_order = ["instance", "class", "static"]
-
-# Exclude files/directories matching these patterns (optional)
-# Patterns support glob syntax (e.g. "tests/*", "migrations/*.py", "**/generated/*")
-# exclude = ["tests/*", "migrations/*.py"]
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/tdoc_crawler"]
 
@@ -123,8 +107,7 @@ bump = true
 members = ["packages/*"]
 
 [tool.uv.sources]
-convert-lo = { workspace = true }
 pool-executors = { workspace = true }
 toon-format = { git = "https://github.com/toon-format/toon-python.git" }
 doc2txt = { git = "https://github.com/Quantatirsk/doc2txt-pypi.git" }
-pdf-remote-converter = { git = "https://forge.3gpp.org/rep/reimes/pdf-remote-converter" }
+

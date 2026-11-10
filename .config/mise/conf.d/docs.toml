@@ -1,16 +1,18 @@
 # Documentation tasks.
-# Note: zensical currently does not run on Windows (upstream watcher crash);
-# mkdocs is the default builder. zensical.toml is kept in sync for when
-# zensical works again — update BOTH navs when adding/removing pages.
+# zensical is the default builder now that uv's symlink link-mode crash is
+# fixed via --link-mode=copy. The GitHub Pages workflow (docs.yml) still
+# deploys mkdocs - mkdocs tasks are kept until the Pages pipeline migrates.
 
 [tasks.docs]
-description = "Build documentation (mkdocs)"
+description = "Build documentation"
+# --link-mode=copy: zensical's file watcher panics under uv's symlink link
+# mode (UV_LINK_MODE=symlink); copy links keep the build deterministic.
+run = ["uv run --link-mode=copy zensical build"]
+
+[tasks."docs:mkdocs"]
+description = "Build documentation (mkdocs; used by the Pages workflow)"
 run = ["uv run mkdocs build --strict"]
 
 [tasks."docs:serve"]
 description = "Live-reload docs preview (mkdocs)"
 run = ["uv run mkdocs serve"]
-
-[tasks."docs:zensical"]
-description = "Build documentation (zensical; requires a working zensical install)"
-run = ["uv run zensical build"]
