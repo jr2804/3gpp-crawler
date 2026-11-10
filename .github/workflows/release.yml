@@ -84,5 +84,7 @@ jobs:
         run: |
           git remote add forge "https://oauth2:${FORGE_MIRROR_TOKEN}@forge.3gpp.org/rep/reimes/3gpp-crawler.git"
           git push forge "HEAD:refs/heads/main"
-          git fetch --tags origin
-          git push forge "refs/tags/*:refs/tags/*"
+          existing="$(git ls-remote --tags forge | sed -n 's#.*refs/tags/\([^^]*\)$#\1#p' | sort -u)"
+          for tag in $(git tag --list); do
+            grep -qx "${tag}" <<< "${existing}" || git push forge "refs/tags/${tag}:refs/tags/${tag}"
+          done
