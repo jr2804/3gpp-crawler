@@ -36,3 +36,8 @@ Kept compact — agents hallucinate less when they know where definitions live.
   plan **must embed a date** (creation timestamp) in its content — e.g.
   `Created: YYYY-MM-DD` line or a front-matter `date:` field. Filename
   stays descriptive (`01-sub-feature.md`), order = implementation order.
+
+## Subdirectory
+
+If this file grows past its size budget, split detail into
+`.agents/files/<name>.md` — every file there MUST be listed above.

@@ -11,12 +11,37 @@ Detailed change history: `.agents/history/` (committed summaries, chronological)
 |------|----------|-----------|---------|
 | YYYY-MM-DD | [description] | [why] | [commit hash/tag] |
 
+## Record
+
+- High-level architectural decisions and breaking changes.
+- Dependency, tooling, and platform choices — including the alternative that lost.
+- False turns and rejected approaches, with the reason.
+- Completion of an implementation plan (link to its archive below).
+
+## Do not record
+
+- Routine commits, refactor logs, session activity, release notes.
+- Anything obvious from git, the code, or current AGENTS.md/state files.
+
 ## Guidance
 
 - Record decisions that would be costly to rediscover.
 - Note false turns and why they were rejected.
 - Link to relevant commits.
 - Keep entries brief — enough to reconstruct reasoning.
+- If this file grows large, move older entries to `.agents/history/` and keep
+  a pointer here.
+
+## Archive a plan
+
+Archive when a plan's work lands — not at a later maintenance pass:
+
+1. Consolidate `.agents/plans/<feature>/` into a single file
+   `.agents/history/<YYYY-MM-DD>_<TYPE>_<summary>.md` (completion date;
+   naming schema in `.agents/FILES.md`).
+2. Delete the plan directory.
+3. Add an entry to `.agents/HISTORY.md` referencing the archive and its
+   commit.
 
 ## Entries
 
@@ -41,3 +66,4 @@ Detailed change history: `.agents/history/` (committed summaries, chronological)
 | 2026-08-20 | Removed dead `.gitlab-ci.yml`. forge has no active runners on this project namespace (only group-level ones from `ivas-linux`), so every push triggered a pending→failed pipeline with empty trace and an email notification. Releases are already produced by `.githooks/pre-push` → `scripts/auto-release.sh` (CalVer tag + GitLab release + wheel upload), which is the entire purpose the CI served | Hook covers what CI would have done; CI cost was just the email noise | (uncommitted) |
 | 2026-08-24 | Rewrote `_run_migrations` in `database/base.py` to be model-driven: diff `extract_current_schema()` (the same source of truth that creates tables) against `PRAGMA table_info` introspected via `oxyde.execute_raw()`, and emit `ALTER TABLE ADD COLUMN` for every missing column. Replaces the hand-maintained hard-coded migration list that silently failed (the old code passed msgpack-encoded bytes from `raw` IR to a `for row in result` loop, throwing inside the catch-all `except` block). Fixes ``no such column: tdocmetadata.reservation_date`` on every query for any DB created before #5 landed | Migration code should be data-driven, not hand-maintained. Using `execute_raw` keeps the introspection on oxyde’s own connection (no stdlib sqlite3 side-channel). Type is inferred from `python_type`: `int` → INTEGER, everything else → TEXT (sqlite is dynamically typed anyway) | (this commit) |
 | 2026-08-24 | **Audit pass on `database/`** per user feedback: dropped `_ensure_tables_exist` / `_run_migrations` / `_PYTHON_TO_SQLITE_TYPE` / `_build_column_defs` / `_build_column_sql` (60+ lines of hand-rolled DDL) in favour of Oxyde's own `oxyde.db.schema.create_tables()` (dialect-aware, uses `migration_compute_diff` + `migration_to_sql` under the hood). Replaced the `table_to_model: dict[str, type[Model]]` with a typed `_clear_tables(models: Iterable[type])` that derives table names from `Model.get_table_name()`. **Killed migrations entirely** — on schema mismatch the DB raises `DatabaseError("schema-mismatch")` pointing at regeneration; no ALTER TABLE guessing. Live DB lost 31617 rows from the audit (test invocation of `clear_tdocs`) — user must re-crawl | Oxyde already knows how to create tables correctly; building our own DDL on top is over-engineering. The hardcoded `"tdocs"` / `"specs"` / `...` strings in `_clear_tables` were also drift magnets — one rename in `oxyde_models.py` and the clear silently no-op'd | (this commit) |
+| 2026-11-10 | Updated agents-scaffold to the 2026-10-17 template: new `.agents/TOOLS.md` state file (tool inventory moved from AGENTS.md + ONBOARDING), Hierarchy/Child Doc Shape sections, state-file subdirectory concept, plan-completion archive trigger | Framework update (INSTALL.md); project plan/archive naming kept deliberately (`.agents/plans/<feature>/` + `YYYY-MM-DD_<TYPE>_<summary>.md`) — upstream dated-dir naming NOT adopted | (this commit) |

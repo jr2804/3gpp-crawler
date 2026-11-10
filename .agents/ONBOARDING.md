@@ -38,6 +38,7 @@ uv add <package>
 ## Where to dig deeper
 
 - `docs/` — user-facing documentation (crawl, query, tags, config)
+- `.agents/TOOLS.md` — tools, MCP servers, skills, CLIs in use
 - `.agents/history/` — detailed change history
 - `.agents/HISTORY.md` — past decisions and rationale
 - Source-tree AGENTS.md files — local contracts per area
@@ -64,8 +65,6 @@ uv add <package>
 
 ## Available tools
 
-- **grepai** — find code by intent (semantic search, MCP)
-- **teddi-mcp** — ETSI TEDDI terms/definitions
-- **bd** / beads — issue tracking
-- **glab** — GitLab CLI for `forge.3gpp.org` (upstream remote: `git remote 3gpp`)
-- **3gpp-\*** skills — domain context (tdocs, specs, meetings, WGs)
+Development tools, MCP servers, skills, and CLIs are inventoried in the
+state file `.agents/TOOLS.md` — read it before assuming a tool, update it
+when tooling changes.
