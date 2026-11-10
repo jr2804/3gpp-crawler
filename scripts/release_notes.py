@@ -6,6 +6,8 @@ import json
 import os
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 from argparse import ArgumentParser
 from pathlib import Path
@@ -13,6 +15,7 @@ from pathlib import Path
 DEFAULT_API_BASE = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openrouter/free"
 MAX_LOG_CHARS = 12000
+RETRY_STATUSES = {429, 500, 502, 503, 504}
 
 PROMPT = """You write GitHub release notes for the Python project 3gpp-crawler.
 Input: commit subjects and bodies since the previous release, one commit per block.
@@ -40,6 +43,20 @@ def commit_log(tag: str) -> str:
     return "\n\n".join(blocks)[:MAX_LOG_CHARS]
 
 
+def post_chat(request: urllib.request.Request, *, attempts: int = 4) -> dict:
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:  # noqa: S310
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read()[:500].decode(errors="replace")
+            print(f"HTTP {exc.code} from LLM endpoint (attempt {attempt}/{attempts}): {detail}", file=sys.stderr)
+            if exc.code not in RETRY_STATUSES or attempt == attempts:
+                raise
+            time.sleep(attempt * 20)
+    raise RuntimeError("unreachable")
+
+
 def draft_notes(log: str, *, api_key: str, api_base: str, model: str) -> str:
     body = {
         "model": model,
@@ -55,8 +72,7 @@ def draft_notes(log: str, *, api_key: str, api_base: str, model: str) -> str:
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=120) as response:  # noqa: S310
-        payload = json.load(response)
+    payload = post_chat(request)
     return payload["choices"][0]["message"]["content"].strip()
 
 
