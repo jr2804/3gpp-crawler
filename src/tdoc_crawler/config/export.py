@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 import json
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import yaml
 from pydantic.fields import FieldInfo
 
 from tdoc_crawler.config.settings import ThreeGPPConfig
 
-FormatType = Literal["toml", "yaml", "json"]
+
+class ConfigFormat(StrEnum):
+    """Serialization format for exported configuration."""
+
+    TOML = "toml"
+    YAML = "yaml"
+    JSON = "json"
 
 
 class ConfigExporter:
@@ -21,18 +28,18 @@ class ConfigExporter:
         """Initialize with config instance (or create with defaults)."""
         self.config = config or ThreeGPPConfig()
 
-    def export(self, format: FormatType = "toml") -> str:
+    def export(self, format: ConfigFormat = ConfigFormat.TOML) -> str:
         """Export config to string in specified format with comments."""
-        if format == "toml":
+        if format == ConfigFormat.TOML:
             return self._export_toml()
-        if format == "yaml":
+        if format == ConfigFormat.YAML:
             return self._export_yaml()
-        if format == "json":
+        if format == ConfigFormat.JSON:
             return self._export_json()
         msg = f"Unsupported format: {format}"
         raise ValueError(msg)
 
-    def save(self, path: Path, format: FormatType = "toml", force: bool = False) -> None:
+    def save(self, path: Path, format: ConfigFormat = ConfigFormat.TOML, force: bool = False) -> None:
         """Save config to file.
 
         Args:
@@ -200,4 +207,4 @@ def _default_value_for_field(info: FieldInfo) -> object:
     return default
 
 
-__all__ = ["ConfigExporter", "FormatType"]
+__all__ = ["ConfigExporter", "ConfigFormat"]

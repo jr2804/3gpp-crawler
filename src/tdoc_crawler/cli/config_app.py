@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 from pydantic import ValidationError
@@ -14,28 +14,26 @@ from rich.table import Table
 
 from tdoc_crawler.cli._shared import GlobSafeTyper
 from tdoc_crawler.cli.constants import HELP_PANEL_CONFIG, SECTION_DESCRIPTIONS
-from tdoc_crawler.config.export import ConfigExporter
+from tdoc_crawler.config.export import ConfigExporter, ConfigFormat
 from tdoc_crawler.config.settings import ThreeGPPConfig
-
-FormatType = Literal["toml", "yaml", "json"]
 
 console = Console()
 
-ConfigInitOutputOption = Annotated[
+ConfigInitPathArgument = Annotated[
     Path,
-    typer.Option("--output", "-o", help="Output file path"),
+    typer.Argument(help="Output file path"),
 ]
 ConfigInitFormatOption = Annotated[
-    FormatType,
-    typer.Option("--format", "-f", help="Output format (toml, yaml, json)"),
+    ConfigFormat,
+    typer.Option("--format", "-f", help="File format (toml, yaml, json)"),
 ]
 ConfigInitForceOption = Annotated[
     bool,
     typer.Option("--force", help="Overwrite existing file"),
 ]
-ConfigShowFormatOption = Annotated[
-    FormatType,
-    typer.Option("--format", "-f", help="Output format (toml, yaml, json)"),
+ConfigOutputOption = Annotated[
+    ConfigFormat,
+    typer.Option("--output", "-o", help="Output format (toml, yaml, json)"),
 ]
 ConfigValidateFileOption = Annotated[
     Path | None,
@@ -55,8 +53,8 @@ config_app = GlobSafeTyper(help="Manage configuration")
 
 @config_app.command("init", rich_help_panel=HELP_PANEL_CONFIG)
 def config_init(
-    output: ConfigInitOutputOption,
-    format: ConfigInitFormatOption = "toml",
+    output: ConfigInitPathArgument,
+    format: ConfigInitFormatOption = ConfigFormat.TOML,
     force: ConfigInitForceOption = False,
 ) -> None:
     """Generate default configuration file."""
@@ -72,10 +70,10 @@ def config_init(
 
 @config_app.command("show", rich_help_panel=HELP_PANEL_CONFIG)
 def config_show(
-    format: ConfigShowFormatOption = "toml",
+    output: ConfigOutputOption = ConfigFormat.TOML,
 ) -> None:
     """Display current configuration (stdout)."""
-    ConfigExporter()
+    typer.echo(ConfigExporter(ThreeGPPConfig.from_settings()).export(output))
 
 
 @config_app.command("validate", rich_help_panel=HELP_PANEL_CONFIG)

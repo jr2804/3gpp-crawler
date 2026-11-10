@@ -120,13 +120,13 @@ Generate a default configuration file:
 
 ```bash
 # Generate TOML config (default)
-tdoc-crawler config init --output 3gpp-crawler.toml
+tdoc-crawler config init 3gpp-crawler.toml
 
 # Generate YAML config
-tdoc-crawler config init --output 3gpp-crawler.yaml --format yaml
+tdoc-crawler config init 3gpp-crawler.yaml --format yaml
 
 # Force overwrite existing
-tdoc-crawler config init --output 3gpp-crawler.toml --force
+tdoc-crawler config init 3gpp-crawler.toml --force
 ```
 
 ## Config Show Command
@@ -138,10 +138,10 @@ Display the current resolved configuration:
 tdoc-crawler config show
 
 # Show as YAML
-tdoc-crawler config show --format yaml
+tdoc-crawler config show -o yaml
 
 # Show as JSON
-tdoc-crawler config show --format json
+tdoc-crawler config show -o json
 ```
 
 ## Migration from .env
@@ -160,7 +160,7 @@ If you have an existing `.env` file, you can migrate to the new config file appr
 1. **Generate a default config file:**
 
    ```bash
-   tdoc-crawler config init --output 3gpp-crawler.toml
+   tdoc-crawler config init 3gpp-crawler.toml
    ```
 
 1. **Copy values from your .env:**

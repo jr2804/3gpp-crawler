@@ -66,6 +66,6 @@ manager = resolve_cache_manager()
 `config` is mounted on the `3gpp-crawler` entry point (`cli/mgmt_app.py`), not on `tdoc-crawler`.
 
 ```bash
-3gpp-crawler config init --output 3gpp-crawler.toml
+3gpp-crawler config init 3gpp-crawler.toml
 3gpp-crawler config show
 ```
