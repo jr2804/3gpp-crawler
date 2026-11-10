@@ -269,15 +269,18 @@ src/teddi-mcp/uv.lock
 #.planning/
 /PLAN.md
 
-# Misc. tools
+# Misc. tools/configuration & other temporary garbage
 .opencode/
 /.beads/export-state.json
 opencode.json
 /.config/mise/conf.d/mise.local.toml
 mcporter.json
 .mcp.json
-
 .repowise/
+mise.local.toml
 
-# MkDocs build output
-site/
+.beads*.lock
+
+# Beads / Dolt files (added by bd init)
+.beads/proxieddb/
+*.gate.lock*
