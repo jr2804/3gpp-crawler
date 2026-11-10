@@ -224,7 +224,6 @@ __marimo__/
 .opencode/command/speckit.*
 nul
 .sisyphus
-/.github
 
 # OS/editor artifacts
 .DS_Store

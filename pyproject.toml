@@ -42,7 +42,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://forge.3gpp.org/rep/reimes/3gpp-crawler"
+Repository = "https://github.com/jr2804/3gpp-crawler"
 
 
 [dependency-groups]

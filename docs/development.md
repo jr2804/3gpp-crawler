@@ -9,7 +9,7 @@ This guide describes how to set up your environment for contributing to `3gpp-cr
 1. Clone the repository:
 
    ```bash
-   git clone https://forge.3gpp.org/rep/reimes/3gpp-crawler.git
+   git clone https://github.com/jr2804/3gpp-crawler.git
    cd 3gpp-crawler
    ```
 

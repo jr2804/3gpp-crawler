@@ -10,7 +10,7 @@ Contributions are welcome! Here's how you can help.
 
 ```bash
 # Clone the repository
-git clone https://forge.3gpp.org/rep/reimes/3gpp-crawler.git
+git clone https://github.com/jr2804/3gpp-crawler.git
 cd 3gpp-crawler
 
 # Install dependencies
