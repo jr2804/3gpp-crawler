@@ -1,7 +1,9 @@
 """WhatTheSpec TDoc metadata source.
 
 This module provides a TDocSource implementation that fetches metadata
-from the whatthespec.net community API.
+from the whatthespec.net third-party API. It is a convenience/fallback
+source only — the official 3GPP sources (portal, meeting document lists)
+remain the primary path.
 """
 
 from __future__ import annotations
@@ -32,8 +34,9 @@ class WhatTheSpecSource(TDocSource):
     """TDoc metadata source using whatthespec.net API.
 
     This source provides unauthenticated access to TDoc metadata through
-    the WhatTheSpec community API. It's the preferred source for most users
-    as it requires no credentials.
+    the third-party WhatTheSpec service. It is a convenience/fallback for
+    single lookups without a parent meeting — not the primary source,
+    and the service may change or disappear without notice.
     """
 
     def __init__(

@@ -21,19 +21,18 @@ HTTP_CACHE_TTL=7200
 
 ## ETSI Online (EOL) Credentials
 
-Credentials provide access to the **official 3GPP portal**, acting as a
-reliable fallback for the primary community-maintained source
-([WhatTheSpec](whatthespec.md)).
+Credentials provide access to the **authenticated 3GPP portal** endpoints.
+They are optional: single/missing TDocs are fetched from the official
+(unauthenticated) portal by default, with [WhatTheSpec](whatthespec.md) used
+only as a third-party fallback when credentials are unavailable.
 
 ### Why credentials?
 
-While `3gpp-crawler` primarily uses **WhatTheSpec** for its speed and lack
-of required authentication, EOL credentials provide a 3GPP-official
-fallback:
-
-- **Redundancy**: functionality if the community source is unavailable.
-- **Official verification**: metadata directly from 3GPP endpoints.
-- **Reliability**: the tool remains functional if third-party services are down.
+- **Official data**: metadata directly from 3GPP endpoints — no third-party
+  service that can change or disappear.
+- **Full metadata**: `--full-metadata` fetching requires authentication.
+- **Reliability**: keeps working even if WhatTheSpec is down or its API
+  changes.
 
 ### Resolution order
 

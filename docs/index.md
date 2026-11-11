@@ -33,7 +33,7 @@ shortcuts for the `tdoc` and `spec` groups.
 - [**Querying**](query.md) — Search and display stored metadata.
 - [**Tags**](tags.md) — Organize TDocs and specs with lightweight tags.
 - [**Utilities**](utils.md) — Open, checkout, and stats commands.
-- [**WhatTheSpec**](whatthespec.md) — The primary metadata source.
+- [**WhatTheSpec**](whatthespec.md) — Third-party convenience source for single-TDoc lookups (official sources stay primary).
 - [**MCP Server**](mcp.md) — Use 3gpp-crawler from AI agents.
 - [**Configuration**](config.md) — Config files, environment variables.
 - [**HTTP Caching & Misc**](misc.md) — Caching behavior, credentials.

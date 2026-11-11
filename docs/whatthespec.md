@@ -1,22 +1,36 @@
 # WhatTheSpec
 
-WhatTheSpec ([whatthespec.net](https://whatthespec.net)) is the **primary data source** for metadata indexing in `3gpp-crawler`. It is a community-maintained service that catalogs 3GPP technical documents.
+[WhatTheSpec](https://whatthespec.net) is a **third-party convenience service**
+for looking up metadata of a single TDoc — useful when you only know the TDoc
+ID and the parent meeting is not available in your local database.
 
-## Why it's useful
+## ⚠️ Third-party service — no guarantees
 
-1. **Primary Source**: It provides fast, unauthenticated access to TDoc information without requiring ETSI credentials.
-1. **Efficiency**: Simple metadata queries are optimized for performance compared to scraping official portals.
-1. **Open Access**: Accessible to anyone without an EOL account.
+WhatTheSpec is **not affiliated with 3GPP or ETSI** and is outside the control
+of this project:
 
-## Use in 3GPP Crawler
+- There is no guarantee that the service or its API keeps working.
+- API changes or downtime can break or degrade the affected `3gpp-crawler`
+  features at any time, without notice.
+- The official 3GPP sources always remain the source of truth.
 
-`3gpp-crawler` leverages WhatTheSpec as its first line of data retrieval:
+## Role in 3gpp-crawler
 
-1. **Default Discovery**: In `open` and `checkout` commands, the tool first attempts to resolve TDoc metadata via WhatTheSpec.
-1. **Metadata Source**: In `crawl-specs`, WhatTheSpec is the primary source for technical specification metadata.
+The **regular workflow uses official 3GPP sources only**:
 
-## ⚠️ The Fallback Strategy
+1. `crawl-meetings` — meeting metadata from official endpoints.
+1. `tdoc crawl` — TDoc metadata from the meeting document lists (Excel sheets)
+   published on the official 3GPP FTP server, meeting by meeting.
+1. Single/missing TDocs are fetched from the official (unauthenticated) portal.
 
-Because WhatTheSpec is a community-maintained service and not officially affiliated with 3GPP, `3gpp-crawler` implements a **3GPP-official fallback** using EOL credentials.
+WhatTheSpec is involved only at the edges:
 
-If WhatTheSpec is unavailable or fail to provide the required data, the tool can fall back to the [official 3GPP portal](misc.md#etsi-online-eol-credentials) (requires authentication). This ensures the tool remains resilient and always has a path to the official source of truth.
+1. **Opt-in flag**: `--use-whatthespec` on `tdoc open` and `tdoc checkout`
+   forces single-TDoc lookups through WhatTheSpec.
+1. **Fallback**: when no EOL credentials are available, missing-TDoc fetches
+   automatically fall back to WhatTheSpec. Orphan records (TDocs without a
+   known parent meeting) are refreshed from WhatTheSpec, since it can resolve
+   a single TDoc without meeting context.
+
+For specifications, the official 3GPP source is tried first; WhatTheSpec
+serves as a fallback.

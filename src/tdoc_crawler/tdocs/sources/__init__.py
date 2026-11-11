@@ -1,7 +1,7 @@
 """TDoc metadata sources.
 
 This package provides abstractions for fetching TDoc metadata from various sources:
-- WhatTheSpec community API (unauthenticated)
+- WhatTheSpec third-party API (unauthenticated; convenience/fallback only)
 - 3GPP Portal (authenticated)
 - Meeting Document Lists (unauthenticated bulk)
 """

@@ -1,8 +1,8 @@
 # Crawling Metadata
 
-Crawling gathers metadata from external sources (3GPP FTP server, 3GPP
-Portal, [WhatTheSpec](whatthespec.md)) and stores it in your local SQLite
-database.
+Crawling gathers metadata from the official sources (3GPP FTP server, 3GPP
+Portal; [WhatTheSpec](whatthespec.md) only as an optional convenience/fallback)
+and stores it in your local SQLite database.
 
 ## Prerequisites
 
@@ -66,8 +66,8 @@ Crawl technical specification (TS/TR) metadata.
 | `SPEC_NUMBERS` | Positional spec numbers (dotted or undotted). |
 | `-w, --working-group WG` | Working groups to crawl. |
 
-Sources (`3gpp`, `whatthespec`) are configured in your
-[configuration](config.md); by default both are used.
+Sources (`3gpp`, `whatthespec`) are tried in that order: the official 3GPP
+source first, WhatTheSpec only as fallback.
 
 ## Shortcuts
 
