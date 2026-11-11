@@ -92,10 +92,15 @@ class _DummyContext:
 
 @mcp.tool(
     name="crawl_tdocs",
-    description=("Crawl TDoc metadata from 3GPP meeting document lists (Excel). Scope with start_date/end_date, limit_meetings or limit_tdocs for speed"),
+    description=(
+        "Crawl TDoc metadata from 3GPP meeting document lists (Excel). "
+        "Scope with subgroup (e.g. ['SA4'] for SA WG4, ['R1'], ['CT1']) and/or working_group "
+        "(RAN/SA/CT only), plus start_date/end_date, limit_meetings or limit_tdocs for speed"
+    ),
 )
 def crawl_tdocs(
     working_group: list[str] | None = None,
+    subgroup: list[str] | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
     title: list[str] | None = None,
@@ -108,6 +113,7 @@ def crawl_tdocs(
     return _run_captured(
         cli_crawl_tdocs,
         working_group=working_group,
+        subgroup=subgroup,
         start_date=start_date,
         end_date=end_date,
         title=title,
@@ -133,15 +139,24 @@ def crawl_specs(
     )
 
 
-@mcp.tool(name="crawl_meetings", description="Crawl meeting metadata from 3GPP portal")
+@mcp.tool(
+    name="crawl_meetings",
+    description=(
+        "Crawl meeting metadata from 3GPP portal. "
+        "Use subgroup for sub-working groups (e.g. ['SA4'], ['S4'], ['R1'], ['CT1']); "
+        "working_group accepts only RAN/SA/CT and would otherwise crawl the plenary"
+    ),
+)
 def crawl_meetings(
     working_group: list[str] | None = None,
+    subgroup: list[str] | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> str:
     return _run_captured(
         cli_crawl_meetings,
         working_group=working_group,
+        subgroup=subgroup,
         start_date=start_date,
         end_date=end_date,
     )
@@ -150,10 +165,17 @@ def crawl_meetings(
 # --- QUERY GROUP ---
 
 
-@mcp.tool(name="query_tdocs", description="Query stored TDoc metadata with optional filtering by tag, WG, dates, title pattern, etc.")
+@mcp.tool(
+    name="query_tdocs",
+    description=(
+        "Query stored TDoc metadata with optional filtering by tag, WG, subgroup, dates, title pattern, etc. "
+        "working_group accepts only RAN/SA/CT; filter sub-working groups with subgroup (e.g. ['SA4'], ['S4'])"
+    ),
+)
 def query_tdocs(
     tdoc_ids: list[str] | None = None,
     working_group: list[str] | None = None,
+    subgroup: list[str] | None = None,
     tag: list[str] | None = None,
     title: list[str] | None = None,
     agenda: str | None = None,
@@ -165,6 +187,7 @@ def query_tdocs(
         cli_query_tdocs,
         tdoc_ids=tdoc_ids,
         working_group=working_group,
+        subgroup=subgroup,
         tag=tag,
         title=title,
         agenda=agenda,
@@ -190,13 +213,18 @@ def query_specs(
     )
 
 
-@mcp.tool(name="query_meetings", description="Query stored 3GPP meetings metadata")
+@mcp.tool(
+    name="query_meetings",
+    description=("Query stored 3GPP meetings metadata. Filter sub-working groups with subgroup (e.g. ['SA4']); working_group accepts only RAN/SA/CT"),
+)
 def query_meetings(
     working_group: list[str] | None = None,
+    subgroup: list[str] | None = None,
 ) -> str:
     return _run_captured(
         cli_query_meetings,
         working_group=working_group,
+        subgroup=subgroup,
     )
 
 
