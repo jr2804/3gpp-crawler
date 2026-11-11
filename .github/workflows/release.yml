@@ -5,6 +5,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Append [skip release] to the last commit message to skip this workflow
+# (including the forge mirror, which catches up on the next ordinary push).
 permissions:
   contents: read
 
@@ -14,6 +16,7 @@ concurrency:
 
 jobs:
   version:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -33,7 +36,7 @@ jobs:
 
   release:
     needs: version
-    if: needs.version.outputs.new == 'true'
+    if: (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]')) && needs.version.outputs.new == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -44,7 +47,6 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv build
       - name: Draft release notes with LLM
-        continue-on-error: true
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_API_BASE: ${{ vars.LLM_API_BASE }}
@@ -56,11 +58,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}
         run: |
-          if [ -s release-notes.md ]; then
-            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "$TAG" --notes-file release-notes.md
-          else
-            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "$TAG" --generate-notes
-          fi
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "$TAG" --notes-file release-notes.md
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -83,7 +81,7 @@ jobs:
 
   mirror:
     needs: [version, release]
-    if: always() && needs.version.result != 'failure' && needs.release.result != 'failure'
+    if: always() && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]')) && needs.version.result != 'failure' && needs.release.result != 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: read
