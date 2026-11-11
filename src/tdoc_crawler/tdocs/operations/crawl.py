@@ -9,10 +9,9 @@ from concurrent.futures import Executor, Future, as_completed
 from dataclasses import dataclass
 from datetime import date
 
-from pool_executors import ExecutorType, create_executor
-
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.executors import ExecutorType, best_executor_type, create_executor
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
@@ -243,13 +242,11 @@ class TDocCrawler:
         Args:
             workers: Number of parallel workers.
             executor: Optional executor type override. None = auto: serial when
-                workers=1, else multiprocessing.
+                workers=1, else the fastest available type (see best_executor_type).
         """
-        if executor is not None:
-            return create_executor(executor, max_workers=workers), executor
-        if workers == 1:
-            return create_executor(ExecutorType.SERIAL), ExecutorType.SERIAL
-        return create_executor(ExecutorType.MULTIPROCESSING, max_workers=workers), ExecutorType.MULTIPROCESSING
+        if executor is None:
+            executor = ExecutorType.SERIAL if workers == 1 else best_executor_type()
+        return create_executor(executor, max_workers=workers), executor
 
     @staticmethod
     def _submit_meeting_futures(executor: Executor, meetings: list[MeetingMetadata], config: TDocCrawlConfig) -> dict[Future[str], MeetingMetadata]:

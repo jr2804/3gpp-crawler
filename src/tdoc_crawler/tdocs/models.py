@@ -6,10 +6,10 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from enum import StrEnum, auto
 
-from pool_executors import ExecutorType
 from pydantic import BaseModel, Field, field_validator
 
 from tdoc_crawler.config.settings import HttpConfig
+from tdoc_crawler.executors import ExecutorType
 from tdoc_crawler.meetings.utils import normalize_subgroup_alias
 from tdoc_crawler.models.base import (
     OutputFormat,
@@ -108,7 +108,8 @@ class TDocCrawlConfig(BaseModel):
         None,
         description=(
             "Executor type override: serial, threading, multiprocessing, or subinterpreter. "
-            "None = auto (serial when workers=1, else multiprocessing). "
+            "None = auto (serial when workers=1, else the fastest available: threading without GIL, "
+            "subinterpreter on 3.14+, otherwise multiprocessing). "
             "Use 'threading'/'subinterpreter' when child-process spawn is unsafe (e.g. stdio MCP server)."
         ),
     )

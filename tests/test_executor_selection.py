@@ -5,8 +5,8 @@ from __future__ import annotations
 from concurrent.futures import Executor, ThreadPoolExecutor
 
 import pytest
-from pool_executors import ExecutorType, SerialPoolExecutor
 
+from tdoc_crawler.executors import ExecutorType, SerialPoolExecutor, best_executor_type
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawler
 
 
@@ -15,9 +15,9 @@ def test_auto_single_worker_is_serial() -> None:
     assert kind is ExecutorType.SERIAL
 
 
-def test_auto_multi_worker_is_multiprocessing() -> None:
+def test_auto_multi_worker_is_best_available() -> None:
     _, kind = _resolve(4, None)
-    assert kind is ExecutorType.MULTIPROCESSING
+    assert kind is best_executor_type()
 
 
 def test_threading_override() -> None:

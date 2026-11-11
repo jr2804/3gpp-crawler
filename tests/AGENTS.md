@@ -12,7 +12,7 @@ Test conventions, fixtures, and coverage requirements.
 ## Import Patterns
 
 ```python
-from pool_executors import SerialPoolExecutor, create_executor
+from tdoc_crawler.executors import SerialPoolExecutor, create_executor
 from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.sources.whatthespec import resolve_via_whatthespec
 from tdoc_crawler.meetings.operations import MeetingCrawler
@@ -31,14 +31,14 @@ Use fixtures from `conftest.py` (`_reset_cache_manager` is autouse and resets th
 - `sample_meetings` — Sample meeting metadata
 - `populated_db` — Pre-populated TDocDatabase instance
 
-## Pool Executor Tests
+## Executor Tests
 
-- `tests/pool_executor/test_executor_adapter.py` — `Runner` class tests
-- `tests/pool_executor/test_serial_executor.py` — `SerialPoolExecutor`, `SerialFuture`, `create_executor`
+- `tests/executors/test_serial_executor.py` - `SerialPoolExecutor`, `SerialFuture`, `create_executor`
+- `tests/test_executor_selection.py` - `TDocCrawler` auto/override executor selection
 - **Coverage target:** >90%
 
 ```bash
-uv run pytest tests/pool_executor/ --cov=pool_executors --cov-report=term-missing
+uv run pytest tests/executors/ --cov=tdoc_crawler.executors --cov-report=term-missing
 ```
 
 ## Best Practices

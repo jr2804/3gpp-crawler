@@ -12,7 +12,8 @@ except (ImportError, AttributeError):
     InterpreterPoolExecutor = None  # type: ignore[misc]
 
 import pytest
-from pool_executors import ExecutorType, SerialPoolExecutor, create_executor
+
+from tdoc_crawler.executors import ExecutorType, SerialPoolExecutor, create_executor
 
 
 class TestSerialFuture:

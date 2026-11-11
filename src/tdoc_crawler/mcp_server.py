@@ -10,7 +10,6 @@ from typing import Any
 
 import typer
 from fastmcp import FastMCP
-from pool_executors import ExecutorType
 
 from tdoc_crawler.cli.checkout import checkout_tdocs as cli_checkout_tdoc
 from tdoc_crawler.cli.checkout import list_tdoc_files as cli_list_tdoc_files
@@ -59,14 +58,11 @@ from tdoc_crawler.cli.tag_app import (
     tag_remove as cli_tag_remove,
 )
 from tdoc_crawler.config import PathConfig
+from tdoc_crawler.executors import ExecutorType, best_executor_type
 
 # Multiprocessing spawn is unsafe under the stdio server (children inherit
-# overlapped stdio handles and deadlock). Use in-process parallelism instead.
-# Subinterpreter wins on Python 3.14+ because it sidesteps the GIL; threading
-# elsewhere. The factory transparently falls back to multiprocessing for
-# ExecutorType.SUBINTERPRETER on older Pythons, so we have to pick ourselves
-# rather than passing SUBINTERPRETER unconditionally.
-_MCP_EXECUTOR: ExecutorType = ExecutorType.SUBINTERPRETER if sys.version_info >= (3, 14) else ExecutorType.THREADING
+# overlapped stdio handles and deadlock), so processes are excluded here.
+_MCP_EXECUTOR: ExecutorType = best_executor_type(allow_processes=False)
 
 
 # --- DATABASE GROUP ---

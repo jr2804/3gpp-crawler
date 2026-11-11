@@ -153,7 +153,7 @@ CheckoutOption = Annotated[
     typer.Option("--checkout/--no-checkout", help="Download and extract metadata results to checkout folder", envvar=ConfigEnvVar.TDC_CHECKOUT.name),
 ]
 CheckoutDirOption = Annotated[Path | None, typer.Option("--checkout-dir", help="Directory for checkout files", envvar=ConfigEnvVar.TDC_CHECKOUT_DIR.name)]
-WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel subinterpreter workers", envvar=ConfigEnvVar.TDC_WORKERS.name)]
+WorkersOption = Annotated[int, typer.Option("--workers", help="Number of parallel workers", envvar=ConfigEnvVar.TDC_WORKERS.name)]
 ExecutorOption = Annotated[
     str | None,
     typer.Option(
