@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import typer
 
+from tdoc_crawler import mcp_server
 from tdoc_crawler.cli._shared import GlobSafeTyper, console
-from tdoc_crawler.mcp_server import run_mcp
 
 app = GlobSafeTyper(help="Run 3gpp-crawler as a Model Context Protocol (MCP) server")
 
@@ -17,7 +17,7 @@ def run_mcp_server(ctx: typer.Context) -> None:
         return
 
     try:
-        run_mcp()
+        mcp_server.run_mcp()
     except Exception as exc:
         console.print(f"[red]Failed to start MCP server: {exc}[/red]")
         raise typer.Exit(code=1) from exc
