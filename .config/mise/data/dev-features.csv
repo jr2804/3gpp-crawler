@@ -1,8 +1,5 @@
 enabled,category,tool,tool_value,mcp_command,mcp_name,skill_repo,skill
-1,codebase,,,,uvx --from git+https://forge.3gpp.org/rep/reimes/teddi-mcp.git teddi-mcp,teddi,,
-1,tracking,,,,,gastownhall/beads,
-1,tracking,,,mise x --command beads-mcp,beads,,
-0,tracking,github:dolthub/dolt,latest,,,,
-0,general,,,bun x @wonderwhy-er/desktop-commander@latest,desktop-commander,wonderwhy-er/DesktopCommanderMCP,desktop-commander-overview
-0,general,,,bun x @modelcontextprotocol/server-sequential-thinking,sequential-thinking,,
-0,rust,rust-skills,,,https://codeberg.org/jr2804/copier-uv-plus.git,rust-skills
+1,docs,pypi:teddi-tool,latest,teddi-tool server,teddi,jr2804/teddi-tool,
+1,tracking,github:gastownhall/beads,latest,,,gastownhall/beads,
+1,tracking,pypi:beads-mcp,"{ version = ""latest"", uvx_args = ""-p 3.13"" }",mise x --command beads-mcp,beads,,
+1,tracking,github:dolthub/dolt,latest,,,,
