@@ -30,10 +30,11 @@ def main() -> int:
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--output", type=Path, help="Write the Markdown notes here")
+    parser.add_argument("--head", default="HEAD", help="Revision treated as the release commit (defaults to HEAD; pass the tag itself to backfill)")
     parser.add_argument("--dry-run", action="store_true", help="Print the commit log and exit")
     args = parser.parse_args()
 
-    log = commit_log(args.tag)
+    log = commit_log(args.tag, head=args.head)
     if args.dry_run:
         print(log)
         return 0
@@ -55,6 +56,10 @@ def main() -> int:
     if not notes:
         print("LLM returned empty notes", file=sys.stderr)
         return 1
+    if "###" not in notes:
+        print("LLM reply lacks the expected '###' sections:", file=sys.stderr)
+        print(notes[:500], file=sys.stderr)
+        return 1
     if args.output:
         args.output.write_text(notes + "\n", encoding="utf-8")
     else:
@@ -62,17 +67,26 @@ def main() -> int:
     return 0
 
 
-def commit_log(tag: str) -> str:
+def commit_log(tag: str, *, head: str = "HEAD") -> str:
     previous = previous_tag(tag)
-    revision = f"{previous}..HEAD" if previous else "HEAD"
+    revision = f"{previous}..{head}" if previous else head
     log = run_git("log", "--no-merges", "--format=%s%n%b%x1e", revision)
     blocks = [block.strip() for block in log.split("\x1e") if block.strip()]
     return "\n\n".join(blocks)[:MAX_LOG_CHARS]
 
 
 def previous_tag(tag: str) -> str | None:
-    tags = [t for t in run_git("tag", "--sort=-v:refname").split() if t != tag]
-    return tags[0] if tags else None
+    target = tag_version(tag)
+    older = [
+        t
+        for t in run_git("tag", "--sort=-v:refname").split()
+        if t != tag and tag_version(t) < target
+    ]
+    return older[0] if older else None
+
+
+def tag_version(tag: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in tag.removeprefix("v").split("."))
 
 
 def run_git(*args: str) -> str:
@@ -85,7 +99,16 @@ def draft_notes(log: str, *, api_key: str, api_base: str, model: str) -> str:
         "temperature": 0.2,
         "messages": [
             {"role": "system", "content": PROMPT},
-            {"role": "user", "content": log},
+            {
+                "role": "user",
+                # Repeat the task in the user message: some OpenRouter free
+                # routes drop or weaken the system prompt, and a bare commit
+                # log then gets answered with "please provide the data".
+                "content": (
+                    "Write the release notes for this release from the commit "
+                    f"log below. {PROMPT}\n\n## Commit log\n\n{log}"
+                ),
+            },
         ],
     }
     request = urllib.request.Request(  # noqa: S310
