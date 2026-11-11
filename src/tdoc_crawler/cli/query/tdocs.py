@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from tdoc_crawler.cli._shared import console
+from tdoc_crawler.cli._shared import console, parse_scope
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
@@ -20,6 +20,7 @@ from tdoc_crawler.cli.args import (
     SourcePatternExcludeOption,
     SourcePatternOption,
     StartDateOption,
+    SubgroupOption,
     TagFilterOption,
     TDocIdsArgument,
     TitlePatternExcludeOption,
@@ -44,12 +45,12 @@ from tdoc_crawler.tdocs.operations.fetch import (
     is_orphan_tdoc,
     refresh_orphan_metadata,
 )
-from tdoc_crawler.utils.parse import parse_working_groups
 
 
 def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     tdoc_ids: TDocIdsArgument = None,
     working_group: WorkingGroupOption = None,
+    subgroup: SubgroupOption = None,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     limit: LimitOption = None,
@@ -78,13 +79,14 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     # subgroup is supplied, which silently drops records whose tbid wasn't
     # resolved (e.g. odd-numbered interim/telco docs whose meeting didn't
     # land in the meetings table).
-    working_groups = parse_working_groups(working_group, working_group) if working_group else None
+    working_groups, subgroups = parse_scope(working_group, subgroup, default_to_all=False)
     start, end = _parse_date_range(start_date, end_date)
 
     config = TDocQueryConfig(
         output_format=output_format,
         tdoc_ids=tdoc_ids,
         working_groups=working_groups,
+        subgroups=subgroups,
         start_date=start,
         end_date=end,
         limit=limit,

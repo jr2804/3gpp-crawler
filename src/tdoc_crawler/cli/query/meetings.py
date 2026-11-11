@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from tdoc_crawler.cli._shared import console
+from tdoc_crawler.cli._shared import console, parse_scope
 from tdoc_crawler.cli.args import (
     CacheDirOption,
     CheckoutOption,
@@ -26,7 +26,6 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models.base import OutputFormat, SortOrder
 from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs
-from tdoc_crawler.utils.parse import parse_subgroups, parse_working_groups
 
 
 def query_meetings(
@@ -44,8 +43,7 @@ def query_meetings(
     set_verbosity(verbosity)
     path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
     # Query semantics: no working_group filter unless the user asked for one.
-    working_groups = parse_working_groups(working_group, working_group) if working_group else None
-    subgroups = parse_subgroups(subgroup)
+    working_groups, subgroups = parse_scope(working_group, subgroup, default_to_all=False)
     config = MeetingQueryConfig(
         working_groups=working_groups,
         subgroups=subgroups,

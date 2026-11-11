@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
-from tdoc_crawler.cli._shared import console, create_progress_bar
+from tdoc_crawler.cli._shared import console, create_progress_bar, parse_scope
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
     AgendaPatternOption,
@@ -44,7 +44,6 @@ from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
 from tdoc_crawler.tdocs.operations import TDocCrawler
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdocs
-from tdoc_crawler.utils.parse import parse_subgroups, parse_working_groups
 
 
 def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
@@ -85,8 +84,7 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
         crawler_config.path.cache_dir = cache_dir
     crawler_config.ensure_paths()
 
-    subgroups = parse_subgroups(subgroup)
-    working_groups = parse_working_groups(working_group, subgroups)
+    working_groups, subgroups = parse_scope(working_group, subgroup)
 
     config = TDocCrawlConfig(
         working_groups=working_groups,

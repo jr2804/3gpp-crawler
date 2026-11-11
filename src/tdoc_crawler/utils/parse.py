@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -48,6 +49,12 @@ def parse_spec_version(value: str | int | None) -> SpecVersion:
 parse_spec_version_nbr = parse_spec_version
 
 
+# Working groups are RAN/SA/CT only. A numeric suffix means a sub-working group
+# (SA4, S4, RAN2, CT1): normalizing those to the parent group silently crawls the
+# plenary instead of the requested subgroup, so they are rejected instead.
+_SUBGROUP_CODE = re.compile(r"^(?:RAN|SA|CT|CP|[RSC])\d+$")
+
+
 def parse_working_groups(values: list[str] | None, subgroups: list[str] | None = None) -> list[WorkingGroup]:
     """Parse and normalize working group names, expanding plenary aliases.
 
@@ -57,6 +64,9 @@ def parse_working_groups(values: list[str] | None, subgroups: list[str] | None =
 
     Returns:
         List of working groups to crawl
+
+    Raises:
+        ValueError: When a value is a sub-working group code (e.g. ``SA4``)
     """
     if not values:
         if subgroups:
@@ -65,10 +75,56 @@ def parse_working_groups(values: list[str] | None, subgroups: list[str] | None =
 
     resolved: list[WorkingGroup] = []
     for item in values:
+        if _looks_like_subgroup(item):
+            msg = (
+                f"{item!r} is a sub-working group code, not a working group. "
+                "Pass it as a subgroup instead (CLI --sub-group/-s, MCP subgroup=[...]); "
+                "working groups accept only RAN/SA/CT."
+            )
+            raise ValueError(msg)
         normalized = normalize_working_group_alias(item)
         resolved.append(normalized)
 
     return resolved
+
+
+def parse_spec_working_group(values: list[str] | None) -> str | None:
+    """Resolve a spec working-group filter to the string specs are stored under.
+
+    Spec metadata stores the *sub*-working group (``SA4``, ``RAN1``, ``CT3``,
+    ``SA Plenary``) rather than RAN/SA/CT, so a plain working-group normalization
+    would filter on a value no row carries. Subgroup aliases are resolved first
+    (``S4`` -> ``SA4``), then plain working groups (``SA`` -> ``SA``).
+
+    Args:
+        values: Working-group values from the CLI (first one wins)
+
+    Returns:
+        Canonical working-group string, or None when no filter was requested
+
+    Raises:
+        ValueError: When the value is an unknown sub-working group or working group
+    """
+    if not values:
+        return None
+    item = values[0].strip()
+    if not item:
+        return None
+
+    try:
+        return normalize_subgroup_alias(item).value
+    except ValueError:
+        if _looks_like_subgroup(item):
+            msg = f"Unknown sub-working group {item!r}; expected e.g. SA4/S4, RAN1/R1, CT3/C3."
+            raise ValueError(msg) from None
+
+    return normalize_working_group_alias(item).value
+
+
+def _looks_like_subgroup(value: str) -> bool:
+    """Return True when a working-group value is really a sub-working group code."""
+    cleaned = re.sub(r"[#\-_\s]", "", value).upper()
+    return bool(_SUBGROUP_CODE.fullmatch(cleaned))
 
 
 def infer_working_groups_from_subgroups(subgroups: list[str]) -> list[WorkingGroup]:

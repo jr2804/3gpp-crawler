@@ -11,6 +11,7 @@ from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.base import SortKey, TagKind
+from tdoc_crawler.models.subworking_groups import CODE_INDEX
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
@@ -165,6 +166,14 @@ class TDocDatabase(MeetingDatabase):
         if config.working_groups:
             allowed_tbids = [wg.tbid for wg in config.working_groups]
             qs = qs.filter(tbid__in=allowed_tbids)
+
+        if config.subgroups:
+            allowed_subtbs = [CODE_INDEX[code.upper()].subtb for code in config.subgroups if code.upper() in CODE_INDEX]
+            meetings = await MeetingMetadata.objects.filter(subtb__in=allowed_subtbs).all()
+            meeting_ids = [meeting.meeting_id for meeting in meetings]
+            if not meeting_ids:
+                return []
+            qs = qs.filter(meeting_id__in=meeting_ids)
 
         records = await qs.all()
 

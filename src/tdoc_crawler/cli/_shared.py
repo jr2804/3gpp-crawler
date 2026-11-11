@@ -12,6 +12,8 @@ from typer.main import get_command
 
 from tdoc_crawler.database.errors import DatabaseError
 from tdoc_crawler.logging import get_console
+from tdoc_crawler.models.working_groups import WorkingGroup
+from tdoc_crawler.utils.parse import parse_subgroups, parse_working_groups
 
 console = get_console()
 
@@ -39,6 +41,30 @@ class GlobSafeTyper(typer.Typer):
             sys.exit(1)
 
 
+def parse_scope(
+    working_group: list[str] | None,
+    subgroup: list[str] | None,
+    *,
+    default_to_all: bool = True,
+) -> tuple[list[WorkingGroup] | None, list[str] | None]:
+    """Resolve ``--working-group`` / ``--sub-group`` into model-ready filters.
+
+    Crawl commands keep the historical default (no filter -> RAN+SA+CT);
+    query commands pass ``default_to_all=False`` so an absent filter stays an
+    absent filter. Sub-working group codes (``SA4``) must go to ``subgroup``;
+    passing them as a working group raises a usage error instead of silently
+    collapsing to ``SA``.
+    """
+    try:
+        subgroups = parse_subgroups(subgroup)
+        working_groups: list[WorkingGroup] | None = parse_working_groups(working_group, subgroups)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="'--working-group' / '--sub-group'") from exc
+    if not default_to_all and not working_group:
+        working_groups = None
+    return working_groups, subgroups
+
+
 def create_progress_bar(description: str, total: float = 100) -> tuple[Progress, TaskID]:
     """Create a standard progress bar for CLI operations.
 
@@ -64,4 +90,5 @@ __all__ = [
     "GlobSafeTyper",
     "console",
     "create_progress_bar",
+    "parse_scope",
 ]

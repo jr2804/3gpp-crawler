@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import typer
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
+from tdoc_crawler.cli._shared import parse_scope
 from tdoc_crawler.cli.mgmt_app import mgmt_app
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import TDocDatabase
@@ -100,6 +103,31 @@ class TestCrawlCommand:
         mock_crawler.crawl.assert_called_once()
 
 
+class TestSubgroupScopeValidation:
+    """Sub-working group codes must not be accepted as working groups."""
+
+    @pytest.mark.parametrize("command", [["crawl"], ["crawl-meetings"]])
+    def test_subgroup_code_as_working_group_fails_loudly(self, command: list[str], test_cache_dir: Path) -> None:
+        result = runner.invoke(tdoc_app, [*command, "--working-group", "SA4"])
+
+        # Rich wraps the message panel, so strip borders and collapse whitespace
+        flat = " ".join(re.sub(r"[┌┐└┘│─]", " ", result.output).split())
+        assert result.exit_code == 2, flat
+        assert "sub-working group" in flat
+        assert "--sub-group" in flat
+
+    def test_parse_scope_raises_bad_parameter(self) -> None:
+        with pytest.raises(typer.BadParameter, match="sub-working group"):
+            parse_scope(["SA4"], None)
+
+    def test_subgroup_code_via_sub_group_option(self, test_cache_dir: Path) -> None:
+        """-s SA4 is the supported path and must not be rejected."""
+        working_groups, subgroups = parse_scope(None, ["SA4"])
+
+        assert subgroups == ["S4"]  # canonical sub-working group code
+        assert working_groups == [WorkingGroup.SA]
+
+
 class TestCrawlMeetingsCommand:
     """Tests for crawl-meetings command."""
 
@@ -145,6 +173,35 @@ class TestCrawlMeetingsCommand:
 
 class TestQueryCommand:
     """Tests for query command."""
+
+    @patch("tdoc_crawler.cli.query.tdocs.TDocDatabase")
+    def test_query_subgroup_filter_reaches_config(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+        sample_tdocs: list[TDocMetadata],
+    ) -> None:
+        """--sub-group SA4 must land in the query config as the S4 code."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs[:1])
+
+        result = runner.invoke(tdoc_app, ["query", "--sub-group", "SA4"])
+
+        assert result.exit_code == 0, result.output
+        await_args = mock_db.query_tdocs.await_args
+        assert await_args is not None
+        config = await_args.args[0]
+        assert config.subgroups == ["S4"]
+
+    def test_query_rejects_subgroup_as_working_group(self, test_cache_dir: Path) -> None:
+        """-w SA4 must not silently collapse to SA."""
+        result = runner.invoke(tdoc_app, ["query", "--working-group", "SA4"])
+
+        flat = " ".join(re.sub(r"[┌┐└┘│─]", " ", result.output).split())
+        assert result.exit_code == 2, flat
+        assert "sub-working group" in flat
+        assert "--sub-group" in flat
 
     @patch("tdoc_crawler.cli.query.tdocs.TDocDatabase")
     def test_query_no_results(

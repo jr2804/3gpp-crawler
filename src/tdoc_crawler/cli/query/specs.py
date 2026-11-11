@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+import typer
+
 from tdoc_crawler.cli._shared import console
 from tdoc_crawler.cli.args import (
     CacheDirOption,
@@ -27,7 +29,7 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.models.base import OutputFormat, TagKind
 from tdoc_crawler.specs.models import SpecQueryFilters
 from tdoc_crawler.specs.operations.checkout import checkout_specs
-from tdoc_crawler.utils.parse import collect_spec_numbers, parse_working_groups
+from tdoc_crawler.utils.parse import collect_spec_numbers, parse_spec_working_group
 
 
 def query_specs(
@@ -46,8 +48,10 @@ def query_specs(
     set_verbosity(verbosity)
     path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
     specs = collect_spec_numbers(spec_numbers, spec_file)
-    working_groups = parse_working_groups(working_group)
-    wg_filter = working_groups[0].value if working_groups else None
+    try:
+        wg_filter = parse_spec_working_group(working_group)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="'--working-group'") from exc
 
     filters = SpecQueryFilters(
         spec_numbers=specs,

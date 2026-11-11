@@ -83,6 +83,41 @@ class TestTDocDatabase:
             sa_results = await db.query_tdocs(TDocQueryConfig(working_groups=[WorkingGroup.SA]))
             assert len(sa_results) == 1
 
+    async def test_query_by_subgroup(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """Filter by sub-working group through the meeting linkage."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+
+            s4_results = await db.query_tdocs(TDocQueryConfig(subgroups=["S4"]))
+            assert [tdoc.tdoc_id for tdoc in s4_results] == ["S4-2301890"]
+
+            ran1_results = await db.query_tdocs(TDocQueryConfig(subgroups=["RAN1"]))
+            assert [tdoc.tdoc_id for tdoc in ran1_results] == ["R1-2301234"]
+
+            both = await db.query_tdocs(TDocQueryConfig(subgroups=["R1", "R2"]))
+            assert sorted(tdoc.tdoc_id for tdoc in both) == ["R1-2301234", "R2-2301567"]
+
+    async def test_query_by_unknown_subgroup_returns_nothing(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """An unpopulated subgroup filters everything out instead of raising."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+
+            assert await db.query_tdocs(TDocQueryConfig(subgroups=["C1"])) == []
+
     async def test_query_with_limit(
         self,
         test_db_path: Path,

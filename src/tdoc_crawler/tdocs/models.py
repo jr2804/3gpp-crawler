@@ -159,6 +159,7 @@ class TDocQueryConfig(BaseModel):
     output_format: OutputFormat = Field(OutputFormat.TABLE, description="Output format")
     tdoc_ids: list[str] | None = Field(None, description="TDoc IDs to query")
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
+    subgroups: list[str] | None = Field(None, description="Filter by sub-working-group codes (e.g. 'S4', 'R1')")
     start_date: datetime | None = Field(None, description="Start date filter")
     end_date: datetime | None = Field(None, description="End date filter")
     # Meeting date filters (filter by associated meeting's dates)
@@ -190,6 +191,14 @@ class TDocQueryConfig(BaseModel):
         if value is None:
             return None
         return normalize_working_group_list(value)
+
+    @field_validator("subgroups", mode="before")
+    @classmethod
+    def _normalize_subgroups(cls, value: Iterable[str] | None) -> list[str] | None:
+        """Normalize subgroup aliases to canonical codes (``S4``, ``R1``)."""
+        if value is None:
+            return None
+        return [normalize_subgroup_alias(str(item)).name for item in value]
 
 
 __all__ = [

@@ -20,6 +20,7 @@ from tdoc_crawler.utils.normalization import (
     normalize_working_group_alias,
     url_to_safe_stem,
 )
+from tdoc_crawler.utils.parse import parse_spec_working_group, parse_working_groups
 
 
 class TestNormalizeTdocId:
@@ -210,6 +211,45 @@ class TestNormalizeSubgroupAlias:
     def test_unknown_raises(self) -> None:
         with pytest.raises(ValueError, match="Unknown subgroup code"):
             normalize_subgroup_alias("S99")
+
+
+class TestParseWorkingGroups:
+    """parse_working_groups must reject subgroup codes instead of collapsing them."""
+
+    @pytest.mark.parametrize("value", ["SA4", "S4", "RAN2", "CT1", "sa4", "SA-4", "RAN 2"])
+    def test_subgroup_code_rejected(self, value: str) -> None:
+        """Regression: 'SA4' silently normalized to SA and crawled the plenary."""
+        with pytest.raises(ValueError, match="sub-working group"):
+            parse_working_groups([value])
+
+    def test_working_groups_accepted(self) -> None:
+        assert parse_working_groups(["SA"]) == [WorkingGroup.SA]
+        assert parse_working_groups(["RAN", "SA", "CT"]) == [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
+
+    def test_defaults_and_inference_unchanged(self) -> None:
+        assert parse_working_groups(None) == [WorkingGroup.RAN, WorkingGroup.SA, WorkingGroup.CT]
+        assert parse_working_groups(None, ["SA4"]) == [WorkingGroup.SA]
+
+
+class TestParseSpecWorkingGroup:
+    """Specs store the sub-working group, so aliases must resolve to that form."""
+
+    def test_subgroup_aliases_resolve_to_stored_form(self) -> None:
+        assert parse_spec_working_group(["SA4"]) == "SA4"
+        assert parse_spec_working_group(["S4"]) == "SA4"
+        assert parse_spec_working_group(["RAN1"]) == "RAN1"
+        assert parse_spec_working_group(["R1"]) == "RAN1"
+        assert parse_spec_working_group(["CT3"]) == "CT3"
+
+    def test_plain_working_groups_pass_through(self) -> None:
+        assert parse_spec_working_group(["SA"]) == "SA"
+        assert parse_spec_working_group(["RAN"]) == "RAN"
+        assert parse_spec_working_group(None) is None
+        assert parse_spec_working_group(["  "]) is None
+
+    def test_unknown_subgroup_raises(self) -> None:
+        with pytest.raises(ValueError, match="Unknown sub-working group"):
+            parse_spec_working_group(["S99"])
 
 
 class TestExpandSpecRanges:
