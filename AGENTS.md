@@ -98,7 +98,7 @@ relevant child AGENTS.md.
 | `src/tdoc_crawler/cli/AGENTS.md` | CLI-only conventions: thin wrappers, StrEnum options |
 | `src/tdoc_crawler/config/AGENTS.md` | ThreeGPPConfig + CacheManager rules |
 | `src/tdoc_crawler/database/AGENTS.md` | Persistence: Oxyde models, model choice guide |
-| `tests/AGENTS.md` | Test conventions, fixtures, coverage requirements |
+| `tests/AGENTS.md` | Test conventions, import patterns, executor tests |
 
 ## State files — `.agents/`, demand-loaded, not always injected
 
@@ -147,6 +147,30 @@ _Always-injected_ — keep minimal. Everything else → `.agents/` files.
 7. **Multi-value CLI options** must be `StrEnum` — see `src/tdoc_crawler/cli/AGENTS.md`.
 8. **SQLite** via Oxyde, one model per table in
    `database/oxyde_models.py` — see `src/tdoc_crawler/database/AGENTS.md`.
+
+## Project & commands
+
+- Python ≥3.13, src layout. Packages live under `src/tdoc_crawler/`
+  (`tdocs`, `specs`, `meetings`, `database`, `http_client`, `config`, `cli`,
+  `clients`, `executors`, `workers`, `parsers`, `models`, `constants`, `logging`, `utils`).
+- Entry points (`pyproject.toml` `[project.scripts]`): `tdoc-crawler`
+  (`cli/tdoc_app.py`), `spec-crawler` (`cli/spec_app.py`), `3gpp-crawler` (`cli/mgmt_app.py`).
+- Prefer `mise run <task>` (task defs in `.config/mise/conf.d/*.toml`). Single-test
+  runs use `uv run pytest tests/x.py::test_name -v`.
+- Tasks that MUTATE files: `lint` (`ruff --fix --unsafe-fixes`), `format`
+  (pyreorder + ruff format), `format-md` (rumdl fmt), `all` (includes them).
+  Read-only check: `uv run ruff check src/ tests/`.
+- `ty` is provided by mise `[tools]`, not the uv venv: `uv run ty` fails. Use
+  `mise run typecheck`. `tox.ini` also runs `ty check` (envs py313, py314).
+- Integration tests need network (`integration` marker in `pyproject.toml`).
+- Docs: `mise run docs` (zensical, needs `--link-mode=copy`, already in task).
+  `docs.yml` deploys with `mkdocs build --strict`.
+- Release: `release.yml` runs on push to `main`, tags `v$(uv version --short)`,
+  and only releases when that tag is new. Bump `version` in `pyproject.toml`
+  first. Append `[skip release]` to the commit message to skip release and the
+  forge mirror push.
+- `.config/mise/conf.d/mise.local.toml` and root `mise.local.toml` (both
+  gitignored) hold plaintext credentials. Never print, quote, or copy their values.
 
 ## ⛔ No Patching
 
