@@ -3,7 +3,7 @@
 ![3GPP Crawler Banner](docs/images/banner.jpg)
 
 [![PyPI](https://img.shields.io/pypi/v/3gpp-crawler)](https://pypi.org/project/3gpp-crawler/)
-[![Python](https://img.shields.io/badge/python-3.13-blue)](https://pypi.org/project/3gpp-crawler/)
+[![Python](https://img.shields.io/badge/python-3.13%20%7C%203.14-blue)](https://pypi.org/project/3gpp-crawler/)
 [![Docs](https://img.shields.io/badge/docs-jr2804.github.io%2F3gpp--crawler-2ea44f)](https://jr2804.github.io/3gpp-crawler/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
@@ -27,7 +27,7 @@ A command-line tool for crawling the 3GPP FTP server, caching 3GPP document meta
 
 ## Installation
 
-Requires Python 3.13.
+Requires Python 3.13 or 3.14.
 
 ### From PyPI (recommended)
 
