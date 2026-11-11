@@ -5,20 +5,21 @@ description = "Crawl 3GPP FTP server, cache all(!) 3GPP document data, return st
 authors = [{ name = "Jan Reimes", email = "jan.reimes@head-acoustics.com" }]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.13"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 dependencies = [
     "beautifulsoup4>=4.15.0",
     "brotli>=1.2.1",
-    # "doc2txt>=1.0.8",
     "hishel>=2.0.0",
+    "ison-py>=1.2.0",
     "packaging>=26.3",
     "pathspec>=1.1.1",
     "pandas>=3.1.1",
@@ -27,16 +28,14 @@ dependencies = [
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
     "rich>=15.0.0",
-    "typer>=0.29.0",
+    "toon-format>=1.2.0",
+    "typer>=0.29.1",
     "xlsxwriter>=3.3.1",
     "unzip-http>=0.9",
-    "pool-executors",
     "oxyde>=0.8.0",
-    "ison-py>=1.2.0",
-    "toon-format>=1.2.0",
     "pydantic-settings>=2.16.2",
     "niquests>=3.21.3",
-    "fastmcp>=4.1.7",
+    "fastmcp>=4.1.8",
 ]
 
 [project.urls]
@@ -45,20 +44,20 @@ Repository = "https://github.com/jr2804/3gpp-crawler"
 
 [dependency-groups]
 dev = [
-    "pytest>=7.2.0",
-    "pre-commit>=2.20.0",
-    "tox-uv>=1.11.3",
-    "deptry>=0.23.0",
-    "pytest-cov>=4.0.0",
-    "pytest-asyncio>=1.2.0",
-    "pydeps>=3.0.2",
-    "zensical>=0.0.26",
-    "mkdocstrings[python]>=0.26.1",
-    "markdown-exec>=1.8",
-    "markdown-callouts>=0.4",
-    "ghp-import>=2.1",
-    "mkdocs-material>=9.7.7",
-    "mkdocstrings-python>=2.0.7",
+    "pytest>=9.2.0",
+    "pre-commit>=4.7.0",
+    "tox-uv>=1.37.7",
+    "deptry>=0.25.1",
+    "pytest-cov>=7.1.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "pydeps>=3.0.9",
+    "zensical>=0.1.1",
+    "mkdocstrings[python]>=1.0.8",
+    "markdown-exec>=1.13.0",
+    "markdown-callouts>=0.4.0",
+    "ghp-import>=2.1.0",
+    "mkdocs-material>=9.8.1",
+    "mkdocstrings-python>=2.0.10",
 ]
 
 [build-system]
@@ -103,11 +102,4 @@ packages = ["src/tdoc_crawler"]
 
 bump = true
 
-[tool.uv.workspace]
-members = ["packages/*"]
-
 [tool.uv.sources]
-pool-executors = { workspace = true }
-toon-format = { git = "https://github.com/toon-format/toon-python.git" }
-doc2txt = { git = "https://github.com/Quantatirsk/doc2txt-pypi.git" }
-
