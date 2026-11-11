@@ -26,7 +26,8 @@ Disable with `--no-fetch`.
 | Option | Description |
 |--------|-------------|
 | `TDOC_IDS` | Positional TDoc identifiers. |
-| `-w, --working-group WG` | Filter by working group. |
+| `-w, --working-group WG` | Filter by working group (`RAN`, `SA`, `CT`). A sub-working-group code such as `SA4` is rejected here. |
+| `-s, --sub-group SG` | Filter by sub-working group (e.g. `S4`, `R1`). |
 | `--start-date / --end-date` | ISO 8601 timestamp filters. |
 | `--source / --title / --agenda` | Glob patterns; bare patterns (no `*?[]`) substring-match. `-ex` variants exclude. |
 | `-t, --tag TAGS` | Tag filter (repeatable, comma = OR). See [Tags](tags.md). |
@@ -44,7 +45,7 @@ revision time). These are captured from the meeting document list; use
 number (which reflects reservation order, not upload order).
 
 ```bash
-3gpp-crawler tdoc query --working-group SA4 --sort-by uploaded_at --order desc --limit 20
+3gpp-crawler tdoc query --sub-group S4 --sort-by uploaded_at --order desc --limit 20
 ```
 
 ### `query-meetings` (alias: `qm`)
@@ -70,6 +71,7 @@ Query technical specification metadata from the local catalog.
 ```bash
 3gpp-crawler spec query 23.501
 3gpp-crawler spec query --status "Under change control"
+3gpp-crawler spec query --working-group SA4     # or -w S4, -w RAN1
 3gpp-crawler spec query --tag rel-18
 ```
 
@@ -77,7 +79,7 @@ Query technical specification metadata from the local catalog.
 |--------|-------------|
 | `SPEC_NUMBERS` | Positional spec numbers (dotted or undotted). |
 | `--status STATUS` | Filter by status. |
-| `-w, --working-group WG` | Filter by working group. |
+| `-w, --working-group WG` | Filter by working group or sub-working group (`SA4`/`S4`, `RAN1`/`R1`, or plain `SA`/`RAN`/`CT`). |
 | `-t, --tag TAGS` | Tag filter (repeatable, comma = OR). See [Tags](tags.md). |
 | `-o, --output FORMAT` | `table`, `json`, `yaml`. |
 

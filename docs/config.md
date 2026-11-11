@@ -66,8 +66,8 @@ Crawling filters, limits, and worker configuration
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `working_group` | str | (none) | Filter by working group (e.g., S4, RAN1, CT3) |
-| `sub_group` | str | (none) | Filter by sub-working group |
+| `working_group` | str | (none) | Working group (`RAN`, `SA`, `CT`) — a code such as `S4`/`RAN1` belongs in `sub_group` |
+| `sub_group` | str | (none) | Sub-working group (e.g. `S4`, `RAN1`, `CT3`) |
 | `date_start` | str | (none) | Start date filter (YYYY-MM-DD, YYYY-MM, or YYYY format) |
 | `date_end` | str | (none) | End date filter (YYYY-MM-DD, YYYY-MM, or YYYY format) |
 | `source_like` | str | (none) | SQL LIKE pattern to match document source |
@@ -227,9 +227,16 @@ username = "your_username"
 password = "your_password"
 
 [crawl]
-working_group = "SA4"
+working_group = "SA"
+sub_group = "S4"
 limit = 500
 ```
+
+> **Scope comes from the command line.** The `crawl` commands decide what to
+> fetch from their `-w/--working-group` and `-s/--sub-group` flags. The
+> `[crawl]` fields above are configuration defaults reported by
+> `3gpp-crawler config validate`; passing `-w SA4` on a command is rejected
+> (sub-working group codes belong in `-s`).
 
 ### Project-Level Override
 

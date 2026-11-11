@@ -22,7 +22,7 @@ crawl-meetings → crawl → query → tag → checkout
 
 1. **Meetings first** — `3gpp-crawler tdoc crawl-meetings` populates meeting metadata; everything else depends on this.
 2. **Crawl TDocs/specs** — pull metadata from 3GPP portal/FTP. Incremental by default.
-3. **Query** — search by ID, working group, date range, title, agenda pattern. `--tag` filters narrow results.
+3. **Query** — search by ID, working group (`-w RAN|SA|CT`), sub-working group (`-s S4|R1`), date range, title, agenda pattern. `--tag` filters narrow results.
 4. **Tag** — lightweight grouping (spec, tdoc, or other kinds).
 5. **Checkout** - download + extract. `tdoc files` / `spec files` list a document's zip members.
 
@@ -35,7 +35,7 @@ crawl-meetings → crawl → query → tag → checkout
 3gpp-crawler spec crawl                # crawl spec metadata
 
 # Query
-3gpp-crawler tdoc query --wg SA --start-date 2024
+3gpp-crawler tdoc query -w SA --start-date 2024
 3gpp-crawler tdoc query --tag codec,rel-18
 3gpp-crawler tdoc query-meetings -s S4
 
@@ -77,13 +77,17 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 | database | `database_clear_tdocs`, `database_clear_specs`, `database_clear_meetings`, `database_clear_all` (destructive, need `confirm=true`), `database_export_tags`, `database_import_tags` |
 | config | `config_show`, `config_validate` |
 
+`crawl_tdocs`, `crawl_meetings` and `query_meetings` take a `subgroup` list
+(`["SA4"]`, `["S4"]`, `["R1"]`); their `working_group` argument accepts only
+`RAN`/`SA`/`CT`. `query_tdocs` selects sub-working groups through TDoc IDs.
+
 ## Common patterns
 
 ```bash
 # Agenda-driven workflow (e.g., ATIAS codec work)
 3gpp-crawler tdoc crawl-meetings -s S4
-3gpp-crawler tdoc crawl --wg SA4
-3gpp-crawler tdoc query --agenda "*atias*" --start-date 2024
+3gpp-crawler tdoc crawl -s S4
+3gpp-crawler tdoc query --sub-group S4 --agenda "*atias*" --start-date 2024
 3gpp-crawler tag add tdoc S4-250638 --tag atias,codec
 3gpp-crawler tdoc checkout S4-250638
 
@@ -100,6 +104,7 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 ## Gotchas
 
 - `crawl-meetings` must run before `crawl` — TDocs reference meeting metadata
+- Sub-working groups go in `-s/--sub-group` (`S4`, `R1`, `C3`); `-w/--working-group` accepts only `RAN`/`SA`/`CT` and rejects `SA4` instead of silently dropping to `SA`
 - Tags are independent per kind: a tag on a TDoc doesn't affect spec queries
 - DB lives at `~/.3gpp-crawler/3gpp_crawler.db` by default (configurable via `TDC_CACHE_DIR`)
 - Bare `--title`/`--agenda` patterns (no `*?[]`) substring-match by default — `ATIAS` behaves like `*ATIAS*`

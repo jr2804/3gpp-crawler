@@ -38,7 +38,11 @@ Tools mirror the CLI groups:
 | config | `config_validate` | `config validate` |
 
 Notable parameters: `query_tdocs` accepts a `tag` list (comma = OR,
-repeated = AND, same as the CLI).
+repeated = AND, same as the CLI). `crawl_tdocs`, `crawl_meetings`,
+`query_tdocs` and `query_meetings` accept `subgroup` (e.g. `["SA4"]`, `["S4"]`,
+`["R1"]`) alongside `working_group`. Working groups are only RAN/SA/CT — passing
+a subgroup code as `working_group` is rejected rather than silently
+collapsing to the plenary (`SA4` → `SA`).
 
 The destructive `database_clear_*` tools refuse to run unless called with
 `confirm=true` — there is no interactive prompt over MCP, so the explicit

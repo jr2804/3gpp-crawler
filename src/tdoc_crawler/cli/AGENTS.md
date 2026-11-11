@@ -41,9 +41,14 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 | `specs.py` | `spec checkout` and `spec open` commands |
 | `crawl/`, `query/` | Command implementations for the crawl and query subcommands |
 | `args.py` | Typer `Annotated` option and argument types |
-| `_shared.py` | Shared Typer helpers (`GlobSafeTyper`) |
+| `_shared.py` | Shared Typer helpers (`GlobSafeTyper`, `parse_scope` for `--working-group`/`--sub-group`) |
 | `utils.py`, `formatting.py`, `printing.py` | CLI helpers, output formatting, Rich tables |
 | `constants.py`, `config.py` | CLI constants; `load_cli_config` |
+
+`--working-group` is RAN/SA/CT only; sub-working group codes (`SA4`, `S4`, `R1`)
+belong in `--sub-group`, and `parse_scope()` enforces that split. Exceptions:
+`query/specs.py` filters on the stored sub-WG string via
+`parse_spec_working_group()` (so `spec query -w SA4` works).
 
 ## Import Direction
 

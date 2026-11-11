@@ -10,14 +10,14 @@ shortcuts for the `tdoc` and `spec` groups (same commands, no group prefix).
 ```bash
 tdoc-crawler crawl-meetings                      # all groups
 tdoc-crawler crawl-meetings -s S4                # SA4 subgroup
-tdoc-crawler crawl-meetings -s S4 --no-prompt    # skip credential prompts
+tdoc-crawler crawl-meetings -s S4 --no-prompt-credentials  # skip credential prompts
 ```
 
 ### crawl (ct)
 
 ```bash
 tdoc-crawler crawl                               # all TDocs
-tdoc-crawler crawl --wg SA                       # SA working group
+tdoc-crawler crawl -w SA                         # SA working group
 tdoc-crawler crawl --start-date 2024             # from 2024 onwards
 ```
 
@@ -26,7 +26,7 @@ tdoc-crawler crawl --start-date 2024             # from 2024 onwards
 ```bash
 tdoc-crawler query                               # all TDocs
 tdoc-crawler query R1-260001                     # specific ID
-tdoc-crawler query --wg SA4                      # filter by WG
+tdoc-crawler query --sub-group S4                # filter by sub-working group
 tdoc-crawler query --start-date 2024             # date range
 tdoc-crawler query --agenda "*codec*"            # agenda pattern
 tdoc-crawler query --title "*split render*"      # title pattern
@@ -41,7 +41,7 @@ tdoc-crawler query --limit 10                    # limit results
 ```bash
 tdoc-crawler query-meetings                      # all meetings
 tdoc-crawler query-meetings -s S4                # SA4 subgroup
-tdoc-crawler query-meetings --wg SA              # SA working group
+tdoc-crawler query-meetings -w SA                # SA working group
 ```
 
 ### open
@@ -72,7 +72,7 @@ tdoc-crawler stats                               # database statistics
 ```bash
 spec-crawler crawl                               # all specs
 spec-crawler crawl 26260                         # specific spec
-spec-crawler crawl --wg SA4                      # filter by WG
+spec-crawler crawl 26260 --checkout              # also download documents
 ```
 
 ### query
@@ -80,6 +80,7 @@ spec-crawler crawl --wg SA4                      # filter by WG
 ```bash
 spec-crawler query                               # all specs
 spec-crawler query 26260                         # specific spec
+spec-crawler query --working-group SA4           # filter by (sub-)working group
 spec-crawler query --title "*codec*"
 spec-crawler query --tag rel-18
 ```

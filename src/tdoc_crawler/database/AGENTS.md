@@ -67,6 +67,11 @@ For non-primitive types stored as strings in SQLite, subclass `_VersionField` in
 | `DocDatabase` | `base.py` | Base class with shared helpers |
 | `ArchiveMember` (Oxyde model) | `archives.py` | Zip member listing per TDoc / spec archive (`database/archives.py`) |
 
+`TDocMetadata` stores only the *parent* working-group id (`tbid`), so
+sub-working-group filtering resolves through the meetings table:
+`query_tdocs()` maps codes to `subtb` via `models.subworking_groups.CODE_INDEX`
+and filters on the matching `meeting_id`s.
+
 ## Schema Management - No Migrations
 
 Schema is owned by Oxyde. On startup:

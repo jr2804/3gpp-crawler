@@ -18,7 +18,7 @@ Crawl meeting metadata from the 3GPP portal.
 ```bash
 3gpp-crawler tdoc crawl-meetings              # all working groups
 3gpp-crawler tdoc crawl-meetings -s S4        # SA4 subgroup only
-3gpp-crawler tdoc crawl-meetings --limit-meetings-per-wg 10
+3gpp-crawler tdoc crawl-meetings --limit-meetings-per-subwg 10
 ```
 
 | Option | Description |
@@ -26,7 +26,7 @@ Crawl meeting metadata from the 3GPP portal.
 | `-w, --working-group WG` | Working groups to crawl (repeatable): `RAN`, `SA`, `CT`. |
 | `-s, --sub-group SG` | Sub-working groups to crawl (repeatable), e.g. `S4`, `R1`. |
 | `--incremental / --full` | Incremental skips existing meetings; `--full` reprocesses. |
-| `--limit-meetings-per-wg N` | Maximum meetings per working group. |
+| `--limit-meetings-per-subwg N` | Maximum meetings per sub-working group. |
 | `--eol-username USER` | ETSI Online account (faster authenticated access). |
 
 ### `crawl` (alias: `ct`)
@@ -58,13 +58,17 @@ Crawl technical specification (TS/TR) metadata.
 ```bash
 3gpp-crawler spec crawl                       # all specs from all sources
 3gpp-crawler spec crawl 26260                 # specific spec
-3gpp-crawler spec crawl -w SA4                # filter by working group
+3gpp-crawler spec crawl 26260 --checkout      # also download the documents
 ```
 
 | Option | Description |
 |--------|-------------|
 | `SPEC_NUMBERS` | Positional spec numbers (dotted or undotted). |
-| `-w, --working-group WG` | Working groups to crawl. |
+| `--release REL` | Release filter (default `latest`). |
+| `--checkout` | Also download the spec documents. |
+
+Use `spec query --working-group SA4` (or `-w S4`) to filter an already-crawled
+catalog by working group; `spec crawl` takes no working-group filter.
 
 Sources (`3gpp`, `whatthespec`) are tried in that order: the official 3GPP
 source first, WhatTheSpec only as fallback.
