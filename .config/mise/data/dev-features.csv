@@ -1,5 +1,6 @@
 enabled,category,tool,tool_value,mcp_command,mcp_name,skill_repo,skill
 1,docs,pypi:teddi-tool,latest,teddi-tool server,teddi,jr2804/teddi-tool,
+1,codebase,github:colbymchenry/codegraph,latest,,,,
 1,tracking,github:gastownhall/beads,latest,,,gastownhall/beads,
 1,tracking,pypi:beads-mcp,"{ version = ""latest"", uvx_args = ""-p 3.13"" }",mise x --command beads-mcp,beads,,
 1,tracking,github:dolthub/dolt,latest,,,,
