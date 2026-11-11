@@ -1,6 +1,6 @@
 # 3GPP Crawler
 
-![3GPP Crawler Logo](docs/images/logo.jpg)
+![3GPP Crawler Banner](docs/images/banner.jpg)
 
 A command-line tool for crawling the 3GPP FTP server, caching 3GPP document metadata in a local database, and querying structured data via JSON/YAML output.
 
