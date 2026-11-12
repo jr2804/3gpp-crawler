@@ -48,7 +48,6 @@ def fetch_meeting_document_list_subinterpreter(
         # Resolve parent agenda items (not part of the portal document list)
         agenda_items = resolve_agenda_hierarchy(
             tdoc_metadata_list,
-            files_url=files_url,
             timeout=timeout,
             http_config=http_config,
             http_cache_file=Path(http_cache_file) if http_cache_file else None,

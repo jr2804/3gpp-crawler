@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import io
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,11 +15,12 @@ from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.sources import agenda as agenda_source
 from tdoc_crawler.utils.agenda import (
+    agenda_texts_match,
     ancestor_agenda_numbers,
     is_agenda_number,
     merge_agenda_items,
     normalize_agenda_number,
-    parse_agenda_csv,
+    parse_agenda_blocks,
 )
 
 # --- Pure helpers ---
@@ -66,83 +69,143 @@ def test_ancestor_agenda_numbers(number: str, expected: list[str]) -> None:
     assert ancestor_agenda_numbers(number) == expected
 
 
-def test_parse_agenda_csv() -> None:
-    content = (
-        b"4,FS_ULBC-MED (Study on 3GPP usage of SA4_3GPP_AUDIO),,\n"
-        b"4.5,SA4_3GPP_AUDIO related topics for 6G,,\n"
-        b"6,Close of the meeting,,\n"
-        b"Agenda item,Description,,\n"
-    )
-
-    items = parse_agenda_csv(content)
-
-    assert items["4"] == "FS_ULBC-MED (Study on 3GPP usage of SA4_3GPP_AUDIO)"
-    assert items["4.5"] == "SA4_3GPP_AUDIO related topics for 6G"
-    assert "Agenda item" not in items
-
-
-def test_parse_agenda_csv_handles_bom_and_crlf() -> None:
-    content = "4,FS_ULBC-MED\r\n4.5,Related topics\r\n".encode("utf-8-sig")
-
-    items = parse_agenda_csv(content)
-
-    assert items == {"4": "FS_ULBC-MED", "4.5": "Related topics"}
-
-
 def test_merge_agenda_items_prefers_first_map() -> None:
-    merged = merge_agenda_items({"4": "FS_ULBC-MED"}, {"4": "Other", "6": "Close"})
+    merged = merge_agenda_items({"4": "ULBC-MED"}, {"4": "Other", "6": "Close"})
 
-    assert merged == {"4": "FS_ULBC-MED", "6": "Close"}
+    assert merged == {"4": "ULBC-MED", "6": "Close"}
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "expected"),
+    [
+        ("Design constraints", "design constraints", True),
+        ("Opening of the meeting", "Opening of the meeting: Monday 28th September", True),
+        ("Design constraints", "Performance requirements", False),
+        ("", "Design constraints", False),
+    ],
+)
+def test_agenda_texts_match(left: str, right: str, expected: bool) -> None:
+    assert agenda_texts_match(left, right) is expected
+
+
+def test_parse_agenda_blocks_reads_table_rows() -> None:
+    blocks = [
+        ["Introduction"],
+        ["A.I.#", "Agenda Item"],
+        ["4", "ULBC-MED"],
+        ["4.5", "Qualification/Selection rules"],
+        ["6", "Close of meeting"],
+    ]
+
+    items = parse_agenda_blocks(blocks)
+
+    assert items["4"] == "ULBC-MED"
+    assert items["4.5"] == "Qualification/Selection rules"
+    assert items["6"] == "Close of meeting"
+    assert "A.I.#" not in items
+
+
+def test_parse_agenda_blocks_reads_paragraphs() -> None:
+    blocks = [["4 ULBC-MED"], ["4.5 Qualification/Selection rules"], ["The meeting is dedicated to ULBC-MED"]]
+
+    items = parse_agenda_blocks(blocks)
+
+    assert items == {"4": "ULBC-MED", "4.5": "Qualification/Selection rules"}
+
+
+def test_parse_agenda_blocks_prefers_table_rows() -> None:
+    blocks = [["4", "From the table"], ["4", "From the paragraph"]]
+
+    assert parse_agenda_blocks(blocks) == {"4": "From the table"}
 
 
 # --- Agenda source ---
 
 
-def test_agenda_csv_url() -> None:
-    url = agenda_source.agenda_csv_url("https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/SA4_Audio/Docs/")
+def test_find_agenda_documents() -> None:
+    agenda = _make_tdoc("S4aA260090", 85916, "2", "Approval of the agenda")
+    agenda.tdoc_type = "agenda"
+    discussion = _make_tdoc("S4aA260092", 85916, "4.4", "Design constraints")
+    without_url = _make_tdoc("S4aA260093", 85916, "4.5", "Qualification/Selection rules")
+    without_url.url = None
 
-    assert url == "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/SA4_Audio/Agenda/agenda.csv"
+    found = agenda_source.find_agenda_documents([agenda, discussion, without_url])
+
+    assert [document.tdoc_id for document in found] == ["S4aA260090"]
 
 
-@pytest.mark.parametrize("files_url", [None, "", "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/SA4_Audio/"])
-def test_agenda_csv_url_without_docs_folder(files_url: str | None) -> None:
-    assert agenda_source.agenda_csv_url(files_url) is None
+def test_agenda_matches_document_list() -> None:
+    known = {"4.4": "Design constraints", "4.5": "Qualification/Selection rules"}
+
+    assert agenda_source.agenda_matches_document_list({"4": "ULBC-MED", **known}, known) is True
+    assert agenda_source.agenda_matches_document_list({"4": "ULBC-MED"}, known) is False
+    assert agenda_source.agenda_matches_document_list({"4.4": "Something else"}, known) is False
 
 
-def test_resolve_agenda_hierarchy_fetches_missing_parent(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str | None] = []
+def test_parse_agenda_document_reads_docx() -> None:
+    archive = _make_agenda_archive(
+        [
+            ["4", "ULBC-MED"],
+            ["4.5", "Qualification/Selection rules"],
+        ]
+    )
 
-    def fake_fetch(
-        files_url: str | None,
-        timeout: int = 30,
-        http_config: object = None,
-        http_cache_file: object = None,
-    ) -> dict[str, str]:
-        calls.append(files_url)
-        return {"4": "FS_ULBC-MED (Study on 3GPP usage of SA4_3GPP_AUDIO)"}
+    items = agenda_source.parse_agenda_document(archive)
 
-    monkeypatch.setattr(agenda_source, "fetch_meeting_agenda", fake_fetch)
+    assert items["4"] == "ULBC-MED"
+    assert items["4.5"] == "Qualification/Selection rules"
 
-    documents = [_make_tdoc("S4aA260001", 85916, "4.5", "Qualification/Selection rules")]
 
-    resolved = agenda_source.resolve_agenda_hierarchy(documents, files_url="https://example.org/Docs/")
+def test_parse_agenda_document_ignores_broken_archive() -> None:
+    assert agenda_source.parse_agenda_document(b"not a zip file") == {}
 
-    assert resolved == {"4": "FS_ULBC-MED (Study on 3GPP usage of SA4_3GPP_AUDIO)"}
-    assert calls == ["https://example.org/Docs/"]
+
+def test_resolve_agenda_hierarchy_reads_parent_from_agenda_document(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_fetch(url: str, **kwargs: object) -> dict[str, str]:
+        calls.append(url)
+        return {"4": "ULBC-MED", "4.5": "Qualification/Selection rules"}
+
+    monkeypatch.setattr(agenda_source, "fetch_agenda_items", fake_fetch)
+
+    agenda = _make_tdoc("S4aA260090", 85916, "2", "Approval of the agenda")
+    agenda.tdoc_type = "agenda"
+    documents = [agenda, _make_tdoc("S4aA260093", 85916, "4.5", "Qualification/Selection rules")]
+
+    resolved = agenda_source.resolve_agenda_hierarchy(documents)
+
+    assert resolved == {"4": "ULBC-MED"}
+    assert calls == [agenda.url]
+
+
+def test_resolve_agenda_hierarchy_rejects_foreign_agenda(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_fetch(url: str, **kwargs: object) -> dict[str, str]:
+        return {"4": "Real-Time Communications (RTC) SWG", "4.5": "Other topic"}
+
+    monkeypatch.setattr(agenda_source, "fetch_agenda_items", fake_fetch)
+
+    agenda = _make_tdoc("S4aA260090", 85916, "2", "Approval of the agenda")
+    agenda.tdoc_type = "agenda"
+    documents = [agenda, _make_tdoc("S4aA260093", 85916, "4.5", "Qualification/Selection rules")]
+
+    resolved = agenda_source.resolve_agenda_hierarchy(documents)
+
+    assert resolved == {}
 
 
 def test_resolve_agenda_hierarchy_skips_fetch_when_parent_known(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_fetch(*args: object, **kwargs: object) -> dict[str, str]:
-        raise AssertionError("agenda file must not be fetched when the parent is known")
+        raise AssertionError("the agenda document must not be fetched when the parent is known")
 
-    monkeypatch.setattr(agenda_source, "fetch_meeting_agenda", fake_fetch)
+    monkeypatch.setattr(agenda_source, "fetch_agenda_items", fake_fetch)
 
     documents = [
-        _make_tdoc("S4aA250246", 82376, "4.0", "FS_ULBC"),
+        _make_tdoc("S4aA250246", 82376, "4", "FS_ULBC"),
         _make_tdoc("S4aA250247", 82376, "4.1", "Reports/Liaisons"),
     ]
 
-    resolved = agenda_source.resolve_agenda_hierarchy(documents, files_url="https://example.org/Docs/")
+    resolved = agenda_source.resolve_agenda_hierarchy(documents)
 
     assert resolved == {"4": "FS_ULBC"}
 
@@ -150,22 +213,13 @@ def test_resolve_agenda_hierarchy_skips_fetch_when_parent_known(monkeypatch: pyt
 # --- Database ---
 
 
-def _populate(db: TDocDatabase, documents: list[TDocMetadata], agenda: dict[int, dict[str, str]]) -> None:
-    async def _run() -> None:
-        for document in documents:
-            _ = await db.upsert_tdoc(document)
-        await db.store_meeting_agenda_items(agenda)
-
-    asyncio.run(_run())
-
-
 def test_query_matches_parent_agenda_item(test_db_path: Path) -> None:
     documents = [
         _make_tdoc("S4aA260001", 85916, "4.5", "Qualification/Selection rules"),
         _make_tdoc("S4aA260002", 85916, "4.6", "Deliverables"),
-        _make_tdoc("S4aA250246", 82376, "4.0", "FS_ULBC"),
+        _make_tdoc("S4aA250246", 82376, "4", "FS_ULBC"),
     ]
-    agenda = {85916: {"4": "FS_ULBC-MED (Study on 3GPP usage of SA4_3GPP_AUDIO)"}}
+    agenda = {85916: {"4": "ULBC-MED"}}
 
     async def _run() -> list[str]:
         async with TDocDatabase(test_db_path) as db:
@@ -196,7 +250,7 @@ def test_query_excludes_parent_agenda_item(test_db_path: Path) -> None:
         _make_tdoc("S4aA260001", 85916, "4.5", "Qualification/Selection rules"),
         _make_tdoc("S4aA260002", 85916, "7.1", "IPR, assistants and rapporteurs"),
     ]
-    agenda = {85916: {"4": "FS_ULBC-MED (Study on 3GPP usage of SA4_3GPP_AUDIO)"}}
+    agenda = {85916: {"4": "ULBC-MED"}}
 
     async def _run() -> list[str]:
         async with TDocDatabase(test_db_path) as db:
@@ -212,14 +266,37 @@ def test_query_excludes_parent_agenda_item(test_db_path: Path) -> None:
 def test_store_meeting_agenda_items_replaces_previous(test_db_path: Path) -> None:
     async def _run() -> list[str]:
         async with TDocDatabase(test_db_path) as db:
-            await db.store_meeting_agenda_items({85916: {"4": "FS_ULBC-MED"}})
+            await db.store_meeting_agenda_items({85916: {"4": "ULBC-MED"}})
             await db.store_meeting_agenda_items({85916: {"4": "Other topic"}})
             document = _make_tdoc("S4aA260001", 85916, "4.5", "Qualification/Selection rules")
             _ = await db.upsert_tdoc(document)
-            results = await db.query_tdocs(TDocQueryConfig(agenda_pattern=["FS_ULBC-MED"]))
+            results = await db.query_tdocs(TDocQueryConfig(agenda_pattern=["ULBC-MED"]))
             return [result.tdoc_id for result in results]
 
     assert asyncio.run(_run()) == []
+
+
+def _make_agenda_archive(rows: list[list[str]]) -> bytes:
+    """Build a zip archive with a DOCX that holds the given agenda rows."""
+    cells = "".join(
+        f"<w:tr><w:tc><w:p><w:r><w:t>{number}</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>{title}</w:t></w:r></w:p></w:tc></w:tr>" for number, title in rows
+    )
+    document = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+        f"<w:tbl>{cells}</w:tbl>"
+        "</w:body></w:document>"
+    )
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("word/document.xml", document)
+    docx = buffer.getvalue()
+
+    outer = io.BytesIO()
+    with zipfile.ZipFile(outer, "w") as archive:
+        archive.writestr("agenda.docx", docx)
+    return outer.getvalue()
 
 
 def _make_tdoc(tdoc_id: str, meeting_id: int, agenda_nbr: str, agenda_text: str) -> TDocMetadata:

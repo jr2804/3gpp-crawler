@@ -126,4 +126,5 @@ parent work item, impacted specs) with the TDoc count per work item.
 - Tags are independent per kind: a tag on a TDoc doesn't affect spec queries
 - DB lives at `~/.3gpp-crawler/3gpp_crawler.db` by default (configurable via `TDC_CACHE_DIR`). `[crawl].working_group`/`[crawl].sub_group` (or `TDC_WORKING_GROUP`/`TDC_SUB_GROUP`) provide default scope filters when `-w`/`-s` are omitted; CLI flags take precedence.
 - Bare `--title`/`--agenda` patterns (no `*?[]`) substring-match by default — `ATIAS` behaves like `*ATIAS*`
+- `--agenda` matches parent agenda items too (from the meeting's agenda document), so `ULBC-MED` finds documents filed under `4.5`; parents only exist for meetings crawled after the agenda document was parsed — `database clear-all` plus a re-crawl is required
 - On Windows `cmd.exe`, single quotes are literal: use `"*ATIAS*"` (double quotes) or no quotes, not `'*ATIAS*'`

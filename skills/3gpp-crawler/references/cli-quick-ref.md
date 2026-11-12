@@ -30,7 +30,7 @@ tdoc-crawler query --sub-group S4                # filter by sub-working group
 tdoc-crawler query --work-item ULBC-MED          # filter by 3GPP work item
 tdoc-crawler query --spec-number 26.114          # filter by named specification
 tdoc-crawler query --start-date 2024             # date range
-tdoc-crawler query --agenda "*codec*"            # agenda pattern
+tdoc-crawler query --agenda "*codec*"            # agenda pattern (matches parent items too)
 tdoc-crawler query --title "*split render*"      # title pattern
 tdoc-crawler query --tag codec,rel-18            # tag filter (OR)
 tdoc-crawler query --tag codec --tag rel-18      # tag filter (AND)

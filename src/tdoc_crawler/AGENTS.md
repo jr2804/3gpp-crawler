@@ -105,6 +105,26 @@ grid pages (`WorkItems.aspx`, `Specifications.aspx`, `ChangeRequests.aspx`)
 are not scraped (Telerik postbacks, login). TDoc→work-item links come from
 the document list `Related WIs` column.
 
+## Agenda Hierarchy
+
+Document lists carry only the leaf agenda item a document was filed under.
+Parent items (e.g. `4 ULBC-MED` above `4.5 Qualification/Selection rules`)
+appear in no portal or FTP document list, so agenda text matching needs them.
+
+- **Source of truth: the meeting's own agenda document** — the document-list row
+  with `Type == "agenda"`. It is downloaded from the FTP as a TDoc zip and
+  parsed from the DOCX (`utils/office.py`, stdlib only).
+- `tdocs/sources/agenda.py` selects the agenda document, parses it
+  (`utils/agenda.py`) and validates it against the document list
+  (`agenda_matches_document_list`). An agenda document whose item titles
+  contradict the document list belongs to another meeting and is rejected.
+- **Never use the meeting folder's `Agenda/agenda.csv`**: one FTP folder serves
+  many meetings, and that file belongs to the newest of them.
+- Only missing parents trigger a download; parents already present in the
+  document list are reused as-is.
+- Parents are stored per meeting in `MeetingAgendaItem`; agenda filters
+  (`--agenda` / `--agenda-ex`, MCP `agenda`) match leaf **and** ancestor text.
+
 ## Database
 
 SQLite via Oxyde ORM (see `database/AGENTS.md`). TDoc IDs use `.upper()` for case-insensitive comparison.

@@ -1,21 +1,21 @@
-"""Pure helpers for 3GPP agenda item numbers and meeting agenda files.
+"""Pure helpers for 3GPP agenda item numbers and meeting agenda documents.
 
 The portal document list only contains agenda items that own at least one
 document. Parent agenda items without documents are missing there, yet their
 title often names the work item of the meeting (for example agenda item
-``4 FS_ULBC-MED (...)`` of a dedicated ULBC meeting). The helpers here work on
-agenda numbers and on the meeting ``Agenda/agenda.csv`` file that holds the
-complete agenda tree.
+``4 ULBC-MED`` of a dedicated ULBC meeting). Meetings publish their complete
+agenda as a document; the helpers here work on agenda numbers and on the
+extracted text blocks of such an agenda document.
 """
 
 from __future__ import annotations
 
-import csv
-import io
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 AGENDA_NUMBER_PATTERN = re.compile(r"^\d+(?:\.\d+)*$")
+AGENDA_PARAGRAPH_PATTERN = re.compile(r"^(\d+(?:\.\d+){0,3})\s+(\S.*)$")
+_WHITESPACE = re.compile(r"\s+")
 
 
 def ancestor_agenda_numbers(number: str) -> list[str]:
@@ -30,23 +30,56 @@ def ancestor_agenda_numbers(number: str) -> list[str]:
     return [".".join(parts[:index]) for index in range(len(parts) - 1, 0, -1)]
 
 
-def parse_agenda_csv(content: bytes) -> dict[str, str]:
-    """Parse a meeting ``agenda.csv`` file into an agenda number to text map.
+def parse_agenda_blocks(blocks: Sequence[Sequence[str]]) -> dict[str, str]:
+    """Parse agenda items from the extracted blocks of an agenda document.
 
-    Rows without a valid agenda number (header rows, continuation lines) are
-    skipped. The first occurrence of a number wins.
+    Table rows are the authoritative source: the first cell holds the agenda
+    number, the remaining cells the title. Paragraphs are used as a fallback
+    for agendas that are not tabulated. The first occurrence of a number wins.
+
+    Args:
+        blocks: Document blocks as returned by
+            :func:`tdoc_crawler.utils.office.extract_docx_blocks`.
+
+    Returns:
+        A mapping of agenda number to title.
     """
     items: dict[str, str] = {}
-    text = content.decode("utf-8-sig", errors="replace")
-    for row in csv.reader(io.StringIO(text)):
-        if len(row) < 2:
+    paragraphs: list[str] = []
+
+    for block in blocks:
+        if len(block) > 1:
+            number = normalize_agenda_number(block[0])
+            title = _WHITESPACE.sub(" ", " ".join(cell for cell in block[1:] if cell)).strip()
+            if is_agenda_number(number) and title:
+                items.setdefault(number, title)
+        elif block:
+            paragraphs.append(block[0])
+
+    for text in paragraphs:
+        match = AGENDA_PARAGRAPH_PATTERN.match(text.strip())
+        if not match:
             continue
-        number = normalize_agenda_number(row[0])
-        description = row[1].strip()
-        if not is_agenda_number(number) or not description:
-            continue
-        items.setdefault(number, description)
+        number = normalize_agenda_number(match.group(1))
+        title = _WHITESPACE.sub(" ", match.group(2)).strip()
+        if is_agenda_number(number) and title and number not in items:
+            items[number] = title
+
     return items
+
+
+def agenda_texts_match(left: str, right: str) -> bool:
+    """Return True when two agenda titles describe the same item.
+
+    Titles are compared case-insensitively after whitespace normalization. One
+    title may also be a prefix of the other, because agenda documents often
+    append the schedule ("Opening of the meeting: Monday 28th September ...").
+    """
+    first = _WHITESPACE.sub(" ", left or "").strip().casefold()
+    second = _WHITESPACE.sub(" ", right or "").strip().casefold()
+    if not first or not second:
+        return False
+    return first == second or first in second or second in first
 
 
 def is_agenda_number(value: str) -> bool:
@@ -90,9 +123,11 @@ def normalize_agenda_number(value: str | None) -> str:
 
 __all__ = [
     "AGENDA_NUMBER_PATTERN",
+    "AGENDA_PARAGRAPH_PATTERN",
+    "agenda_texts_match",
     "ancestor_agenda_numbers",
     "is_agenda_number",
     "merge_agenda_items",
     "normalize_agenda_number",
-    "parse_agenda_csv",
+    "parse_agenda_blocks",
 ]

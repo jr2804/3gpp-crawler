@@ -19,6 +19,14 @@ parent/child and spec/CR details from the portal pages. The `Related WIs`
 column exists only in recent document lists, so work-item filters only match
 TDocs crawled after the work item support was added.
 
+**Agenda hierarchy**: a document list only names the leaf agenda item a
+document was filed under. The parent items (for example `4 ULBC-MED` above
+`4.5 Qualification/Selection rules`) are taken from the meeting's own agenda
+document while crawling, so `--agenda ULBC-MED` also finds the documents
+filed under its children. Parents exist only for meetings crawled after the
+agenda document was parsed — older databases need
+`3gpp-crawler database clear-all` followed by a re-crawl.
+
 **Targeted fetching**: if you query a TDoc ID that is not in your database,
 the tool automatically attempts to fetch it from the portal and FTP server.
 Disable with `--no-fetch`.
@@ -40,7 +48,7 @@ Disable with `--no-fetch`.
 | `-i, --work-item WI` | Filter by 3GPP work item ID (e.g. `ULBC-MED`). |
 | `--spec-number SPEC` | Filter by the specification named in the document list row (e.g. `26.114`). |
 | `--start-date / --end-date` | ISO 8601 timestamp filters. |
-| `--source / --title / --agenda` | Glob patterns; bare patterns (no `*?[]`) substring-match. `-ex` variants exclude. |
+| `--source / --title / --agenda` | Glob patterns; bare patterns (no `*?[]`) substring-match. `-ex` variants exclude. `--agenda` also matches parent agenda items. |
 | `-t, --tag TAGS` | Tag filter (repeatable, comma = OR). See [Tags](tags.md). |
 | `-l, --limit N` | Maximum rows. |
 | `--order` | `asc` or `desc`. |

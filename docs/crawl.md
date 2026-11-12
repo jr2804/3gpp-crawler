@@ -59,6 +59,11 @@ pass — see [Querying metadata](query.md). Work item titles, releases, parents
 and impacted specifications come from the per-working-group DynaReport work
 item lists, which are crawled separately with `3gpp-crawler work-items crawl`.
 
+The meeting's agenda document (the document-list row of type `agenda`) is
+parsed during the crawl to recover the parent agenda items that the document
+list does not contain. Agenda filters then match leaf and parent items
+together — see [Querying metadata](query.md).
+
 ### `crawl` (work items)
 
 Crawl the 3GPP work item catalogue from the DynaReport work item lists

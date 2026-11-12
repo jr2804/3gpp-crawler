@@ -68,6 +68,7 @@ For non-primitive types stored as strings in SQLite, subclass `_VersionField` in
 | `ArchiveMember` (Oxyde model) | `archives.py` | Zip member listing per TDoc / spec archive (`database/archives.py`) |
 | `WorkItemRecord` / `TDocWorkItem` (Oxyde models) | `oxyde_models.py` | Work item catalogue and TDoc↔work item links parsed from the document list `Related WIs` column |
 | `WorkItemSpecRecord` / `WorkItemCrRecord` (Oxyde models) | `oxyde_models.py` | Work item → impacted specification and change-request links from enrichment |
+| `MeetingAgendaItem` (Oxyde model) | `oxyde_models.py` | Parent agenda items per meeting, parsed from the meeting's agenda document |
 
 `TDocMetadata` stores only the *parent* working-group id (`tbid`), so
 sub-working-group filtering resolves through the meetings table:
@@ -92,6 +93,15 @@ existing DB triggers `schema-mismatch`, so the WI data only appears after
 
 `TDocMetadata` also carries the document-list columns `spec_number`, `release`,
 `cr_number` and `cr_category` (the latter two only for CRs).
+
+Parent agenda items live in `MeetingAgendaItem` (`link_id` is
+`"<meeting_id>|<agenda_nbr>"`, both text). Document lists only name the leaf
+agenda item of a document, so the parents are parsed from the meeting's own
+agenda document during the crawl (`tdocs/sources/agenda.py`) and stored per
+meeting; `store_meeting_agenda_items()` replaces a meeting's rows on every
+crawl. Agenda filters match leaf and ancestor text together. The table is
+new, so existing DBs raise `schema-mismatch` until `database clear-all` +
+re-crawl — the same rule as the work-item tables.
 
 ## Schema Management - No Migrations
 
