@@ -13,7 +13,6 @@ import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -92,7 +91,7 @@ def read_tag_file(path: Path) -> list[TagRecord]:
     return tag_records_from_payload(payload)
 
 
-def tag_records_from_payload(payload: Any) -> list[TagRecord]:
+def tag_records_from_payload(payload: object) -> list[TagRecord]:
     """Validate a parsed tag dump. Raises ``ValueError`` on malformed input."""
     if not isinstance(payload, list):
         msg = "tag dump must be a list of {kind, item_id, tag} objects"

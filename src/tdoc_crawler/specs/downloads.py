@@ -1,7 +1,6 @@
 """Spec download orchestration."""
 
 from pathlib import Path
-from typing import Any
 
 import niquests as requests
 from unzip_http import RemoteZipFile
@@ -9,7 +8,7 @@ from unzip_http import RemoteZipFile
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.constants.urls import SPEC_URL_TEMPLATE
 from tdoc_crawler.database.archives import archive_members_for, replace_archive_members
-from tdoc_crawler.database.oxyde_models import ArchiveMember
+from tdoc_crawler.database.oxyde_models import ArchiveMember, SpecificationVersion
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
@@ -204,20 +203,20 @@ class SpecDownloads:
 
     @staticmethod
     def _filter_versions_by_release(
-        versions: list[Any],
+        versions: list[SpecificationVersion],
         release_type: str,
         release_value: str,
         specificity: int,
         normalized: str,
         release: str,
-    ) -> list[Any]:
+    ) -> list[SpecificationVersion]:
         """Filter candidate versions by normalized release selector."""
         if release_type in {"latest", "all"}:
             return versions
         if release_type not in {"exact", "prefix"}:
             return versions
 
-        filtered_versions: list[Any] = []
+        filtered_versions: list[SpecificationVersion] = []
         for version_entry in versions:
             version_parts = parse_spec_version(version_entry.version).release
             if release_type == "exact":

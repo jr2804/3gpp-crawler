@@ -293,7 +293,7 @@ class ThreeGPPConfig(BaseSettings):
             configs = [load_config_file(p) for p in discovered]
             merged = merge_configs(configs)
 
-        return cls(**merged)
+        return cls.model_validate(merged)
 
 
 # Backward-compatible alias — remove after all consumers are updated

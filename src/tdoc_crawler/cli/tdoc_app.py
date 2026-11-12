@@ -9,7 +9,7 @@ load_dotenv()
 import asyncio
 import zipfile
 from pathlib import Path
-from typing import Annotated, Any, cast
+from typing import Annotated
 
 import typer
 from rich.table import Table
@@ -31,15 +31,18 @@ from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
 from tdoc_crawler.cli.formatting import format_output
+from tdoc_crawler.cli.printing import statistics_to_dict
 from tdoc_crawler.cli.query import query_meetings, query_tdocs
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
+from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.models.statistics import DatabaseStatistics
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import prepare_tdoc_file
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
@@ -113,7 +116,7 @@ def open_tdoc(
 
     with create_cached_session() as session:
 
-        async def _load_tdoc_metadata() -> Any:
+        async def _load_tdoc_metadata() -> TDocMetadata:
 
             async with TDocDatabase(crawler_config.path.db_file) as database:
                 results = await database.query_tdocs(config)
@@ -173,15 +176,14 @@ def stats(
 
         raise typer.Exit(code=1)
 
-    async def _load_stats() -> dict[str, Any]:
-
+    async def _load_stats() -> DatabaseStatistics:
         async with MeetingDatabase(db_file) as database:
-            return cast("dict[str, Any]", await database.get_statistics())
+            return await database.get_statistics()
 
     stats_dict = asyncio.run(_load_stats())
 
     if output_format is not OutputFormat.TABLE:
-        console.print(format_output(stats_dict, output_format))
+        console.print(format_output(statistics_to_dict(stats_dict), output_format))
         return
 
     table = Table(title="TDoc and meeting database statistics")
@@ -192,7 +194,7 @@ def stats(
 
     table.add_row("Total TDocs", str(stats_dict.get("total_tdocs", 0)))
 
-    by_working_group = cast("dict[str, int]", stats_dict.get("by_working_group", {}))
+    by_working_group = stats_dict.get("by_working_group", {})
 
     for wg, count in by_working_group.items():
         table.add_row(f"  {wg}", str(count))

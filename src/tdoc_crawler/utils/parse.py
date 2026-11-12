@@ -30,7 +30,7 @@ parse_agenda_item_nbr = parse_agenda_item
 parse_agenda_item_version = parse_agenda_item
 
 
-def parse_spec_version(value: str | int | None) -> SpecVersion:
+def parse_spec_version(value: str | int | Version | None) -> SpecVersion:
     """Parse specification version as SpecVersion (Version subclass).
 
     Normalizes to major.minor.patch.
@@ -38,7 +38,7 @@ def parse_spec_version(value: str | int | None) -> SpecVersion:
     if value is None:
         return SpecVersion("0.0.0")
     try:
-        v = Version(str(value).strip())
+        v = value if isinstance(value, Version) else Version(str(value).strip())
     except InvalidVersion:
         return SpecVersion("0.0.0")
     parts = list(v.release) + [0] * (3 - len(v.release))

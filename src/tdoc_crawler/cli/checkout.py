@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import zipfile
 from contextlib import nullcontext
-from typing import Any
 
 import typer
 
@@ -31,7 +30,7 @@ from tdoc_crawler.cli.printing import print_archive_members
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.archives import archive_members_for, save_archive_records
-from tdoc_crawler.database.oxyde_models import ArchiveMember
+from tdoc_crawler.database.oxyde_models import ArchiveMember, TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
@@ -71,7 +70,7 @@ def checkout_tdocs(
 
     with create_cached_session() as session:
 
-        async def _load_tdoc_results() -> list[Any]:
+        async def _load_tdoc_results() -> list[TDocMetadata]:
 
             async with TDocDatabase(crawler_config.path.db_file) as database:
                 results = await database.query_tdocs(config)

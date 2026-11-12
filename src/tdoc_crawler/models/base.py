@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum, auto
+
+from tdoc_crawler.utils.version_types import AgendaItem
+
+type TDocFieldValue = str | int | bool | datetime | AgendaItem | None
+"""Value of a TDoc metadata field (as stored, updated or refreshed)."""
 
 
 class DocumentType(StrEnum):
@@ -68,4 +74,5 @@ __all__ = [
     "OutputFormat",
     "PortalCredentials",
     "SortOrder",
+    "TDocFieldValue",
 ]

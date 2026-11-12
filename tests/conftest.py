@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import TypedDict
 
 import pytest
 
@@ -12,6 +13,19 @@ from tdoc_crawler.config import CacheManager
 from tdoc_crawler.config.settings import PathConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
+
+
+class MeetingRow(TypedDict):
+    """One meeting as used by the sample meeting fixtures."""
+
+    meeting_id: int
+    tbid: int
+    subtb: int | None
+    short_name: str
+    start_date: str
+    end_date: str
+    location: str | None
+    files_url: str | None
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +42,7 @@ def _reset_cache_manager() -> None:
 @pytest.fixture
 def populated_db(
     test_db_path: Path,
-    sample_meetings: list[dict[str, object]],
+    sample_meetings: list[MeetingRow],
     sample_tdocs: list[TDocMetadata],
 ) -> TDocDatabase:
     """Create and populate a test database.
@@ -156,7 +170,7 @@ def sample_tdocs() -> list[TDocMetadata]:
 
 
 @pytest.fixture
-def sample_meetings() -> list[dict[str, object]]:
+def sample_meetings() -> list[MeetingRow]:
     """Create sample meeting metadata for testing.
 
     Returns:
@@ -196,12 +210,12 @@ def sample_meetings() -> list[dict[str, object]]:
     ]
 
 
-def insert_sample_meetings(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
+def insert_sample_meetings(database: MeetingDatabase, meetings: list[MeetingRow]) -> None:
     """Synchronous compatibility wrapper around async meeting insertion helper."""
     asyncio.run(insert_sample_meetings_async(database, meetings))
 
 
-async def insert_sample_meetings_async(database: MeetingDatabase, meetings: list[dict[str, object]]) -> None:
+async def insert_sample_meetings_async(database: MeetingDatabase, meetings: list[MeetingRow]) -> None:
     """Insert sample meetings into database using the proper database API.
 
     This function uses db.upsert_meeting() instead of raw SQL to ensure

@@ -27,6 +27,7 @@ from tdoc_crawler.cli.mgmt_app import mgmt_app
 from tdoc_crawler.cli.spec_app import spec_app
 from tdoc_crawler.cli.tag_app import app as tag_app
 from tdoc_crawler.cli.tdoc_app import tdoc_app
+from tdoc_crawler.utils.json_types import JSONValue
 
 
 def test_glob_safe_typer_is_typer_subclass() -> None:
@@ -47,7 +48,7 @@ def test_argv_glob_value_not_rewritten(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.chdir(tmp_path)
     (tmp_path / "debug_atias.py").write_text("pass")
 
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
     app = GlobSafeTyper()
 
     @app.command()
@@ -73,7 +74,7 @@ def test_glob_expansion_would_occur_with_plain_typer(tmp_path: Path, monkeypatch
     monkeypatch.chdir(tmp_path)
     (tmp_path / "debug_atias.py").write_text("pass")
 
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
     app = typer.Typer()
 
     @app.command()

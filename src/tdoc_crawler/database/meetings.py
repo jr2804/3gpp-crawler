@@ -9,6 +9,7 @@ from tdoc_crawler.database.oxyde_models import CrawlLogEntry, MeetingMetadata, T
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
+from tdoc_crawler.models.statistics import CrawlSummary, DatabaseStatistics
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WORKING_GROUP_RECORDS, WorkingGroup
 from tdoc_crawler.utils.misc import utc_now
@@ -191,7 +192,7 @@ class MeetingDatabase(DocDatabase):
     # ------------------------------------------------------------------
     # Crawl logging and statistics
     # ------------------------------------------------------------------
-    async def get_statistics(self) -> dict[str, object]:
+    async def get_statistics(self) -> DatabaseStatistics:
         """Get database statistics.
 
         Uses SQL aggregation for counts. ``by_working_group`` still needs
@@ -216,7 +217,7 @@ class MeetingDatabase(DocDatabase):
             by_working_group[code] += 1
 
         crawl_entries = await CrawlLogEntry.objects.order_by("-start_time").limit(10).all()
-        recent_crawls = [
+        recent_crawls: list[CrawlSummary] = [
             {
                 "crawl_type": entry.crawl_type,
                 "start_time": entry.start_time.isoformat(),

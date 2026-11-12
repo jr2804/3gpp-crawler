@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
 
 from tdoc_crawler.config.sources import (
+    ConfigDocument,
     ConfigLoadError,
+    ConfigValue,
     discover_config_files,
     load_config_file,
     merge_configs,
@@ -117,8 +120,8 @@ class TestLoadConfigFile:
 
         result = load_config_file(config_file)
 
-        assert result["http"]["cache_ttl"] == 7200
-        assert result["http"]["cache_enabled"] is True
+        assert _section(result, "http")["cache_ttl"] == 7200
+        assert _section(result, "http")["cache_enabled"] is True
 
     def test_loads_yaml_file(self, tmp_path: Path) -> None:
         """Loads YAML file correctly."""
@@ -127,8 +130,8 @@ class TestLoadConfigFile:
 
         result = load_config_file(config_file)
 
-        assert result["http"]["cache_ttl"] == 7200
-        assert result["http"]["cache_enabled"] is True
+        assert _section(result, "http")["cache_ttl"] == 7200
+        assert _section(result, "http")["cache_enabled"] is True
 
     def test_loads_json_file(self, tmp_path: Path) -> None:
         """Loads JSON file correctly."""
@@ -137,7 +140,7 @@ class TestLoadConfigFile:
 
         result = load_config_file(config_file)
 
-        assert result["http"]["cache_ttl"] == 7200
+        assert _section(result, "http")["cache_ttl"] == 7200
 
     def test_returns_empty_dict_for_missing_file(self, tmp_path: Path) -> None:
         """Returns empty dict for non-existent file."""
@@ -183,7 +186,7 @@ class TestLoadConfigFile:
 
         result = load_config_file(config_file)
 
-        assert result["http"]["cache_ttl"] == "9999"
+        assert _section(result, "http")["cache_ttl"] == "9999"
 
     def test_interpolates_env_vars_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Interpolates ${ENV_VAR} patterns in JSON files."""
@@ -194,7 +197,7 @@ class TestLoadConfigFile:
 
         result = load_config_file(config_file)
 
-        assert result["http"]["cache_ttl"] == "9999"
+        assert _section(result, "http")["cache_ttl"] == "9999"
 
     def test_interpolates_missing_env_var_as_literal(self, tmp_path: Path) -> None:
         """Missing env vars are left as-is."""
@@ -203,7 +206,7 @@ class TestLoadConfigFile:
 
         result = load_config_file(config_file)
 
-        assert result["http"]["cache_ttl"] == "${NONEXISTENT_VAR}"
+        assert _section(result, "http")["cache_ttl"] == "${NONEXISTENT_VAR}"
 
 
 class TestMergeConfigs:
@@ -228,7 +231,7 @@ class TestMergeConfigs:
                 {"http": {"cache_ttl": 7200}},
             ]
         )
-        assert result["http"]["cache_ttl"] == 7200
+        assert _section(result, "http")["cache_ttl"] == 7200
 
     def test_deep_merge_nested_dicts(self) -> None:
         """Nested dicts are merged recursively."""
@@ -238,8 +241,8 @@ class TestMergeConfigs:
                 {"path": {"cache_dir": "/override"}},
             ]
         )
-        assert result["path"]["cache_dir"] == "/override"
-        assert result["path"]["db_file"] == "db.sqlite"
+        assert _section(result, "path")["cache_dir"] == "/override"
+        assert _section(result, "path")["db_file"] == "db.sqlite"
 
     def test_lists_are_replaced_not_appended(self) -> None:
         """Lists are replaced entirely, not merged."""
@@ -260,7 +263,7 @@ class TestMergeConfigs:
                 {"http": {"cache_ttl": 9999}},
             ]
         )
-        assert result["http"]["cache_ttl"] == 9999
+        assert _section(result, "http")["cache_ttl"] == 9999
 
     def test_new_keys_added_from_later_configs(self) -> None:
         """Keys from later configs are added if not present earlier."""
@@ -272,7 +275,7 @@ class TestMergeConfigs:
         )
         assert "path" in result
         assert "http" in result
-        assert result["http"]["cache_ttl"] == 7200
+        assert _section(result, "http")["cache_ttl"] == 7200
 
 
 class TestConfigLoadError:
@@ -293,3 +296,10 @@ class TestConfigLoadError:
 
         assert error.config_file == config_file
         assert error.reason == "Test reason"
+
+
+def _section(document: ConfigDocument, name: str) -> Mapping[str, ConfigValue]:
+    """Return one top-level section of a configuration document."""
+    value = document[name]
+    assert isinstance(value, dict)
+    return value

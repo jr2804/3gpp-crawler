@@ -15,6 +15,7 @@ from tdoc_crawler.constants.urls import TDOC_DOWNLOAD_URL
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.models.base import PortalCredentials
 from tdoc_crawler.parsers.portal import PortalParsingError
+from tdoc_crawler.utils.json_types import JSONValue
 
 
 class TestPortalClientInit:
@@ -80,9 +81,9 @@ class TestPortalClientSession:
 
     def test_get_session_passes_verify_to_cached_session(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Cached session creation should receive resolved verify mode."""
-        captured: dict[str, object] = {}
+        captured: dict[str, JSONValue] = {}
 
-        def _fake_create_cached_session(*args: object, **kwargs: object) -> requests.Session:
+        def _fake_create_cached_session(*args: object, **kwargs: JSONValue) -> requests.Session:
             _ = args
             captured.update(kwargs)
             return requests.Session()
@@ -97,9 +98,9 @@ class TestPortalClientSession:
 
     def test_get_auth_session_uses_non_cached_with_verify(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Auth session must remain non-cached and preserve verify mode."""
-        captured: dict[str, object] = {}
+        captured: dict[str, JSONValue] = {}
 
-        def _fake_create_cached_session(*args: object, **kwargs: object) -> requests.Session:
+        def _fake_create_cached_session(*args: object, **kwargs: JSONValue) -> requests.Session:
             _ = args
             captured.update(kwargs)
             return requests.Session()

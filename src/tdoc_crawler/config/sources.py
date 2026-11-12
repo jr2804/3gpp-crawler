@@ -25,15 +25,30 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Callable, Mapping, Sequence
+from datetime import date, datetime, time
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+
+from tdoc_crawler.utils.json_types import JSONScalar
 
 try:
     import tomllib
 except ImportError:
     # Python < 3.11 fallback; install tomli in that case
     import tomli as tomllib  # type: ignore[no-redef]
+
+type ConfigValue = JSONScalar | date | datetime | time | Sequence[ConfigValue] | Mapping[str, ConfigValue]
+"""A value that can appear in a configuration file (TOML, YAML or JSON)."""
+
+type ConfigSection = Mapping[str, ConfigValue]
+"""One configuration section (e.g. ``[http]``) with its keys and values."""
+
+type ConfigDocument = Mapping[str, ConfigValue]
+"""A parsed configuration file: top-level keys mapped to their values."""
+
+
+_ENV_VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
 
 
 class ConfigLoadError(Exception):
@@ -98,7 +113,7 @@ def _add_if_exists(path: Path, files: list[Path]) -> None:
         files.append(path)
 
 
-def load_config_file(config_file: Path) -> dict[str, Any]:
+def load_config_file(config_file: Path) -> ConfigDocument:
     """Load a single config file and return its contents as a dict.
 
     Supports TOML (.toml), YAML (.yaml, .yml), and JSON (.json) formats.
@@ -108,7 +123,7 @@ def load_config_file(config_file: Path) -> dict[str, Any]:
         config_file: Path to the config file.
 
     Returns:
-        Dictionary of config values. Empty dict if file not found.
+        Dictionary of config sections. Empty dict if file not found.
 
     Raises:
         ConfigLoadError: If the file cannot be parsed or has permission issues.
@@ -117,7 +132,7 @@ def load_config_file(config_file: Path) -> dict[str, Any]:
         return {}
 
     suffix = config_file.suffix.lower()
-    _loaders = {
+    _loaders: dict[str, Callable[[Path], ConfigValue]] = {
         ".toml": _load_toml,
         ".yaml": _load_yaml,
         ".yml": _load_yaml,
@@ -141,21 +156,36 @@ def load_config_file(config_file: Path) -> dict[str, Any]:
             raise ConfigLoadError(config_file, "PyYAML is required for YAML files but is not installed") from e
         raise
 
+    return _to_config_document(config_file, data)
+
+
+def _to_config_document(config_file: Path, data: ConfigValue) -> ConfigDocument:
+    """Narrow parsed config data to the document shape.
+
+    Args:
+        config_file: Path of the file the data came from (for error messages).
+        data: Parsed configuration data.
+
+    Returns:
+        The configuration document.
+
+    Raises:
+        ConfigLoadError: If the root is not a mapping.
+    """
     if not isinstance(data, dict):
         raise ConfigLoadError(config_file, f"Expected dict at root, got {type(data).__name__}")
-
     return data
 
 
-def _load_toml(config_file: Path) -> dict[str, Any]:
+def _load_toml(config_file: Path) -> ConfigValue:
     """Load and interpolate a TOML config file."""
     with config_file.open("r", encoding="utf-8") as f:
         content = f.read()
-    content = _interpolate_env_vars(content)
-    return tomllib.loads(content)
+    content = _interpolate_env_text(content)
+    return _coerce_config_value(tomllib.loads(content))
 
 
-def _load_yaml(config_file: Path) -> dict[str, Any]:
+def _load_yaml(config_file: Path) -> ConfigValue:
     """Load and interpolate a YAML config file."""
     yaml = import_module("yaml")
     with config_file.open("r", encoding="utf-8") as f:
@@ -165,17 +195,41 @@ def _load_yaml(config_file: Path) -> dict[str, Any]:
             raise ConfigLoadError(config_file, f"Parse error: {e}") from e
     if data is None:
         data = {}
-    return _interpolate_env_vars(data)
+    return _interpolate_env_vars(_coerce_config_value(data))
 
 
-def _load_json(config_file: Path) -> dict[str, Any]:
+def _load_json(config_file: Path) -> ConfigValue:
     """Load and interpolate a JSON config file."""
     with config_file.open("r", encoding="utf-8") as f:
         data = json.load(f)
-    return _interpolate_env_vars(data)
+    return _interpolate_env_vars(_coerce_config_value(data))
 
 
-def _interpolate_env_vars(value: Any) -> Any:
+def _coerce_config_value(value: object) -> ConfigValue:
+    """Convert parsed config data into the precise config value shape.
+
+    Args:
+        value: Parsed configuration data of unknown provenance.
+
+    Returns:
+        The value converted to :data:`ConfigValue`.
+
+    Raises:
+        ValueError: If the data contains a type that config files cannot hold.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (date, datetime, time)):
+        return value
+    if isinstance(value, list):
+        return [_coerce_config_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _coerce_config_value(item) for key, item in value.items()}
+    msg = f"Unsupported config value type: {type(value).__name__}"
+    raise ValueError(msg)
+
+
+def _interpolate_env_vars(value: ConfigValue) -> ConfigValue:
     """Recursively interpolate ${ENV_VAR} patterns in string values.
 
     Args:
@@ -185,16 +239,7 @@ def _interpolate_env_vars(value: Any) -> Any:
         The value with environment variables interpolated.
     """
     if isinstance(value, str):
-        pattern = re.compile(r"\$\{([^}]+)\}")
-
-        def replacer(match: re.Match[str]) -> str:
-            env_var = match.group(1)
-            env_value = os.getenv(env_var)
-            if env_value is None:
-                return match.group(0)
-            return env_value
-
-        return pattern.sub(replacer, value)
+        return _interpolate_env_text(value)
     if isinstance(value, dict):
         return {k: _interpolate_env_vars(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -202,7 +247,28 @@ def _interpolate_env_vars(value: Any) -> Any:
     return value
 
 
-def merge_configs(configs: list[dict[str, Any]]) -> dict[str, Any]:
+def _interpolate_env_text(text: str) -> str:
+    """Interpolate ``${ENV_VAR}`` patterns in raw text.
+
+    Args:
+        text: Text that may contain ``${ENV_VAR}`` placeholders.
+
+    Returns:
+        The text with known environment variables substituted. Unknown
+        variables are left untouched.
+    """
+
+    def replacer(match: re.Match[str]) -> str:
+        env_var = match.group(1)
+        env_value = os.getenv(env_var)
+        if env_value is None:
+            return match.group(0)
+        return env_value
+
+    return _ENV_VAR_PATTERN.sub(replacer, text)
+
+
+def merge_configs(configs: list[ConfigDocument]) -> ConfigDocument:
     """Deep merge multiple config dictionaries.
 
     Later configs override earlier ones. Nested dicts are merged recursively.
@@ -219,7 +285,7 @@ def merge_configs(configs: list[dict[str, Any]]) -> dict[str, Any]:
         >>> merge_configs([{"path": {"cache_dir": "/default"}}, {"path": {"cache_dir": "/override"}}])
         {'path': {'cache_dir': '/override'}}
     """
-    result: dict[str, Any] = {}
+    result: ConfigDocument = {}
 
     for config in configs:
         if not config:
@@ -229,21 +295,24 @@ def merge_configs(configs: list[dict[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    """Deep merge two dictionaries.
+def _deep_merge(base: ConfigDocument, override: ConfigDocument) -> ConfigDocument:
+    """Deep merge two configuration documents.
+
+    Nested tables are merged recursively, lists are replaced entirely.
 
     Args:
-        base: Base dictionary.
-        override: Override dictionary (takes precedence).
+        base: Base document.
+        override: Override document (takes precedence).
 
     Returns:
-        Merged dictionary.
+        Merged document.
     """
-    result = base.copy()
+    result = dict(base)
 
     for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _deep_merge(result[key], value)
+        current = result.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            result[key] = _deep_merge(current, value)
         else:
             result[key] = value
 
@@ -251,7 +320,10 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 __all__ = [
+    "ConfigDocument",
     "ConfigLoadError",
+    "ConfigSection",
+    "ConfigValue",
     "discover_config_files",
     "load_config_file",
     "merge_configs",

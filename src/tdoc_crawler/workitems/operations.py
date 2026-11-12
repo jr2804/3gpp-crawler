@@ -14,7 +14,7 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.subworking_groups import SubWorkingGroup
 from tdoc_crawler.utils.normalization import normalize_subgroup_alias
-from tdoc_crawler.workitems.models import WorkItemCr, WorkItemDetails
+from tdoc_crawler.workitems.models import LeadBodyCoverage, WorkItemCr, WorkItemDetails
 from tdoc_crawler.workitems.sources.dynareport import (
     WorkItemSourceError,
     fetch_work_item_crs,
@@ -44,7 +44,7 @@ class EnrichSummary:
 class WorkItemListComparison:
     """Result of comparing the catalogue against the global work item list."""
 
-    rows: list[dict[str, object]]
+    rows: list[LeadBodyCoverage]
     list_entries: int
     matched: int
     missing_from_db: int
@@ -201,7 +201,7 @@ def compare_work_item_list(
             bucket["matched"] += 1
             matched_uids.add(uid)
 
-    rows: list[dict[str, object]] = [
+    rows: list[LeadBodyCoverage] = [
         {
             "lead_body": lead_body,
             "list": counts["list"],

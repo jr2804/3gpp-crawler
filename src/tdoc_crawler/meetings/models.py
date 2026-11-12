@@ -86,7 +86,28 @@ class MeetingQueryConfig(BaseModel):
         return [normalize_subgroup_alias(str(item)).name for item in value]
 
 
+class PortalMeeting(BaseModel):
+    """One meeting entry as returned by the 3GPP portal REST API.
+
+    The portal returns camel-cased keys; they are mapped onto snake_case
+    fields here so the conversion into ``MeetingMetadata`` stays explicit.
+    """
+
+    model_config = {"populate_by_name": True, "extra": "ignore"}
+
+    meeting_id: int = Field(..., alias="Id", description="Portal meeting identifier")
+    subtb: int | None = Field(None, alias="TBId", description="Sub-working group id")
+    short_title: str = Field("", alias="ShortTitle", description="Short meeting title")
+    title: str | None = Field(None, alias="Title", description="Full meeting title")
+    start_date: str | None = Field(None, alias="StartDate", description="Start date (portal string format)")
+    end_date: str | None = Field(None, alias="EndDate", description="End date (portal string format)")
+    location: str | None = Field(None, alias="Location", description="Meeting location")
+    files_url: str | None = Field(None, alias="MtgDocURL", description="URL of the meeting document folder")
+    doc_count: int = Field(0, alias="DocCount", description="Number of documents in the meeting")
+
+
 __all__ = [
     "MeetingCrawlConfig",
     "MeetingQueryConfig",
+    "PortalMeeting",
 ]

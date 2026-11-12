@@ -15,7 +15,7 @@ from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
 
-from .conftest import insert_sample_meetings_async
+from .conftest import MeetingRow, insert_sample_meetings_async
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ class TestFetchMissingTdocsBatch:
         self,
         mock_portal_source_class: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Ensure targeted fetch creates proper config."""
         # Setup the mock to return a PortalSource instance with fetch_by_id mocked
@@ -71,7 +71,7 @@ class TestFetchMissingTdocsBatch:
         self,
         mock_portal_source_class: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Verify working groups are inferred from target IDs."""
         # Setup the mock to return a PortalSource instance with fetch_by_id mocked
@@ -140,7 +140,7 @@ class TestFetchMissingTdocs:
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Skip fetch when all requested TDocs are present."""
         async with TDocDatabase(test_db_path) as database:
@@ -222,7 +222,7 @@ class TestFetchMissingTdocs:
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Fetch only the missing TDocs when some are present."""
         mock_fetch_batch.return_value = TDocCrawlResult(
@@ -267,7 +267,7 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Verify whatthespec fallback is used when credentials unavailable."""
         config = TDocQueryConfig(
@@ -340,7 +340,7 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Verify whatthespec fetches multiple TDocs."""
         config = TDocQueryConfig(
@@ -438,7 +438,7 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Verify whatthespec failure is handled gracefully."""
         config = TDocQueryConfig(
@@ -482,7 +482,7 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Verify whatthespec is NOT used when credentials available."""
         config = TDocQueryConfig(
@@ -518,7 +518,7 @@ class TestWhatTheSpecFallback:
         mock_whatthespec_batch: MagicMock,
         mock_fetch_batch: MagicMock,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Verify whatthespec-resolved TDoc is inserted into database."""
         metadata = TDocMetadata(

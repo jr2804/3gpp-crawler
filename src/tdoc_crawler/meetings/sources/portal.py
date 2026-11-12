@@ -9,13 +9,15 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date, datetime, timedelta
-from typing import Any
 
 import niquests
+from pydantic import ValidationError
 
 from tdoc_crawler.constants.urls import MEETING_PORTAL_URL_TEMPLATE, MEETINGS_REST_URL, PORTAL_BASE_URL
 from tdoc_crawler.database.oxyde_models import MeetingMetadata
+from tdoc_crawler.meetings.models import PortalMeeting
 from tdoc_crawler.models.subworking_groups import SUBWORKING_GROUP_RECORDS
+from tdoc_crawler.utils.json_types import coerce_json_value
 
 # Parent TBIDs for the 3 TSGs — used with IncludeChildTbs=True to get
 # all child WG meetings in fewer API calls.
@@ -96,8 +98,8 @@ def fetch_meetings(
                 break
 
             try:
-                data = r.json()
-            except (json.JSONDecodeError, ValueError) as exc:
+                payload = coerce_json_value(r.json())
+            except (json.JSONDecodeError, ValueError, TypeError) as exc:
                 logger.error(
                     "Portal meetings API returned invalid JSON (status=%d, body=%s): %s",
                     r.status_code,
@@ -106,20 +108,29 @@ def fetch_meetings(
                 )
                 break
 
-            if not data:
+            if not payload:
                 break
 
-            for m in data:
-                all_meetings.append(_portal_meeting_to_metadata(m))
+            if not isinstance(payload, list):
+                logger.error("Portal meetings API returned %s instead of a list", type(payload).__name__)
+                break
+
+            for entry in payload:
+                try:
+                    meeting = PortalMeeting.model_validate(entry)
+                except ValidationError as exc:
+                    logger.warning("Skipping malformed portal meeting entry: %s", exc)
+                    continue
+                all_meetings.append(_portal_meeting_to_metadata(meeting))
 
             logger.debug(
                 "Portal meetings page start_row=%d: %d results (total: %d)",
                 start_row,
-                len(data),
+                len(payload),
                 len(all_meetings),
             )
 
-            if len(data) < _PAGE_SIZE:
+            if len(payload) < _PAGE_SIZE:
                 break
             start_row += _PAGE_SIZE
     finally:
@@ -146,25 +157,24 @@ def _build_subtb_filter(subgroups: list[str] | None) -> list[int]:
     return result or list(_TSG_PARENT_TBIDS)
 
 
-def _portal_meeting_to_metadata(m: dict[str, Any]) -> MeetingMetadata:
+def _portal_meeting_to_metadata(m: PortalMeeting) -> MeetingMetadata:
     """Convert a single portal API meeting object to MeetingMetadata."""
-    subtb = m.get("TBId")
+    subtb = m.subtb
     wg_info = _SUBTB_TO_WG.get(subtb) if subtb else None
     tbid = wg_info[0] if wg_info else subtb or 0
-    wg_info[1] if wg_info else ""
 
     return MeetingMetadata(
-        meeting_id=m["Id"],
+        meeting_id=m.meeting_id,
         tbid=tbid,
         subtb=subtb,
-        short_name=m.get("ShortTitle", ""),
-        title=m.get("Title"),
-        start_date=_parse_portal_date(m.get("StartDate")),
-        end_date=_parse_portal_date(m.get("EndDate")),
-        location=m.get("Location") or None,
-        files_url=m.get("MtgDocURL") or None,
-        portal_url=MEETING_PORTAL_URL_TEMPLATE.format(portal_base=PORTAL_BASE_URL, meeting_id=m["Id"]),
-        tdoc_count=m.get("DocCount", 0),
+        short_name=m.short_title,
+        title=m.title,
+        start_date=_parse_portal_date(m.start_date),
+        end_date=_parse_portal_date(m.end_date),
+        location=m.location or None,
+        files_url=m.files_url or None,
+        portal_url=MEETING_PORTAL_URL_TEMPLATE.format(portal_base=PORTAL_BASE_URL, meeting_id=m.meeting_id),
+        tdoc_count=m.doc_count,
     )
 
 

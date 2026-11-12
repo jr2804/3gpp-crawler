@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from datetime import date, datetime, time
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
 
 import yaml
 from pydantic.fields import FieldInfo
 
 from tdoc_crawler.config.settings import ThreeGPPConfig
+from tdoc_crawler.utils.json_types import JSONScalar, JSONValue
+
+type ExportValue = JSONScalar | Path | date | datetime | time | list[ExportValue] | dict[str, ExportValue]
+"""A configuration value as produced by ``model_dump()`` (paths kept as paths)."""
 
 
 class ConfigFormat(StrEnum):
@@ -19,6 +24,23 @@ class ConfigFormat(StrEnum):
     TOML = "toml"
     YAML = "yaml"
     JSON = "json"
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigField:
+    """One exported configuration field with its value and metadata."""
+
+    value: ExportValue
+    """Current value of the field."""
+
+    default: ExportValue
+    """Default value of the field (``None`` when there is none)."""
+
+    description: str | None
+    """Field description from the pydantic model, if any."""
+
+    section: str
+    """Name of the configuration section the field belongs to."""
 
 
 class ConfigExporter:
@@ -57,9 +79,9 @@ class ConfigExporter:
         content = self.export(format)
         path.write_text(content, encoding="utf-8")
 
-    def _get_all_fields(self) -> dict[str, Any]:
+    def _get_all_fields(self) -> dict[str, ConfigField]:
         """Get all fields with their values and metadata."""
-        fields: dict[str, Any] = {}
+        fields: dict[str, ConfigField] = {}
         config_data = self.config.model_dump()
 
         # Walk through all subconfigs
@@ -74,12 +96,12 @@ class ConfigExporter:
                     value = section_data.get(field_name)
                     default = _default_value_for_field(field_info)
                     description = field_info.description if hasattr(field_info, "description") else None
-                    fields[f"{section_name}.{field_name}"] = {
-                        "value": value,
-                        "default": default,
-                        "description": description,
-                        "section": section_name,
-                    }
+                    fields[f"{section_name}.{field_name}"] = ConfigField(
+                        value=value,
+                        default=default,
+                        description=description,
+                        section=section_name,
+                    )
 
         return fields
 
@@ -94,11 +116,11 @@ class ConfigExporter:
         fields = self._get_all_fields()
 
         for key, meta in fields.items():
-            section = meta["section"]
+            section = meta.section
             field_name = key.split(".", 1)[1] if "." in key else key
-            description = meta["description"]
-            value = meta["value"]
-            default = meta["default"]
+            description = meta.description
+            value = meta.value
+            default = meta.default
 
             if section != current_section:
                 if current_section is not None:
@@ -160,25 +182,37 @@ class ConfigExporter:
         config_data = self._resolve_paths_for_json(self.config.model_dump())
         return json.dumps(config_data, indent=2)
 
-    def _resolve_paths_for_json(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Resolve Path objects to strings for JSON serialization."""
-        result = {}
+    def _resolve_paths_for_json(self, data: dict[str, ExportValue]) -> dict[str, JSONValue]:
+        """Resolve Path objects to strings for JSON serialization.
+
+        Args:
+            data: Exported configuration data.
+
+        Returns:
+            The same data with paths (and dates) converted to JSON values.
+        """
+        result: dict[str, JSONValue] = {}
         for key, value in data.items():
-            if isinstance(value, Path):
-                result[key] = str(value)
-            elif isinstance(value, dict):
-                result[key] = self._resolve_paths_for_json(value)
-            elif isinstance(value, list):
-                result[key] = [str(v) if isinstance(v, Path) else v for v in value]
-            else:
-                result[key] = value
+            result[key] = self._to_json_value(value)
         return result
 
-    def _format_toml_value(self, value: Any) -> str:
+    def _to_json_value(self, value: ExportValue) -> JSONValue:
+        """Convert a single configuration value into a JSON value."""
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, dict):
+            return {key: self._to_json_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._to_json_value(item) for item in value]
+        if isinstance(value, (date, datetime, time)):
+            return value.isoformat()
+        return value
+
+    def _format_toml_value(self, value: ExportValue) -> str:
         """Format Python value for TOML output."""
         return self._toml_value_to_string(value)
 
-    def _toml_value_to_string(self, value: Any) -> str:
+    def _toml_value_to_string(self, value: ExportValue) -> str:
         """Convert value to TOML-compatible string representation."""
         result = None
         if value is None:
@@ -199,7 +233,7 @@ class ConfigExporter:
         return result
 
 
-def _default_value_for_field(info: FieldInfo) -> object:
+def _default_value_for_field(info: FieldInfo) -> ExportValue:
     """Extract the default value from a pydantic field info."""
     default = info.default
     if callable(default):

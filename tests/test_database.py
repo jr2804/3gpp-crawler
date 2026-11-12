@@ -13,8 +13,11 @@ from tdoc_crawler.database import DatabaseError, TDocDatabase
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models import SortOrder, WorkingGroup
+from tdoc_crawler.models.statistics import DatabaseStatistics
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.workitems import WorkItem, WorkItemCr, WorkItemDetails
+
+from .conftest import MeetingRow
 
 
 @pytest.mark.asyncio
@@ -35,7 +38,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Insert a TDoc record and validate persistence."""
         async with TDocDatabase(test_db_path) as db:
@@ -52,7 +55,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Ensure TDoc IDs are matched case-insensitively."""
         async with TDocDatabase(test_db_path) as db:
@@ -70,7 +73,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Filter by working group."""
         async with TDocDatabase(test_db_path) as db:
@@ -88,7 +91,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Filter by sub-working group through the meeting linkage."""
         async with TDocDatabase(test_db_path) as db:
@@ -109,7 +112,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Work item links are stored and usable as a query filter."""
         async with TDocDatabase(test_db_path) as db:
@@ -136,7 +139,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """The work item catalogue exposes TDoc counts, most-used first."""
         async with TDocDatabase(test_db_path) as db:
@@ -164,7 +167,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Re-storing a TDoc drops work items that disappeared from its row."""
         async with TDocDatabase(test_db_path) as db:
@@ -255,7 +258,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Default selection covers linked and never-enriched work items."""
         async with TDocDatabase(test_db_path) as db:
@@ -293,7 +296,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Crawling the DynaReport lists does not wipe TDoc counts from document lists."""
         async with TDocDatabase(test_db_path) as db:
@@ -311,7 +314,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """TDocs can be filtered by the specification named in their document list."""
         async with TDocDatabase(test_db_path) as db:
@@ -330,7 +333,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """A batch mixing filled and empty document-list columns must not fail."""
         async with TDocDatabase(test_db_path) as db:
@@ -362,7 +365,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """An unpopulated subgroup filters everything out instead of raising."""
         async with TDocDatabase(test_db_path) as db:
@@ -376,7 +379,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Respect limit parameter when querying TDocs."""
         async with TDocDatabase(test_db_path) as db:
@@ -391,7 +394,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Apply start and end date filters."""
         async with TDocDatabase(test_db_path) as db:
@@ -412,7 +415,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Compute summary statistics for stored TDocs."""
         async with TDocDatabase(test_db_path) as db:
@@ -420,7 +423,7 @@ class TestTDocDatabase:
             for tdoc in sample_tdocs:
                 _ = await db.upsert_tdoc(tdoc)
 
-            stats: dict[str, object] = await db.get_statistics()
+            stats: DatabaseStatistics = await db.get_statistics()
             assert isinstance(stats, dict)
             assert stats["total_tdocs"] == 3
             by_wg = stats.get("by_working_group", {})
@@ -440,7 +443,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Update metadata for existing TDocs."""
         async with TDocDatabase(test_db_path) as db:
@@ -479,7 +482,7 @@ class TestTDocDatabase:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Return existing TDoc identifiers for incremental crawls."""
         async with TDocDatabase(test_db_path) as db:
@@ -577,7 +580,7 @@ class TestTDocDatabase:
         return TDocQueryConfig()
 
     @staticmethod
-    async def _insert_sample_meetings(database: TDocDatabase, meetings: list[dict[str, object]]) -> None:
+    async def _insert_sample_meetings(database: TDocDatabase, meetings: list[MeetingRow]) -> None:
         for meeting_dict in meetings:
             meeting_id = int(str(meeting_dict.get("meeting_id", 0)))
             tbid = int(str(meeting_dict.get("tbid", 0)))

@@ -2,9 +2,27 @@
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from pydantic import BaseModel, Field, field_validator
 
 from tdoc_crawler.utils.normalization import normalize_spec_number
+
+
+class LeadBodyCoverage(TypedDict):
+    """Coverage of one lead body in the global work item list."""
+
+    lead_body: str
+    """Sub-working group code the work items belong to."""
+
+    list: int
+    """Number of work items listed for that lead body."""
+
+    in_catalogue: int
+    """Number of listed work items that exist in the local catalogue."""
+
+    missing: int
+    """Number of listed work items missing from the local catalogue."""
 
 
 class WorkItem(BaseModel):
@@ -107,4 +125,4 @@ class WorkItemCr(BaseModel):
         return cleaned.zfill(4) if cleaned.isdigit() else cleaned.upper()
 
 
-__all__ = ["WorkItem", "WorkItemCr", "WorkItemDetails"]
+__all__ = ["LeadBodyCoverage", "WorkItem", "WorkItemCr", "WorkItemDetails"]

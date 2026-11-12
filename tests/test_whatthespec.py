@@ -16,7 +16,7 @@ from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.tdocs.sources.whatthespec import WhatTheSpecResolutionError, resolve_via_whatthespec
 from tdoc_crawler.utils.version_types import AgendaItem
 
-from .conftest import insert_sample_meetings_async
+from .conftest import MeetingRow, insert_sample_meetings_async
 
 
 class TestWhatTheSpecResolution:
@@ -317,7 +317,7 @@ class TestWhatTheSpecResolution:
         test_cache_dir: Path,
         http_cache_config: HttpConfig,
         test_db_path: Path,
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Test that meeting_id is correctly resolved from meeting_name.
 

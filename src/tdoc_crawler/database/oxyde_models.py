@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime
-from typing import Any
 
 from oxyde import Field, Model
 from pydantic import field_validator
 
+from tdoc_crawler.utils.json_types import JSONValue, coerce_json_value
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.version_types import AgendaItem, SpecVersion
 
@@ -241,17 +241,17 @@ class SpecificationSourceRecord(Model):
     spec_number: str
     source_name: str
     source_identifier: str | None = None
-    metadata_payload: dict[str, Any] = Field(default_factory=dict)
+    metadata_payload: dict[str, JSONValue] = Field(default_factory=dict)
     versions: list[SpecVersion] = Field(default_factory=list)
     fetched_at: datetime | None = None
 
     @field_validator("metadata_payload", mode="before")
     @classmethod
-    def _parse_metadata_payload(cls, value: dict[str, Any] | str) -> dict[str, Any]:
+    def _parse_metadata_payload(cls, value: dict[str, JSONValue] | str) -> dict[str, JSONValue]:
         if isinstance(value, str):
             try:
-                parsed = json.loads(value)
-            except json.JSONDecodeError:
+                parsed = coerce_json_value(json.loads(value))
+            except (json.JSONDecodeError, TypeError):
                 return {}
             return parsed if isinstance(parsed, dict) else {}
         return value

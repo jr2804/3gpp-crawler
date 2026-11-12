@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import cast
 
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.specs.downloads import SpecDownloads
@@ -83,8 +82,8 @@ def build_default_spec_sources(cache_manager_name: str | None = None) -> list[Sp
         List of SpecSource instances for fetching spec metadata
     """
     return [
-        cast("SpecSource", FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={})),
-        cast("SpecSource", FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={})),
+        FunctionSpecSource("3gpp", fetch_threegpp_metadata, fetcher_kwargs={}),
+        FunctionSpecSource("whatthespec", fetch_whatthespec_metadata, fetcher_kwargs={}),
     ]
 
 

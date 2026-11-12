@@ -19,8 +19,10 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.archives import ArchiveKind
 from tdoc_crawler.specs.models import SpecQueryFilters, SpecQueryResult
 from tdoc_crawler.specs.sources.base import SpecSource
+from tdoc_crawler.utils.json_types import JSONValue
 from tdoc_crawler.utils.normalization import normalize_release, normalize_spec_number
 from tdoc_crawler.utils.parse import parse_spec_version, parse_spec_version_nbr
+from tdoc_crawler.utils.version_types import SpecVersion
 
 _logger = get_logger(__name__)
 
@@ -350,21 +352,15 @@ def _process_source_fetch(
         (in which case the error outcome is appended internally).
     """
     try:
-        payload = source.fetch(normalized)
+        metadata = source.fetch(normalized)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         _logger.warning("Spec crawl failed for %s (%s): %s", normalized, source.name, exc)
         return None
 
-    source_name = str(payload.get("source_name", source.name))
-    source_identifier = payload.get("source_identifier")
-    metadata_payload = payload.get("metadata_payload")
-    if not isinstance(metadata_payload, dict):
-        metadata_payload = {}
-
-    versions = payload.get("versions")
-    if not isinstance(versions, list):
-        versions = []
-    normalized_versions = [parse_spec_version_nbr(item) for item in versions]
+    source_name = metadata.source_name or source.name
+    source_identifier = metadata.source_identifier
+    metadata_payload = metadata.metadata_payload
+    normalized_versions = [_normalized_version(version) for version in metadata.versions]
 
     outcome = SpecCrawlSourceOutcome(
         source_name=source_name,
@@ -392,10 +388,24 @@ def _process_source_fetch(
     return outcome, source_record, candidate, versions_payload
 
 
+def _normalized_version(value: JSONValue) -> SpecVersion:
+    """Convert a raw version entry into a normalized spec version.
+
+    Args:
+        value: Version entry as returned by a spec source.
+
+    Returns:
+        The parsed version, or the zero version for unusable entries.
+    """
+    if isinstance(value, (str, int)):
+        return parse_spec_version_nbr(value)
+    return parse_spec_version_nbr(None)
+
+
 def _build_spec_candidate(
     *,
     compact: str,
-    metadata_payload: dict[str, object],
+    metadata_payload: dict[str, JSONValue],
     normalized: str,
     source_name: str,
     versions: list[str],
@@ -432,7 +442,7 @@ def _build_spec_candidate(
 def _build_spec_versions(
     *,
     compact: str,
-    metadata_payload: dict[str, object],
+    metadata_payload: dict[str, JSONValue],
     normalized: str,
     source_name: str,
     versions: list[str],

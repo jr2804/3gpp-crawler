@@ -9,6 +9,7 @@ import pytest
 
 from tdoc_crawler import mcp_server
 from tdoc_crawler.mcp_server import mcp
+from tdoc_crawler.utils.json_types import JSONValue
 
 
 def test_mcp_tools_registered() -> None:
@@ -55,9 +56,9 @@ def test_mcp_query_tdocs_exposes_work_item() -> None:
 
 def test_mcp_crawl_meetings_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> None:
     """Subgroup must reach the CLI command, not be dropped by the wrapper."""
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
 
-    def fake_cli(**kwargs: object) -> None:
+    def fake_cli(**kwargs: JSONValue) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server, "cli_crawl_meetings", fake_cli)
@@ -67,9 +68,9 @@ def test_mcp_crawl_meetings_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_mcp_crawl_tdocs_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
 
-    def fake_cli(**kwargs: object) -> None:
+    def fake_cli(**kwargs: JSONValue) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server, "cli_crawl_tdocs", fake_cli)
@@ -78,9 +79,9 @@ def test_mcp_crawl_tdocs_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_mcp_query_tdocs_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
 
-    def fake_cli(**kwargs: object) -> None:
+    def fake_cli(**kwargs: JSONValue) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server, "cli_query_tdocs", fake_cli)
@@ -90,9 +91,9 @@ def test_mcp_query_tdocs_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_mcp_query_tdocs_forwards_work_item(monkeypatch: pytest.MonkeyPatch) -> None:
     """Work item filters must reach the CLI query command."""
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
 
-    def fake_cli(**kwargs: object) -> None:
+    def fake_cli(**kwargs: JSONValue) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server, "cli_query_tdocs", fake_cli)
@@ -102,9 +103,9 @@ def test_mcp_query_tdocs_forwards_work_item(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_mcp_query_work_items_forwards_filters(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
 
-    def fake_cli(**kwargs: object) -> None:
+    def fake_cli(**kwargs: JSONValue) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server, "cli_query_work_items", fake_cli)
@@ -117,9 +118,9 @@ def test_mcp_query_work_items_forwards_filters(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_mcp_crawl_work_items_runs_crawl(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
 
-    def fake_cli(**kwargs: object) -> None:
+    def fake_cli(**kwargs: JSONValue) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server, "cli_crawl_work_items", fake_cli)
@@ -129,9 +130,9 @@ def test_mcp_crawl_work_items_runs_crawl(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_mcp_enrich_work_items_forwards_filters(monkeypatch: pytest.MonkeyPatch) -> None:
     """Enrichment tool forwards work item ids and limit."""
-    captured: dict[str, object] = {}
+    captured: dict[str, JSONValue] = {}
 
-    def fake_cli(**kwargs: object) -> None:
+    def fake_cli(**kwargs: JSONValue) -> None:
         captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server, "cli_enrich_work_items", fake_cli)

@@ -3,7 +3,6 @@
 import fnmatch
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime
-from typing import Any
 
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.database.oxyde_models import (
@@ -18,7 +17,7 @@ from tdoc_crawler.database.oxyde_models import (
 from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
-from tdoc_crawler.models.base import SortKey, TagKind
+from tdoc_crawler.models.base import SortKey, TagKind, TDocFieldValue
 from tdoc_crawler.models.subworking_groups import CODE_INDEX
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.utils.agenda import ancestor_agenda_numbers
@@ -713,7 +712,7 @@ class TDocDatabase(MeetingDatabase):
     @staticmethod
     def _filter_by_meeting_dates(
         records: list[TDocMetadata],
-        meeting_map: dict[int, Any],
+        meeting_map: dict[int, MeetingMetadata],
         meeting_start_date: date | None,
         meeting_end_date: date | None,
     ) -> list[TDocMetadata]:
@@ -779,7 +778,7 @@ class TDocDatabase(MeetingDatabase):
         normalise nullable fields that vary across data sources to non-``None``
         defaults so every row has a consistent set of columns.
         """
-        updates: dict[str, object] = {}
+        updates: dict[str, TDocFieldValue] = {}
         if metadata.date_retrieved is None:
             updates["date_retrieved"] = utc_now()
         if metadata.status is None:
@@ -814,7 +813,7 @@ class TDocDatabase(MeetingDatabase):
         return False
 
     @staticmethod
-    def _clone_tdoc(metadata: TDocMetadata, updates: dict[str, object]) -> TDocMetadata:
+    def _clone_tdoc(metadata: TDocMetadata, updates: dict[str, TDocFieldValue]) -> TDocMetadata:
         """Create a new TDocMetadata instance with updates applied."""
         data = {field: getattr(metadata, field, None) for field in TDocMetadata.__annotations__}
         data.update(updates)

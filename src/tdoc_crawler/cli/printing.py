@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from typing import Any
+from pathlib import Path
 
 from tdoc_crawler.cli.formatting import TableColumnSpec, print_structured_output
 from tdoc_crawler.database.oxyde_models import ArchiveMember, MeetingMetadata, TDocMetadata
 from tdoc_crawler.database.specs import SpecCrawlResult
 from tdoc_crawler.logging import get_console
 from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.models.statistics import DatabaseStatistics
 from tdoc_crawler.models.subworking_groups import SUBTB_INDEX
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.specs.models import SpecQueryResult
+from tdoc_crawler.utils.json_types import JSONValue
 
 console = get_console()
 
@@ -37,7 +39,7 @@ def print_archive_members(members: list[ArchiveMember], title: str, output_forma
 def tdoc_to_dict(
     result: TDocMetadata,
     meeting_map: dict[int, MeetingMetadata] | None = None,
-) -> dict[str, Any]:
+) -> dict[str, JSONValue]:
     """Convert TDocMetadata to dictionary for JSON/YAML output.
 
     Args:
@@ -47,7 +49,7 @@ def tdoc_to_dict(
     Returns:
         Dictionary representation of the TDoc
     """
-    data = result.model_dump(mode="json")
+    data: dict[str, JSONValue] = result.model_dump(mode="json")
 
     # Add agenda_item_nbr as plain value for JSON output
     data["agenda_item"] = str(result.agenda_item_nbr) if result.agenda_item_nbr is not None else None
@@ -64,7 +66,7 @@ def tdoc_to_dict(
     return data
 
 
-def meeting_to_dict(meeting: MeetingMetadata) -> dict[str, Any]:
+def meeting_to_dict(meeting: MeetingMetadata) -> dict[str, JSONValue]:
     """Convert MeetingMetadata to dictionary for JSON/YAML output."""
     return meeting.model_dump(mode="json")
 
@@ -246,7 +248,7 @@ def print_meeting_table(results: list[MeetingMetadata]) -> None:
     )
 
 
-def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, Any]:
+def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, JSONValue]:
     """Convert SpecCrawlResult to dictionary for JSON/YAML output."""
     return {
         "spec_number": result.spec_number,
@@ -266,7 +268,7 @@ def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, Any]:
     }
 
 
-def spec_query_to_dict(result: SpecQueryResult) -> dict[str, Any]:
+def spec_query_to_dict(result: SpecQueryResult) -> dict[str, JSONValue]:
     """Convert SpecQueryResult to dictionary for JSON/YAML output."""
     return {
         "spec_number": result.spec_number,
@@ -274,6 +276,38 @@ def spec_query_to_dict(result: SpecQueryResult) -> dict[str, Any]:
         "status": result.status,
         "working_group": result.working_group,
         "source_differences": result.source_differences,
+    }
+
+
+def statistics_to_dict(stats: DatabaseStatistics) -> dict[str, JSONValue]:
+    """Convert database statistics into a JSON-serialisable payload.
+
+    Args:
+        stats: Statistics as returned by the database layer.
+
+    Returns:
+        Mapping with the statistics and the recent crawl summaries.
+    """
+    return {
+        "total_tdocs": stats["total_tdocs"],
+        "validated_tdocs": stats["validated_tdocs"],
+        "invalid_tdocs": stats["invalid_tdocs"],
+        "total_meetings": stats["total_meetings"],
+        "total_working_groups": stats["total_working_groups"],
+        "by_working_group": stats["by_working_group"],
+        "recent_crawls": [
+            {
+                "crawl_type": crawl["crawl_type"],
+                "start_time": crawl["start_time"],
+                "end_time": crawl["end_time"],
+                "working_groups": crawl["working_groups"],
+                "items_added": crawl["items_added"],
+                "items_updated": crawl["items_updated"],
+                "errors_count": crawl["errors_count"],
+                "status": crawl["status"],
+            }
+            for crawl in stats.get("recent_crawls", [])
+        ],
     }
 
 
@@ -337,7 +371,7 @@ def print_spec_table(results: list[SpecQueryResult]) -> None:
     )
 
 
-def print_checkout_results(results: list[Any], output_format: OutputFormat = OutputFormat.TABLE) -> None:
+def print_checkout_results(results: list[Path], output_format: OutputFormat = OutputFormat.TABLE) -> None:
     """Print checkout results as formatted table or machine-readable output."""
     rows = [{"checkout_path": str(path)} for path in results]
     print_structured_output(

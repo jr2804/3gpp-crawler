@@ -125,6 +125,28 @@ appear in no portal or FTP document list, so agenda text matching needs them.
 - Parents are stored per meeting in `MeetingAgendaItem`; agenda filters
   (`--agenda` / `--agenda-ex`, MCP `agenda`) match leaf **and** ancestor text.
 
+## Type Design
+
+Never annotate structured data as `dict[str, Any]` or `dict[str, object]`. Pick
+the narrowest shape that fits:
+
+| Data | Shape | Where |
+|------|-------|-------|
+| JSON-shaped values (config files, portal payloads, stored metadata) | `JSONValue` / `JSONObject`, `coerce_json_value()` at the boundary | `utils/json_types.py` |
+| Config file contents | `ConfigValue` / `ConfigSection` / `ConfigDocument` | `config/sources.py` |
+| Internal records with known fields | `dataclass` | domain `models.py` (e.g. `SpecMetadata` in `specs/models.py`) |
+| Records that must stay dict-shaped | `TypedDict` | `models/statistics.py`, `workitems/models.py` |
+| Untrusted input | Pydantic model (validation at the boundary) | domain `models.py` |
+
+- `JSONValue` is covariant (`Sequence`/`Mapping`), so `dict[str, str]` is a
+  valid JSON value without casts. `ConfigValue` follows the same pattern.
+- `TypedDict` is **not** assignable to `Mapping[str, JSONValue]` — convert
+  explicitly (`statistics_to_dict()` in `cli/printing.py`).
+- Pydantic rejects `None` for `Lax*` fields: drop `None` before
+  `TDocMetadata(**data)`.
+- `Any` survives only for genuinely dynamic signatures (third-party
+  `**kwargs`, Typer's `__call__` override) — document why at the call site.
+
 ## Database
 
 SQLite via Oxyde ORM (see `database/AGENTS.md`). TDoc IDs use `.upper()` for case-insensitive comparison.

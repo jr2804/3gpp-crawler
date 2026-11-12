@@ -6,7 +6,7 @@ import io
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import ParamSpec, TypeVar
 
 import typer
 from fastmcp import FastMCP
@@ -62,6 +62,7 @@ from tdoc_crawler.cli.tag_app import (
 )
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.executors import ExecutorType, best_executor_type
+from tdoc_crawler.models.base import SortKey, SortOrder
 
 # Multiprocessing spawn is unsafe under the stdio server (children inherit
 # overlapped stdio handles and deadlock), so processes are excluded here.
@@ -75,13 +76,18 @@ _MCP_EXECUTOR: ExecutorType = best_executor_type(allow_processes=False)
 # confirm=true — a deliberate speed bump that costs one extra tool round-trip.
 _DATABASE_REFUSAL = "Refused: destructive database operation. Re-invoke with confirm=true to proceed."
 
+P = ParamSpec("P")
+T = TypeVar("T")
+
 mcp = FastMCP("3gpp-crawler", instructions="3GPP specification & TDoc crawler MCP server")
 
 
 # --- CHECKOUT / DOWNLOAD GROUP ---
 
 
-class _DummyContext:
+class _DummyContext(typer.Context):
+    """Context stand-in for CLI calls that only read ``ctx.obj``."""
+
     class _Obj:
         def __init__(self) -> None:
             self.path = PathConfig()
@@ -201,8 +207,8 @@ def query_tdocs(
         title=title,
         agenda=agenda,
         limit=limit,
-        sort_by=sort_by,
-        order=order,
+        sort_by=_sort_key(sort_by),
+        order=_sort_order(order),
     )
 
 
@@ -288,7 +294,7 @@ def query_specs(
         cli_query_specs,
         spec_numbers=spec_numbers,
         title=title,
-        working_group=working_group,
+        working_group=[working_group] if working_group else None,
         tag=tag,
     )
 
@@ -391,7 +397,7 @@ def tag_remove(
         cli_tag_remove,
         kind=TagKindChoice(kind.lower()),
         items=items,
-        tags=tags,
+        tags=tags or [],
     )
 
 
@@ -487,7 +493,49 @@ def config_validate() -> str:
     return _run_captured(cli_config_validate)
 
 
-def _run_captured(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> str:
+def _sort_key(value: str | None) -> SortKey:
+    """Convert an MCP sort key into the CLI enum.
+
+    Args:
+        value: Sort key name (e.g. ``meeting_date``) or ``None``.
+
+    Returns:
+        The matching :class:`SortKey`, defaulting to ``MEETING_DATE``.
+
+    Raises:
+        ValueError: If the name is not a known sort key.
+    """
+    if value is None:
+        return SortKey.MEETING_DATE
+    try:
+        return SortKey(value)
+    except ValueError as exc:
+        msg = f"Unknown sort_by {value!r}; expected one of {', '.join(key.value for key in SortKey)}"
+        raise ValueError(msg) from exc
+
+
+def _sort_order(value: str | None) -> SortOrder:
+    """Convert an MCP sort order into the CLI enum.
+
+    Args:
+        value: Sort order name (``asc``/``desc``) or ``None``.
+
+    Returns:
+        The matching :class:`SortOrder`, defaulting to ``ASC``.
+
+    Raises:
+        ValueError: If the name is not a known sort order.
+    """
+    if value is None:
+        return SortOrder.ASC
+    try:
+        return SortOrder(value)
+    except ValueError as exc:
+        msg = f"Unknown order {value!r}; expected one of {', '.join(order.value for order in SortOrder)}"
+        raise ValueError(msg) from exc
+
+
+def _run_captured[**P, T](fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs) -> str:
     """Run a CLI function with stdout/stderr captured into a string."""
     buffer = io.StringIO()
     original_stdout = sys.stdout

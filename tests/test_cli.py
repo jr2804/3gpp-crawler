@@ -27,7 +27,7 @@ from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult, is_orphan_tdoc
 from tdoc_crawler.workitems.operations import EnrichSummary, WorkItemListComparison
 
-from .conftest import insert_sample_meetings_async
+from .conftest import MeetingRow, insert_sample_meetings_async
 
 runner = CliRunner()
 
@@ -704,7 +704,7 @@ class TestStatsCommand:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """Test stats command execution."""
 
@@ -1304,7 +1304,7 @@ class TestDatabaseCommand:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """clear-all rebuilds the database and re-imports the saved tags."""
 
@@ -1352,7 +1352,7 @@ class TestDatabaseCommand:
         self,
         test_db_path: Path,
         sample_tdocs: list[TDocMetadata],
-        sample_meetings: list[dict[str, object]],
+        sample_meetings: list[MeetingRow],
     ) -> None:
         """clear-meetings only removes meeting records."""
 

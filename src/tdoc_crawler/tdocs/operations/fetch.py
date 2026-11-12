@@ -22,6 +22,7 @@ from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.models.base import TDocFieldValue
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.sources import (
@@ -66,7 +67,7 @@ class _RefreshableField:
 
     field_name: str
     is_empty_on_orphan: Callable[[TDocMetadata], bool]
-    is_meaningful_on_fresh: Callable[[object], bool]
+    is_meaningful_on_fresh: Callable[[TDocFieldValue], bool]
 
 
 class FetchMissingResult:
@@ -149,7 +150,7 @@ def _build_orphan_refreshable_fields() -> tuple[_RefreshableField, ...]:
     return tuple(fields)
 
 
-def _is_meaningful(value: object) -> bool:
+def _is_meaningful(value: TDocFieldValue) -> bool:
     """Reject ``None`` and empty strings."""
     if value is None:
         return False
@@ -229,7 +230,7 @@ async def refresh_orphan_metadata(
         logger.warning("WhatTheSpec returned no data for orphan %s", orphan.tdoc_id)
         return orphan
 
-    updates: dict[str, object] = {}
+    updates: dict[str, TDocFieldValue] = {}
     for field in _ORPHAN_REFRESHABLE_FIELDS:
         if not field.is_empty_on_orphan(orphan):
             continue

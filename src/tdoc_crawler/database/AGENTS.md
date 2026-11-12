@@ -8,6 +8,7 @@ SQLite via Oxyde ORM. All models live in `oxyde_models.py`.
 |----------|------|----------|
 | Persisting to SQLite | **Oxyde `Model`** | `database/oxyde_models.py` |
 | Passing data between functions, no DB | **`dataclass`** | Domain module (e.g. `tdocs/models.py`, `specs/models.py`) |
+| Record that must stay a dict (e.g. statistics) | **`TypedDict`** | `models/statistics.py` |
 | Need Pydantic validators/serializers for external I/O | **Pydantic `BaseModel`** | Domain module |
 
 ### Why each choice
@@ -17,6 +18,8 @@ SQLite via Oxyde ORM. All models live in `oxyde_models.py`.
 **`dataclass`** — default for pure in-memory data transfer. No serialization overhead. Use for filter objects, query configs, result containers. If it doesn't need `model_dump()` or validators, use a dataclass.
 
 **Pydantic `BaseModel`** — only when you need Pydantic-specific features: `field_validator`, `model_validator`, custom serializers, JSON schema generation, or interop with external APIs. The `TDocCrawlConfig` and `TDocQueryConfig` models use Pydantic because they have complex validation logic.
+
+**`TypedDict`** — for records that must stay plain dicts (JSON payloads, statistics). `get_statistics()` returns `DatabaseStatistics` (`models/statistics.py`), whose legacy keys (`last_24_hours`, `date_first`, `date_last`, `unique_document_types`) are `NotRequired` because the DB layer never produces them. Convert with `statistics_to_dict()` when a `JSONValue` payload is needed — a `TypedDict` is not a `Mapping[str, JSONValue]`.
 
 ### Decision flow
 

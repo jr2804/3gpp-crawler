@@ -25,6 +25,7 @@ from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.utils.json_types import JSONValue
 from tdoc_crawler.utils.parse import parse_working_groups
 from tdoc_crawler.workitems import WorkItemSourceError
 from tdoc_crawler.workitems.operations import compare_work_item_list
@@ -165,12 +166,21 @@ def audit_work_items(
         console.print(f"[red]Failed to fetch the global work item list:[/red] {exc}")
         raise SystemExit(1) from exc
 
-    payload = {
+    rows = [
+        {
+            "lead_body": row["lead_body"],
+            "list": row["list"],
+            "in_catalogue": row["in_catalogue"],
+            "missing": row["missing"],
+        }
+        for row in comparison.rows
+    ]
+    payload: dict[str, JSONValue] = {
         "list_entries": comparison.list_entries,
         "matched": comparison.matched,
         "missing_from_db": comparison.missing_from_db,
         "missing_from_list": comparison.missing_from_list,
-        "lead_bodies": comparison.rows,
+        "lead_bodies": rows,
     }
 
     if output_format is not OutputFormat.TABLE:
