@@ -21,7 +21,7 @@ from tdoc_crawler.cli.args import (
 )
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_spec_table, spec_query_to_dict
-from tdoc_crawler.config import PathConfig
+from tdoc_crawler.config import PathConfig, ThreeGPPConfig
 from tdoc_crawler.database.specs import SpecDatabase
 from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
@@ -48,8 +48,10 @@ def query_specs(
     set_verbosity(verbosity)
     path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
     specs = collect_spec_numbers(spec_numbers, spec_file)
+    crawler_config = ThreeGPPConfig.from_settings()
+    working_group_arg = working_group or ([crawler_config.crawl.working_group] if crawler_config.crawl.working_group else None)
     try:
-        wg_filter = parse_spec_working_group(working_group)
+        wg_filter = parse_spec_working_group(working_group_arg)
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="'--working-group'") from exc
 

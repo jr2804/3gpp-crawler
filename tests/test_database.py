@@ -14,6 +14,7 @@ from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models import SortOrder, WorkingGroup
 from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.workitems import WorkItem, WorkItemCr, WorkItemDetails
 
 
 @pytest.mark.asyncio
@@ -103,6 +104,259 @@ class TestTDocDatabase:
 
             both = await db.query_tdocs(TDocQueryConfig(subgroups=["R1", "R2"]))
             assert sorted(tdoc.tdoc_id for tdoc in both) == ["R1-2301234", "R2-2301567"]
+
+    async def test_store_tdoc_work_items_and_filter(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """Work item links are stored and usable as a query filter."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+
+            await db.store_tdoc_work_items(
+                {
+                    "R1-2301234": ["ULBC-MED", "FS_ULBC"],
+                    "S4-2301890": ["ulbc-med"],
+                }
+            )
+
+            ulbc = await db.query_tdocs(TDocQueryConfig(work_items=["ULBC-MED"]))
+            assert sorted(tdoc.tdoc_id for tdoc in ulbc) == ["R1-2301234", "S4-2301890"]
+
+            fs_ulbc = await db.query_tdocs(TDocQueryConfig(work_items=["fs_ulbc"]))
+            assert [tdoc.tdoc_id for tdoc in fs_ulbc] == ["R1-2301234"]
+
+            assert await db.query_tdocs(TDocQueryConfig(work_items=["UNKNOWN-WI"])) == []
+
+    async def test_list_work_items_with_counts(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """The work item catalogue exposes TDoc counts, most-used first."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+
+            await db.store_tdoc_work_items(
+                {
+                    "R1-2301234": ["ULBC-MED", "FS_ULBC"],
+                    "S4-2301890": ["ULBC-MED"],
+                }
+            )
+
+            records = await db.list_work_items()
+            assert [(record.wi_id, record.tdoc_count) for record in records] == [
+                ("ULBC-MED", 2),
+                ("FS_ULBC", 1),
+            ]
+
+            sa_records = await db.list_work_items(working_group=WorkingGroup.SA)
+            assert [record.wi_id for record in sa_records] == ["ULBC-MED"]
+
+    async def test_store_tdoc_work_items_replaces_missing_links(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """Re-storing a TDoc drops work items that disappeared from its row."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+
+            await db.store_tdoc_work_items({"R1-2301234": ["ULBC-MED", "FS_ULBC"]})
+            await db.store_tdoc_work_items({"R1-2301234": ["ULBC-MED"]})
+
+            records = await db.list_work_items()
+            assert [(record.wi_id, record.tdoc_count) for record in records] == [
+                ("ULBC-MED", 1),
+                ("FS_ULBC", 0),
+            ]
+
+            query = await db.query_tdocs(TDocQueryConfig(work_items=["FS_ULBC"]))
+            assert query == []
+
+    async def test_store_work_items_catalogue(
+        self,
+        test_db_path: Path,
+    ) -> None:
+        """DynaReport rows populate the catalogue; enrichment adds hierarchy and links."""
+        async with TDocDatabase(test_db_path) as db:
+            stored = await db.store_work_items(
+                [
+                    WorkItem(
+                        wi_id="ULBC-MED",
+                        uid=1120096,
+                        title="Ultra Low Bitrate Speech Codec",
+                        release="Rel-20",
+                        level=2,
+                        lead_body="S4",
+                    ),
+                    WorkItem(
+                        wi_id="5GSAT_PH4",
+                        uid=1080054,
+                        title="Satellite access - Phase 4",
+                        release="Rel-20",
+                        level=1,
+                        lead_body="SP",
+                    ),
+                ]
+            )
+
+            assert stored == 2
+
+            records = await db.list_work_items(release="rel-20")
+            ulbc = next(record for record in records if record.wi_id == "ULBC-MED")
+            assert ulbc.uid == 1120096
+            assert ulbc.lead_body == "S4"
+            assert ulbc.level == 2
+            assert ulbc.title == "Ultra Low Bitrate Speech Codec"
+            # Enrichment-only fields are untouched by the list crawl.
+            assert ulbc.status is None
+            assert ulbc.parent_wi_id is None
+
+            assert [record.wi_id for record in await db.list_work_items(release="Rel-19")] == []
+            assert [record.wi_id for record in await db.list_work_items(lead_body="s4")] == ["ULBC-MED"]
+
+            enriched = await db.store_work_item_details(
+                "ulbc-med",
+                WorkItemDetails(
+                    uid=1120096,
+                    wi_id="ULBC-MED",
+                    title="Ultra Low Bitrate Speech Codec",
+                    status="PCG approved",
+                    release="Rel-20",
+                    level=2,
+                    parent_uid=1080054,
+                    parent_title="Satellite access - Phase 4",
+                ),
+                spec_numbers=["26.114", "26.965"],
+                change_requests=[
+                    WorkItemCr(spec_number="26.965", cr_number="2", cr_revision="5", cr_title="ULBC corrections"),
+                ],
+            )
+            assert enriched is True
+
+            assert [record.wi_id for record in await db.list_work_items(status="PCG approved")] == ["ULBC-MED"]
+            assert [record.wi_id for record in await db.list_work_items(parent_wi_id="5gsat_ph4")] == ["ULBC-MED"]
+            assert await db.list_work_item_specs("ulbc-med") == ["26.114", "26.965"]
+            crs = await db.list_work_item_crs("ULBC-MED")
+            assert [(cr.spec_number, cr.cr_number, cr.cr_revision) for cr in crs] == [("26.965", "0002", "5")]
+
+    async def test_select_work_items_for_enrichment(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """Default selection covers linked and never-enriched work items."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+            await db.store_work_items(
+                [
+                    WorkItem(wi_id="LINKED-WI", uid=1120001, lead_body="S4"),
+                    WorkItem(wi_id="NEW-WI", uid=1120002, lead_body="S4"),
+                    WorkItem(wi_id="DONE-WI", uid=1120003, lead_body="S4"),
+                ]
+            )
+            await db.store_tdoc_work_items({"R1-2301234": ["LINKED-WI"]})
+            await db.store_work_item_details(
+                "DONE-WI",
+                WorkItemDetails(uid=1120003, wi_id="DONE-WI", status="closed"),
+                spec_numbers=[],
+                change_requests=[],
+            )
+
+            default_ids = [record.wi_id for record in await db.select_work_items_for_enrichment()]
+            assert default_ids == ["LINKED-WI", "NEW-WI"]
+
+            all_ids = [record.wi_id for record in await db.select_work_items_for_enrichment(include_all=True)]
+            assert all_ids == ["LINKED-WI", "DONE-WI", "NEW-WI"]
+
+            explicit = [record.wi_id for record in await db.select_work_items_for_enrichment(["done-wi"])]
+            assert explicit == ["DONE-WI"]
+
+            limited = await db.select_work_items_for_enrichment(include_all=True, limit=2)
+            assert [record.wi_id for record in limited] == ["LINKED-WI", "DONE-WI"]
+
+    async def test_store_work_items_keeps_tdoc_counts(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """Crawling the DynaReport lists does not wipe TDoc counts from document lists."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc)
+            await db.store_tdoc_work_items({"R1-2301234": ["ULBC-MED"]})
+
+            await db.store_work_items([WorkItem(wi_id="ULBC-MED", uid=1120096, title="Ultra Low Bitrate Speech Codec", release="Rel-20")])
+
+            records = await db.list_work_items()
+            assert [(record.wi_id, record.tdoc_count) for record in records] == [("ULBC-MED", 1)]
+
+    async def test_query_tdocs_by_spec_number(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """TDocs can be filtered by the specification named in their document list."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            for tdoc in sample_tdocs:
+                _ = await db.upsert_tdoc(tdoc.model_copy(update={"spec_number": "26.114"}))
+            _ = await db.upsert_tdoc(sample_tdocs[0].model_copy(update={"tdoc_id": "R1-2309999", "spec_number": "38.211"}))
+
+            matches = await db.query_tdocs(TDocQueryConfig(spec_numbers=["26114"]))
+            assert sorted(tdoc.tdoc_id for tdoc in matches) == sorted(tdoc.tdoc_id for tdoc in sample_tdocs)
+            assert "R1-2309999" not in {tdoc.tdoc_id for tdoc in matches}
+
+            assert await db.query_tdocs(TDocQueryConfig(spec_numbers=["99.999"])) == []
+
+    async def test_bulk_upsert_mixed_spec_and_cr_columns(
+        self,
+        test_db_path: Path,
+        sample_tdocs: list[TDocMetadata],
+        sample_meetings: list[dict[str, object]],
+    ) -> None:
+        """A batch mixing filled and empty document-list columns must not fail."""
+        async with TDocDatabase(test_db_path) as db:
+            await self._insert_sample_meetings(db, sample_meetings)
+            batch = [
+                sample_tdocs[0].model_copy(
+                    update={
+                        "tdoc_id": "S4-2309001",
+                        "spec_number": "26.114",
+                        "release": "Rel-19",
+                        "cr_number": "0003",
+                        "cr_category": "F",
+                    }
+                ),
+                sample_tdocs[0].model_copy(update={"tdoc_id": "S4-2309002"}),
+            ]
+
+            inserted, changed = await db.bulk_upsert_tdocs(batch)
+
+            assert inserted == 2
+            assert changed == 0
+
+            stored = await db.query_tdocs(TDocQueryConfig(spec_numbers=["26.114"]))
+            assert [tdoc.tdoc_id for tdoc in stored] == ["S4-2309001"]
+            assert stored[0].cr_number == "0003"
+            assert stored[0].cr_category == "F"
 
     async def test_query_by_unknown_subgroup_returns_nothing(
         self,

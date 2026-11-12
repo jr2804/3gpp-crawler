@@ -7,7 +7,8 @@ from pathlib import Path
 
 from tdoc_crawler.config.settings import HttpConfig
 from tdoc_crawler.logging import get_logger
-from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list
+from tdoc_crawler.tdocs.sources.agenda import resolve_agenda_hierarchy
+from tdoc_crawler.tdocs.sources.doclist import fetch_meeting_document_list_with_work_items
 
 _ = get_logger(__name__)
 
@@ -31,11 +32,12 @@ def fetch_meeting_document_list_subinterpreter(
         files_url: Optional HTTP directory containing meeting documents (for URL construction)
 
     Returns:
-        JSON string containing list of TDocMetadata or error information
+        JSON string containing ``{"tdocs": [...], "work_items": {...},
+        "agenda_items": {...}}`` or error information
     """
     try:
         # Fetch document list for the meeting
-        tdoc_metadata_list = fetch_meeting_document_list(
+        tdoc_metadata_list, work_items = fetch_meeting_document_list_with_work_items(
             meeting_id=meeting_id,
             timeout=timeout,
             http_config=http_config,
@@ -43,10 +45,19 @@ def fetch_meeting_document_list_subinterpreter(
             files_url=files_url,
         )
 
+        # Resolve parent agenda items (not part of the portal document list)
+        agenda_items = resolve_agenda_hierarchy(
+            tdoc_metadata_list,
+            files_url=files_url,
+            timeout=timeout,
+            http_config=http_config,
+            http_cache_file=Path(http_cache_file) if http_cache_file else None,
+        )
+
         # Serialize to JSON for inter-process communication
         serialized = [tdoc_metadata.model_dump_json() for tdoc_metadata in tdoc_metadata_list]
 
-        return json.dumps(serialized)
+        return json.dumps({"tdocs": serialized, "work_items": work_items, "agenda_items": agenda_items})
 
     except Exception as exc:
         # Return error information as JSON

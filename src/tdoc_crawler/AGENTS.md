@@ -94,6 +94,16 @@ Search before implementing. Check relevant domain package (`tdocs/`, `meetings/`
 | Excel DocList | `tdocs/sources/doclist.py` | No | ✓ | ✗ | Batch crawl |
 | WhatTheSpec API | `tdocs/sources/whatthespec.py` | No | ✗ | ✓ | Single lookups |
 | 3GPP Portal | `tdocs/sources/portal.py` | Yes | ✗ | ✓ | Authenticated fallback |
+| DynaReport WI lists | `workitems/sources/dynareport.py` | No | ✓ | ✓ | Work item catalogue |
+
+Work items come from the public DynaReport pages: the per-lead-body lists
+(`TSG-WG--<WG>--wis.htm`) are the current catalogue source (crawl), and
+`WorkItemDetails.aspx?workitemId=<UID>` plus `WiSpec--`/`WiCr--<UID>.htm`
+enrich status, parent/child and outputs per work item. The global `WI-List`
+page lags for in-flight work items — discovery and audit only. The portal
+grid pages (`WorkItems.aspx`, `Specifications.aspx`, `ChangeRequests.aspx`)
+are not scraped (Telerik postbacks, login). TDoc→work-item links come from
+the document list `Related WIs` column.
 
 ## Database
 

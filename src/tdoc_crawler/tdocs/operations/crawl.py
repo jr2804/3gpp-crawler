@@ -73,12 +73,18 @@ class TDocCrawler:
         targets = set(config.target_ids) if config.target_ids else None
 
         collected: list[TDocMetadata] = []
-        errors = self._crawl_meetings(meetings, config, collected, existing_ids, targets)
+        work_items: dict[str, list[str]] = {}
+        agenda_items: dict[int, dict[str, str]] = {}
+        errors = self._crawl_meetings(meetings, config, collected, work_items, agenda_items, existing_ids, targets)
 
         inserted = 0
         updated = 0
         if collected:
             inserted, updated = await self.database.bulk_upsert_tdocs(collected, progress_callback=progress_callback)
+        if work_items:
+            await self.database.store_tdoc_work_items(work_items)
+        if agenda_items:
+            await self.database.store_meeting_agenda_items(agenda_items)
 
         return TDocCrawlResult(
             processed=len(collected),
@@ -108,6 +114,8 @@ class TDocCrawler:
         meetings: list[MeetingMetadata],
         config: TDocCrawlConfig,
         collected: list[TDocMetadata],
+        work_items: dict[str, list[str]],
+        agenda_items: dict[int, dict[str, str]],
         existing_ids: set[str],
         targets: set[str] | None,
     ) -> list[str]:
@@ -136,6 +144,8 @@ class TDocCrawler:
                     json_payload,
                     meeting,
                     collected,
+                    work_items,
+                    agenda_items,
                     seen_ids,
                     existing_ids,
                     config.incremental,
@@ -167,8 +177,10 @@ class TDocCrawler:
         return cls._apply_subworking_group_limit(limited, limit_subwgs)
 
     @classmethod
-    def _parse_document_list_payload(cls, json_payload: str, meeting: MeetingMetadata, errors: list[str]) -> list[str] | None:
-        """Decode worker payload and validate expected list shape."""
+    def _parse_document_list_payload(
+        cls, json_payload: str, meeting: MeetingMetadata, errors: list[str]
+    ) -> tuple[list[str], dict[str, list[str]], dict[str, str]] | None:
+        """Decode worker payload into serialized TDocs, work item and agenda references."""
         short_name = cls._meeting_short_name(meeting)
         try:
             response_data = json.loads(json_payload)
@@ -185,13 +197,21 @@ class TDocCrawler:
             errors.append(message)
             return None
 
-        if not isinstance(response_data, list):
+        if isinstance(response_data, list):
+            # Payload from workers that do not report work item references
+            return response_data, {}, {}
+
+        if not isinstance(response_data, dict) or not isinstance(response_data.get("tdocs"), list):
             message = f"Unexpected document list response for meeting {short_name}"
             logger.warning(message)
             errors.append(message)
             return None
 
-        return response_data
+        raw_work_items = response_data.get("work_items") or {}
+        work_items = {str(tdoc_id).upper(): [str(wi_id).upper() for wi_id in wi_ids] for tdoc_id, wi_ids in raw_work_items.items() if isinstance(wi_ids, list)}
+        raw_agenda_items = response_data.get("agenda_items") or {}
+        agenda_items = {str(number): str(text) for number, text in raw_agenda_items.items() if str(text).strip()}
+        return response_data["tdocs"], work_items, agenda_items
 
     @staticmethod
     def _filter_meetings_by_ids(meetings: list[MeetingMetadata], meeting_ids: list[int] | None) -> list[MeetingMetadata]:
@@ -379,6 +399,8 @@ class TDocCrawler:
         json_payload: str,
         meeting: MeetingMetadata,
         collected: list[TDocMetadata],
+        work_items: dict[str, list[str]],
+        agenda_items: dict[int, dict[str, str]],
         seen_ids: set[str],
         existing_ids: set[str],
         incremental: bool,
@@ -391,9 +413,13 @@ class TDocCrawler:
         Returns True when a crawl limit (target IDs or limit_tdocs) has been
         reached and processing should stop.
         """
-        response_data = TDocCrawler._parse_document_list_payload(json_payload, meeting, errors)
-        if response_data is None:
+        payload = TDocCrawler._parse_document_list_payload(json_payload, meeting, errors)
+        if payload is None:
             return False
+        response_data, payload_work_items, payload_agenda_items = payload
+
+        if payload_agenda_items:
+            agenda_items[meeting.meeting_id] = payload_agenda_items
 
         for tdoc_json in response_data:
             metadata = TDocMetadata.model_validate_json(tdoc_json)
@@ -404,6 +430,8 @@ class TDocCrawler:
 
             collected.append(metadata)
             seen_ids.add(tdoc_id)
+            if wi_ids := payload_work_items.get(tdoc_id.upper()):
+                work_items[tdoc_id.upper()] = wi_ids
 
             if targets is not None:
                 targets.discard(tdoc_id)

@@ -27,6 +27,8 @@ tdoc-crawler crawl --start-date 2024             # from 2024 onwards
 tdoc-crawler query                               # all TDocs
 tdoc-crawler query R1-260001                     # specific ID
 tdoc-crawler query --sub-group S4                # filter by sub-working group
+tdoc-crawler query --work-item ULBC-MED          # filter by 3GPP work item
+tdoc-crawler query --spec-number 26.114          # filter by named specification
 tdoc-crawler query --start-date 2024             # date range
 tdoc-crawler query --agenda "*codec*"            # agenda pattern
 tdoc-crawler query --title "*split render*"      # title pattern
@@ -101,6 +103,21 @@ spec-crawler checkout 26260 26261                  # batch download
 spec-crawler files 26260 --release 18.0            # list zip members (--refresh re-reads)
 ```
 
+## 3gpp-crawler work-items (top-level)
+
+```bash
+3gpp-crawler work-items crawl                    # catalogue from DynaReport lists (all lead bodies)
+3gpp-crawler work-items crawl -s S4              # one lead body
+3gpp-crawler work-items crawl -w SA              # whole SA area (SP, S1..S6)
+3gpp-crawler work-items enrich                   # status/parents/specs/CRs from portal pages
+3gpp-crawler work-items enrich --include-all --limit 50
+3gpp-crawler work-items audit                    # catalogue vs global WI-List coverage
+3gpp-crawler work-items query                    # all work items
+3gpp-crawler work-items query ULBC-MED --show-specs   # one work item + impacted specs
+3gpp-crawler work-items query -w SA -r Rel-20          # by working group and release
+3gpp-crawler work-items query --status stopped -o json
+```
+
 ## 3gpp-crawler tag (top-level)
 
 ```bash
@@ -138,4 +155,5 @@ spec-crawler files 26260 --release 18.0            # list zip members (--refresh
 | `TDC_CACHE_DIR` | Override cache directory |
 | `TDC_EOL_USERNAME` | ETSI Online username |
 | `TDC_EOL_PASSWORD` | ETSI Online password |
-| `TDC_WORKING_GROUP` | Default working group filter |
+| `TDC_WORKING_GROUP` | Default working group filter (`RAN`, `SA`, `CT`) |
+| `TDC_SUB_GROUP` | Default sub-working-group filter (e.g. `S4`, `RAN1`) |

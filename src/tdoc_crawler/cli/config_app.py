@@ -144,8 +144,8 @@ def _validate_config_values(config: ThreeGPPConfig) -> list[tuple[str, str]]:
         issues.append(("warning", "credentials not set (username/password); some features may require authentication"))
 
     # Warnings for missing optional filters
-    if config.crawl.working_group is None:
-        issues.append(("warning", "crawl.working_group not set (no filter applied)"))
+    if config.crawl.working_group is None and config.crawl.sub_group is None:
+        issues.append(("warning", "crawl.working_group/sub_group not set (no default scope filter; commands use -w/-s or crawl all)"))
 
     return issues
 

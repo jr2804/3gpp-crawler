@@ -18,7 +18,7 @@ from tdoc_crawler.cli.args import (
 )
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import meeting_to_dict, print_meeting_table
-from tdoc_crawler.config import PathConfig
+from tdoc_crawler.config import PathConfig, ThreeGPPConfig
 from tdoc_crawler.database import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
@@ -43,7 +43,14 @@ def query_meetings(
     set_verbosity(verbosity)
     path_config = PathConfig(cache_dir=cache_dir) if cache_dir else PathConfig()
     # Query semantics: no working_group filter unless the user asked for one.
-    working_groups, subgroups = parse_scope(working_group, subgroup, default_to_all=False)
+    crawler_config = ThreeGPPConfig.from_settings()
+    working_groups, subgroups = parse_scope(
+        working_group,
+        subgroup,
+        default_to_all=False,
+        config_working_group=crawler_config.crawl.working_group,
+        config_subgroup=crawler_config.crawl.sub_group,
+    )
     config = MeetingQueryConfig(
         working_groups=working_groups,
         subgroups=subgroups,

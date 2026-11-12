@@ -1,20 +1,30 @@
 """TDoc database operations."""
 
 import fnmatch
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime
 from typing import Any
 
 from tdoc_crawler.database.meetings import MeetingDatabase
-from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
+from tdoc_crawler.database.oxyde_models import (
+    MeetingAgendaItem,
+    MeetingMetadata,
+    TDocMetadata,
+    TDocWorkItem,
+    WorkItemCrRecord,
+    WorkItemRecord,
+    WorkItemSpecRecord,
+)
 from tdoc_crawler.database.tags import item_ids_for_tag_groups, parse_tag_groups
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models import WorkingGroup
 from tdoc_crawler.models.base import SortKey, TagKind
 from tdoc_crawler.models.subworking_groups import CODE_INDEX
 from tdoc_crawler.tdocs.models import TDocQueryConfig
+from tdoc_crawler.utils.agenda import ancestor_agenda_numbers
 from tdoc_crawler.utils.misc import utc_now
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
+from tdoc_crawler.workitems.models import WorkItem, WorkItemCr, WorkItemDetails
 
 SQLITE_MAX_VARS = 999
 
@@ -167,18 +177,37 @@ class TDocDatabase(MeetingDatabase):
             allowed_tbids = [wg.tbid for wg in config.working_groups]
             qs = qs.filter(tbid__in=allowed_tbids)
 
+        subgroup_prefixes: tuple[str, ...] = ()
+
         if config.subgroups:
             allowed_subtbs = [CODE_INDEX[code.upper()].subtb for code in config.subgroups if code.upper() in CODE_INDEX]
             meetings = await MeetingMetadata.objects.filter(subtb__in=allowed_subtbs).all()
             meeting_ids = [meeting.meeting_id for meeting in meetings]
-            if not meeting_ids:
+            if meeting_ids:
+                qs = qs.filter(meeting_id__in=meeting_ids)
+            else:
+                # Meetings were never crawled (TDoc-only crawl leaves the
+                # meetings table empty), so resolve sub-working groups from the
+                # TDoc ID prefix instead of returning nothing.
+                subgroup_prefixes = tuple(code.upper() for code in config.subgroups)
+
+        if config.work_items:
+            links = await TDocWorkItem.objects.filter(wi_id__in=[wi.upper() for wi in config.work_items]).all()
+            linked_ids = sorted({link.tdoc_id for link in links})
+            if not linked_ids:
                 return []
-            qs = qs.filter(meeting_id__in=meeting_ids)
+            qs = qs.filter(tdoc_id__in=linked_ids)
+
+        if config.spec_numbers:
+            qs = qs.filter(spec_number__in=list(config.spec_numbers))
 
         records = await qs.all()
 
         if not records:
             return []
+
+        if subgroup_prefixes:
+            records = [record for record in records if record.tdoc_id.upper().startswith(subgroup_prefixes)]
 
         need_meeting_map = config.meeting_start_date is not None or config.meeting_end_date is not None
 
@@ -189,7 +218,8 @@ class TDocDatabase(MeetingDatabase):
 
         records = self._filter_by_retrieved_dates(records, config.start_date, config.end_date)
 
-        records = self._apply_pattern_filters(records, config)
+        agenda_map = await self._load_meeting_agenda_map(records) if (config.agenda_pattern or config.agenda_pattern_exclude) else {}
+        records = self._apply_pattern_filters(records, config, agenda_map)
 
         if config.tag:
             groups = parse_tag_groups(config.tag)
@@ -227,6 +257,299 @@ class TDocDatabase(MeetingDatabase):
         records = await TDocMetadata.objects.filter(tbid__in=allowed_tbids).all()
         return {record.tdoc_id for record in records}
 
+    async def store_tdoc_work_items(self, work_items: dict[str, list[str]]) -> None:
+        """Replace the stored work item references of the given TDocs.
+
+        Clears any previous links for these TDocs (a re-crawl can drop a
+        reference), rewrites the links from the document list, and refreshes
+        the work item catalogue with counts.
+
+        Args:
+            work_items: Mapping of TDoc ID to the work item IDs it references
+        """
+        if not work_items:
+            return
+
+        tdoc_ids = sorted(tdoc_id.upper() for tdoc_id in work_items)
+        for i in range(0, len(tdoc_ids), SQLITE_MAX_VARS):
+            await TDocWorkItem.objects.filter(tdoc_id__in=tdoc_ids[i : i + SQLITE_MAX_VARS]).delete()
+
+        links = [
+            TDocWorkItem(link_id=f"{tdoc_id.upper()}|{wi_id.upper()}", tdoc_id=tdoc_id.upper(), wi_id=wi_id.upper())
+            for tdoc_id, wi_ids in work_items.items()
+            for wi_id in wi_ids
+        ]
+        for i in range(0, len(links), DEFAULT_BULK_BATCH_SIZE):
+            await TDocWorkItem.objects.bulk_create(links[i : i + DEFAULT_BULK_BATCH_SIZE])
+
+        await self._refresh_work_item_catalog({link.wi_id for link in links})
+
+    @staticmethod
+    async def store_meeting_agenda_items(agenda_by_meeting: Mapping[int, Mapping[str, str]]) -> int:
+        """Replace the stored parent agenda items of the given meetings.
+
+        Args:
+            agenda_by_meeting: Mapping of meeting ID to its agenda items
+                (agenda number to text)
+
+        Returns:
+            Number of stored agenda items
+        """
+        if not agenda_by_meeting:
+            return 0
+
+        meeting_ids = sorted(meeting_id for meeting_id in agenda_by_meeting if meeting_id)
+        for i in range(0, len(meeting_ids), SQLITE_MAX_VARS):
+            await MeetingAgendaItem.objects.filter(meeting_id__in=meeting_ids[i : i + SQLITE_MAX_VARS]).delete()
+
+        items = [
+            MeetingAgendaItem(
+                link_id=f"{meeting_id}|{number}",
+                meeting_id=meeting_id,
+                agenda_nbr=number,
+                agenda_text=text,
+            )
+            for meeting_id, agenda_items in agenda_by_meeting.items()
+            for number, text in agenda_items.items()
+        ]
+        for i in range(0, len(items), DEFAULT_BULK_BATCH_SIZE):
+            await MeetingAgendaItem.objects.bulk_create(items[i : i + DEFAULT_BULK_BATCH_SIZE])
+
+        _logger.debug("Stored %d agenda items for %d meeting(s)", len(items), len(meeting_ids))
+        return len(items)
+
+    @staticmethod
+    async def list_work_items(
+        *,
+        working_group: WorkingGroup | None = None,
+        release: str | None = None,
+        status: str | None = None,
+        parent_wi_id: str | None = None,
+        lead_body: str | None = None,
+    ) -> list[WorkItemRecord]:
+        """List work items, optionally limited by working group, release, status, parent or lead body."""
+        records = await WorkItemRecord.objects.all()
+        if release:
+            records = [record for record in records if (record.release or "").lower() == release.lower()]
+        if status:
+            records = [record for record in records if (record.status or "").lower() == status.lower()]
+        if parent_wi_id:
+            parent = parent_wi_id.upper()
+            records = [record for record in records if (record.parent_wi_id or "").upper() == parent]
+        if lead_body:
+            needle = lead_body.strip().upper()
+            records = [record for record in records if needle in (record.lead_body or "").upper()]
+        if working_group is None:
+            return sorted(records, key=lambda record: (-record.tdoc_count, record.wi_id))
+
+        links = await TDocWorkItem.objects.all()
+        tdocs = await TDocMetadata.objects.filter(tbid=working_group.tbid).all()
+        allowed = {tdoc.tdoc_id.upper() for tdoc in tdocs}
+        wi_ids = {link.wi_id for link in links if link.tdoc_id.upper() in allowed}
+        return sorted(
+            (record for record in records if record.wi_id in wi_ids),
+            key=lambda record: (-record.tdoc_count, record.wi_id),
+        )
+
+    @staticmethod
+    async def list_work_item_specs(wi_id: str) -> list[str]:
+        """Return the specification numbers a work item impacts, sorted."""
+        links = await WorkItemSpecRecord.objects.filter(wi_id=wi_id.upper()).all()
+        return sorted({link.spec_number for link in links})
+
+    @staticmethod
+    async def store_work_items(work_items: Sequence[WorkItem]) -> int:
+        """Upsert work item catalogue rows from DynaReport per-group lists.
+
+        The catalogue rows keep the TDoc counts computed from document lists
+        and the enriched status/parent fields; only the per-group list
+        attributes are replaced. A ``lead_body`` already present is merged
+        (comma separated) so work items led by several groups keep all of
+        them.
+
+        Args:
+            work_items: Work items parsed from the per-group lists
+
+        Returns:
+            Number of work items stored
+        """
+        if not work_items:
+            return 0
+
+        now = utc_now()
+        existing = {record.wi_id: record for record in await WorkItemRecord.objects.all()}
+        new_records: list[WorkItemRecord] = []
+        updated_records: list[WorkItemRecord] = []
+        seen: set[str] = set()
+
+        for item in work_items:
+            if item.wi_id in seen:
+                continue
+            seen.add(item.wi_id)
+            record = existing.get(item.wi_id)
+            if record is None:
+                record = WorkItemRecord(wi_id=item.wi_id)
+                new_records.append(record)
+            elif (
+                record.uid,
+                record.title,
+                record.release,
+                record.level,
+                record.lead_body,
+                record.parent_uid,
+            ) == (item.uid, item.title, item.release, item.level, item.lead_body, item.parent_uid):
+                continue
+            else:
+                updated_records.append(record)
+
+            record.uid = item.uid
+            record.title = item.title
+            record.release = item.release
+            record.level = item.level
+            record.parent_uid = item.parent_uid
+            record.lead_body = _merge_lead_bodies(record.lead_body, item.lead_body)
+            record.updated_at = now
+
+        for i in range(0, len(new_records), DEFAULT_BULK_BATCH_SIZE):
+            await WorkItemRecord.objects.bulk_create(new_records[i : i + DEFAULT_BULK_BATCH_SIZE])
+        for record in updated_records:
+            await record.save()
+
+        await TDocDatabase._resolve_parent_wi_ids()
+
+        return len(new_records) + len(updated_records)
+
+    @staticmethod
+    async def store_work_item_details(
+        wi_id: str,
+        details: WorkItemDetails,
+        spec_numbers: Sequence[str],
+        change_requests: Sequence[WorkItemCr],
+    ) -> bool:
+        """Store enrichment data of one work item from the portal pages.
+
+        Updates status, release, WI level, title, parent UID and the
+        parent work item ID (resolved through the catalogue UIDs), and
+        replaces the specification and change-request links of the work
+        item. Creates a minimal catalogue row for unknown work item IDs.
+
+        Args:
+            wi_id: Work item ID (acronym)
+            details: Parsed WorkItemDetails.aspx payload
+            spec_numbers: Specification numbers from the WiSpec page
+            change_requests: Change requests from the WiCr page
+
+        Returns:
+            True if the stored row changed
+        """
+        wi_id = wi_id.upper()
+        record = await WorkItemRecord.objects.filter(wi_id=wi_id).first()
+        if record is None:
+            record = WorkItemRecord(wi_id=wi_id)
+            await WorkItemRecord.objects.create(instance=record)
+
+        before = (
+            record.uid,
+            record.title,
+            record.status,
+            record.release,
+            record.level,
+            record.parent_uid,
+            record.parent_wi_id,
+        )
+
+        record.uid = details.uid
+        if details.title:
+            record.title = details.title
+        if details.status:
+            record.status = details.status
+        if details.release:
+            record.release = details.release
+        if details.level is not None:
+            record.level = details.level
+        if details.parent_uid is not None:
+            record.parent_uid = details.parent_uid
+        record.updated_at = utc_now()
+
+        changed = (
+            record.uid,
+            record.title,
+            record.status,
+            record.release,
+            record.level,
+            record.parent_uid,
+            record.parent_wi_id,
+        ) != before
+        if changed:
+            await record.save()
+
+        await TDocDatabase._resolve_parent_wi_ids()
+
+        await WorkItemSpecRecord.objects.filter(wi_id=wi_id).delete()
+        spec_links = [WorkItemSpecRecord(link_id=f"{wi_id}|{spec_number}", wi_id=wi_id, spec_number=spec_number) for spec_number in dict.fromkeys(spec_numbers)]
+        for i in range(0, len(spec_links), DEFAULT_BULK_BATCH_SIZE):
+            await WorkItemSpecRecord.objects.bulk_create(spec_links[i : i + DEFAULT_BULK_BATCH_SIZE])
+
+        await WorkItemCrRecord.objects.filter(wi_id=wi_id).delete()
+        cr_links = [
+            WorkItemCrRecord(
+                link_id=TDocDatabase._cr_link_id(item, wi_id),
+                wi_id=wi_id,
+                spec_number=item.spec_number,
+                cr_number=item.cr_number,
+                cr_revision=item.cr_revision,
+                cr_title=item.cr_title,
+            )
+            for item in change_requests
+        ]
+        for i in range(0, len(cr_links), DEFAULT_BULK_BATCH_SIZE):
+            await WorkItemCrRecord.objects.bulk_create(cr_links[i : i + DEFAULT_BULK_BATCH_SIZE])
+
+        return changed
+
+    @staticmethod
+    async def list_work_item_crs(wi_id: str) -> list[WorkItemCrRecord]:
+        """Return the change requests of a work item, sorted."""
+        links = await WorkItemCrRecord.objects.filter(wi_id=wi_id.upper()).all()
+        return sorted(links, key=lambda link: (link.spec_number, link.cr_number, link.cr_revision or ""))
+
+    @staticmethod
+    async def select_work_items_for_enrichment(
+        work_item_ids: Sequence[str] | None = None,
+        *,
+        limit: int | None = None,
+        include_all: bool = False,
+    ) -> list[WorkItemRecord]:
+        """Select the work items to enrich from the portal pages.
+
+        Defaults to the work items referenced by crawled TDocs plus the ones
+        never enriched (no status yet), most TDoc references first.
+
+        Args:
+            work_item_ids: Explicit work item IDs; overrides the default selection
+            limit: Cap on the number of selected work items
+            include_all: Include every catalogue row, not only linked/unenriched
+
+        Returns:
+            Selected work item records
+        """
+        if work_item_ids:
+            wanted = [wi_id.upper() for wi_id in work_item_ids]
+            records = []
+            for wi_id in dict.fromkeys(wanted):
+                record = await WorkItemRecord.objects.filter(wi_id=wi_id).first()
+                if record is None:
+                    _logger.warning("Work item %s is not in the catalogue; enriching anyway", wi_id)
+                    record = WorkItemRecord(wi_id=wi_id)
+                records.append(record)
+            return records
+
+        linked = {link.wi_id for link in await TDocWorkItem.objects.all()}
+        records = await WorkItemRecord.objects.all()
+        selection = [record for record in records if include_all or record.status is None or record.wi_id in linked]
+        selection.sort(key=lambda record: (0 if record.wi_id in linked else 1, -record.tdoc_count, record.wi_id))
+        return selection[:limit] if limit is not None else selection
+
     def _sort_key(
         self,
         config: TDocQueryConfig,
@@ -250,15 +573,31 @@ class TDocDatabase(MeetingDatabase):
             record.tdoc_id.upper(),
         )
 
-    def _apply_pattern_filters(self, records: list[TDocMetadata], config: TDocQueryConfig) -> list[TDocMetadata]:
+    def _apply_pattern_filters(
+        self,
+        records: list[TDocMetadata],
+        config: TDocQueryConfig,
+        agenda_map: Mapping[tuple[int, str], str] | None = None,
+    ) -> list[TDocMetadata]:
         """Apply all supported include/exclude glob filters."""
+        agenda_items = agenda_map or {}
         filtered = records
         filtered = self._filter_by_pattern(filtered, config.source_pattern, lambda record: record.source, exclude=False)
         filtered = self._filter_by_pattern(filtered, config.source_pattern_exclude, lambda record: record.source, exclude=True)
         filtered = self._filter_by_pattern(filtered, config.title_pattern, lambda record: record.title, exclude=False)
         filtered = self._filter_by_pattern(filtered, config.title_pattern_exclude, lambda record: record.title, exclude=True)
-        filtered = self._filter_by_pattern(filtered, config.agenda_pattern, lambda record: record.agenda_item_text, exclude=False)
-        return self._filter_by_pattern(filtered, config.agenda_pattern_exclude, lambda record: record.agenda_item_text, exclude=True)
+        filtered = self._filter_by_pattern(
+            filtered,
+            config.agenda_pattern,
+            lambda record: _agenda_search_text(record, agenda_items),
+            exclude=False,
+        )
+        return self._filter_by_pattern(
+            filtered,
+            config.agenda_pattern_exclude,
+            lambda record: _agenda_search_text(record, agenda_items),
+            exclude=True,
+        )
 
     async def _resolve_tbid(self, record: TDocMetadata) -> TDocMetadata:
         """Resolve tbid from the associated meeting and return updated record."""
@@ -268,6 +607,71 @@ class TDocDatabase(MeetingDatabase):
         if meeting is None or meeting.tbid is None:
             return record
         return self._clone_tdoc(record, {"tbid": meeting.tbid})
+
+    @staticmethod
+    async def _load_meeting_agenda_map(records: Sequence[TDocMetadata]) -> dict[tuple[int, str], str]:
+        """Load the stored agenda items of the meetings the records belong to."""
+        meeting_ids = sorted({record.meeting_id for record in records if record.meeting_id})
+        if not meeting_ids:
+            return {}
+
+        agenda_map: dict[tuple[int, str], str] = {}
+        for i in range(0, len(meeting_ids), SQLITE_MAX_VARS):
+            rows = await MeetingAgendaItem.objects.filter(meeting_id__in=meeting_ids[i : i + SQLITE_MAX_VARS]).all()
+            for row in rows:
+                agenda_map[(row.meeting_id, row.agenda_nbr)] = row.agenda_text
+        return agenda_map
+
+    @staticmethod
+    async def _refresh_work_item_catalog(wi_ids: set[str]) -> None:
+        """Insert missing work item records and refresh the whole TDoc-count catalogue.
+
+        Counts are recomputed over all links. Catalogue rows are kept even
+        without links — they may come from the DynaReport lists
+        (``work-items crawl``), so only the count is reset to zero.
+        """
+        if not wi_ids:
+            return
+
+        now = utc_now()
+        ordered = sorted(wi_ids)
+        existing: set[str] = set()
+        for i in range(0, len(ordered), SQLITE_MAX_VARS):
+            chunk = ordered[i : i + SQLITE_MAX_VARS]
+            existing.update(record.wi_id for record in await WorkItemRecord.objects.filter(wi_id__in=chunk).all())
+
+        missing = [WorkItemRecord(wi_id=wi_id, updated_at=now) for wi_id in ordered if wi_id not in existing]
+        if missing:
+            await WorkItemRecord.objects.bulk_create(missing)
+
+        counts: dict[str, int] = {}
+        for link in await TDocWorkItem.objects.all():
+            counts[link.wi_id] = counts.get(link.wi_id, 0) + 1
+
+        for record in await WorkItemRecord.objects.all():
+            count = counts.get(record.wi_id, 0)
+            if record.tdoc_count != count:
+                record.tdoc_count = count
+                record.updated_at = now
+                await record.save()
+
+    @staticmethod
+    def _cr_link_id(item: WorkItemCr, wi_id: str) -> str:
+        revision = item.cr_revision or "-"
+        return f"{wi_id}|{item.spec_number}|{item.cr_number}|{revision}"
+
+    @staticmethod
+    async def _resolve_parent_wi_ids() -> None:
+        """Fill ``parent_wi_id`` from ``parent_uid`` via the catalogue UIDs."""
+        records = await WorkItemRecord.objects.all()
+        by_uid = {record.uid: record.wi_id for record in records if record.uid is not None}
+        for record in records:
+            if record.parent_uid is None:
+                continue
+            parent_wi_id = by_uid.get(record.parent_uid)
+            if parent_wi_id is not None and record.parent_wi_id != parent_wi_id:
+                record.parent_wi_id = parent_wi_id
+                await record.save()
 
     @staticmethod
     async def _get_tdoc(tdoc_id: str) -> TDocMetadata | None:
@@ -392,6 +796,9 @@ class TDocDatabase(MeetingDatabase):
             updates["uploaded_at"] = metadata.date_retrieved or utc_now()
         if metadata.tbid is None:
             updates["tbid"] = 0
+        for field in ("spec_number", "release", "cr_number", "cr_category"):
+            if getattr(metadata, field) is None:
+                updates[field] = ""
         if updates:
             return TDocDatabase._clone_tdoc(metadata, updates)
         return metadata
@@ -412,6 +819,33 @@ class TDocDatabase(MeetingDatabase):
         data = {field: getattr(metadata, field, None) for field in TDocMetadata.__annotations__}
         data.update(updates)
         return TDocMetadata(**data)
+
+
+def _agenda_search_text(record: TDocMetadata, agenda_map: Mapping[tuple[int, str], str]) -> str:
+    """Return the agenda text of a record including its parent agenda items.
+
+    Parent agenda items are matched as well, so a document of agenda item
+    ``4.5`` also matches the text of its parent agenda item ``4``.
+    """
+    parts = [record.agenda_item_text or ""]
+    for ancestor in ancestor_agenda_numbers(str(record.agenda_item_nbr)):
+        text = agenda_map.get((record.meeting_id, ancestor))
+        if text:
+            parts.append(text)
+    return " | ".join(part for part in parts if part)
+
+
+def _merge_lead_bodies(current: str | None, incoming: str | None) -> str | None:
+    """Merge lead body codes into a comma-separated unique list."""
+    parts: list[str] = []
+    for value in (current, incoming):
+        if not value:
+            continue
+        for part in value.split(","):
+            cleaned = part.strip().upper()
+            if cleaned and cleaned not in parts:
+                parts.append(cleaned)
+    return ",".join(parts) or None
 
 
 def _get_updatable_fields(model_type: type) -> list[str]:

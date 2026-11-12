@@ -84,7 +84,12 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
         crawler_config.path.cache_dir = cache_dir
     crawler_config.ensure_paths()
 
-    working_groups, subgroups = parse_scope(working_group, subgroup)
+    working_groups, subgroups = parse_scope(
+        working_group,
+        subgroup,
+        config_working_group=crawler_config.crawl.working_group,
+        config_subgroup=crawler_config.crawl.sub_group,
+    )
 
     config = TDocCrawlConfig(
         working_groups=working_groups,

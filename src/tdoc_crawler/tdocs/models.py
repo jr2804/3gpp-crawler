@@ -17,7 +17,7 @@ from tdoc_crawler.models.base import (
     SortOrder,
 )
 from tdoc_crawler.models.working_groups import WorkingGroup
-from tdoc_crawler.utils.normalization import normalize_tdoc_ids, normalize_working_group_list
+from tdoc_crawler.utils.normalization import normalize_spec_number, normalize_tdoc_ids, normalize_working_group_list
 
 
 class TDocStatus(StrEnum):
@@ -160,6 +160,8 @@ class TDocQueryConfig(BaseModel):
     tdoc_ids: list[str] | None = Field(None, description="TDoc IDs to query")
     working_groups: list[WorkingGroup] | None = Field(None, description="Filter by working group")
     subgroups: list[str] | None = Field(None, description="Filter by sub-working-group codes (e.g. 'S4', 'R1')")
+    work_items: list[str] | None = Field(None, description="Filter by work item IDs (e.g. 'ULBC-MED')")
+    spec_numbers: list[str] | None = Field(None, description="Filter by specification number (e.g. '26.114')")
     start_date: datetime | None = Field(None, description="Start date filter")
     end_date: datetime | None = Field(None, description="End date filter")
     # Meeting date filters (filter by associated meeting's dates)
@@ -170,8 +172,14 @@ class TDocQueryConfig(BaseModel):
     source_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude source field; multiple values are OR'd")
     title_pattern: list[str] | None = Field(None, description="Glob pattern(s) for title field; multiple values are OR'd")
     title_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude title field; multiple values are OR'd")
-    agenda_pattern: list[str] | None = Field(None, description="Glob pattern(s) for agenda_item_text field; multiple values are OR'd")
-    agenda_pattern_exclude: list[str] | None = Field(None, description="Glob pattern(s) to exclude agenda_item_text field; multiple values are OR'd")
+    agenda_pattern: list[str] | None = Field(
+        None,
+        description="Glob pattern(s) for agenda item text, parent items included; multiple values are OR'd",
+    )
+    agenda_pattern_exclude: list[str] | None = Field(
+        None,
+        description="Glob pattern(s) to exclude agenda item text (incl. parents); multiple values are OR'd",
+    )
     tag: list[str] | None = Field(None, description="Tag filter: comma-separated values are OR-combined; repeated values are AND-combined")
     limit: int | None = Field(None, ge=1, description="Maximum results")
     order: SortOrder = Field(SortOrder.ASC, description="Sort order (asc|desc)")
@@ -199,6 +207,24 @@ class TDocQueryConfig(BaseModel):
         if value is None:
             return None
         return [normalize_subgroup_alias(str(item)).name for item in value]
+
+    @field_validator("work_items", mode="before")
+    @classmethod
+    def _normalize_work_items(cls, value: Iterable[str] | None) -> list[str] | None:
+        """Normalize work item IDs to uppercase."""
+        if value is None:
+            return None
+        normalized = [str(item).strip().upper() for item in value if str(item).strip()]
+        return normalized or None
+
+    @field_validator("spec_numbers", mode="before")
+    @classmethod
+    def _normalize_spec_numbers(cls, value: Iterable[str] | None) -> list[str] | None:
+        """Normalize specification numbers to their dotted form."""
+        if value is None:
+            return None
+        normalized = [normalize_spec_number(str(item)) for item in value if str(item).strip()]
+        return normalized or None
 
 
 __all__ = [

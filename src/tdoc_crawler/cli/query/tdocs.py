@@ -19,6 +19,7 @@ from tdoc_crawler.cli.args import (
     SortKeyOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
+    SpecNumberOption,
     StartDateOption,
     SubgroupOption,
     TagFilterOption,
@@ -27,11 +28,12 @@ from tdoc_crawler.cli.args import (
     TitlePatternOption,
     VerbosityOption,
     WorkingGroupOption,
+    WorkItemOption,
 )
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import print_tdoc_table, tdoc_to_dict
 from tdoc_crawler.cli.query._helpers import _parse_date_range
-from tdoc_crawler.config import PathConfig
+from tdoc_crawler.config import PathConfig, ThreeGPPConfig
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
 from tdoc_crawler.database.archives import save_archive_records
 from tdoc_crawler.http_client import create_cached_session
@@ -51,6 +53,8 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     tdoc_ids: TDocIdsArgument = None,
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
+    work_item: WorkItemOption = None,
+    spec_number: SpecNumberOption = None,
     start_date: StartDateOption = None,
     end_date: EndDateOption = None,
     limit: LimitOption = None,
@@ -79,7 +83,14 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     # subgroup is supplied, which silently drops records whose tbid wasn't
     # resolved (e.g. odd-numbered interim/telco docs whose meeting didn't
     # land in the meetings table).
-    working_groups, subgroups = parse_scope(working_group, subgroup, default_to_all=False)
+    crawler_config = ThreeGPPConfig.from_settings()
+    working_groups, subgroups = parse_scope(
+        working_group,
+        subgroup,
+        default_to_all=False,
+        config_working_group=crawler_config.crawl.working_group,
+        config_subgroup=crawler_config.crawl.sub_group,
+    )
     start, end = _parse_date_range(start_date, end_date)
 
     config = TDocQueryConfig(
@@ -87,6 +98,8 @@ def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
         tdoc_ids=tdoc_ids,
         working_groups=working_groups,
         subgroups=subgroups,
+        work_items=work_item,
+        spec_numbers=spec_number,
         start_date=start,
         end_date=end,
         limit=limit,

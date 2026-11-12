@@ -48,6 +48,11 @@ def test_mcp_crawl_tools_expose_subgroup() -> None:
         assert "subgroup" in params, f"{fn.__name__} must expose subgroup"
 
 
+def test_mcp_query_tdocs_exposes_work_item() -> None:
+    """Agents must be able to ask for all TDocs of a work item."""
+    assert "work_item" in inspect.signature(mcp_server.query_tdocs).parameters
+
+
 def test_mcp_crawl_meetings_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> None:
     """Subgroup must reach the CLI command, not be dropped by the wrapper."""
     captured: dict[str, object] = {}
@@ -81,6 +86,58 @@ def test_mcp_query_tdocs_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(mcp_server, "cli_query_tdocs", fake_cli)
     mcp_server.query_tdocs(subgroup=["SA4"])
     assert captured["subgroup"] == ["SA4"]
+
+
+def test_mcp_query_tdocs_forwards_work_item(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Work item filters must reach the CLI query command."""
+    captured: dict[str, object] = {}
+
+    def fake_cli(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(mcp_server, "cli_query_tdocs", fake_cli)
+    mcp_server.query_tdocs(work_item=["ULBC-MED"], spec_number=["26.114"])
+    assert captured["work_item"] == ["ULBC-MED"]
+    assert captured["spec_number"] == ["26.114"]
+
+
+def test_mcp_query_work_items_forwards_filters(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_cli(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(mcp_server, "cli_query_work_items", fake_cli)
+    mcp_server.query_work_items(work_item_ids=["ULBC-MED"], release="Rel-20", status="PCG approved", show_specs=True, limit=5)
+    assert captured["work_item_ids"] == ["ULBC-MED"]
+    assert captured["release"] == "Rel-20"
+    assert captured["status"] == "PCG approved"
+    assert captured["show_specs"] is True
+    assert captured["limit"] == 5
+
+
+def test_mcp_crawl_work_items_runs_crawl(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_cli(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(mcp_server, "cli_crawl_work_items", fake_cli)
+    mcp_server.crawl_work_items(subgroup=["S4"])
+    assert captured["subgroup"] == ["S4"]
+
+
+def test_mcp_enrich_work_items_forwards_filters(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enrichment tool forwards work item ids and limit."""
+    captured: dict[str, object] = {}
+
+    def fake_cli(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(mcp_server, "cli_enrich_work_items", fake_cli)
+    mcp_server.enrich_work_items(work_item=["ULBC-MED"], limit=3)
+    assert captured["work_item"] == ["ULBC-MED"]
+    assert captured["limit"] == 3
 
 
 def test_database_tools_refuse_without_confirm() -> None:

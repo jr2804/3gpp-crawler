@@ -14,6 +14,8 @@ from tdoc_crawler.tdocs.sources.doclist import (
     _construct_tdoc_url,
     fetch_meeting_document_list,
     parse_excel_document_list,
+    parse_excel_work_items,
+    parse_work_item_ids,
 )
 from tdoc_crawler.utils.version_types import AgendaItem
 
@@ -193,6 +195,41 @@ class TestMeetingDocumentList:
                 fetch_meeting_document_list(
                     meeting_id=12345,
                 )
+
+
+class TestWorkItemParsing:
+    """Work items come from the document list 'Related WIs' column."""
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("ULBC-MED", ["ULBC-MED"]),
+            ("FS_ULBC, ULBC-MED", ["FS_ULBC", "ULBC-MED"]),
+            ("fs_ulbc;ULBC-MED", ["FS_ULBC", "ULBC-MED"]),
+            ("ULBC-MED, ULBC-MED", ["ULBC-MED"]),
+            ("  ULBC-MED  ", ["ULBC-MED"]),
+            ("", []),
+            (None, []),
+            ("nan", []),
+            ("N/A", []),
+            ("-", []),
+        ],
+    )
+    def test_parse_work_item_ids(self, raw: str | None, expected: list[str]) -> None:
+        assert parse_work_item_ids(raw) == expected
+
+    def test_parse_excel_work_items(self) -> None:
+        df = pd.DataFrame(
+            {
+                "TDoc": ["S4AA260090", "S4AA260091", "S4AA260092"],
+                "Title": ["a", "b", "c"],
+                "Related WIs": ["ULBC-MED", "FS_ULBC, ULBC-MED", None],
+            }
+        )
+
+        result = parse_excel_work_items(_create_test_excel_bytes(df), meeting_id=85916)
+
+        assert result == {"S4AA260090": ["ULBC-MED"], "S4AA260091": ["FS_ULBC", "ULBC-MED"]}
 
 
 def _create_test_excel_bytes(df: pd.DataFrame) -> bytes:

@@ -46,15 +46,24 @@ def parse_scope(
     subgroup: list[str] | None,
     *,
     default_to_all: bool = True,
+    config_working_group: str | None = None,
+    config_subgroup: str | None = None,
 ) -> tuple[list[WorkingGroup] | None, list[str] | None]:
     """Resolve ``--working-group`` / ``--sub-group`` into model-ready filters.
 
-    Crawl commands keep the historical default (no filter -> RAN+SA+CT);
-    query commands pass ``default_to_all=False`` so an absent filter stays an
-    absent filter. Sub-working group codes (``SA4``) must go to ``subgroup``;
-    passing them as a working group raises a usage error instead of silently
-    collapsing to ``SA``.
+    CLI values win over ``[crawl]`` TOML defaults. Crawl commands keep the
+    historical default (no filter -> RAN+SA+CT); query commands pass
+    ``default_to_all=False`` so an absent filter stays an absent filter.
+    Sub-working group codes (``SA4``) must go to ``subgroup``; passing them
+    as a working group raises a usage error instead of silently collapsing
+    to ``SA``.
     """
+    working_group, subgroup = resolve_scope_args(
+        working_group,
+        subgroup,
+        config_working_group=config_working_group,
+        config_subgroup=config_subgroup,
+    )
     try:
         subgroups = parse_subgroups(subgroup)
         working_groups: list[WorkingGroup] | None = parse_working_groups(working_group, subgroups)
@@ -63,6 +72,28 @@ def parse_scope(
     if not default_to_all and not working_group:
         working_groups = None
     return working_groups, subgroups
+
+
+def resolve_scope_args(
+    working_group: list[str] | None,
+    subgroup: list[str] | None,
+    *,
+    config_working_group: str | None = None,
+    config_subgroup: str | None = None,
+) -> tuple[list[str] | None, list[str] | None]:
+    """Apply ``[crawl]`` config defaults when CLI scope options are absent."""
+    resolved_working_group = working_group or _split_scope_values(config_working_group)
+    resolved_subgroup = subgroup or _split_scope_values(config_subgroup)
+    return resolved_working_group, resolved_subgroup
+
+
+def _split_scope_values(value: str | None) -> list[str] | None:
+    """Split a config scope string into CLI-style values."""
+    if value is None:
+        return None
+    items = [part.strip() for part in value.replace(";", ",").split(",")]
+    values = [item for item in items if item]
+    return values or None
 
 
 def create_progress_bar(description: str, total: float = 100) -> tuple[Progress, TaskID]:
@@ -91,4 +122,5 @@ __all__ = [
     "console",
     "create_progress_bar",
     "parse_scope",
+    "resolve_scope_args",
 ]

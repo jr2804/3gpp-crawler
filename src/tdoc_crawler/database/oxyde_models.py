@@ -104,6 +104,20 @@ class MeetingMetadata(Model):
         is_table = True
 
 
+class MeetingAgendaItem(Model):
+    """One agenda item of a meeting, including parent items without documents."""
+
+    link_id: str = Field(db_pk=True)
+    meeting_id: int
+    agenda_nbr: str
+    agenda_text: str
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
 class TDocMetadata(Model):
     """Metadata for TDoc documents."""
 
@@ -120,6 +134,10 @@ class TDocMetadata(Model):
     agenda_item_text: str = Field(default="Unknown")
     status: str | None = None
     is_revision_of: str | None = None
+    spec_number: str | None = None
+    release: str | None = None
+    cr_number: str | None = None
+    cr_category: str | None = None
     file_size: int | None = None
     date_created: datetime | None = None
     date_retrieved: datetime = Field(default_factory=utc_now)
@@ -128,6 +146,69 @@ class TDocMetadata(Model):
     uploaded_at: datetime | None = None
     validated: bool = Field(default=False)
     validation_failed: bool = Field(default=False)
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
+class WorkItemRecord(Model):
+    """3GPP work item taken from DynaReport lists and TDoc document lists."""
+
+    wi_id: str = Field(db_pk=True)
+    uid: int | None = None
+    title: str | None = None
+    release: str | None = None
+    status: str | None = None
+    level: int | None = None
+    parent_wi_id: str | None = None
+    parent_uid: int | None = None
+    lead_body: str | None = Field(None, description="Lead sub-working group(s), comma separated (e.g. 'S4')")
+    tdoc_count: int = Field(default=0, ge=0)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
+class WorkItemSpecRecord(Model):
+    """Link between a work item and a specification it impacts."""
+
+    link_id: str = Field(db_pk=True)
+    wi_id: str
+    spec_number: str
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
+class WorkItemCrRecord(Model):
+    """Change request attributed to a work item (WiCr DynaReport page)."""
+
+    link_id: str = Field(db_pk=True)
+    wi_id: str
+    spec_number: str
+    cr_number: str
+    cr_revision: str | None = None
+    cr_title: str | None = None
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
+class TDocWorkItem(Model):
+    """Link between a TDoc and a work item it relates to."""
+
+    link_id: str = Field(db_pk=True)
+    tdoc_id: str
+    wi_id: str
 
     class Meta:
         """Oxyde table configuration."""
@@ -229,6 +310,7 @@ class ArchiveMember(Model):
 __all__ = [
     "ArchiveMember",
     "CrawlLogEntry",
+    "MeetingAgendaItem",
     "MeetingMetadata",
     "Specification",
     "SpecificationSourceRecord",

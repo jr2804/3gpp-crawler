@@ -14,9 +14,10 @@ from typer.testing import CliRunner
 from tdoc_crawler.cli import tdoc_app
 from tdoc_crawler.cli._shared import parse_scope
 from tdoc_crawler.cli.mgmt_app import mgmt_app
+from tdoc_crawler.cli.workitems_app import workitems_app
 from tdoc_crawler.config import PathConfig
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.database.oxyde_models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import TDocMetadata, WorkItemRecord
 from tdoc_crawler.database.tags import add_tags, list_tags
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models.base import TagKind
@@ -24,6 +25,7 @@ from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult, is_orphan_tdoc
+from tdoc_crawler.workitems.operations import EnrichSummary, WorkItemListComparison
 
 from .conftest import insert_sample_meetings_async
 
@@ -128,6 +130,78 @@ class TestSubgroupScopeValidation:
         assert working_groups == [WorkingGroup.SA]
 
 
+class TestConfigScopeDefaults:
+    """[crawl].working_group/sub_group TOML defaults apply with CLI precedence."""
+
+    def test_resolve_scope_args_uses_config_when_cli_absent(self) -> None:
+        wg, sg = parse_scope(
+            None,
+            None,
+            default_to_all=False,
+            config_working_group="SA",
+            config_subgroup="S4",
+        )
+        assert wg == [WorkingGroup.SA]
+        assert sg == ["S4"]
+
+    def test_resolve_scope_args_cli_overrides_config(self) -> None:
+        wg, sg = parse_scope(
+            ["RAN"],
+            ["R2"],
+            default_to_all=False,
+            config_working_group="SA",
+            config_subgroup="S4",
+        )
+        assert wg == [WorkingGroup.RAN]
+        assert sg == ["R2"]
+
+    @patch("tdoc_crawler.cli.query.meetings.ThreeGPPConfig")
+    @patch("tdoc_crawler.cli.query.meetings.MeetingDatabase")
+    def test_query_meetings_applies_config_scope_defaults(
+        self,
+        mock_db_class: MagicMock,
+        mock_config_class: MagicMock,
+    ) -> None:
+        mock_db = MagicMock()
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
+
+        cfg = MagicMock()
+        cfg.crawl.working_group = "SA"
+        cfg.crawl.sub_group = "S4"
+        mock_config_class.from_settings.return_value = cfg
+
+        result = runner.invoke(tdoc_app, ["query-meetings"])
+
+        assert result.exit_code == 0, result.output
+        query_config = mock_db.query_meetings.call_args[0][0]
+        assert query_config.working_groups == [WorkingGroup.SA]
+        assert query_config.subgroups == ["S4"]
+
+    @patch("tdoc_crawler.cli.query.meetings.ThreeGPPConfig")
+    @patch("tdoc_crawler.cli.query.meetings.MeetingDatabase")
+    def test_query_meetings_cli_scope_overrides_config(
+        self,
+        mock_db_class: MagicMock,
+        mock_config_class: MagicMock,
+    ) -> None:
+        mock_db = MagicMock()
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_meetings = AsyncMock(return_value=[])
+
+        cfg = MagicMock()
+        cfg.crawl.working_group = "SA"
+        cfg.crawl.sub_group = "S4"
+        mock_config_class.from_settings.return_value = cfg
+
+        result = runner.invoke(tdoc_app, ["query-meetings", "-w", "RAN", "-s", "R2"])
+
+        assert result.exit_code == 0, result.output
+        query_config = mock_db.query_meetings.call_args[0][0]
+        assert query_config.working_groups == [WorkingGroup.RAN]
+        assert query_config.subgroups == ["R2"]
+
+
 class TestCrawlMeetingsCommand:
     """Tests for crawl-meetings command."""
 
@@ -193,6 +267,86 @@ class TestQueryCommand:
         assert await_args is not None
         config = await_args.args[0]
         assert config.subgroups == ["S4"]
+
+    @patch("tdoc_crawler.cli.query.tdocs.TDocDatabase")
+    def test_query_work_item_filter_reaches_config(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+        sample_tdocs: list[TDocMetadata],
+    ) -> None:
+        """--work-item must land in the query config, normalized to upper case."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.query_tdocs = AsyncMock(return_value=sample_tdocs[:1])
+
+        result = runner.invoke(tdoc_app, ["query", "--work-item", "ulbc-med"])
+
+        assert result.exit_code == 0, result.output
+        await_args = mock_db.query_tdocs.await_args
+        assert await_args is not None
+        config = await_args.args[0]
+        assert config.work_items == ["ULBC-MED"]
+
+    @patch("tdoc_crawler.cli.query.work_items.TDocDatabase")
+    def test_work_items_query_lists_catalogue(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """``work-items query`` prints the catalogue with TDoc counts."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.list_work_items = AsyncMock(
+            return_value=[
+                WorkItemRecord(wi_id="ULBC-MED", tdoc_count=749, title="Ultra Low Bitrate Speech Codec", release="Rel-20"),
+                WorkItemRecord(wi_id="FS_ULBC", tdoc_count=12, title="Study on ULBC"),
+            ]
+        )
+
+        result = runner.invoke(workitems_app, ["query"])
+
+        assert result.exit_code == 0, result.output
+        assert "ULBC-MED" in result.stdout
+        assert "749" in result.stdout
+
+    @patch("tdoc_crawler.cli.query.work_items.TDocDatabase")
+    def test_work_items_query_without_data(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """An empty catalogue is reported, not raised."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.list_work_items = AsyncMock(return_value=[])
+
+        result = runner.invoke(workitems_app, ["query"])
+
+        assert result.exit_code == 0, result.output
+        assert "No work items found" in result.stdout
+
+    @patch("tdoc_crawler.cli.query.work_items.TDocDatabase")
+    def test_work_items_query_filters_requested_ids(
+        self,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Positional work item IDs narrow the catalogue to those work items."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.list_work_items = AsyncMock(
+            return_value=[
+                WorkItemRecord(wi_id="ULBC-MED", tdoc_count=3),
+                WorkItemRecord(wi_id="FS_ULBC", tdoc_count=1),
+            ]
+        )
+
+        result = runner.invoke(workitems_app, ["query", "ulbc-med"])
+
+        assert result.exit_code == 0, result.output
+        assert "ULBC-MED" in result.stdout
+        assert "FS_ULBC" not in result.stdout
 
     def test_query_rejects_subgroup_as_working_group(self, test_cache_dir: Path) -> None:
         """-w SA4 must not silently collapse to SA."""
@@ -336,6 +490,82 @@ class TestQueryCommand:
         assert result.exit_code == 0
         assert "orphan" in result.stdout
         assert "--refresh-orphans" in result.stdout
+
+
+class TestWorkItemsCommands:
+    """Tests for the work-items crawl/enrich/audit commands."""
+
+    @patch("tdoc_crawler.cli.crawl.work_items.TDocDatabase")
+    @patch("tdoc_crawler.cli.crawl.work_items.fetch_work_items")
+    def test_crawl_scoped_to_subgroup(
+        self,
+        mock_fetch: MagicMock,
+        mock_db_class: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """``work-items crawl -s S4`` fetches only the S4 lead body list."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.store_work_items = AsyncMock(return_value=2)
+        mock_fetch.return_value = {"S4": [MagicMock(), MagicMock()]}
+
+        result = runner.invoke(workitems_app, ["crawl", "-s", "S4", "-c", str(test_cache_dir)])
+
+        assert result.exit_code == 0, result.output
+        assert mock_fetch.call_args.args[0] == ["S4"]
+        assert "Stored 2 work items" in result.stdout
+
+    @patch("tdoc_crawler.cli.crawl.work_items.discover_lead_bodies")
+    def test_crawl_without_scope_discovers_lead_bodies(
+        self,
+        mock_discover: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """Without a scope the lead bodies come from the global work item list."""
+        mock_discover.return_value = []
+
+        with patch("tdoc_crawler.cli.crawl.work_items.fetch_work_items", return_value={}) as mock_fetch:
+            result = runner.invoke(workitems_app, ["crawl", "-c", str(test_cache_dir)])
+
+        assert result.exit_code == 0, result.output
+        assert mock_discover.called
+        assert mock_fetch.called
+
+    @patch("tdoc_crawler.cli.crawl.work_items.enrich_work_items")
+    def test_enrich_prints_summary(
+        self,
+        mock_enrich: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """``work-items enrich`` prints the enrichment summary."""
+        mock_enrich.return_value = EnrichSummary(enriched=3, specs_found=5, crs_found=2, parents_found=1)
+
+        result = runner.invoke(workitems_app, ["enrich", "--work-item", "ULBC-MED", "-c", str(test_cache_dir)])
+
+        assert result.exit_code == 0, result.output
+        assert "Enriched 3 work items" in result.stdout
+        assert mock_enrich.call_args.args[1] == ["ULBC-MED"]
+
+    @patch("tdoc_crawler.cli.query.work_items.compare_work_item_list")
+    def test_audit_prints_coverage_rows(
+        self,
+        mock_compare: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """``work-items audit`` prints the per-lead-body coverage table."""
+        mock_compare.return_value = WorkItemListComparison(
+            rows=[{"lead_body": "S4", "list": 10, "in_catalogue": 8, "missing": 2}],
+            list_entries=10,
+            matched=8,
+            missing_from_db=2,
+            missing_from_list=1,
+        )
+
+        result = runner.invoke(workitems_app, ["audit", "-c", str(test_cache_dir)])
+
+        assert result.exit_code == 0, result.output
+        assert "S4" in result.stdout
+        assert "missing from catalogue 2" in result.stdout
 
 
 class TestQueryMeetingsCommand:

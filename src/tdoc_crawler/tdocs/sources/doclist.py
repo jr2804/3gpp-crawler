@@ -10,6 +10,7 @@ import io
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Final
 
 import niquests as requests
 import pandas as pd
@@ -21,6 +22,11 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.tdocs.sources.base import TDocSource, TDocSourceConfig
 from tdoc_crawler.utils.parse import AgendaItemNumber, parse_agenda_item_nbr
+
+_RELATED_WI_COLUMNS: Final[tuple[str, ...]] = ("Related WIs", "Related WI", "Related Work Items")
+_WI_SEPARATORS = re.compile(r"[,;]")
+_WI_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.\-]*$")
+_WI_PLACEHOLDERS: Final[frozenset[str]] = frozenset({"NONE", "NULL", "NA", "N/A", "NAN", "-"})
 
 _logger = get_logger(__name__)
 
@@ -138,6 +144,33 @@ def fetch_meeting_document_list(
     Raises:
         DocumentListError: If document list cannot be fetched or parsed
     """
+    tdocs, _work_items = fetch_meeting_document_list_with_work_items(
+        meeting_id,
+        timeout=timeout,
+        http_config=http_config,
+        http_cache_file=http_cache_file,
+        files_url=files_url,
+        save_doclist_to=save_doclist_to,
+    )
+    return tdocs
+
+
+def fetch_meeting_document_list_with_work_items(
+    meeting_id: int,
+    timeout: int = 30,
+    http_config: HttpConfig | None = None,
+    http_cache_file: Path | None = None,
+    files_url: str | None = None,
+    save_doclist_to: Path | None = None,
+) -> tuple[list[TDocMetadata], dict[str, list[str]]]:
+    """Fetch TDoc metadata plus the work items each TDoc relates to.
+
+    Returns:
+        Tuple of (list of TDocMetadata, mapping of TDoc ID to work item IDs)
+
+    Raises:
+        DocumentListError: If document list cannot be fetched or parsed
+    """
     # Construct document list URL
     doclist_url = DOCLIST_URL_TEMPLATE.format(portal_base=PORTAL_BASE_URL, meeting_id=meeting_id)
     _logger.debug("Fetching document list for meeting %s from %s", meeting_id, doclist_url)
@@ -169,7 +202,8 @@ def fetch_meeting_document_list(
 
         # Parse Excel file
         _logger.debug("Parsing Excel document list for meeting %s", meeting_id)
-        return parse_excel_document_list(response.content, meeting_id, files_url)
+        tdocs = parse_excel_document_list(response.content, meeting_id, files_url)
+        return tdocs, _parse_work_items_safely(response.content, meeting_id)
 
     except DocumentListError:
         raise
@@ -179,6 +213,17 @@ def fetch_meeting_document_list(
         raise DocumentListError(msg) from exc
     finally:
         session.close()
+
+
+def _parse_work_items_safely(excel_content: bytes | None, meeting_id: int) -> dict[str, list[str]]:
+    """Parse work item references without failing the document list fetch."""
+    if not excel_content:
+        return {}
+    try:
+        return parse_excel_work_items(excel_content, meeting_id)
+    except DocumentListError as exc:
+        _logger.warning("Could not parse work item references for meeting %s: %s", meeting_id, exc)
+        return {}
 
 
 def parse_excel_document_list(
@@ -240,6 +285,60 @@ def parse_excel_document_list(
         raise DocumentListError(msg) from exc
 
 
+def parse_excel_work_items(
+    excel_content: bytes,
+    meeting_id: int,
+) -> dict[str, list[str]]:
+    """Map TDoc IDs to the work items listed in their "Related WIs" column.
+
+    The column holds a comma-separated list of work item IDs (e.g.
+    ``"FS_ULBC, ULBC-MED"``) and is absent from older document lists.
+
+    Args:
+        excel_content: Raw Excel file content
+        meeting_id: Meeting ID for reference (used in error messages)
+
+    Returns:
+        Mapping of TDoc ID to the work item IDs it relates to. TDocs without
+        the column or without values are omitted.
+    """
+    try:
+        df = pd.read_excel(
+            io.BytesIO(excel_content),
+            engine="calamine",
+            sheet_name="TDoc_List",
+        )
+    except (OSError, KeyError, ImportError, ValueError, pd.errors.ParserError) as exc:
+        msg = f"Failed to parse work items for meeting {meeting_id}: {exc}"
+        raise DocumentListError(msg) from exc
+
+    mapping: dict[str, list[str]] = {}
+    for _idx, row in df.iterrows():
+        tdoc_id = _extract_tdoc_id(row)
+        if tdoc_id is None:
+            continue
+        wi_ids = parse_work_item_ids(_get_column_value(row, list(_RELATED_WI_COLUMNS)))
+        if wi_ids:
+            mapping[tdoc_id.upper()] = wi_ids
+
+    _logger.debug("Found work item references for %d TDocs in meeting %s", len(mapping), meeting_id)
+    return mapping
+
+
+def parse_work_item_ids(raw: str | None) -> list[str]:
+    """Split a "Related WIs" cell into normalized, de-duplicated work item IDs."""
+    if not raw:
+        return []
+    wi_ids: list[str] = []
+    for token in _WI_SEPARATORS.split(raw):
+        candidate = token.strip().upper()
+        if not candidate or candidate in _WI_PLACEHOLDERS or not _WI_ID_PATTERN.match(candidate):
+            continue
+        if candidate not in wi_ids:
+            wi_ids.append(candidate)
+    return wi_ids
+
+
 def convert_excel_row_to_tdoc_metadata(
     row: pd.Series,
     meeting_id: int,
@@ -274,6 +373,10 @@ def convert_excel_row_to_tdoc_metadata(
     date_created = _get_column_value(row, ["Date", "Created", "Date Created", "Submission Date", "Reservation date"])
     reservation_date = _get_column_value(row, ["Reservation date"])
     uploaded_at = _get_column_value(row, ["Uploaded"])
+    spec_number = _get_column_value(row, ["Spec", "Specification"])
+    release = _get_column_value(row, ["Release"])
+    cr_number = _get_column_value(row, ["CR", "CR number"])
+    cr_category = _get_column_value(row, ["CR category", "CR cat"])
 
     # Generate URL from files_url if available
     # Format: files_url + "/Docs/" + tdoc_id + ".zip"
@@ -306,6 +409,10 @@ def convert_excel_row_to_tdoc_metadata(
             agenda_item_text=agenda_text,
             status=status,
             is_revision_of=is_revision_of,
+            spec_number=_clean_cell(spec_number),
+            release=_clean_cell(release),
+            cr_number=_clean_cell(cr_number),
+            cr_category=_clean_cell(cr_category),
             file_size=None,  # Not available in Excel
             date_created=parsed_date,
             date_retrieved=now,
@@ -405,6 +512,16 @@ def _get_column_value(row: pd.Series, possible_names: list[str]) -> str | None:
     return None
 
 
+def _clean_cell(value: str | None) -> str | None:
+    """Normalize an optional Excel cell to a stripped string or None."""
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned or cleaned.lower() in {"nan", "none", "-"}:
+        return None
+    return cleaned
+
+
 def _parse_agenda_item(agenda_item: str | None) -> tuple[AgendaItemNumber, str]:
     """Parse agenda item into number and text components.
 
@@ -478,5 +595,8 @@ __all__ = [
     "DocumentListSource",
     "convert_excel_row_to_tdoc_metadata",
     "fetch_meeting_document_list",
+    "fetch_meeting_document_list_with_work_items",
     "parse_excel_document_list",
+    "parse_excel_work_items",
+    "parse_work_item_ids",
 ]

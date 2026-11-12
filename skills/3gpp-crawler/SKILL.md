@@ -70,8 +70,9 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 
 | Group | Tools |
 |-------|-------|
-| crawl | `crawl_tdocs`, `crawl_specs`, `crawl_meetings` |
-| query | `query_tdocs`, `query_specs`, `query_meetings` |
+| crawl | `crawl_tdocs`, `crawl_specs`, `crawl_meetings`, `crawl_work_items` |
+| enrich | `enrich_work_items` |
+| query | `query_tdocs`, `query_specs`, `query_meetings`, `query_work_items` |
 | checkout | `checkout_tdocs`, `checkout_specs`, `list_tdoc_files`, `list_spec_files` |
 | tag | `tag_add`, `tag_remove`, `tag_list` |
 | database | `database_clear_tdocs`, `database_clear_specs`, `database_clear_meetings`, `database_clear_all` (destructive, need `confirm=true`), `database_export_tags`, `database_import_tags` |
@@ -79,7 +80,15 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 
 `crawl_tdocs`, `crawl_meetings` and `query_meetings` take a `subgroup` list
 (`["SA4"]`, `["S4"]`, `["R1"]`); their `working_group` argument accepts only
-`RAN`/`SA`/`CT`. `query_tdocs` selects sub-working groups through TDoc IDs.
+`RAN`/`SA`/`CT`. `query_tdocs` selects sub-working groups through TDoc IDs and
+filters work items with `work_item` (e.g. `["ULBC-MED"]`) and specifications
+with `spec_number` (e.g. `["26.114"]`). `crawl_work_items` crawls the
+DynaReport work item lists (scope with `subgroup` like `["S4"]` — historical
+lead bodies like `"GP"` work too — or `working_group` for an area, or omit
+both to discover every lead body); `enrich_work_items` fills status,
+parent/child and spec/CR links from the portal detail pages;
+`query_work_items` reads that catalogue (title, release, status, lead body,
+parent work item, impacted specs) with the TDoc count per work item.
 
 ## Common patterns
 
@@ -90,6 +99,14 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 3gpp-crawler tdoc query --sub-group S4 --agenda "*atias*" --start-date 2024
 3gpp-crawler tag add tdoc S4-250638 --tag atias,codec
 3gpp-crawler tdoc checkout S4-250638
+
+# Work-item driven workflow (e.g., ULBC)
+3gpp-crawler work-items crawl -s S4          # catalogue from DynaReport lists
+3gpp-crawler work-items enrich               # status/parents/specs/CRs per WI
+3gpp-crawler work-items query ULBC-MED --show-specs
+3gpp-crawler tdoc query --work-item ULBC-MED
+3gpp-crawler tdoc query --spec-number 26.114  # TDocs naming a specification
+3gpp-crawler work-items audit                # catalogue vs global WI-List
 
 # Bulk spec checkout
 3gpp-crawler spec checkout 26260 26261 --release 18.0
@@ -105,7 +122,8 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 
 - `crawl-meetings` must run before `crawl` — TDocs reference meeting metadata
 - Sub-working groups go in `-s/--sub-group` (`S4`, `R1`, `C3`); `-w/--working-group` accepts only `RAN`/`SA`/`CT` and rejects `SA4` instead of silently dropping to `SA`
+- Work item links (`--work-item`) come from the document list `Related WIs` column and the catalogue (`work-items query`) from the DynaReport lists (`work-items crawl` + `work-items enrich`); a database crawled before work item support has neither — `database clear-all` plus a re-crawl is required
 - Tags are independent per kind: a tag on a TDoc doesn't affect spec queries
-- DB lives at `~/.3gpp-crawler/3gpp_crawler.db` by default (configurable via `TDC_CACHE_DIR`)
+- DB lives at `~/.3gpp-crawler/3gpp_crawler.db` by default (configurable via `TDC_CACHE_DIR`). `[crawl].working_group`/`[crawl].sub_group` (or `TDC_WORKING_GROUP`/`TDC_SUB_GROUP`) provide default scope filters when `-w`/`-s` are omitted; CLI flags take precedence.
 - Bare `--title`/`--agenda` patterns (no `*?[]`) substring-match by default — `ATIAS` behaves like `*ATIAS*`
 - On Windows `cmd.exe`, single quotes are literal: use `"*ATIAS*"` (double quotes) or no quotes, not `'*ATIAS*'`

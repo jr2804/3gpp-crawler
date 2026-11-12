@@ -27,6 +27,20 @@ SubgroupOption = Annotated[
     list[str] | None,
     typer.Option("--sub-group", "-s", help="Filter by sub-working group (e.g., 'R2/RAN2, SA4, CT1, CP, ...')", envvar=ConfigEnvVar.TDC_SUB_GROUP.name),
 ]
+WorkItemOption = Annotated[
+    list[str] | None,
+    typer.Option("--work-item", "-i", help="Filter by work item ID from the document list 'Related WIs' column (e.g. 'ULBC-MED')"),
+]
+WorkItemArgument = Annotated[list[str] | None, typer.Argument(help="Work item ID(s) to query (e.g. 'ULBC-MED')")]
+WorkItemReleaseOption = Annotated[str | None, typer.Option("--release", "-r", help="Filter by release (e.g. 'Rel-18')")]
+WorkItemStatusOption = Annotated[
+    str | None,
+    typer.Option("--status", help="Filter by work item status (e.g. 'PCG approved', 'TSG approved', 'stopped')"),
+]
+SpecNumberOption = Annotated[
+    list[str] | None,
+    typer.Option("--spec-number", help="Filter TDocs by specification number from the document list (e.g. '26.114')"),
+]
 LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar=ConfigEnvVar.TDC_LIMIT_MEETINGS.name)]
 LimitMeetingsPerSubWgOption = Annotated[
     int | None,
@@ -112,13 +126,17 @@ TitlePatternExcludeOption = Annotated[
 ]
 AgendaPatternOption = Annotated[
     list[str] | None,
-    typer.Option("--agenda", help="Glob pattern for agenda_item_text field. Multiple values are OR'd.", envvar=ConfigEnvVar.TDC_AGENDA_PATTERN.name),
+    typer.Option(
+        "--agenda",
+        help="Glob pattern for agenda item text. Parent agenda items are matched as well. Multiple values are OR'd.",
+        envvar=ConfigEnvVar.TDC_AGENDA_PATTERN.name,
+    ),
 ]
 AgendaPatternExcludeOption = Annotated[
     list[str] | None,
     typer.Option(
         "--agenda-ex",
-        help="Glob pattern to exclude agenda_item_text field. Multiple values are OR'd.",
+        help="Glob pattern to exclude agenda item text. Parent agenda items are matched as well.",
         envvar=ConfigEnvVar.TDC_AGENDA_PATTERN_EXCLUDE.name,
     ),
 ]

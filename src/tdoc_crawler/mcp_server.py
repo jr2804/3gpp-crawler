@@ -22,6 +22,8 @@ from tdoc_crawler.cli.config_app import (
 from tdoc_crawler.cli.crawl.meetings import crawl_meetings as cli_crawl_meetings
 from tdoc_crawler.cli.crawl.specs import crawl_specs as cli_crawl_specs
 from tdoc_crawler.cli.crawl.tdocs import crawl_tdocs as cli_crawl_tdocs
+from tdoc_crawler.cli.crawl.work_items import crawl_work_items as cli_crawl_work_items
+from tdoc_crawler.cli.crawl.work_items import enrich_work_items_command as cli_enrich_work_items
 from tdoc_crawler.cli.database_app import (
     clear_all as cli_database_clear_all,
 )
@@ -43,6 +45,7 @@ from tdoc_crawler.cli.database_app import (
 from tdoc_crawler.cli.query.meetings import query_meetings as cli_query_meetings
 from tdoc_crawler.cli.query.specs import query_specs as cli_query_specs
 from tdoc_crawler.cli.query.tdocs import query_tdocs as cli_query_tdocs
+from tdoc_crawler.cli.query.work_items import query_work_items as cli_query_work_items
 from tdoc_crawler.cli.specs import checkout_spec as cli_checkout_spec
 from tdoc_crawler.cli.specs import list_spec_files as cli_list_spec_files
 from tdoc_crawler.cli.tag_app import (
@@ -168,17 +171,21 @@ def crawl_meetings(
 @mcp.tool(
     name="query_tdocs",
     description=(
-        "Query stored TDoc metadata with optional filtering by tag, WG, subgroup, dates, title pattern, etc. "
-        "working_group accepts only RAN/SA/CT; filter sub-working groups with subgroup (e.g. ['SA4'], ['S4'])"
+        "Query stored TDoc metadata with optional filtering by tag, WG, subgroup, work item, dates, title pattern, etc. "
+        "working_group accepts only RAN/SA/CT; filter sub-working groups with subgroup (e.g. ['SA4'], ['S4']); "
+        "filter by 3GPP work item with work_item (e.g. ['ULBC-MED']), taken from the document list 'Related WIs' column; "
+        "filter by agenda item text with agenda (e.g. ['ULBC']), which also matches the text of parent agenda items"
     ),
 )
 def query_tdocs(
     tdoc_ids: list[str] | None = None,
     working_group: list[str] | None = None,
     subgroup: list[str] | None = None,
+    work_item: list[str] | None = None,
+    spec_number: list[str] | None = None,
     tag: list[str] | None = None,
     title: list[str] | None = None,
-    agenda: str | None = None,
+    agenda: list[str] | None = None,
     limit: int | None = None,
     sort_by: str | None = None,
     order: str | None = None,
@@ -188,12 +195,85 @@ def query_tdocs(
         tdoc_ids=tdoc_ids,
         working_group=working_group,
         subgroup=subgroup,
+        work_item=work_item,
+        spec_number=spec_number,
         tag=tag,
         title=title,
         agenda=agenda,
         limit=limit,
         sort_by=sort_by,
         order=order,
+    )
+
+
+@mcp.tool(
+    name="query_work_items",
+    description=(
+        "List 3GPP work items from the catalogue (titles, release, status, lead body, parent work item, "
+        "impacted specifications) together with the number of crawled TDocs that reference each work item. "
+        "Pass work_item_ids to look up specific work items (e.g. ['ULBC-MED']); crawl_error means the "
+        "catalogue has not been crawled yet. Run crawl_work_items once to populate it"
+    ),
+)
+def query_work_items(
+    work_item_ids: list[str] | None = None,
+    working_group: list[str] | None = None,
+    release: str | None = None,
+    status: str | None = None,
+    show_specs: bool = False,
+    limit: int | None = None,
+) -> str:
+    return _run_captured(
+        cli_query_work_items,
+        work_item_ids=work_item_ids,
+        working_group=working_group,
+        release=release,
+        status=status,
+        show_specs=show_specs,
+        limit=limit,
+    )
+
+
+@mcp.tool(
+    name="crawl_work_items",
+    description=(
+        "Crawl the public DynaReport work item lists and store the work item catalogue "
+        "(work item IDs, UIDs, titles, releases, lead bodies). "
+        "Scope with subgroup=['S4'] (one lead body, historical codes like 'GP' work too) or "
+        "working_group=['SA']/['RAN']/['CT'] (a whole area); without a scope all lead bodies "
+        "are discovered from the global work item list. Run it before query_work_items"
+    ),
+)
+def crawl_work_items(
+    working_group: list[str] | None = None,
+    subgroup: list[str] | None = None,
+) -> str:
+    return _run_captured(
+        cli_crawl_work_items,
+        working_group=working_group,
+        subgroup=subgroup,
+    )
+
+
+@mcp.tool(
+    name="enrich_work_items",
+    description=(
+        "Enrich work items with portal detail pages: status, parent/child work items, "
+        "rapporteur, impacted specifications and related change requests. "
+        "Default selection: work items referenced by crawled TDocs plus never-enriched ones; "
+        "pass work_item=['ULBC-MED'] for specific IDs or include_all=true for the whole catalogue"
+    ),
+)
+def enrich_work_items(
+    work_item: list[str] | None = None,
+    limit: int | None = None,
+    include_all: bool = False,
+) -> str:
+    return _run_captured(
+        cli_enrich_work_items,
+        work_item=work_item,
+        limit=limit,
+        include_all=include_all,
     )
 
 

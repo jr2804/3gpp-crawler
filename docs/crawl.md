@@ -51,6 +51,38 @@ Crawl TDoc metadata from the 3GPP FTP server.
 | `--source / --title / --agenda` | Glob patterns; `-ex` variants exclude. |
 | `--limit-tdocs N` | Limit TDocs per crawl. |
 
+Each crawled meeting document list also carries the `Related WIs` column
+(comma-separated work item IDs) plus the specification and CR columns. Those
+links are stored with the TDoc, so `tdoc query --work-item ULBC-MED`,
+`tdoc query --spec-number 26.114` and `work-items query` work without an extra
+pass — see [Querying metadata](query.md). Work item titles, releases, parents
+and impacted specifications come from the per-working-group DynaReport work
+item lists, which are crawled separately with `3gpp-crawler work-items crawl`.
+
+### `crawl` (work items)
+
+Crawl the 3GPP work item catalogue from the DynaReport work item lists
+(`https://www.3gpp.org/dynareport?code=TSG-WG--S4--wis.htm` and siblings).
+Each lead body (SP, S1…S6, R1…R6, C1…C6, plus historical ones like G1, T2)
+publishes its own current list, including in-flight work items.
+
+```bash
+3gpp-crawler work-items crawl                  # every lead body (discovered)
+3gpp-crawler work-items crawl -s S4            # one lead body
+3gpp-crawler work-items crawl -w SA            # whole SA area (SP, S1..S6)
+3gpp-crawler work-items crawl -s R1 -s R2      # several lead bodies
+```
+
+| Option | Description |
+|--------|-------------|
+| `-w, --working-group WG` | Crawl the area's lead bodies (`RAN`, `SA`, `CT`). |
+| `-s, --sub-group SG` | Crawl specific lead bodies (repeatable; historical codes like `GP` or `T2` work too). |
+
+Without `-w`/`-s` the lead bodies are discovered from the global
+`WI-List` page. `work-items enrich` then fills status, parent/child and
+spec/CR links from the portal detail pages, and `work-items audit` compares
+the catalogue against the global list.
+
 ### `crawl` (specs)
 
 Crawl technical specification (TS/TR) metadata.

@@ -18,7 +18,10 @@ Tools mirror the CLI groups:
 | crawl | `crawl_tdocs` | `tdoc crawl` |
 | crawl | `crawl_specs` | `spec crawl` |
 | crawl | `crawl_meetings` | `tdoc crawl-meetings` |
+| crawl | `crawl_work_items` | `work-items crawl` |
+| enrich | `enrich_work_items` | `work-items enrich` |
 | query | `query_tdocs` | `tdoc query` |
+| query | `query_work_items` | `work-items query` |
 | query | `query_specs` | `spec query` |
 | query | `query_meetings` | `tdoc query-meetings` |
 | checkout | `checkout_tdocs` | `tdoc checkout` |
@@ -43,6 +46,21 @@ repeated = AND, same as the CLI). `crawl_tdocs`, `crawl_meetings`,
 `["R1"]`) alongside `working_group`. Working groups are only RAN/SA/CT — passing
 a subgroup code as `working_group` is rejected rather than silently
 collapsing to the plenary (`SA4` → `SA`).
+
+`query_tdocs` also accepts `work_item` (e.g. `["ULBC-MED"]`) to select every
+TDoc whose meeting document list row references that 3GPP work item, and
+`spec_number` (e.g. `["26.114"]`) to select TDocs that name that specification.
+`crawl_work_items` crawls the per-lead-body DynaReport work item lists; scope
+it with `subgroup` (e.g. `["S4"]`, also historical lead bodies like `"GP"`) or
+`working_group` (an area: `RAN`/`SA`/`CT`), or omit both to discover every
+lead body. `enrich_work_items` fills status, parent/child and spec/CR links
+from the portal detail pages (default: TDoc-referenced and never-enriched work
+items; pass `work_item`/`limit`/`include_all` to steer). `query_work_items`
+reads the resulting catalogue: titles, releases, approval status, lead body,
+parent work item and impacted specifications, plus the number of TDocs
+referencing each work item (from the `Related WIs` column during
+`crawl_tdocs`). A database crawled before work item support holds none —
+rebuild it with `database_clear_all` and re-crawl.
 
 The destructive `database_clear_*` tools refuse to run unless called with
 `confirm=true` — there is no interactive prompt over MCP, so the explicit

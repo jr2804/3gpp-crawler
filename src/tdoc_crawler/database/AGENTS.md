@@ -66,11 +66,32 @@ For non-primitive types stored as strings in SQLite, subclass `_VersionField` in
 | `SpecDatabase` | `specs.py` | Spec CRUD, version management |
 | `DocDatabase` | `base.py` | Base class with shared helpers |
 | `ArchiveMember` (Oxyde model) | `archives.py` | Zip member listing per TDoc / spec archive (`database/archives.py`) |
+| `WorkItemRecord` / `TDocWorkItem` (Oxyde models) | `oxyde_models.py` | Work item catalogue and TDoc↔work item links parsed from the document list `Related WIs` column |
+| `WorkItemSpecRecord` / `WorkItemCrRecord` (Oxyde models) | `oxyde_models.py` | Work item → impacted specification and change-request links from enrichment |
 
 `TDocMetadata` stores only the *parent* working-group id (`tbid`), so
 sub-working-group filtering resolves through the meetings table:
 `query_tdocs()` maps codes to `subtb` via `models.subworking_groups.CODE_INDEX`
-and filters on the matching `meeting_id`s.
+and filters on the matching `meeting_id`s (falling back to a TDoc-ID prefix
+match when a TDoc-only crawl left `meetingmetadata` empty).
+
+Work item links live in `TDocWorkItem` (`link_id` is `"<TDOC_ID>|<WI_ID>"`, both
+upper case) with counts cached in `WorkItemRecord`; `store_tdoc_work_items()`
+replaces a TDoc's links and `_refresh_work_item_catalog()` recomputes every
+count but keeps link-less catalogue rows — the DynaReport catalogue
+legitimately contains work items no crawled TDoc references.
+`store_work_items(Sequence[WorkItem])` upserts the DynaReport attributes (uid,
+title, release, level, lead_body, parent_uid), skipping unchanged rows and
+merging `lead_body` — it never touches `tdoc_count` or status.
+`store_work_item_details()` persists one enrichment result (status, release,
+level, parent/child) and replaces that work item's `WorkItemSpecRecord` +
+`WorkItemCrRecord` links; `select_work_items_for_enrichment()` picks
+TDoc-referenced and never-enriched rows by default. Adding these tables to an
+existing DB triggers `schema-mismatch`, so the WI data only appears after
+`database clear-all` + re-crawl.
+
+`TDocMetadata` also carries the document-list columns `spec_number`, `release`,
+`cr_number` and `cr_category` (the latter two only for CRs).
 
 ## Schema Management - No Migrations
 

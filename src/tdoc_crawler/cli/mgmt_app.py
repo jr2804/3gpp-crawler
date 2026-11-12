@@ -22,6 +22,7 @@ from tdoc_crawler.cli.mcp_app import app as mcp_app
 from tdoc_crawler.cli.spec_app import spec_app
 from tdoc_crawler.cli.tag_app import app as tag_app
 from tdoc_crawler.cli.tdoc_app import tdoc_app
+from tdoc_crawler.cli.workitems_app import workitems_app
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import LogLevel, set_verbosity
@@ -41,6 +42,7 @@ def _version() -> None:
 mgmt_app.add_typer(tdoc_app, name="tdoc", help="TDocs and meetings (shortcut: tdoc-crawler)")
 mgmt_app.add_typer(spec_app, name="spec", help="Technical specifications (shortcut: spec-crawler)")
 mgmt_app.add_typer(config_app, name="config", help="Manage configuration")
+mgmt_app.add_typer(workitems_app, name="work-items", help="3GPP work item catalogue (DynaReport lists, enrichment, audit)")
 mgmt_app.add_typer(tag_app, name="tag", help="Manage tags for TDocs, specs, and other items")
 mgmt_app.add_typer(database_app, name="database", help="Database maintenance: clear, rebuild, import/export tags (shortcut: db)")
 mgmt_app.add_typer(database_app, name="db", help="Shortcut for `database`", hidden=True)
