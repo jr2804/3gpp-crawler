@@ -29,10 +29,10 @@ from tdoc_crawler.cli.args import (
 from tdoc_crawler.cli.checkout import checkout_tdocs, list_tdoc_files
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
-from tdoc_crawler.cli.crawl import crawl_meetings, crawl_tdocs
+from tdoc_crawler.cli.crawl import crawl_tdocs
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.printing import statistics_to_dict
-from tdoc_crawler.cli.query import query_meetings, query_tdocs
+from tdoc_crawler.cli.query import query_tdocs
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
@@ -50,7 +50,7 @@ from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 _logger = get_logger(__name__)
 
-tdoc_app = GlobSafeTyper(help="3GPP Crawler - TDocs and Meetings")
+tdoc_app = GlobSafeTyper(help="3GPP Crawler - TDocs")
 
 
 @tdoc_app.command("version", help="Show installed version")
@@ -83,12 +83,10 @@ def _app_callback(
 
 # Register crawl commands
 tdoc_app.command("crawl", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_tdocs)
-tdoc_app.command("crawl-meetings", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_meetings)
 
 
 # Register query commands
 tdoc_app.command("query", rich_help_panel=HELP_PANEL_QUERY)(query_tdocs)
-tdoc_app.command("query-meetings", rich_help_panel=HELP_PANEL_QUERY)(query_meetings)
 
 
 @tdoc_app.command("open", rich_help_panel=HELP_PANEL_MAIN)
@@ -213,11 +211,9 @@ def stats(
 
 # Register command aliases
 tdoc_app.command("ct", rich_help_panel=HELP_PANEL_CRAWLING, hidden=True)(crawl_tdocs)
-tdoc_app.command("cm", rich_help_panel=HELP_PANEL_CRAWLING, hidden=True)(crawl_meetings)
 tdoc_app.command("checkout", rich_help_panel=HELP_PANEL_MAIN)(checkout_tdocs)
 
 tdoc_app.command("qt", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_tdocs)
-tdoc_app.command("qm", rich_help_panel=HELP_PANEL_QUERY, hidden=True)(query_meetings)
 
 
 __all__ = ["tdoc_app"]

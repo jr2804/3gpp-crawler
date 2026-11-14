@@ -17,13 +17,13 @@ Tools mirror the CLI groups:
 |-------|------|----------------|
 | crawl | `crawl_tdocs` | `tdoc crawl` |
 | crawl | `crawl_specs` | `spec crawl` |
-| crawl | `crawl_meetings` | `tdoc crawl-meetings` |
+| crawl | `crawl_meetings` | `meetings crawl` |
 | crawl | `crawl_work_items` | `work-items crawl` |
 | enrich | `enrich_work_items` | `work-items enrich` |
 | query | `query_tdocs` | `tdoc query` |
 | query | `query_work_items` | `work-items query` |
 | query | `query_specs` | `spec query` |
-| query | `query_meetings` | `tdoc query-meetings` |
+| query | `query_meetings` | `meetings query` |
 | checkout | `checkout_tdocs` | `tdoc checkout` |
 | checkout | `checkout_specs` | `spec checkout` |
 | checkout | `list_tdoc_files` | `tdoc files` |

@@ -30,14 +30,14 @@
 			]
 		},
 		{
-			"name": "Debug: crawl-meetings (max. 5)",
+			"name": "Debug: meetings crawl (max. 5)",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"module": "tdoc_crawler.cli.meetings_app",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"crawl-meetings",
+				"crawl",
 				"--cache-dir",
 				"./tests/test-cache",
 				"--limit-meetings",
@@ -45,27 +45,27 @@
 			]
 		},
 		{
-			"name": "Debug: crawl-meetings (full)",
+			"name": "Debug: meetings crawl (full)",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"module": "tdoc_crawler.cli.meetings_app",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"crawl-meetings",
+				"crawl",
 				"--cache-dir",
 				"./tests/test-cache"
 			]
 		},
 		{
-			"name": "Debug: crawl-meetings (single WG)",
+			"name": "Debug: meetings crawl (single WG)",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"module": "tdoc_crawler.cli.meetings_app",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"crawl-meetings",
+				"crawl",
 				"--cache-dir",
 				"./tests/test-cache",
 				"--limit-wgs",
@@ -75,27 +75,27 @@
 			]
 		},
 		{
-			"name": "Debug: query-meetings",
+			"name": "Debug: meetings query",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"module": "tdoc_crawler.cli.meetings_app",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"query-meetings",
+				"query",
 				"--cache-dir",
 				"./tests/test-cache"
 			]
 		},
 		{
-			"name": "Debug: query-meetings (specific WG - SA)",
+			"name": "Debug: meetings query (specific WG - SA)",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"module": "tdoc_crawler.cli.meetings_app",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"query-meetings",
+				"query",
 				"--cache-dir",
 				"./tests/test-cache",
 				"-w",
@@ -103,14 +103,14 @@
 			]
 		},
 		{
-			"name": "Debug: query-meetings (SP - SA Plenary)",
+			"name": "Debug: meetings query (SP - SA Plenary)",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"module": "tdoc_crawler.cli.meetings_app",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"query-meetings",
+				"query",
 				"--cache-dir",
 				"./tests/test-cache",
 				"-w",
@@ -118,17 +118,17 @@
 			]
 		},
 		{
-			"name": "Debug: query-meetings (JSON output)",
+			"name": "Debug: meetings query (JSON output)",
 			"type": "debugpy",
 			"request": "launch",
-			"module": "tdoc_crawler",
+			"module": "tdoc_crawler.cli.meetings_app",
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"query-meetings",
+				"query",
 				"--cache-dir",
 				"./tests/test-cache",
-				"--format",
+				"--output",
 				"json"
 			]
 		},

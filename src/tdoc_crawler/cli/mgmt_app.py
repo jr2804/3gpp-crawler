@@ -1,8 +1,9 @@
 """Main CLI application — 3gpp-crawler umbrella entry point.
 
 ``3gpp-crawler`` is the main CLI: it mounts the TDoc group (``tdoc``),
-the Spec group (``spec``), plus top-level ``config``, ``tag``, ``database``,
-and ``mcp``. ``tdoc-crawler`` and ``spec-crawler`` are thin shortcuts that
+the Spec group (``spec``), the Meetings group (``meetings``), plus
+top-level ``config``, ``tag``, ``database``, and ``mcp``.
+``tdoc-crawler`` and ``spec-crawler`` are thin shortcuts that
 invoke the same sub-apps directly.
 """
 
@@ -19,6 +20,7 @@ from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
 from tdoc_crawler.cli.database_app import app as database_app
 from tdoc_crawler.cli.mcp_app import app as mcp_app
+from tdoc_crawler.cli.meetings_app import meetings_app
 from tdoc_crawler.cli.spec_app import spec_app
 from tdoc_crawler.cli.tag_app import app as tag_app
 from tdoc_crawler.cli.tdoc_app import tdoc_app
@@ -39,8 +41,9 @@ def _version() -> None:
 
 
 # Mount the shared sub-apps (same objects used by the shortcut CLIs)
-mgmt_app.add_typer(tdoc_app, name="tdoc", help="TDocs and meetings (shortcut: tdoc-crawler)")
+mgmt_app.add_typer(tdoc_app, name="tdoc", help="TDocs (shortcut: tdoc-crawler)")
 mgmt_app.add_typer(spec_app, name="spec", help="Technical specifications (shortcut: spec-crawler)")
+mgmt_app.add_typer(meetings_app, name="meetings", help="3GPP meetings (meeting list crawling and meeting metadata queries)")
 mgmt_app.add_typer(config_app, name="config", help="Manage configuration")
 mgmt_app.add_typer(workitems_app, name="work-items", help="3GPP work item catalogue (DynaReport lists, enrichment, audit)")
 mgmt_app.add_typer(tag_app, name="tag", help="Manage tags for TDocs, specs, and other items")

@@ -80,7 +80,7 @@ Alternatively, you can:
 
 ```bash
 # Pass credentials via CLI options:
-uvx tdoc-crawler crawl-meetings --eol-username your_username --eol-password your_password
+uvx 3gpp-crawler meetings crawl --eol-username your_username --eol-password your_password
 
 # Or set environment variables directly:
 export TDC_EOL_USERNAME=your_username
@@ -99,22 +99,24 @@ NOTE:    Credentials are optional — crawling and querying work against officia
 | Command | Shortcut | Purpose |
 |---------|----------|---------|
 | **3gpp-crawler** | | |
-| `tdoc {subcommand}` | `tdoc-crawler` | TDocs and meetings (see below) |
+| `tdoc {subcommand}` | `tdoc-crawler` | TDocs (see below) |
 | `spec {subcommand}` | `spec-crawler` | Technical specifications (see below) |
+| `meetings {crawl,query}` | | 3GPP meetings: crawl meeting metadata, query the meeting database |
 | `config {init,show,validate,docs}` | | Manage configuration |
 | `tag {add,remove,list}` | | Manage lightweight tags on TDocs and specs |
 | `database {clear-tdocs,clear-specs,clear-meetings,clear-all,export-tags,import-tags}` | `db` | Database maintenance: selective/all clears, tag backup & restore |
 | `mcp` | | Run as MCP server for AI agents |
 | `version` | | Show installed version |
 | **tdoc group** | | |
-| `tdoc crawl-meetings` | `cm` | Populate meeting database (Run this first!) |
 | `tdoc crawl` | `ct` | Crawl TDoc metadata from FTP |
 | `tdoc query` | `qt` | Search for TDocs (auto-fetches if missing) |
-| `tdoc query-meetings` | `qm` | Search and display meeting metadata |
 | `tdoc open` | | Download and open a TDoc |
 | `tdoc checkout` | | Batch download TDocs |
 | `tdoc files` | | List the files inside a TDoc's zip archive |
 | `tdoc stats` | | View database statistics |
+| **meetings group** | | |
+| `meetings crawl` | | Populate meeting database (Run this first!) |
+| `meetings query` | | Search and display meeting metadata |
 | **spec group** | | |
 | `spec crawl` | | Crawl technical specification metadata |
 | `spec query` | | Search technical specifications |
@@ -128,7 +130,7 @@ Gather metadata from the official 3GPP sources:
 
 ```bash
 # Populate meeting database (REQUIRED first step)
-tdoc-crawler crawl-meetings
+3gpp-crawler meetings crawl
 
 # Crawl TDoc metadata (RAN, SA, CT)
 tdoc-crawler crawl
@@ -149,7 +151,7 @@ tdoc-crawler query R1-2400001
 spec-crawler query 23.501
 
 # List recent meetings
-tdoc-crawler query-meetings --limit 10
+3gpp-crawler meetings query --limit 10
 ```
 
 ### 4. Utilities & File Access

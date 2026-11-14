@@ -30,14 +30,15 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 
 | Module | Responsibility |
 |--------|----------------|
-| `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `work-items`, `config`, `tag`, `database`, `mcp` |
-| `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, query-meetings, open, stats, checkout |
+| `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `meetings`, `work-items`, `config`, `tag`, `database`, `mcp` |
+| `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, open, stats, checkout |
 | `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
 | `config_app.py` | `config init`, `show`, `validate`, `docs` |
 | `tag_app.py` | `tag add`, `remove`, `list` |
 | `database_app.py` | `database` (alias `db`): `clear-tdocs`, `clear-specs`, `clear-meetings`, `clear-all`, `export-tags`, `import-tags`; owns all destructive DB operations |
 | `mcp_app.py` | `mcp` command (Model Context Protocol server) |
 | `workitems_app.py` | `3gpp-crawler work-items` group: `crawl` + `enrich` (DynaReport lists / portal pages) and `query` + `audit` (catalogue) |
+| `meetings_app.py` | `3gpp-crawler meetings` group: `crawl` (meeting metadata) and `query` (meeting database) |
 | `checkout.py` | `tdoc checkout` command; standalone so `mcp_server` can import it without cycling through `tdoc_app` |
 | `specs.py` | `spec checkout` and `spec open` commands |
 | `crawl/`, `query/` | Command implementations for the crawl and query subcommands |
@@ -85,4 +86,4 @@ if mode not in ("fast", "full"):  # ← NEVER do this
 
 Any command that prints data or results (tables, lists, summaries, dumps) MUST accept `--output` / `-o` typed `OutputFormat` (`OutputFormatOption` in `args.py`, default `OutputFormat.TABLE`) and route through `print_structured_output()` / `format_output()` from `cli/formatting.py`. Machine formats must stay clean: no progress bars or status prose on stdout.
 
-Exceptions (text-only by design): `version`, `open` (launches a file), `config init` (writes a file; its target path is a positional argument), `config docs`, and `crawl tdocs` / `crawl-meetings` (progress and status only).
+Exceptions (text-only by design): `version`, `open` (launches a file), `config init` (writes a file; its target path is a positional argument), `config docs`, and `crawl tdocs` / `meetings crawl` (progress and status only).

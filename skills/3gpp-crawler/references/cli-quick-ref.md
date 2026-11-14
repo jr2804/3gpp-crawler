@@ -5,14 +5,6 @@ shortcuts for the `tdoc` and `spec` groups (same commands, no group prefix).
 
 ## 3gpp-crawler tdoc (shortcut: tdoc-crawler)
 
-### crawl-meetings (cm)
-
-```bash
-tdoc-crawler crawl-meetings                      # all groups
-tdoc-crawler crawl-meetings -s S4                # SA4 subgroup
-tdoc-crawler crawl-meetings -s S4 --no-prompt-credentials  # skip credential prompts
-```
-
 ### crawl (ct)
 
 ```bash
@@ -38,14 +30,6 @@ tdoc-crawler query --output json                 # JSON output
 tdoc-crawler query --limit 10                    # limit results
 ```
 
-### query-meetings (qm)
-
-```bash
-tdoc-crawler query-meetings                      # all meetings
-tdoc-crawler query-meetings -s S4                # SA4 subgroup
-tdoc-crawler query-meetings -w SA                # SA working group
-```
-
 ### open
 
 ```bash
@@ -65,6 +49,24 @@ tdoc-crawler files S4-250638                  # list zip members (--refresh re-r
 
 ```bash
 tdoc-crawler stats                               # database statistics
+```
+
+## 3gpp-crawler meetings (top-level)
+
+### crawl
+
+```bash
+3gpp-crawler meetings crawl                      # all groups
+3gpp-crawler meetings crawl -s S4                # SA4 subgroup
+3gpp-crawler meetings crawl -s S4 --no-prompt-credentials  # skip credential prompts
+```
+
+### query
+
+```bash
+3gpp-crawler meetings query                      # all meetings
+3gpp-crawler meetings query -s S4                # SA4 subgroup
+3gpp-crawler meetings query -w SA                # SA working group
 ```
 
 ## 3gpp-crawler spec (shortcut: spec-crawler)

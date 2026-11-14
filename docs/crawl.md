@@ -11,14 +11,14 @@ database to know which meeting directories to visit on the FTP server.
 
 ## Commands
 
-### `crawl-meetings` (alias: `cm`)
+### `meetings crawl`
 
 Crawl meeting metadata from the 3GPP portal.
 
 ```bash
-3gpp-crawler tdoc crawl-meetings              # all working groups
-3gpp-crawler tdoc crawl-meetings -s S4        # SA4 subgroup only
-3gpp-crawler tdoc crawl-meetings --limit-meetings-per-subwg 10
+3gpp-crawler meetings crawl                    # all working groups
+3gpp-crawler meetings crawl -s S4              # SA4 subgroup only
+3gpp-crawler meetings crawl --limit-meetings-per-subwg 10
 ```
 
 | Option | Description |
@@ -34,7 +34,7 @@ Crawl meeting metadata from the 3GPP portal.
 Crawl TDoc metadata from the 3GPP FTP server.
 
 ```bash
-3gpp-crawler tdoc crawl                       # all TDocs (after crawl-meetings)
+3gpp-crawler tdoc crawl                       # all TDocs (after meetings crawl)
 3gpp-crawler tdoc crawl -w RAN -s R1 -s R2    # specific subgroups
 3gpp-crawler tdoc crawl --start-date 2024     # date-filtered
 3gpp-crawler tdoc crawl --workers 8           # parallel workers

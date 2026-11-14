@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
 from tdoc_crawler.cli._shared import parse_scope
+from tdoc_crawler.cli.meetings_app import meetings_app
 from tdoc_crawler.cli.mgmt_app import mgmt_app
 from tdoc_crawler.cli.workitems_app import workitems_app
 from tdoc_crawler.config import PathConfig
@@ -108,9 +109,11 @@ class TestCrawlCommand:
 class TestSubgroupScopeValidation:
     """Sub-working group codes must not be accepted as working groups."""
 
-    @pytest.mark.parametrize("command", [["crawl"], ["crawl-meetings"]])
-    def test_subgroup_code_as_working_group_fails_loudly(self, command: list[str], test_cache_dir: Path) -> None:
-        result = runner.invoke(tdoc_app, [*command, "--working-group", "SA4"])
+    @pytest.mark.parametrize(("cli_app", "command"), [(tdoc_app, ["crawl"]), (meetings_app, ["crawl"])])
+    def test_subgroup_code_as_working_group_fails_loudly(
+        self, cli_app: typer.Typer, command: list[str], test_cache_dir: Path
+    ) -> None:
+        result = runner.invoke(cli_app, [*command, "--working-group", "SA4"])
 
         # Rich wraps the message panel, so strip borders and collapse whitespace
         flat = " ".join(re.sub(r"[┌┐└┘│─]", " ", result.output).split())
@@ -171,7 +174,7 @@ class TestConfigScopeDefaults:
         cfg.crawl.sub_group = "S4"
         mock_config_class.from_settings.return_value = cfg
 
-        result = runner.invoke(tdoc_app, ["query-meetings"])
+        result = runner.invoke(meetings_app, ["query"])
 
         assert result.exit_code == 0, result.output
         query_config = mock_db.query_meetings.call_args[0][0]
@@ -194,7 +197,7 @@ class TestConfigScopeDefaults:
         cfg.crawl.sub_group = "S4"
         mock_config_class.from_settings.return_value = cfg
 
-        result = runner.invoke(tdoc_app, ["query-meetings", "-w", "RAN", "-s", "R2"])
+        result = runner.invoke(meetings_app, ["query", "-w", "RAN", "-s", "R2"])
 
         assert result.exit_code == 0, result.output
         query_config = mock_db.query_meetings.call_args[0][0]
@@ -203,7 +206,7 @@ class TestConfigScopeDefaults:
 
 
 class TestCrawlMeetingsCommand:
-    """Tests for crawl-meetings command."""
+    """Tests for the meetings crawl command."""
 
     @patch("tdoc_crawler.cli.crawl.meetings.MeetingCrawler")
     @patch("tdoc_crawler.cli.crawl.meetings.MeetingDatabase")
@@ -213,7 +216,7 @@ class TestCrawlMeetingsCommand:
         mock_crawler_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test basic crawl-meetings command execution."""
+        """Test basic meetings crawl command execution."""
         mock_db = MagicMock()
         mock_db_class.return_value.__aenter__.return_value = mock_db
         mock_db.log_crawl_start = AsyncMock(return_value=1)
@@ -231,9 +234,9 @@ class TestCrawlMeetingsCommand:
         )
 
         result = runner.invoke(
-            tdoc_app,
+            meetings_app,
             [
-                "crawl-meetings",
+                "crawl",
                 "--no-prompt-credentials",
             ],
         )
@@ -569,7 +572,7 @@ class TestWorkItemsCommands:
 
 
 class TestQueryMeetingsCommand:
-    """Tests for query-meetings command."""
+    """Tests for the meetings query command."""
 
     @patch("tdoc_crawler.cli.query.meetings.MeetingDatabase")
     def test_query_meetings_no_results(
@@ -577,14 +580,14 @@ class TestQueryMeetingsCommand:
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test query-meetings with no results."""
+        """Test meetings query with no results."""
         mock_db = MagicMock()
         mock_db_class.return_value.__aenter__.return_value = mock_db
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            tdoc_app,
-            ["query-meetings"],
+            meetings_app,
+            ["query"],
         )
 
         assert result.exit_code == 0
@@ -596,14 +599,14 @@ class TestQueryMeetingsCommand:
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test query-meetings with subgroup filter."""
+        """Test meetings query with subgroup filter."""
         mock_db = MagicMock()
         mock_db_class.return_value.__aenter__.return_value = mock_db
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            tdoc_app,
-            ["query-meetings", "-s", "SA4"],
+            meetings_app,
+            ["query", "-s", "SA4"],
         )
 
         assert result.exit_code == 0
@@ -617,14 +620,14 @@ class TestQueryMeetingsCommand:
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test query-meetings with subgroup alias (S4 -> SA4)."""
+        """Test meetings query with subgroup alias (S4 -> SA4)."""
         mock_db = MagicMock()
         mock_db_class.return_value.__aenter__.return_value = mock_db
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            tdoc_app,
-            ["query-meetings", "-s", "S4"],
+            meetings_app,
+            ["query", "-s", "S4"],
         )
 
         assert result.exit_code == 0
@@ -638,14 +641,14 @@ class TestQueryMeetingsCommand:
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test query-meetings with plenary subgroup alias (RP -> RAN Plenary)."""
+        """Test meetings query with plenary subgroup alias (RP -> RAN Plenary)."""
         mock_db = MagicMock()
         mock_db_class.return_value.__aenter__.return_value = mock_db
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            tdoc_app,
-            ["query-meetings", "-s", "RP"],
+            meetings_app,
+            ["query", "-s", "RP"],
         )
 
         assert result.exit_code == 0
@@ -659,14 +662,14 @@ class TestQueryMeetingsCommand:
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test query-meetings with working group alias (SP -> SA)."""
+        """Test meetings query with working group alias (SP -> SA)."""
         mock_db = MagicMock()
         mock_db_class.return_value.__aenter__.return_value = mock_db
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            tdoc_app,
-            ["query-meetings", "-w", "SP"],
+            meetings_app,
+            ["query", "-w", "SP"],
         )
 
         assert result.exit_code == 0
@@ -680,14 +683,14 @@ class TestQueryMeetingsCommand:
         mock_db_class: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test query-meetings with combined working group and subgroup filters."""
+        """Test meetings query with combined working group and subgroup filters."""
         mock_db = MagicMock()
         mock_db_class.return_value.__aenter__.return_value = mock_db
         mock_db.query_meetings = AsyncMock(return_value=[])
 
         result = runner.invoke(
-            tdoc_app,
-            ["query-meetings", "-w", "SA", "-s", "S4"],
+            meetings_app,
+            ["query", "-w", "SA", "-s", "S4"],
         )
 
         assert result.exit_code == 0
@@ -1151,7 +1154,7 @@ class TestEnvironmentVariables:
         # Set environment variable via monkeypatch
         monkeypatch.setenv("TDC_WORKING_GROUP", "SA")
 
-        result = runner.invoke(tdoc_app, ["query-meetings"])
+        result = runner.invoke(meetings_app, ["query"])
 
         assert result.exit_code == 0
         # Verify working group filter was applied

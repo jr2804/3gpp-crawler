@@ -18,7 +18,7 @@ of this project:
 
 The **regular workflow uses official 3GPP sources only**:
 
-1. `crawl-meetings` — meeting metadata from official endpoints.
+1. `meetings crawl` — meeting metadata from official endpoints.
 1. `tdoc crawl` — TDoc metadata from the meeting document lists (Excel sheets)
    published on the official 3GPP FTP server, meeting by meeting.
 1. Single/missing TDocs are fetched from the official (unauthenticated) portal.

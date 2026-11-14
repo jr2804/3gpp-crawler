@@ -102,14 +102,14 @@ ones) and fills status, release, level, parent/child and the specification /
 change-request links; `work-items audit` compares the local catalogue against
 the global `WI-List` page and reports per-lead-body coverage.
 
-### `query-meetings` (alias: `qm`)
+### `meetings query`
 
 Browse crawled meeting schedules and metadata.
 
 ```bash
-3gpp-crawler tdoc query-meetings -w SA
-3gpp-crawler tdoc query-meetings -s S4
-3gpp-crawler tdoc query-meetings --output yaml
+3gpp-crawler meetings query -w SA
+3gpp-crawler meetings query -s S4
+3gpp-crawler meetings query --output yaml
 ```
 
 | Option | Description |

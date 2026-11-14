@@ -98,6 +98,7 @@ relevant child AGENTS.md.
 | `src/tdoc_crawler/cli/AGENTS.md` | CLI-only conventions: thin wrappers, StrEnum options |
 | `src/tdoc_crawler/config/AGENTS.md` | ThreeGPPConfig + CacheManager rules |
 | `src/tdoc_crawler/database/AGENTS.md` | Persistence: Oxyde models, model choice guide |
+| `src/tdoc_crawler/workitems/AGENTS.md` | Work item catalogue: DynaReport sources, portal enrichment |
 | `tests/AGENTS.md` | Test conventions, import patterns, executor tests |
 
 ## State files — `.agents/`, demand-loaded, not always injected
@@ -151,10 +152,15 @@ _Always-injected_ — keep minimal. Everything else → `.agents/` files.
 ## Project & commands
 
 - Python ≥3.13, src layout. Packages live under `src/tdoc_crawler/`
-  (`tdocs`, `specs`, `meetings`, `database`, `http_client`, `config`, `cli`,
-  `clients`, `executors`, `workers`, `parsers`, `models`, `constants`, `logging`, `utils`).
+  (`tdocs`, `specs`, `meetings`, `workitems`, `database`, `http_client`,
+  `config`, `cli`, `clients`, `executors`, `workers`, `parsers`, `models`,
+  `constants`, `logging`, `utils`), plus top-level `mcp_server.py`,
+  `credentials.py`, `__main__.py`.
 - Entry points (`pyproject.toml` `[project.scripts]`): `tdoc-crawler`
   (`cli/tdoc_app.py`), `spec-crawler` (`cli/spec_app.py`), `3gpp-crawler` (`cli/mgmt_app.py`).
+- Sync with a pinned interpreter: `uv sync --python 3.13`. There is no
+  `.python-version`; unpinned uv picks Python 3.15, for which `oxyde-core`
+  ships no wheel and the source build fails (needs a Rust toolchain).
 - Prefer `mise run <task>` (task defs in `.config/mise/conf.d/*.toml`). Single-test
   runs use `uv run pytest tests/x.py::test_name -v`.
 - Tasks that MUTATE files: `lint` (`ruff --fix --unsafe-fixes`), `format`

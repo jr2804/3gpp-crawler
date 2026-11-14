@@ -9,18 +9,18 @@ Crawl, query, tag, and download 3GPP documents locally. One SQLite DB, one main 
 
 | Command | Purpose |
 |---------|---------|
-| `3gpp-crawler` | **Main CLI** - everything below via groups: `tdoc`, `spec`, `config`, `tag`, `database` (alias `db`), `mcp` |
+| `3gpp-crawler` | **Main CLI** - everything below via groups: `tdoc`, `spec`, `meetings`, `work-items`, `config`, `tag`, `database` (alias `db`), `mcp` |
 | `tdoc-crawler` | Shortcut for the `tdoc` group |
 | `spec-crawler` | Shortcut for the `spec` group |
 
 ## Lifecycle
 
 ```text
-crawl-meetings → crawl → query → tag → checkout
-     (1)          (2)     (3)    (4)       (5)
+meetings crawl → crawl → query → tag → checkout
+      (1)        (2)     (3)    (4)       (5)
 ```
 
-1. **Meetings first** — `3gpp-crawler tdoc crawl-meetings` populates meeting metadata; everything else depends on this.
+1. **Meetings first** — `3gpp-crawler meetings crawl` populates meeting metadata; everything else depends on this.
 2. **Crawl TDocs/specs** — pull metadata from 3GPP portal/FTP. Incremental by default.
 3. **Query** — search by ID, working group (`-w RAN|SA|CT`), sub-working group (`-s S4|R1`), date range, title, agenda pattern. `--tag` filters narrow results.
 4. **Tag** — lightweight grouping (spec, tdoc, or other kinds).
@@ -30,14 +30,14 @@ crawl-meetings → crawl → query → tag → checkout
 
 ```bash
 # First-time setup
-3gpp-crawler tdoc crawl-meetings       # REQUIRED: populate meetings
-3gpp-crawler tdoc crawl                # crawl TDoc metadata
-3gpp-crawler spec crawl                # crawl spec metadata
+3gpp-crawler meetings crawl             # REQUIRED: populate meetings
+3gpp-crawler tdoc crawl                 # crawl TDoc metadata
+3gpp-crawler spec crawl                 # crawl spec metadata
 
 # Query
 3gpp-crawler tdoc query -w SA --start-date 2024
 3gpp-crawler tdoc query --tag codec,rel-18
-3gpp-crawler tdoc query-meetings -s S4
+3gpp-crawler meetings query -s S4
 
 # Tag
 3gpp-crawler tag add tdoc S4-250638 --tag codec
@@ -94,7 +94,7 @@ parent work item, impacted specs) with the TDoc count per work item.
 
 ```bash
 # Agenda-driven workflow (e.g., ATIAS codec work)
-3gpp-crawler tdoc crawl-meetings -s S4
+3gpp-crawler meetings crawl -s S4
 3gpp-crawler tdoc crawl -s S4
 3gpp-crawler tdoc query --sub-group S4 --agenda "*atias*" --start-date 2024
 3gpp-crawler tag add tdoc S4-250638 --tag atias,codec
@@ -120,7 +120,7 @@ parent work item, impacted specs) with the TDoc count per work item.
 
 ## Gotchas
 
-- `crawl-meetings` must run before `crawl` — TDocs reference meeting metadata
+- `meetings crawl` must run before `crawl` — TDocs reference meeting metadata
 - Sub-working groups go in `-s/--sub-group` (`S4`, `R1`, `C3`); `-w/--working-group` accepts only `RAN`/`SA`/`CT` and rejects `SA4` instead of silently dropping to `SA`
 - Work item links (`--work-item`) come from the document list `Related WIs` column and the catalogue (`work-items query`) from the DynaReport lists (`work-items crawl` + `work-items enrich`); a database crawled before work item support has neither — `database clear-all` plus a re-crawl is required
 - Tags are independent per kind: a tag on a TDoc doesn't affect spec queries

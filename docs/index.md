@@ -13,7 +13,7 @@ shortcuts for the `tdoc` and `spec` groups.
 
 ```bash
 # 1. Populate meeting database (REQUIRED first step)
-3gpp-crawler tdoc crawl-meetings
+3gpp-crawler meetings crawl
 
 # 2. Crawl TDoc metadata
 3gpp-crawler tdoc crawl
