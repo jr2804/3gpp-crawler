@@ -360,22 +360,28 @@ async def fetch_missing_tdocs(
         refreshed = await database.query_tdocs(config)
         return FetchMissingResult(refreshed=refreshed, fetch_result=fetch_result)
 
-    # Default behavior - use unauthenticated portal method with WhatTheSpec fallback
-    fetch_result = await fetch_missing_tdocs_batch(
-        database=database,
-        missing_ids=missing,
-        session=session,
-        http_cache_file=http_cache_file,
-    )
-
-    # Check if we should try whatthespec fallback
-    has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
-    if credentials_unavailable or has_credentials_error:
-        logger.info("Falling back to WhatTheSpec for missing TDocs due to credential issues")
+    # Without credentials the portal lookup can only fail; go straight to
+    # WhatTheSpec instead of logging an expected failure first.
+    if credentials_unavailable:
+        logger.info("No portal credentials; fetching missing TDocs via WhatTheSpec")
         fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
         used_fallback = True
     else:
-        used_fallback = False
+        fetch_result = await fetch_missing_tdocs_batch(
+            database=database,
+            missing_ids=missing,
+            session=session,
+            http_cache_file=http_cache_file,
+        )
+
+        # Authentication can still fail (expired account, network); fall back.
+        has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
+        if has_credentials_error:
+            logger.info("Falling back to WhatTheSpec for missing TDocs due to credential issues")
+            fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
+            used_fallback = True
+        else:
+            used_fallback = False
 
     refreshed = await database.query_tdocs(config)
     return FetchMissingResult(

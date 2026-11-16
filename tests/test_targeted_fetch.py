@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import niquests as requests
 import pytest
 
+from tdoc_crawler.clients.portal import PortalCredentialsError
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.models import PortalCredentials, WorkingGroup
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs, fetch_missing_tdocs_batch
+from tdoc_crawler.tdocs.sources.base import TDocSourceConfig
+from tdoc_crawler.tdocs.sources.portal import PortalSource
 
 from .conftest import MeetingRow, insert_sample_meetings_async
 
@@ -181,13 +185,16 @@ class TestFetchMissingTdocs:
             tdoc_ids=["R1-9999999"],
         )
 
+        credentials = PortalCredentials(username="test", password="test")  # noqa: S106
+
         async with TDocDatabase(test_db_path) as database:
             results = await database.query_tdocs(config)
-            await fetch_missing_tdocs(
-                database,
-                config,
-                results,
-            )
+            with patch("tdoc_crawler.tdocs.operations.fetch.resolve_credentials", return_value=credentials):
+                await fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                )
 
         mock_fetch_batch.assert_called_once()
         call_kwargs = mock_fetch_batch.call_args.kwargs
@@ -240,13 +247,16 @@ class TestFetchMissingTdocs:
             tdoc_ids=["R1-2301234", "R1-9999999"],
         )
 
+        credentials = PortalCredentials(username="test", password="test")  # noqa: S106
+
         async with TDocDatabase(test_db_path) as database:
             results = await database.query_tdocs(config)
-            await fetch_missing_tdocs(
-                database,
-                config,
-                results,
-            )
+            with patch("tdoc_crawler.tdocs.operations.fetch.resolve_credentials", return_value=credentials):
+                await fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                )
 
         mock_fetch_batch.assert_called_once()
         call_kwargs = mock_fetch_batch.call_args.kwargs
@@ -254,6 +264,32 @@ class TestFetchMissingTdocs:
         assert call_kwargs["missing_ids"] == ["R1-9999999"]
         assert "R1-9999999" in call_kwargs["missing_ids"]
         assert "R1-2301234" not in call_kwargs["missing_ids"]
+
+
+class TestPortalSourceWithoutCredentials:
+    """Portal lookups without an EOL account must stay quiet."""
+
+    def test_fetch_by_id_returns_none_without_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A missing EOL account is informational, not an error."""
+        source = PortalSource(TDocSourceConfig())
+        client = MagicMock()
+        client.extract_tdoc_url.return_value = None
+        client.fetch_tdoc_metadata.side_effect = PortalCredentialsError(
+            "Portal credentials required for targeted fetch. Set TDC_EOL_USERNAME and TDC_EOL_PASSWORD.",
+        )
+
+        with (
+            patch.object(source, "_get_client", return_value=client),
+            caplog.at_level(
+                logging.INFO,
+                logger="tdoc_crawler.tdocs.sources.portal",
+            ),
+        ):
+            result = source.fetch_by_id("S4-251501")
+
+        assert result is None
+        assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+        assert any("Skipping portal lookup" in record.getMessage() for record in caplog.records)
 
 
 @pytest.mark.asyncio
@@ -321,13 +357,16 @@ class TestWhatTheSpecFallback:
 
             mock_whatthespec_batch.side_effect = insert_via_whatthespec
 
-            result = await fetch_missing_tdocs(
-                database,
-                config,
-                results,
-            )
+            with patch("tdoc_crawler.tdocs.operations.fetch.resolve_credentials", return_value=None):
+                result = await fetch_missing_tdocs(
+                    database,
+                    config,
+                    results,
+                )
 
-        # Verify whatthespec was called
+        # Without credentials the portal batch is skipped entirely: it cannot
+        # succeed and would only log an expected failure.
+        mock_fetch_batch.assert_not_called()
         assert mock_whatthespec_batch.called
         # Verify TDoc was fetched and inserted
         assert len(result.refreshed) == 1

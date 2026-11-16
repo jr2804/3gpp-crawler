@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Self
 
-from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient
+from tdoc_crawler.clients.portal import PortalAuthenticationError, PortalClient, PortalCredentialsError
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.parsers.portal import PortalParsingError
@@ -77,6 +77,11 @@ class PortalSource(TDocSource):
             # Fetch full metadata (authenticated)
             return client.fetch_tdoc_metadata(tdoc_id, url)
 
+        except PortalCredentialsError as exc:
+            # Expected when no EOL account is configured: the caller falls back
+            # to WhatTheSpec, so this is informational, not an error.
+            logger.info("Skipping portal lookup for %s: %s", tdoc_id, exc)
+            return None
         except (PortalAuthenticationError, PortalParsingError) as exc:
             logger.warning("Portal lookup failed for %s: %s", tdoc_id, exc)
             return None
