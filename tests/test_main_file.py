@@ -52,6 +52,24 @@ class TestResolvePrecedence:
         assert selection.source is MainFileSource.HEURISTIC
         assert selection.relative_path == "S4-261599 On binaural capture.docx"
 
+    def test_manual_selector_without_override_raises(self, archive_dir: Path) -> None:
+        config = CheckoutConfig(selector=MainFileSelector.MANUAL)
+
+        with pytest.raises(FileNotFoundError, match="selector 'manual' disables"):
+            resolve_main_file(archive_dir, "S4-261599", config=config)
+
+    def test_manual_selector_uses_override(self, archive_dir: Path) -> None:
+        config = CheckoutConfig(selector=MainFileSelector.MANUAL)
+
+        selection = resolve_main_file(
+            archive_dir,
+            "S4-261599",
+            override_member="Cover sheet.pdf",
+            config=config,
+        )
+
+        assert selection.source is MainFileSource.MANUAL_OVERRIDE
+
     def test_decision_model_without_api_key_falls_back(self, archive_dir: Path) -> None:
         config = CheckoutConfig(selector=MainFileSelector.DECISION_MODEL, systemone_api_key=None)
 

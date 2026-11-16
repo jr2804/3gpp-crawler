@@ -9,9 +9,11 @@ Selection has a fixed precedence:
    configured :class:`~tdoc_crawler.models.main_files.MainFileSelector`
    is ``decision_model``, the API key is set, and the answer reaches the
    confidence threshold.
-3. Heuristic ranking (offline, deterministic) — always available.
+3. Heuristic ranking (offline, deterministic) — the default fallback.
 
-The heuristic is the default and never requires network access.
+The heuristic is the default and never requires network access. Selecting
+``manual`` turns the automatic chain off: without a stored override the
+archive cannot be opened.
 """
 
 from __future__ import annotations
@@ -92,6 +94,9 @@ def resolve_main_file(
             relative_path=overridden.relative_to(extract_dir).as_posix(),
             source=MainFileSource.MANUAL_OVERRIDE,
         )
+
+    if settings.selector is MainFileSelector.MANUAL:
+        raise FileNotFoundError(f"no main file override stored for {tdoc_id}; selector 'manual' disables heuristic and decision-model selection")
 
     if settings.selector is MainFileSelector.DECISION_MODEL and settings.systemone_api_key:
         decision = _decide_with_model(extract_dir, tdoc_id, title, settings, session)
