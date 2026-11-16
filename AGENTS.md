@@ -172,11 +172,12 @@ _Always-injected_ — keep minimal. Everything else → `.agents/` files.
 - Docs: `mise run docs` (zensical, needs `--link-mode=copy`, already in task).
   `docs.yml` deploys with `mkdocs build --strict`.
 - Release: `release.yml` runs on push to `main`, tags `v$(uv version --short)`,
-  and only releases when that tag is new. Do **not** edit the version by hand:
-  `.githooks/pre-commit` (main only) bumps CalVer `YYYY.MM.N` in
-  `src/tdoc_crawler/__init__.py` + `pyproject.toml` on every commit and stages
-  them. Append `[skip release]` to the commit message to skip release and the
-  forge mirror push.
+  and only releases when that tag is new — so the version must change for a
+  release. `.githooks/pre-commit` does that, but only once installed with
+  `git config core.hooksPath .githooks`; otherwise bump `version` in
+  `pyproject.toml` + `src/tdoc_crawler/__init__.py` by hand. Append
+  `[skip release]` to the commit message to skip release and the forge mirror
+  push.
 - `.config/mise/conf.d/mise.local.toml` and root `mise.local.toml` (both
   gitignored) hold plaintext credentials. Never print, quote, or copy their values.
 
