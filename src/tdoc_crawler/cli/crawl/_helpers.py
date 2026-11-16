@@ -23,7 +23,7 @@ def _parse_date(date_str: str | None, is_end: bool = False) -> date | None:
 def _build_scope_description(
     meetings: list[MeetingMetadata],
     subgroups: list[str] | None,
-    working_groups: list[WorkingGroup],
+    working_groups: list[WorkingGroup] | None,
 ) -> list[str]:
     scope_parts = []
     if meetings:
@@ -35,7 +35,7 @@ def _build_scope_description(
     elif subgroups:
         scope_parts.append(f"subgroups: {', '.join(subgroups)}")
     else:
-        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups or [])}")
     return scope_parts
 
 

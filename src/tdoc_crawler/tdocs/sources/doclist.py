@@ -186,10 +186,11 @@ def fetch_meeting_document_list_with_work_items(
         _logger.debug("Downloading Excel document list for meeting %s", meeting_id)
         response = session.get(doclist_url, timeout=timeout)
         response.raise_for_status()
+        content = response.content or b""
 
         # Check if we got a valid Excel file
         content_type = response.headers.get("content-type", "").lower()
-        if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" not in content_type and not response.content.startswith(b"PK"):
+        if "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" not in content_type and not content.startswith(b"PK"):
             # Some responses might not set content-type correctly, check file signature
             msg = f"Expected Excel file for meeting {meeting_id}, got content-type: {content_type}"
             raise DocumentListError(msg)
@@ -197,13 +198,13 @@ def fetch_meeting_document_list_with_work_items(
         # Save doclist to file if path is provided
         if save_doclist_to is not None:
             save_doclist_to.parent.mkdir(parents=True, exist_ok=True)
-            save_doclist_to.write_bytes(response.content)
+            save_doclist_to.write_bytes(content)
             _logger.debug("Saved document list to %s", save_doclist_to)
 
         # Parse Excel file
         _logger.debug("Parsing Excel document list for meeting %s", meeting_id)
-        tdocs = parse_excel_document_list(response.content, meeting_id, files_url)
-        return tdocs, _parse_work_items_safely(response.content, meeting_id)
+        tdocs = parse_excel_document_list(content, meeting_id, files_url)
+        return tdocs, _parse_work_items_safely(content, meeting_id)
 
     except DocumentListError:
         raise

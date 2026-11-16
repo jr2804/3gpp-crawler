@@ -122,10 +122,10 @@ class TestPortalClientBrowserHeaders:
         """Session has browser-like headers to avoid 403 Forbidden."""
         client = PortalClient()
         session = client._get_session()
-        assert "User-Agent" in session.headers
-        assert "Mozilla" in session.headers["User-Agent"]
-        assert "Accept" in session.headers
-        assert "text/html" in session.headers["Accept"]
+        user_agent = session.headers.get("User-Agent", "")
+        accept = session.headers.get("Accept", "")
+        assert "Mozilla" in str(user_agent)
+        assert "text/html" in str(accept)
 
 
 class TestPortalClientExtractTdocUrl:

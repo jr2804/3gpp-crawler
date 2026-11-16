@@ -188,10 +188,11 @@ def _load_toml(config_file: Path) -> ConfigValue:
 def _load_yaml(config_file: Path) -> ConfigValue:
     """Load and interpolate a YAML config file."""
     yaml = import_module("yaml")
+    scanner = import_module("yaml.scanner")
     with config_file.open("r", encoding="utf-8") as f:
         try:
             data = yaml.safe_load(f)
-        except yaml.scanner.ScannerError as e:
+        except scanner.ScannerError as e:
             raise ConfigLoadError(config_file, f"Parse error: {e}") from e
     if data is None:
         data = {}

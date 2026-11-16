@@ -103,7 +103,7 @@ def fetch_meetings(
                 logger.error(
                     "Portal meetings API returned invalid JSON (status=%d, body=%s): %s",
                     r.status_code,
-                    r.text[:200],
+                    (r.text or "")[:200],
                     exc,
                 )
                 break

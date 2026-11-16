@@ -109,7 +109,7 @@ def _format_cell(value: str | float | bool | None) -> str:
     return str(value)
 
 
-def format_output(data: StructuredData, output_format: OutputFormat) -> str:
+def format_output(data: StructuredData | pd.DataFrame, output_format: OutputFormat) -> str:
     """Format structured data to the specified output format.
 
     Uses pandas DataFrame as intermediate representation for consistent handling
@@ -146,7 +146,7 @@ def format_output(data: StructuredData, output_format: OutputFormat) -> str:
             raise ValueError(msg)
 
 
-def _normalize_to_dataframe(data: StructuredData) -> tuple[pd.DataFrame, str]:
+def _normalize_to_dataframe(data: StructuredData | pd.DataFrame) -> tuple[pd.DataFrame, str]:
     """Normalize arbitrary structured data to a DataFrame.
 
     Returns:

@@ -29,7 +29,7 @@ class TestWhatTheSpecResolution:
         Returns:
             HttpConfig instance with default settings.
         """
-        return HttpConfig(cache_ttl=3600, cache_refresh_on_access=True)
+        return HttpConfig(cache_ttl=3600)
 
     @pytest.fixture
     def sample_api_response(self) -> list[dict]:

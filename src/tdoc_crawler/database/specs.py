@@ -33,7 +33,7 @@ class SpecCrawlSourceOutcome:
 
     source_name: str
     status: str
-    versions: list[str]
+    versions: list[SpecVersion]
     message: str | None = None
 
 
@@ -247,8 +247,10 @@ class SpecDatabase(DocDatabase):
 
             outcome, record, candidate, versions = result
             outcomes.append(outcome)
-            source_records.append(record)
-            aggregated = _aggregate_specs(aggregated, candidate)
+            if record is not None:
+                source_records.append(record)
+            if candidate is not None:
+                aggregated = _aggregate_specs(aggregated, candidate)
             spec_versions.extend(versions)
 
         if not outcomes:
@@ -278,7 +280,7 @@ class SpecDatabase(DocDatabase):
                 spec_number=normalized,
                 release=release,
                 status="skipped",
-                latest_version=aggregated.latest_version if aggregated else None,
+                latest_version=str(aggregated.latest_version) if aggregated and aggregated.latest_version else None,
                 sources=outcomes,
                 message="release-not-found",
             )
@@ -303,7 +305,7 @@ class SpecDatabase(DocDatabase):
             spec_number=normalized,
             release=release,
             status="stored",
-            latest_version=aggregated.latest_version,
+            latest_version=str(aggregated.latest_version) if aggregated.latest_version else None,
             sources=outcomes,
         )
 
@@ -408,7 +410,7 @@ def _build_spec_candidate(
     metadata_payload: dict[str, JSONValue],
     normalized: str,
     source_name: str,
-    versions: list[str],
+    versions: list[SpecVersion],
 ) -> tuple[Specification, list[SpecificationVersion]]:
     title = str(metadata_payload.get("title", "Unknown"))
     spec_type = str(metadata_payload.get("spec_type", "TS"))
@@ -445,7 +447,7 @@ def _build_spec_versions(
     metadata_payload: dict[str, JSONValue],
     normalized: str,
     source_name: str,
-    versions: list[str],
+    versions: list[SpecVersion],
 ) -> list[SpecificationVersion]:
     spec_versions: list[SpecificationVersion] = []
     for i, version in enumerate(versions):
@@ -549,15 +551,12 @@ def _check_release_matches(
         return True
     if release_type in ("exact", "prefix"):
         return any(
-            _version_matches_release(v, release_type, release_value, specificity)  # type: ignore[arg-type]
-            for outcome in outcomes
-            if outcome.status == "ok"
-            for v in outcome.versions
+            _version_matches_release(v, release_type, release_value, specificity) for outcome in outcomes if outcome.status == "ok" for v in outcome.versions
         )
     return False
 
 
-def _version_matches_release(version: str, release_type: str, release_value: str, specificity: int) -> bool:
+def _version_matches_release(version: SpecVersion, release_type: str, release_value: str, specificity: int) -> bool:
     """Check if a version string matches the release selector."""
     try:
         v_parts = list(parse_spec_version(version).release)

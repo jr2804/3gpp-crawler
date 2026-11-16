@@ -32,7 +32,7 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.meetings.models import MeetingCrawlConfig, MeetingQueryConfig
-from tdoc_crawler.meetings.operations.crawl import MeetingCrawler
+from tdoc_crawler.meetings.operations.crawl import MeetingCrawler, MeetingCrawlResult
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs
 
@@ -92,10 +92,10 @@ def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
     if subgroups:
         scope_parts.append(f"subgroups: {', '.join(subgroups)}")
     else:
-        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups)}")
+        scope_parts.append(f"working groups: {', '.join(wg.value for wg in working_groups or [])}")
     console.print(f"[cyan]Crawling meetings ({', '.join(scope_parts)})[/cyan]")
 
-    async def run_meeting_crawl() -> object:
+    async def run_meeting_crawl() -> MeetingCrawlResult:
         async with MeetingDatabase(db_file) as database:
             crawl_id = await database.log_crawl_start(
                 "meeting",

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tdoc_crawler.config.export import ConfigExporter, ConfigFormat
+from tdoc_crawler.config.export import ConfigExporter
 from tdoc_crawler.config.settings import ThreeGPPConfig
 
 
@@ -74,7 +74,6 @@ def test_save_overwrite(tmp_path: Path) -> None:
 def test_unsupported_format_raises() -> None:
     """Test that unsupported format raises ValueError."""
     exporter = ConfigExporter()
-    # Use a type ignore to bypass static type checking for invalid format
-    invalid_format: ConfigFormat = "invalid"  # type: ignore[assignment]
+    invalid_format = "invalid"
     with pytest.raises(ValueError, match="Unsupported format"):
         exporter.export(invalid_format)

@@ -154,7 +154,7 @@ class PortalClient:
         )
         login_response.raise_for_status()
 
-        response_text = login_response.text.strip()
+        response_text = _response_text(login_response).strip()
 
         if response_text.lower() == "failed":
             msg = "Authentication failed - check credentials"
@@ -186,18 +186,19 @@ class PortalClient:
             response = session.get(download_url, timeout=self.timeout)
             response.raise_for_status()
 
-            if "cannot be found" in response.text.lower() or "not found" in response.text.lower():
+            body_text = _response_text(response)
+            if "cannot be found" in body_text.lower() or "not found" in body_text.lower():
                 msg = f"TDoc {tdoc_id} not found on portal"
                 raise PortalParsingError(msg)
 
             # Extract URL from JavaScript redirect pattern
             pattern = r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]"
-            match = re.search(pattern, response.text)
+            match = re.search(pattern, body_text)
 
             if not match:
                 # Try CDATA section pattern
                 cdata_pattern = r"<!\[CDATA\[(.*?)\]\]>"
-                cdata_matches = re.findall(cdata_pattern, response.text)
+                cdata_matches = re.findall(cdata_pattern, body_text)
                 for cdata_match in cdata_matches:
                     inner_match = re.search(r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]", cdata_match)
                     if inner_match:
@@ -262,13 +263,13 @@ class PortalClient:
         response.raise_for_status()
 
         # Check if redirected to login (session expired)
-        if "login.aspx" in response.url.lower():
+        if "login.aspx" in (response.url or "").lower():
             self._authenticated = False
             msg = "Session expired - re-authentication required"
             raise PortalAuthenticationError(msg)
 
         # Parse the page using the parser module
-        return self.parse_tdoc_page(response.text, tdoc_id, url)
+        return self.parse_tdoc_page(_response_text(response), tdoc_id, url)
 
     @staticmethod
     def parse_tdoc_page(html: str, tdoc_id: str, url: str | None = None) -> TDocMetadata:
@@ -317,6 +318,11 @@ class PortalClient:
             Non-cached session with browser-like headers
         """
         return create_cached_session(http_cache_enabled=False, verify=self._verify_resolved)
+
+
+def _response_text(response: requests.Response) -> str:
+    """Return the decoded response body, treating an absent body as empty text."""
+    return response.text or ""
 
 
 __all__ = [

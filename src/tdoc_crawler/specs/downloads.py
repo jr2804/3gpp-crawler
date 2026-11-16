@@ -205,15 +205,15 @@ class SpecDownloads:
     def _filter_versions_by_release(
         versions: list[SpecificationVersion],
         release_type: str,
-        release_value: str,
-        specificity: int,
+        release_value: str | None,
+        specificity: int | None,
         normalized: str,
         release: str,
     ) -> list[SpecificationVersion]:
         """Filter candidate versions by normalized release selector."""
-        if release_type in {"latest", "all"}:
-            return versions
         if release_type not in {"exact", "prefix"}:
+            return versions
+        if release_value is None or specificity is None:
             return versions
 
         filtered_versions: list[SpecificationVersion] = []

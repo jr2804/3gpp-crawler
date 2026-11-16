@@ -259,7 +259,7 @@ def spec_crawl_to_dict(result: SpecCrawlResult) -> dict[str, JSONValue]:
             {
                 "source_name": outcome.source_name,
                 "status": outcome.status,
-                "versions": outcome.versions,
+                "versions": [str(version) for version in outcome.versions],
                 "message": outcome.message,
             }
             for outcome in result.sources

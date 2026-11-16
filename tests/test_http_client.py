@@ -23,7 +23,6 @@ class TestCreateCachedSession:
         """Test that create_cached_session returns a requests.Session."""
         http_config = HttpConfig(
             cache_ttl=3600,
-            cache_refresh_on_access=True,
             max_retries=3,
         )
         session = create_cached_session(
@@ -43,7 +42,6 @@ class TestCreateCachedSession:
         cache_file = cache_root / DEFAULT_HTTP_CACHE_FILENAME
         http_config = HttpConfig(
             cache_ttl=3600,
-            cache_refresh_on_access=True,
             max_retries=3,
         )
         session = create_cached_session(
@@ -57,7 +55,6 @@ class TestCreateCachedSession:
         """Test that cache database file is created lazily."""
         http_config = HttpConfig(
             cache_ttl=3600,
-            cache_refresh_on_access=True,
             max_retries=3,
         )
         session = create_cached_session(
@@ -146,7 +143,6 @@ class TestCreateCachedSession:
         """Test that custom TTL is accepted."""
         http_config = HttpConfig(
             cache_ttl=1800,
-            cache_refresh_on_access=False,
             max_retries=5,
         )
         session = create_cached_session(

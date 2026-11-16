@@ -3,9 +3,14 @@
 import fnmatch
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime
+from typing import Any
 
+from oxyde import Model
+
+from tdoc_crawler.database.main_files import get_main_file_override
 from tdoc_crawler.database.meetings import MeetingDatabase
 from tdoc_crawler.database.oxyde_models import (
+    MainFileOverride,
     MeetingAgendaItem,
     MeetingMetadata,
     TDocMetadata,
@@ -282,6 +287,15 @@ class TDocDatabase(MeetingDatabase):
             await TDocWorkItem.objects.bulk_create(links[i : i + DEFAULT_BULK_BATCH_SIZE])
 
         await self._refresh_work_item_catalog({link.wi_id for link in links})
+
+    @staticmethod
+    async def get_main_file_override(tdoc_id: str) -> MainFileOverride | None:
+        """Return the manual main-file override of one TDoc, or None.
+
+        Thin facade over :mod:`tdoc_crawler.database.main_files` so CLI
+        callers resolve overrides inside their existing DB session.
+        """
+        return await get_main_file_override(tdoc_id)
 
     @staticmethod
     async def store_meeting_agenda_items(agenda_by_meeting: Mapping[int, Mapping[str, str]]) -> int:
@@ -815,7 +829,7 @@ class TDocDatabase(MeetingDatabase):
     @staticmethod
     def _clone_tdoc(metadata: TDocMetadata, updates: dict[str, TDocFieldValue]) -> TDocMetadata:
         """Create a new TDocMetadata instance with updates applied."""
-        data = {field: getattr(metadata, field, None) for field in TDocMetadata.__annotations__}
+        data: dict[str, Any] = {field: getattr(metadata, field, None) for field in TDocMetadata.__annotations__}
         data.update(updates)
         return TDocMetadata(**data)
 
@@ -847,7 +861,7 @@ def _merge_lead_bodies(current: str | None, incoming: str | None) -> str | None:
     return ",".join(parts) or None
 
 
-def _get_updatable_fields(model_type: type) -> list[str]:
+def _get_updatable_fields(model_type: type[Model]) -> list[str]:
     return [name for name, f in model_type.model_fields.items() if not getattr(f, "db_pk", False)]
 
 

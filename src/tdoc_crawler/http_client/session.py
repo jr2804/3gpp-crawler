@@ -4,24 +4,24 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from gzip import decompress as gzip_decompress
 from pathlib import Path
+from typing import Protocol, cast
 from zlib import decompress as zlib_decompress
 
 import brotli
 import niquests as requests
 from hishel import BaseStorage, CacheOptions, Headers, Request, Response, SqliteStorage
 from hishel._sync_rfc import handle_request_with_rfc  # hishel exposes no public sync RFC state machine
-from niquests.adapters import HTTPAdapter
+from niquests.adapters import HTTPAdapter, TimeoutSauce
+from niquests.models import PreparedRequest
+from niquests.models import Response as NiquestsResponse
+from niquests.typing import ProxyType, RetryType, TLSClientCertType, TLSVerifyType
 from urllib3 import HTTPHeaderDict
 from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
-
-try:
-    from urllib3.connection import HttpVersion
-except ImportError:
-    HttpVersion = None  # type: ignore[assignment,misc]
 
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.constants.urls import BROWSER_HEADERS
@@ -49,6 +49,17 @@ class PoolConfig:
     retry_attempts: int = 3
 
 
+class _AdapterBoundResponse(Protocol):
+    """View of a niquests response that carries its sending adapter.
+
+    niquests assigns `response.connection` dynamically at runtime and does not
+    declare it on `Response`, so the attribute is described here instead of
+    relying on a suppression.
+    """
+
+    connection: HTTPAdapter | None
+
+
 class _NiquetsCacheAdapter(HTTPAdapter):
     """RFC 9111 cache adapter for niquests, driven by hishel's sync state machine.
 
@@ -57,52 +68,76 @@ class _NiquetsCacheAdapter(HTTPAdapter):
     reimplemented here with niquests objects.
     """
 
-    def __init__(self, *, storage: BaseStorage, **kwargs: object) -> None:
-        super().__init__(**kwargs)  # type: ignore[arg-type]
+    def __init__(
+        self,
+        *,
+        storage: BaseStorage,
+        pool_connections: int = 10,
+        pool_maxsize: int = 10,
+        max_retries: RetryType = 3,
+    ) -> None:
+        # HTTP/3 is disabled here (the 3GPP servers raise MustDowngradeError);
+        # niquests translates the flag into ``disabled_svn`` for the pool manager.
+        super().__init__(
+            pool_connections=pool_connections,
+            pool_maxsize=pool_maxsize,
+            max_retries=max_retries,
+            disable_http3=True,
+        )
         self.storage = storage
-
-    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:
-        """Disable HTTP/3 to prevent MustDowngradeError from 3GPP servers."""
-        if HttpVersion is not None:
-            disabled: set[HttpVersion] = pool_kwargs.get("disabled_svn", set())  # type: ignore[assignment]
-            if not isinstance(disabled, set):
-                disabled = set()
-            disabled.add(HttpVersion.h3)
-            pool_kwargs["disabled_svn"] = disabled  # type: ignore[assignment]
-        super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
 
     def send(
         self,
-        request: requests.models.PreparedRequest,
+        request: PreparedRequest,
         stream: bool = False,
-        timeout: float | tuple[float, float] | None = None,
-        verify: bool | str = True,
-        cert: str | tuple[str, str] | None = None,
-        proxies: dict[str, str] | None = None,
-        **_kwargs: object,
-    ) -> requests.models.Response:
+        timeout: int | float | TimeoutSauce | None = None,
+        verify: TLSVerifyType = True,
+        cert: TLSClientCertType | None = None,
+        proxies: ProxyType | None = None,
+        on_post_connection: Callable[[object], None] | None = None,
+        on_upload_body: Callable[[int, int | None, bool, bool], None] | None = None,
+        on_early_response: Callable[[NiquestsResponse], None] | None = None,
+        multiplexed: bool = False,
+    ) -> NiquestsResponse:
         """Answer from the cache when possible, otherwise fetch upstream and store the result."""
 
-        def send_upstream(prepared: requests.models.PreparedRequest) -> requests.models.Response:
+        def send_upstream(prepared: PreparedRequest) -> NiquestsResponse:
             # Always streamed: the body is read from the cache layer, not by the caller.
-            return super(_NiquetsCacheAdapter, self).send(prepared, stream=True, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
+            return super(_NiquetsCacheAdapter, self).send(
+                prepared,
+                stream=True,
+                timeout=timeout,
+                verify=verify,
+                cert=cert,
+                proxies=proxies,
+                on_post_connection=on_post_connection,
+                on_upload_body=on_upload_body,
+                on_early_response=on_early_response,
+                multiplexed=multiplexed,
+            )
 
         internal_request = _request_to_internal(request)
         key = hashlib.sha256(internal_request.url.encode()).hexdigest()
-        upstream: requests.models.Response | None = None
+        upstream: NiquestsResponse | None = None
 
         def send(state_request: Request) -> Response:
             nonlocal upstream
             # Only the state machine's revalidation headers differ from the caller's request.
             prepared = request.copy()
+            prepared_headers = prepared.headers
+            if prepared_headers is None:
+                msg = "prepared request headers must not be None"
+                raise ValueError(msg)
             for name, value in state_request.headers.items():
                 if internal_request.headers.get(name) != value:
-                    prepared.headers[name] = value
+                    prepared_headers[name] = value
 
             response = send_upstream(prepared)
             if response.status_code == 304:
                 # The cached body is served instead, so this connection is done.
-                response.raw.read()
+                raw = response.raw
+                if raw is not None:
+                    raw.read()
             else:
                 upstream = response
             return _response_to_internal(response)
@@ -110,7 +145,7 @@ class _NiquetsCacheAdapter(HTTPAdapter):
         response, _status = handle_request_with_rfc(internal_request, send, self.storage, key, CacheOptions())
         result = _internal_to_niquests_response(response)
         result.request = request
-        result.connection = self  # type: ignore[assignment]
+        cast(_AdapterBoundResponse, result).connection = self
         return result
 
     def close(self) -> None:
@@ -118,29 +153,49 @@ class _NiquetsCacheAdapter(HTTPAdapter):
         self.storage.close()
 
 
-def _request_to_internal(model: requests.models.PreparedRequest) -> Request:
+def _request_to_internal(model: PreparedRequest) -> Request:
     """Convert a niquests prepared request into a hishel request."""
     if model.method is None:
         msg = "prepared request method must not be None"
         raise ValueError(msg)
-    headers = {key.lower(): value.decode("latin-1") if isinstance(value, bytes) else value for key, value in model.headers.items()}
+    if model.headers is None:
+        msg = "prepared request headers must not be None"
+        raise ValueError(msg)
+    headers = {
+        (key.decode("latin-1") if isinstance(key, bytes) else key).lower(): value.decode("latin-1") if isinstance(value, bytes) else value
+        for key, value in model.headers.items()
+    }
     return Request(method=model.method, url=str(model.url), headers=Headers(headers))
 
 
-def _response_to_internal(model: requests.models.Response) -> Response:
+def _response_to_internal(model: NiquestsResponse) -> Response:
     """Convert an upstream niquests response into a hishel response, keeping raw (undecoded) bytes."""
+    if model.raw is None:
+        msg = "upstream response has no raw stream"
+        raise ValueError(msg)
+    if model.status_code is None:
+        msg = "upstream response has no status code"
+        raise ValueError(msg)
     # Raw headers keep repeated values apart; the response's own headers join them with commas.
     raw_headers = model.raw.headers
     headers = {key.lower(): raw_headers.getlist(key) for key in raw_headers}
     # The stored body is not re-framed, so its transfer encoding is dropped.
     headers.pop("transfer-encoding", None)
-    return Response(status_code=model.status_code, headers=Headers(headers), stream=model.raw.stream(decode_content=False))
+    stream = model.raw.stream(decode_content=False)
+    if stream is None:
+        msg = "upstream response has no body stream"
+        raise ValueError(msg)
+    return Response(status_code=model.status_code, headers=Headers(headers), stream=stream)
 
 
-def _internal_to_niquests_response(model: Response) -> requests.models.Response:
-    response = requests.models.Response()
+def _internal_to_niquests_response(model: Response) -> NiquestsResponse:
+    response = NiquestsResponse()
 
-    raw_body = b"".join(model.stream) if model.stream is not None else b""
+    stream = model.stream
+    if isinstance(stream, AsyncIterator):
+        msg = "hishel returned an async stream to a sync adapter"
+        raise ValueError(msg)
+    raw_body = b"".join(stream) if stream is not None else b""
     headers = HTTPHeaderDict([(key, value) for key in model.headers for value in model.headers.get_list(key) or []])
     content_encoding = model.headers.get("content-encoding", "")
     body = _decompress_body(raw_body, content_encoding) if content_encoding else raw_body
@@ -258,7 +313,8 @@ def create_cached_session(
     # Create session, use requests with browser-like headers to avoid 403 Forbidden
     # Disable HTTP/3 to avoid MustDowngradeError with servers advertising Alt-Svc: h3
     session = requests.Session(disable_http3=True)
-    session.headers.update(BROWSER_HEADERS)
+    for header_name, header_value in BROWSER_HEADERS.items():
+        session.headers[header_name] = header_value
 
     # Use http_config for SSL if no explicit verify provided
     verify_mode = http_config.verify_ssl if verify is None and http_config is not None else resolve_ssl_verify(verify, http_config)

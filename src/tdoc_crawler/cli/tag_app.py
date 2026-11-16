@@ -79,7 +79,7 @@ def tag_add(
 def tag_remove(
     kind: KindArgument,
     items: ItemsArgument,
-    tags: Annotated[list[str], typer.Option("--tag", "-t", help="Tags to remove; omit to remove all tags")] = None,
+    tags: Annotated[list[str] | None, typer.Option("--tag", "-t", help="Tags to remove; omit to remove all tags")] = None,
     output_format: OutputFormatOption = OutputFormat.TABLE,
     verbosity: Annotated[LogLevel, typer.Option("--verbosity", "-v", help="Verbosity level")] = DEFAULT_VERBOSITY,
 ) -> None:

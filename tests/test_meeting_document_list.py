@@ -181,6 +181,8 @@ class TestMeetingDocumentList:
         assert a.uploaded_at.microsecond == 217000
 
         b = by_id["S4-261592"]
+        assert b.uploaded_at is not None
+        assert a.uploaded_at is not None
         # S4-261592 was uploaded BEFORE S4-261564 despite higher TDoc number
         assert b.uploaded_at < a.uploaded_at
 

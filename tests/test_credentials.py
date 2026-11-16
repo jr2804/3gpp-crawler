@@ -31,6 +31,7 @@ class TestCredentialsWithConfig:
             credentials_config=config,
         )
 
+        assert result is not None
         assert result.username == "cli_user"
         assert result.password == "cli_pass"  # noqa: S105
 
@@ -43,6 +44,7 @@ class TestCredentialsWithConfig:
         result = resolve_credentials(credentials_config=config)
 
         # Config should win over env
+        assert result is not None
         assert result.username == "config_user"
         assert result.password == "config_pass"  # noqa: S105
 
@@ -53,6 +55,7 @@ class TestCredentialsWithConfig:
 
         result = resolve_credentials()
 
+        assert result is not None
         assert result.username == "env_user"
         assert result.password == "env_pass"  # noqa: S105
 
@@ -97,6 +100,7 @@ class TestCredentialsResolutionOrder:
         )
 
         # CLI should win
+        assert result is not None
         assert result.username == "cli_user"
         assert result.password == "cli_pass"  # noqa: S105
 
@@ -108,6 +112,7 @@ class TestCredentialsResolutionOrder:
 
         result = resolve_credentials(credentials_config=config)
 
+        assert result is not None
         assert result.username == "config_user"
         assert result.password == "config_pass"  # noqa: S105
 

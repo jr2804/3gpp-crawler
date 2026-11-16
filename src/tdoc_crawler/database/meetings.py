@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from datetime import datetime
+from datetime import date, datetime
 
 from tdoc_crawler.database.base import DocDatabase
 from tdoc_crawler.database.oxyde_models import CrawlLogEntry, MeetingMetadata, TDocMetadata
@@ -358,12 +358,12 @@ def _filter_with_files(meetings: list[MeetingMetadata]) -> list[MeetingMetadata]
     return [m for m in meetings if m.files_url]
 
 
-def _filter_by_start_date(meetings: list[MeetingMetadata], start_date: datetime) -> list[MeetingMetadata]:
+def _filter_by_start_date(meetings: list[MeetingMetadata], start_date: date) -> list[MeetingMetadata]:
     """Keep meetings starting on or after the given date."""
     return [m for m in meetings if m.start_date and m.start_date >= start_date]
 
 
-def _filter_by_end_date(meetings: list[MeetingMetadata], end_date: datetime) -> list[MeetingMetadata]:
+def _filter_by_end_date(meetings: list[MeetingMetadata], end_date: date) -> list[MeetingMetadata]:
     """Keep meetings ending on or before the given date."""
     return [m for m in meetings if m.end_date and m.end_date <= end_date]
 

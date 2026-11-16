@@ -148,7 +148,7 @@ class TDocCrawlConfig(BaseModel):
         """Ensure target identifiers are normalized."""
         if value is None:
             return None
-        return normalize_tdoc_ids(value)
+        return normalize_tdoc_ids(list(value))
 
 
 class TDocQueryConfig(BaseModel):
@@ -191,7 +191,7 @@ class TDocQueryConfig(BaseModel):
         """Normalize TDoc IDs to uppercase."""
         if value is None:
             return None
-        return normalize_tdoc_ids(value)
+        return normalize_tdoc_ids(list(value))
 
     @classmethod
     def _normalize_working_groups(cls, value: Iterable[str | WorkingGroup] | None) -> list[WorkingGroup] | None:

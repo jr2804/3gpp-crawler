@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Self
 from uuid import uuid4
 
-from oxyde import AsyncDatabase, execute_raw
+from oxyde import AsyncDatabase, Model, execute_raw
 from oxyde.db.schema import create_tables
 from oxyde.migrations import extract_current_schema
 
@@ -183,7 +183,7 @@ class DocDatabase:
                 )
 
     @staticmethod
-    async def _clear_tables(models: Iterable[type]) -> dict[str, int]:
+    async def _clear_tables(models: Iterable[type[Model]]) -> dict[str, int]:
         """Clear the given tables; returns table_name -> deleted row count.
 
         Each arg is an Oxyde ``Model`` subclass — the SQL table name comes
@@ -203,7 +203,7 @@ class DocDatabase:
         return counts
 
     @staticmethod
-    async def _table_rows(model_class: type) -> list:
+    async def _table_rows(model_class: type[Model]) -> list:
         """Fetch all rows for a given model class."""
         try:
             return await model_class.objects.all()

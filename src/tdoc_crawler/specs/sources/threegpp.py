@@ -41,7 +41,11 @@ def fetch_threegpp_metadata(spec_number: str, http_config: HttpConfig | None = N
     response = session.get(url, timeout=30, allow_redirects=True)
     response.raise_for_status()
 
-    parsed = urlparse(response.request.url)
+    prepared = response.request
+    if prepared is None or prepared.url is None:
+        msg = "3GPP redirect response has no request URL"
+        raise SpecNotFoundError(msg)
+    parsed = urlparse(prepared.url)
     query = parse_qs(parsed.query)
     spec_id = query.get("specificationId", [None])[0]
 
