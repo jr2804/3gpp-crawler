@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tomllib
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -268,7 +269,7 @@ def config_docs(
             sections[section_name].append(
                 {
                     "field": field_name,
-                    "type": field_info.annotation.__name__ if hasattr(field_info.annotation, "__name__") else str(field_info.annotation),
+                    "type": _format_field_type(field_info.annotation),
                     "default": default,
                     "value": value,
                     "description": description,
@@ -291,6 +292,19 @@ def config_docs(
             _print_section_docs(section_name, fields_list, SECTION_DESCRIPTIONS.get(section_name, ""))
             if section_name != "checkout":
                 rprint()
+
+
+def _format_field_type(annotation: object) -> str:
+    """Render a config field annotation for the docs table.
+
+    String enums are reported as ``str`` because that is how they are set
+    in config files and environment variables; their allowed values live
+    in the field description.
+    """
+    if isinstance(annotation, type) and issubclass(annotation, StrEnum):
+        return "str"
+    name = getattr(annotation, "__name__", None)
+    return name if isinstance(name, str) else str(annotation)
 
 
 def _print_section_docs(section: str, fields: list[dict], description: str) -> None:
