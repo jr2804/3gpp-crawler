@@ -198,7 +198,7 @@ class SpecDownloads:
         return url, target.file_name
 
     def _download_full_zip(self, url: str, target_file: Path) -> None:
-        """Download full zip file, re-use session if already created for doc-only attempt."""
+        """Download full zip file, reuse session if already created for doc-only attempt."""
         download_to_file(url, target_file, session=self.session, http_cache_file=self._http_cache_file)
 
     @staticmethod
