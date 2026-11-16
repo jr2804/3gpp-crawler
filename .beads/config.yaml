@@ -71,7 +71,9 @@
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
 
-sync:
-    remote: "https://forge.3gpp.org/rep/reimes/3gpp-crawler-beads.git"
+# sync:
+#     remote: "https://forge.3gpp.org/rep/reimes/3gpp-crawler-beads.git"
 export:
     auto: true
+sync:
+    remote: "https://forge.3gpp.org/rep/reimes/3gpp-crawler-beads.git"
