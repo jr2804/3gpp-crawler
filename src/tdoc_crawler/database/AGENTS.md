@@ -72,6 +72,7 @@ For non-primitive types stored as strings in SQLite, subclass `_VersionField` in
 | `WorkItemRecord` / `TDocWorkItem` (Oxyde models) | `oxyde_models.py` | Work item catalogue and TDoc↔work item links parsed from the document list `Related WIs` column |
 | `WorkItemSpecRecord` / `WorkItemCrRecord` (Oxyde models) | `oxyde_models.py` | Work item → impacted specification and change-request links from enrichment |
 | `MeetingAgendaItem` (Oxyde model) | `oxyde_models.py` | Parent agenda items per meeting, parsed from the meeting's agenda document |
+| `MainFileOverride` (Oxyde model) | `oxyde_models.py` | Manual main-document override per TDoc (archive member path), CRUD in `database/main_files.py` |
 
 `TDocMetadata` stores only the *parent* working-group id (`tbid`), so
 sub-working-group filtering resolves through the meetings table:

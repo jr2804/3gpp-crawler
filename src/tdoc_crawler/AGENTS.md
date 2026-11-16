@@ -161,9 +161,21 @@ Constraints in force: `tdocs/operations/checkout.py` must not import anything th
 
 `tdoc open` (`prepare_tdoc_file`) and `tdoc checkout` (`checkout_tdocs` in `cli/checkout.py`) MUST share one business-logic path: both compute the on-disk location via `get_checkout_path()` (mirrors the 3GPP server URL: `checkout_dir/<tsg>/<wg>/<meeting>/Docs/<tdoc_id>`). Never introduce a parallel layout.
 
-The main file inside an extracted zip is picked by `_select_main_file()` in `tdocs/operations/checkout.py` (optional `title` kwarg enables a difflib fuzzy match). Ranking, in order: exact `<tdoc_id>.<ext>` name > title similarity (threshold 0.6) > name starts with the TDoc ID (case-insensitive) > carries revision marks (content probe, `.docx` only, `_has_revision_marks`) > `DocumentType` declaration order (`models/base.py`: `.docx > .pptx > .ppt > .pdf > .xlsx > .doc > .xls`; subjective, make configurable if it ever bites) > most recent mtime, then name. Fallbacks: largest document-suffix file, then largest non-clutter file.
+The main file inside an extracted zip is resolved by `resolve_main_file()` in
+`tdocs/operations/main_file.py`, used by `prepare_tdoc_selection()` (from which
+`prepare_tdoc_file()`/`tdoc open` delegates). Precedence: manual override
+(`MainFileOverride` table, `tdoc main-file`) > decision model (`checkout.selector`
+= `decision_model`, TypeSafe System One) > heuristic. The heuristic
+(`select_heuristic_main_file`, optional `title` kwarg enables a difflib fuzzy
+match) ranking, in order: exact `<tdoc_id>.<ext>` name > title similarity
+(threshold 0.6) > name starts with the TDoc ID (case-insensitive) > carries
+revision marks (content probe, `.docx` only) > `DocumentType` declaration order
+(`models/base.py`: `.docx > .pptx > .ppt > .pdf > .xlsx > .doc > .xls`;
+subjective, make configurable if it ever bites) > most recent mtime, then name.
+Fallbacks: largest document-suffix file, then largest non-clutter file.
+`_select_main_file()` remains as a compat wrapper and only runs the heuristic.
 
-Clutter filtering: gitignore-style patterns from `utils/clutter.py`. Defaults ship as packaged data (`utils/clutter-ignore`), copied to `<cache-dir>/clutter-ignore` for user editing (`!` negation re-includes; deleting the file restores defaults). The filter runs at zip extraction (`safe_extract_zip`), because sidecars inherit the original's suffix and suffix-based consumers cannot tell them apart, and in `_select_main_file` (covers checkout dirs with legacy clutter on disk).
+Clutter filtering: gitignore-style patterns from `utils/clutter.py`. Defaults ship as packaged data (`utils/clutter-ignore`), copied to `<cache-dir>/clutter-ignore` for user editing (`!` negation re-includes; deleting the file restores defaults). The filter runs at zip extraction (`safe_extract_zip`), because sidecars inherit the original's suffix and suffix-based consumers cannot tell them apart, and in the main-file selector (covers checkout dirs with legacy clutter on disk).
 
 ## Archive Member Tracking
 

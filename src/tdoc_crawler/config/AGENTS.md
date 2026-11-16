@@ -25,7 +25,16 @@ config.crawl.workers  # Concurrent workers
 
 **Precedence:** CLI args > Config file > Env vars > Defaults
 
-**Env var prefixes:** `TDC_*`, `TDC_EOL_*`, `TDC_CRAWL_*`, `HTTP_CACHE_*`
+**Env var prefixes:** `TDC_*`, `TDC_EOL_*`, `TDC_CRAWL_*`, `TDC_CHECKOUT_*`,
+`HTTP_CACHE_*`
+
+`CheckoutConfig` (`checkout:`, `env_prefix="TDC_CHECKOUT_"`) configures
+main-document selection for TDoc archives: `selector` (`heuristic` |
+`decision_model` | `manual`, `MainFileSelector` in `models/main_files.py`),
+`max_model_candidates`, and the TypeSafe System One API settings
+(`systemone_base_url`, `systemone_api_key` — also read from `TYPESAFE_API_KEY`,
+`systemone_model`, `systemone_min_confidence`, `systemone_timeout`). Selection
+logic lives in `tdocs/operations/main_file.py`, never in config.
 
 ## CacheManager (Runtime Paths)
 

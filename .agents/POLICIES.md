@@ -109,8 +109,14 @@ Universal defaults. Project-specific standards live in child AGENTS.md.
 ## Verification
 
 ```bash
+# Format (required after every implementation, mutates files)
+mise run format
+
 # Lint
-uv run ruff check src/ tests/
+mise run lint
+
+# Typecheck (ty ships in mise [tools]; `uv run ty` does not exist)
+mise run typecheck
 
 # Test (all / single)
 uv run pytest -v
@@ -123,7 +129,9 @@ uv run pytest --cov=src --cov-report=term-missing
 uv add <package>
 ```
 
-Note: `ty` is not installed — do not run `uv run ty check` unless added.
+`mise run format`, `lint`, and `typecheck` must all be clean before handing
+back. `typecheck` is a hard gate: fix the type error (narrow the value, share
+the type, correct the signature) — never silence it with `# type: ignore`.
 
 ## Response format
 
