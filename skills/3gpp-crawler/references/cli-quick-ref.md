@@ -50,14 +50,23 @@ file.
 
 ```bash
 tdoc-crawler main-file set S4-250638 "Cover sheet.pdf" --note "real contribution"
-tdoc-crawler main-file show S4-250638            # stored override
+tdoc-crawler main-file show S4-250638            # override + last stored classification
 tdoc-crawler main-file list                      # every override
 tdoc-crawler main-file clear S4-250638           # remove the override
+tdoc-crawler main-file reclassify S4-250638     # replay selection for checked-out TDocs
+tdoc-crawler main-file reclassify --all --selector decision_model
+tdoc-crawler main-file reclassify --all --include-manual --confirm-overwrite  # DESTRUCTIVE
 ```
 
 Member paths must match `tdoc-crawler files` output and stay relative to the
-archive root. The `mainfileoverride` table is new: an existing database fails
-with `schema-mismatch` until `3gpp-crawler database clear-all` + re-crawl.
+archive root. `open` stores the resolved member, source, selector and
+confidence; `reclassify` reruns that step without downloading and skips
+manual choices unless `--include-manual --confirm-overwrite` is passed.
+The `mainfileoverride` / `mainfilerecord` tables are new: an existing database
+fails with `schema-mismatch` until `3gpp-crawler database clear-all` + re-crawl.
+Configure the decision model once in `~/.config/3gpp-crawler/config.toml`
+(`[checkout] selector = "decision_model"` + `systemone_api_key`) so CLI and MCP
+share it.
 
 ### checkout
 

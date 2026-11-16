@@ -28,6 +28,12 @@ Tools mirror the CLI groups:
 | checkout | `checkout_specs` | `spec checkout` |
 | checkout | `list_tdoc_files` | `tdoc files` |
 | checkout | `list_spec_files` | `spec files` |
+| main-file | `get_tdoc_main_file` | `tdoc open` (resolve only) |
+| main-file | `main_file_set` | `tdoc main-file set` |
+| main-file | `main_file_show` | `tdoc main-file show` |
+| main-file | `main_file_list` | `tdoc main-file list` |
+| main-file | `main_file_clear` | `tdoc main-file clear` |
+| main-file | `reclassify_main_files` | `tdoc main-file reclassify` |
 | tag | `tag_add` | `tag add` |
 | tag | `tag_remove` | `tag remove` |
 | tag | `tag_list` | `tag list` |
@@ -67,10 +73,16 @@ The destructive `database_clear_*` tools refuse to run unless called with
 flag is the confirmation (and costs agents one deliberate extra round-trip).
 Prefer `database_export_tags` first when a backup would help.
 
-Main-document overrides are **CLI-only** (`tdoc main-file`). MCP exposes no
-main-file tools: `checkout_tdocs` downloads the archive, and the stored
-override is applied by `tdoc open` (and any other caller that passes it
-explicitly).
+Main-document selection is available over MCP. `get_tdoc_main_file`
+downloads, extracts and resolves the main document but does **not** launch
+it — it returns the absolute path, the archive-relative member, and the
+source (`manual_override`, `decision_model`, `heuristic`). The
+`main_file_*` tools manage overrides, and `reclassify_main_files` replays
+classification for checked-out TDocs (`tdoc_ids` or `all_tdocs=true`);
+manual choices are protected unless `include_manual=true`, which deletes
+those overrides first. `selector` may be overridden per call. Selection
+settings live in the `[checkout]` section — configure them once in the
+global `~/.config/3gpp-crawler/config.toml` so MCP and the CLI share them.
 
 ## Client configuration
 

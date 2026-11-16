@@ -50,15 +50,41 @@ Use the exact member path printed by `tdoc files`; the value must be relative
 to the archive root (`..` and absolute paths are rejected), and `tdoc open`
 fails loudly if the stored member is no longer inside the archive.
 
+`tdoc open` also records the resulting classification in the database —
+member path, source (`manual_override`, `decision_model`, `heuristic`),
+selector, confidence — so a later run can replay it. `show` displays both
+the override and that stored record.
+
 ```bash
 3gpp-crawler tdoc main-file set S4-250638 "Cover sheet.pdf" --note "real contribution"
-3gpp-crawler tdoc main-file show S4-250638
-3gpp-crawler tdoc main-file list
-3gpp-crawler tdoc main-file clear S4-250638
+3gpp-crawler tdoc main-file show S4-250638      # override + stored classification
+3gpp-crawler tdoc main-file list                # every override
+3gpp-crawler tdoc main-file clear S4-250638     # remove the override
 ```
 
 Setting `checkout.selector = "manual"` (or `TDC_CHECKOUT_SELECTOR=manual`)
 disables the heuristic and the decision model, so only overrides are used.
+
+#### `main-file reclassify`
+
+Re-run classification for TDocs that are already checked out, without
+downloading anything. Use this after changing the selector, configuring the
+decision model, or upgrading the heuristic.
+
+```bash
+3gpp-crawler tdoc main-file reclassify S4-250638 S4-250639
+3gpp-crawler tdoc main-file reclassify --all
+3gpp-crawler tdoc main-file reclassify --all --selector decision_model
+
+# Overwrite manual choices too (deletes those overrides):
+3gpp-crawler tdoc main-file reclassify --all --include-manual --confirm-overwrite
+```
+
+TDocs without a stored classification or without a checkout are reported as
+`missing`; manual choices are `skipped` unless `--include-manual` is given.
+The decision model works best when configured once in the global config
+(`~/.config/3gpp-crawler/config.toml`); see
+[Configuration](config.md#checkout-settings).
 
 ## Specifications
 

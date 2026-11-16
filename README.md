@@ -118,7 +118,7 @@ NOTE:    Credentials are optional — crawling and querying work against officia
 | `query` | `qt` | Search for TDocs (auto-fetches if missing) |
 | `open` | — | Download and open a TDoc |
 | `checkout` | — | Batch download TDocs |
-| `main-file {set,clear,show,list}` | — | Manage main-document overrides (`tdoc open` picks the main document inside the archive) |
+| `main-file {set,clear,show,list,reclassify}` | — | Manage main-document overrides and re-run classification for checked-out archives |
 | `files` | — | List the files inside a TDoc's zip archive |
 | `stats` | — | View database statistics |
 

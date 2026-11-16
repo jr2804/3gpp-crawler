@@ -8,6 +8,18 @@ The Python API mirrors the CLI: the same core-library functions back both.
 
 ::: tdoc_crawler
 
+## TDoc operations
+
+Main-file selection, `open`, and re-classification are shared by CLI and MCP.
+
+::: tdoc_crawler.tdocs.operations
+
+## Main-file overrides
+
+Stored overrides (user-owned) and classification records (computed memory).
+
+::: tdoc_crawler.database.main_files
+
 ## Tag operations
 
 Shared by CLI and MCP — AND-of-ORs tag expressions.

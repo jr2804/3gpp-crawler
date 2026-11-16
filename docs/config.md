@@ -34,6 +34,25 @@ overrides the discovered files entirely.
 
 **Precedence:** CLI args > Config file > Environment variables > Defaults
 
+### Global Configuration
+
+Put settings that should apply to every project in
+`~/.config/3gpp-crawler/config.toml`. This is the recommended place for
+credentials and the decision-model setup, so they are not committed to a
+repository or repeated in shell environment variables:
+
+```toml
+[checkout]
+selector = "decision_model"
+systemone_api_key = "your-typesafe-key"
+# systemone_base_url = "https://api.typesafe.ai"
+# systemone_model = "jev-latest"
+# systemone_min_confidence = 0.7
+```
+
+Project files override the global file; `TDC_CHECKOUT_*` environment
+variables are the next fallback.
+
 ## Configuration Options
 
 ### Path Settings
@@ -99,11 +118,17 @@ Main-document selection for TDoc archives (`TDC_CHECKOUT_*` env prefix)
 | `systemone_min_confidence` | float | 0.7 | Minimum model confidence accepted before falling back to the heuristic |
 | `systemone_timeout` | float | 30.0 | Timeout in seconds for System One requests |
 
-Selection runs only inside `tdoc open` (and the library's
-`prepare_tdoc_selection()`); `tdoc checkout` just downloads and extracts.
-Override the configured selector for one run with
-`tdoc open <TDOC> --selector decision_model`. The MCP server exposes the
-settings through `config_show` but has no open/main-file tools.
+Selection runs inside `tdoc open`, `tdoc main-file reclassify`, the MCP
+tools `get_tdoc_main_file` / `reclassify_main_files`, and the library's
+`resolve_tdoc_main_file()` / `reclassify_tdocs()`; `tdoc checkout` just
+downloads and extracts. Override the configured selector for one run with
+`tdoc open <TDOC> --selector decision_model` or
+`tdoc main-file reclassify --all --selector decision_model`.
+
+Every automatic selection is remembered in the database (member path,
+source, selector, confidence), and `tdoc main-file show` prints it. That is
+what `tdoc main-file reclassify` replays in bulk; manual choices are skipped
+unless `--include-manual --confirm-overwrite` is passed.
 
 ## Config Validate Command
 

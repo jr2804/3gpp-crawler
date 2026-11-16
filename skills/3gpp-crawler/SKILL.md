@@ -25,7 +25,7 @@ meetings crawl → crawl → query → tag → checkout → main-file/open
 3. **Query** — search by ID, working group (`-w RAN|SA|CT`), sub-working group (`-s S4|R1`), date range, title, agenda pattern. `--tag` filters narrow results.
 4. **Tag** — lightweight grouping (spec, tdoc, or other kinds).
 5. **Checkout** - download + extract. `tdoc files` / `spec files` list a document's zip members.
-6. **Main file** — a TDoc zip usually holds one main document plus attachments. `tdoc open` picks it (stored override > optional decision model > heuristic); fix a wrong pick with `tdoc main-file set`.
+6. **Main file** — a TDoc zip usually holds one main document plus attachments. `tdoc open` picks it (stored override > optional decision model > heuristic) and remembers the result; fix a wrong pick with `tdoc main-file set`, replay selection with `tdoc main-file reclassify`.
 
 ## Quick commands
 
@@ -51,7 +51,9 @@ meetings crawl → crawl → query → tag → checkout → main-file/open
 3gpp-crawler spec checkout 26260 --release 18.0
 3gpp-crawler tdoc open S4-250638                       # open the main document
 3gpp-crawler tdoc main-file set S4-250638 "Cover sheet.pdf"   # pin a different main file
+3gpp-crawler tdoc main-file show S4-250638            # override + last stored classification
 3gpp-crawler tdoc main-file list
+3gpp-crawler tdoc main-file reclassify --all         # replay classification for checked-out TDocs
 
 # MCP server
 3gpp-crawler mcp
@@ -78,10 +80,15 @@ with a fixed precedence:
    `decision_model` **and** an API key is configured.
 1. Heuristic ranking (default, offline).
 
-Selection is configuration-driven, not a flag on `checkout`/MCP — the only
-CLI surface is `tdoc open` (plus `--selector` for a one-off run). To enable
-the decision model, set these in `3gpp-crawler.toml` (or the matching
-`TDC_CHECKOUT_*` env vars):
+`tdoc open` records the chosen member, source, selector and confidence in
+the database (`tdoc main-file show` prints it). `tdoc main-file reclassify`
+replays that step for checked-out TDocs — all by default or explicit IDs —
+and protects manual choices unless `--include-manual --confirm-overwrite` is
+given (that deletes the overrides first).
+
+To enable the decision model, configure it once in the **global** config
+`~/.config/3gpp-crawler/config.toml` so the CLI and MCP share it (or use
+`3gpp-crawler.toml`, or the matching `TDC_CHECKOUT_*` env vars):
 
 ```toml
 [checkout]
@@ -99,11 +106,14 @@ settings with `3gpp-crawler config show` or
 `3gpp-crawler config docs --section checkout`.
 
 `checkout.selector = "manual"` turns the automatic chain off: opening a TDoc
-without a stored override fails. Overrides are CLI-only (no MCP tool); use the
-exact member path from `tdoc files`, relative to the archive root. `tdoc
-checkout` never resolves a main file — it only downloads and extracts. Existing
+without a stored override fails. Use the exact member path from `tdoc files`,
+relative to the archive root. `tdoc checkout` never resolves a main file — it
+only downloads and extracts. MCP exposes the same capability:
+`get_tdoc_main_file` resolves without launching, `main_file_set/show/list/clear`
+manage overrides, and `reclassify_main_files` replays classification. Existing
 databases need `database clear-all` + re-crawl after upgrading, because
-`mainfileoverride` is a new table and there are no migrations.
+`mainfileoverride` and `mainfilerecord` are new tables and there are no
+migrations.
 
 ## MCP server
 
@@ -115,6 +125,7 @@ databases need `database clear-all` + re-crawl after upgrading, because
 | enrich | `enrich_work_items` |
 | query | `query_tdocs`, `query_specs`, `query_meetings`, `query_work_items` |
 | checkout | `checkout_tdocs`, `checkout_specs`, `list_tdoc_files`, `list_spec_files` |
+| main-file | `get_tdoc_main_file`, `main_file_set`, `main_file_show`, `main_file_list`, `main_file_clear`, `reclassify_main_files` |
 | tag | `tag_add`, `tag_remove`, `tag_list` |
 | database | `database_clear_tdocs`, `database_clear_specs`, `database_clear_meetings`, `database_clear_all` (destructive, need `confirm=true`), `database_export_tags`, `database_import_tags` |
 | config | `config_show`, `config_validate` |

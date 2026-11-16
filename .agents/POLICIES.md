@@ -88,6 +88,14 @@ Commit only when explicitly requested; message states the change and why.
 PRs small, one concern. No force-push to main/master; no `--no-verify` or
 `--no-gpg-sign`.
 
+- **Never push without `[skip release]`** in the last commit message unless
+  the user explicitly asked for a release. The pre-commit hook bumps the
+  version on every commit, so any push without the marker publishes a PyPI
+  release and triggers review.
+- **API/CLI/MCP parity** — a user-facing capability ships through all three
+  surfaces (core library, CLI command, MCP tool) in the same change. If one
+  surface is intentionally out, say so in the commit and docs.
+
 ## Code quality
 
 Universal defaults. Project-specific standards live in child AGENTS.md.
