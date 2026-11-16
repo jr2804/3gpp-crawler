@@ -96,33 +96,48 @@ NOTE:    Credentials are optional — crawling and querying work against officia
 
 `3gpp-crawler` is the main CLI; `tdoc-crawler` and `spec-crawler` are shortcuts for the `tdoc` and `spec` groups.
 
+#### Top-level commands (`3gpp-crawler`)
+
 | Command | Shortcut | Purpose |
 |---------|----------|---------|
-| **3gpp-crawler** | | |
 | `tdoc {subcommand}` | `tdoc-crawler` | TDocs (see below) |
 | `spec {subcommand}` | `spec-crawler` | Technical specifications (see below) |
-| `meetings {crawl,query}` | | 3GPP meetings: crawl meeting metadata, query the meeting database |
-| `config {init,show,validate,docs}` | | Manage configuration |
-| `tag {add,remove,list}` | | Manage lightweight tags on TDocs and specs |
+| `meetings {crawl,query}` | — | 3GPP meetings: crawl meeting metadata, query the meeting database |
+| `work-items {subcommand}` | — | 3GPP work item catalogue (DynaReport lists, enrichment, audit) |
+| `config {init,show,validate,docs}` | — | Manage configuration |
+| `tag {add,remove,list}` | — | Manage lightweight tags on TDocs and specs |
 | `database {clear-tdocs,clear-specs,clear-meetings,clear-all,export-tags,import-tags}` | `db` | Database maintenance: selective/all clears, tag backup & restore |
-| `mcp` | | Run as MCP server for AI agents |
-| `version` | | Show installed version |
-| **tdoc group** | | |
-| `tdoc crawl` | `ct` | Crawl TDoc metadata from FTP |
-| `tdoc query` | `qt` | Search for TDocs (auto-fetches if missing) |
-| `tdoc open` | | Download and open a TDoc |
-| `tdoc checkout` | | Batch download TDocs |
-| `tdoc files` | | List the files inside a TDoc's zip archive |
-| `tdoc stats` | | View database statistics |
-| **meetings group** | | |
-| `meetings crawl` | | Populate meeting database (Run this first!) |
-| `meetings query` | | Search and display meeting metadata |
-| **spec group** | | |
-| `spec crawl` | | Crawl technical specification metadata |
-| `spec query` | | Search technical specifications |
-| `spec open` | | Download and open latest spec document |
-| `spec checkout` | | Batch download specifications |
-| `spec files` | | List the files inside a spec's zip archive |
+| `mcp` | — | Run as MCP server for AI agents |
+| `version` | — | Show installed version |
+
+#### TDocs (`3gpp-crawler tdoc` / `tdoc-crawler`)
+
+| Command | Alias | Purpose |
+|---------|-------|---------|
+| `crawl` | `ct` | Crawl TDoc metadata from FTP |
+| `query` | `qt` | Search for TDocs (auto-fetches if missing) |
+| `open` | — | Download and open a TDoc |
+| `checkout` | — | Batch download TDocs |
+| `main-file {set,clear,show,list}` | — | Manage main-document overrides (`tdoc open` picks the main document inside the archive) |
+| `files` | — | List the files inside a TDoc's zip archive |
+| `stats` | — | View database statistics |
+
+#### Meetings (`3gpp-crawler meetings`)
+
+| Command | Purpose |
+|---------|---------|
+| `crawl` | Populate meeting database (run this first) |
+| `query` | Search and display meeting metadata |
+
+#### Specifications (`3gpp-crawler spec` / `spec-crawler`)
+
+| Command | Purpose |
+|---------|---------|
+| `crawl` | Crawl technical specification metadata |
+| `query` | Search technical specifications |
+| `open` | Download and open latest spec document |
+| `checkout` | Batch download specifications |
+| `files` | List the files inside a spec's zip archive |
 
 ### 2. Crawl Metadata
 

@@ -6,12 +6,11 @@ File system access, spec downloading, and database diagnostics.
 
 ### `open`
 
-Download (if needed), extract, and open a TDoc file with the system default
-application.
-
-```bash
-3gpp-crawler tdoc open S4-250638
-```
+Download (if needed), extract, and open the main document of a TDoc with the
+system default application. The main file is picked from the archive by the
+configured selector (`heuristic` by default; see `checkout.selector` in
+[Configuration](config.md)) and can be overridden per TDoc with
+[`main-file`](#main-file).
 
 ### `checkout`
 
@@ -30,6 +29,18 @@ List the files inside a TDoc's zip archive. The first call reads the listing fro
 ```bash
 3gpp-crawler tdoc files S4-250638
 3gpp-crawler tdoc files S4-250638 --refresh
+```
+
+### `main-file`
+
+Manage manual main-document overrides. An override is a stored archive member
+path and takes precedence over the configured selector when opening a TDoc.
+
+```bash
+3gpp-crawler tdoc main-file set S4-250638 "Cover sheet.pdf" --note "real contribution"
+3gpp-crawler tdoc main-file show S4-250638
+3gpp-crawler tdoc main-file list
+3gpp-crawler tdoc main-file clear S4-250638
 ```
 
 ## Specifications

@@ -76,6 +76,20 @@ Crawling filters, limits, and worker configuration
 | `limit` | int | 1000 | Maximum number of documents to crawl |
 | `workers` | int | 4 | Number of concurrent workers for crawling |
 
+### Checkout Settings
+
+Main-document selection for TDoc archives (`TDC_CHECKOUT_*` env prefix)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `selector` | str | "heuristic" | Strategy: `heuristic`, `decision_model`, or `manual` (overrides only) |
+| `max_model_candidates` | int | 20 | Maximum archive members sent to the decision model as choices |
+| `systemone_base_url` | str | "<https://api.typesafe.ai>" | Base URL of the TypeSafe System One API |
+| `systemone_api_key` | str | (none) | TypeSafe API key (`TDC_CHECKOUT_SYSTEMONE_API_KEY` or `TYPESAFE_API_KEY`) |
+| `systemone_model` | str | "jev-latest" | System One model alias for main-file decisions |
+| `systemone_min_confidence` | float | 0.7 | Minimum model confidence accepted before falling back to the heuristic |
+| `systemone_timeout` | float | 30.0 | Timeout in seconds for System One requests |
+
 ## Config Validate Command
 
 Validate your configuration files to catch errors before running:
@@ -112,7 +126,7 @@ tdoc-crawler config docs
 tdoc-crawler config docs --section path
 ```
 
-**Available sections:** `path`, `http`, `credentials`, `crawl`
+**Available sections:** `path`, `http`, `credentials`, `crawl`, `checkout`
 
 ## Config Init Command
 
