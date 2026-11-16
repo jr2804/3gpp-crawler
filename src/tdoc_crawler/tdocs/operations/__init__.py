@@ -12,6 +12,7 @@ from tdoc_crawler.tdocs.operations.checkout import (
     get_checkout_path,
     get_meeting_checkout_folder,
     prepare_tdoc_file,
+    prepare_tdoc_selection,
 )
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawler, TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import (
@@ -42,4 +43,5 @@ __all__ = [
     "get_checkout_path",
     "get_meeting_checkout_folder",
     "prepare_tdoc_file",
+    "prepare_tdoc_selection",
 ]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from typer.testing import CliRunner
 from tdoc_crawler.cli import tdoc_app
 from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME
 from tdoc_crawler.database.oxyde_models import TDocMetadata
+from tdoc_crawler.models.main_files import MainFileSelection, MainFileSource
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
 
@@ -20,7 +22,7 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
     @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     @patch("tdoc_crawler.cli.tdoc_app.load_cli_config")
@@ -45,9 +47,10 @@ class TestNewCLIFlags:
         mock_db_instance = MagicMock()
         mock_database_class.return_value.__aenter__.return_value = mock_db_instance
         mock_db_instance.query_tdocs = AsyncMock(return_value=[])
+        mock_db_instance.get_main_file_override = AsyncMock(return_value=None)
 
         # Setup other mocks
-        mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_prepare.return_value = MainFileSelection(path=tmp_path / "S4-260001.zip", relative_path="S4-260001.zip", source=MainFileSource.HEURISTIC)
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
         mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
@@ -65,7 +68,7 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
     @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     @patch("tdoc_crawler.cli.tdoc_app.load_cli_config")
@@ -90,9 +93,10 @@ class TestNewCLIFlags:
         mock_db_instance = MagicMock()
         mock_database_class.return_value.__aenter__.return_value = mock_db_instance
         mock_db_instance.query_tdocs = AsyncMock(return_value=[])
+        mock_db_instance.get_main_file_override = AsyncMock(return_value=None)
 
         # Setup other mocks
-        mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_prepare.return_value = MainFileSelection(path=tmp_path / "S4-260001.zip", relative_path="S4-260001.zip", source=MainFileSource.HEURISTIC)
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
         mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
@@ -109,7 +113,7 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
     @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     @patch("tdoc_crawler.cli.tdoc_app.load_cli_config")
@@ -134,9 +138,10 @@ class TestNewCLIFlags:
         mock_db_instance = MagicMock()
         mock_database_class.return_value.__aenter__.return_value = mock_db_instance
         mock_db_instance.query_tdocs = AsyncMock(return_value=[])
+        mock_db_instance.get_main_file_override = AsyncMock(return_value=None)
 
         # Setup other mocks
-        mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_prepare.return_value = MainFileSelection(path=tmp_path / "S4-260001.zip", relative_path="S4-260001.zip", source=MainFileSource.HEURISTIC)
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
         mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
@@ -177,6 +182,7 @@ class TestNewCLIFlags:
         mock_db_instance = MagicMock()
         mock_database_class.return_value.__aenter__.return_value = mock_db_instance
         mock_db_instance.query_tdocs = AsyncMock(return_value=[])
+        mock_db_instance.get_main_file_override = AsyncMock(return_value=None)
 
         # Setup other mocks
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
@@ -219,6 +225,7 @@ class TestNewCLIFlags:
         mock_db_instance = MagicMock()
         mock_database_class.return_value.__aenter__.return_value = mock_db_instance
         mock_db_instance.query_tdocs = AsyncMock(return_value=[])
+        mock_db_instance.get_main_file_override = AsyncMock(return_value=None)
 
         # Setup other mocks
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
@@ -238,7 +245,7 @@ class TestNewCLIFlags:
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
     @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
     @patch("tdoc_crawler.cli.tdoc_app.load_cli_config")
@@ -263,9 +270,10 @@ class TestNewCLIFlags:
         mock_db_instance = MagicMock()
         mock_database_class.return_value.__aenter__.return_value = mock_db_instance
         mock_db_instance.query_tdocs = AsyncMock(return_value=[])
+        mock_db_instance.get_main_file_override = AsyncMock(return_value=None)
 
         # Setup other mocks
-        mock_prepare.return_value = tmp_path / "S4-260001.zip"
+        mock_prepare.return_value = MainFileSelection(path=tmp_path / "S4-260001.zip", relative_path="S4-260001.zip", source=MainFileSource.HEURISTIC)
         mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
         mock_set_creds.return_value = None
         mock_session.return_value.__enter__.return_value = Mock()
@@ -302,7 +310,6 @@ def sample_tdoc_metadata() -> TDocMetadata:
         for_purpose="unknown",
         agenda_item_text="Unknown",
         status=None,
-        meeting_name=None,
         is_revision_of=None,
         file_size=None,
         date_created=None,
@@ -324,8 +331,8 @@ def _make_mock_config(tmp_path: Path) -> MagicMock:
 def _make_load_cli_config_side_effect(mock_config: MagicMock) -> object:
     """Return a side_effect function that sets ctx.obj and returns mock_config."""
 
-    def side_effect(ctx: object, config_file: object = None) -> MagicMock:
-        ctx.obj = mock_config  # type: ignore[union-attr]
+    def side_effect(ctx: Any, config_file: Any = None) -> MagicMock:
+        ctx.obj = mock_config
         return mock_config
 
     return side_effect

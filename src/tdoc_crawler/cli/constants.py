@@ -11,4 +11,5 @@ SECTION_DESCRIPTIONS = {
     "http": "HTTP client settings (timeout, retries, caching, SSL)",
     "credentials": "ETSI Online portal credentials (username, password)",
     "crawl": "Crawling filters and limits (working_group, date range, workers)",
+    "checkout": "Main-document selection for TDoc archives (selector, decision model)",
 }

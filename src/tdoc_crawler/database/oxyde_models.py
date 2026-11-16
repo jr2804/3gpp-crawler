@@ -307,9 +307,28 @@ class ArchiveMember(Model):
         is_table = True
 
 
+class MainFileOverride(Model):
+    """Manually chosen main file for one TDoc (wins over automatic selection).
+
+    ``member_path`` is relative to the extracted TDoc directory, exactly as
+    stored in :class:`ArchiveMember.member_path`.
+    """
+
+    tdoc_id: str = Field(db_pk=True)
+    member_path: str
+    note: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
 __all__ = [
     "ArchiveMember",
     "CrawlLogEntry",
+    "MainFileOverride",
     "MeetingAgendaItem",
     "MeetingMetadata",
     "Specification",

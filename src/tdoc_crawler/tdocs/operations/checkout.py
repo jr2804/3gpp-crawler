@@ -7,9 +7,7 @@ directory structure as the server.
 
 from __future__ import annotations
 
-import difflib
 import posixpath
-import re
 import shutil
 import zipfile
 from dataclasses import dataclass, field
@@ -19,28 +17,20 @@ from urllib.parse import urljoin, urlparse
 import niquests as requests
 from bs4 import BeautifulSoup
 
+from tdoc_crawler.config.settings import CheckoutConfig
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
 from tdoc_crawler.models.archives import ArchiveKind, ArchiveRecord
-from tdoc_crawler.models.base import DocumentType
+from tdoc_crawler.models.main_files import MainFileSelection, MainFileSource
 from tdoc_crawler.tdocs.models import TDocStatus
+from tdoc_crawler.tdocs.operations.main_file import (
+    resolve_main_file,
+    select_heuristic_main_file,
+)
 from tdoc_crawler.tdocs.sources.doclist import DocumentListError, fetch_meeting_document_list
 from tdoc_crawler.utils.archive import list_zip_members
-from tdoc_crawler.utils.clutter import is_clutter
 from tdoc_crawler.utils.security import safe_extract_zip
-
-# Main-file type preference, best first. Declaration order of the
-# ``DocumentType`` StrEnum (see ``models/base.py``) IS the preference
-# order — keep the enum sorted accordingly.
-_TDOC_DOCUMENT_TYPE_ORDER: tuple[str, ...] = tuple(t.value for t in DocumentType)
-_TDOC_DOCUMENT_SUFFIXES: frozenset[str] = frozenset(_TDOC_DOCUMENT_TYPE_ORDER)
-
-# Tracked-change (revision marks) elements in OOXML word-processing parts.
-_REVISION_MARK_ELEMENTS = re.compile(rb"<w:(?:ins|del|moveFrom|moveTo)[ />]")
-
-# Minimum difflib similarity for the optional title match to count.
-_TITLE_MATCH_THRESHOLD = 0.6
 
 logger = get_logger(__name__)
 
@@ -73,7 +63,15 @@ def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> 
             record.file_size = total
 
 
-def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bool = False, session: requests.Session | None = None) -> Path:
+def prepare_tdoc_file(
+    metadata: TDocMetadata,
+    checkout_dir: Path,
+    return_dir: bool = False,
+    session: requests.Session | None = None,
+    *,
+    override_member: str | None = None,
+    config: CheckoutConfig | None = None,
+) -> Path:
     """Prepare the local file for a TDoc, downloading/extracting if needed.
 
     Routes through :func:`checkout_tdoc` so that ``tdoc open`` and
@@ -82,12 +80,20 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
     ``tsg_<tsg>/<wg>/<meeting>/Docs/<tdoc_id>``); archive clutter is
     filtered by the user-editable ``clutter-ignore`` patterns.
 
+    Main-file choice is delegated to
+    :func:`tdoc_crawler.tdocs.operations.main_file.resolve_main_file`:
+    manual override first, then the optional decision model, then the
+    offline heuristic. Call :func:`prepare_tdoc_selection` instead when
+    the source of the choice matters to the caller.
+
     Args:
         metadata: TDoc metadata with download URL.
         checkout_dir: Checkout directory (base of the mirror tree).
         return_dir: When True, return the extract directory itself instead
             of the picked "main file" inside it.
         session: Optional requests.Session to reuse for downloads.
+        override_member: Stored manual override (archive-relative path).
+        config: Checkout settings; defaults to ``CheckoutConfig()``.
 
     Returns:
         Path to the picked main file, or the extract directory when
@@ -99,6 +105,82 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
             or the archive contains no usable file.
         ValueError: If ``metadata.url`` is missing.
     """
+    if return_dir:
+        filename, extract_dir = _resolve_archive(metadata, checkout_dir, session=session)
+        if extract_dir is not None:
+            return extract_dir
+        return _download_loose_tdoc(metadata, checkout_dir, filename, session=session)
+
+    return prepare_tdoc_selection(
+        metadata,
+        checkout_dir,
+        override_member=override_member,
+        config=config,
+        session=session,
+    ).path
+
+
+def prepare_tdoc_selection(
+    metadata: TDocMetadata,
+    checkout_dir: Path,
+    *,
+    override_member: str | None = None,
+    config: CheckoutConfig | None = None,
+    session: requests.Session | None = None,
+) -> MainFileSelection:
+    """Prepare a TDoc and report *which* file was chosen as its main file.
+
+    Same download/extract path as :func:`prepare_tdoc_file`; use this
+    variant when the caller must show or log the selection source
+    (manual override, decision model, or heuristic).
+
+    Args:
+        metadata: TDoc metadata with download URL.
+        checkout_dir: Checkout directory (base of the mirror tree).
+        override_member: Stored manual override (archive-relative path).
+        config: Checkout settings; defaults to ``CheckoutConfig()``.
+        session: Optional requests.Session to reuse for downloads.
+
+    Returns:
+        The resolved main file plus its source.
+
+    Raises:
+        FileNotFoundError: If the TDoc is withdrawn, the download fails,
+            or the archive contains no usable (or no overridden) file.
+        ValueError: If ``metadata.url`` is missing.
+    """
+    filename, extract_dir = _resolve_archive(metadata, checkout_dir, session=session)
+    if extract_dir is None:
+        # A loose (non-zip) TDoc *is* its own main file; the heuristic
+        # source is reported because no choice was made.
+        downloaded = _download_loose_tdoc(metadata, checkout_dir, filename, session=session)
+        return MainFileSelection(
+            path=downloaded,
+            relative_path=downloaded.name,
+            source=MainFileSource.HEURISTIC,
+        )
+
+    return resolve_main_file(
+        extract_dir,
+        metadata.tdoc_id,
+        title=metadata.title,
+        override_member=override_member,
+        config=config,
+        session=session,
+    )
+
+
+def _resolve_archive(metadata: TDocMetadata, checkout_dir: Path, *, session: requests.Session | None) -> tuple[str, Path | None]:
+    """Validate the TDoc and resolve its local container.
+
+    Returns:
+        ``(filename, extract_dir)``; ``extract_dir`` is None for non-zip
+        TDocs, which are downloaded as-is by :func:`_download_loose_tdoc`.
+
+    Raises:
+        ValueError: If ``metadata.url`` is missing.
+        FileNotFoundError: If the TDoc is withdrawn.
+    """
     if metadata.url is None:
         msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None"
         raise ValueError(msg)
@@ -108,20 +190,20 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
         msg = "withdrawn"
         raise FileNotFoundError(msg)
 
-    checkout_dir.mkdir(parents=True, exist_ok=True)
-    url_path = urlparse(metadata.url).path
-    filename = str(posixpath.basename(url_path))
-    suffix = Path(filename).suffix.lower()
+    filename = str(posixpath.basename(urlparse(metadata.url).path))
+    if Path(filename).suffix.lower() != ".zip":
+        return filename, None
+    return filename, checkout_tdoc(metadata, checkout_dir, session=session)
 
-    if suffix == ".zip":
-        extract_dir = checkout_tdoc(metadata, checkout_dir, session=session)
-        if return_dir:
-            return extract_dir
-        return _select_main_file(extract_dir, metadata.tdoc_id, title=metadata.title)
 
-    # Non-zip: drop the file under the same mirror path the server uses.
+def _download_loose_tdoc(metadata: TDocMetadata, checkout_dir: Path, filename: str, *, session: requests.Session | None) -> Path:
+    """Download a non-zip TDoc under the mirror path and return its path."""
+    if metadata.url is None:
+        msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None"
+        raise ValueError(msg)
     target_dir = get_checkout_path(metadata, checkout_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
+    suffix = Path(filename).suffix.lower()
     target_name = filename or f"{metadata.tdoc_id}{suffix or '.bin'}"
     target_file = target_dir / target_name
     if not target_file.exists():
@@ -135,95 +217,15 @@ def prepare_tdoc_file(metadata: TDocMetadata, checkout_dir: Path, return_dir: bo
 
 
 def _select_main_file(extract_dir: Path, tdoc_id: str, *, title: str | None = None) -> Path:
-    """Pick the most likely "main" file inside an extracted TDoc directory.
+    """Heuristic main-file picker (backwards-compatible alias).
 
-    Candidates are filtered by the gitignore-style clutter patterns
-    (``<cache-dir>/clutter-ignore``, see :mod:`tdoc_crawler.utils.clutter`)
-    so that OS metadata (``__MACOSX/``, ``._*``, ``~$*`` ...) is never
-    picked — even from checkout directories created before extraction
-    filtering existed.
-
-    When an archive holds two versions of the same document (one with,
-    one without revision marks), the tracked-changes version wins —
-    decided by inspecting the document *content* via
-    :func:`_has_revision_marks`, never by filename conventions.
-
-    Among the remaining document-suffix files the best-ranked candidate
-    wins, by these criteria in order:
-
-        1. Name is exactly the TDoc ID (e.g. ``S4-261599.docx``).
-        2. Highest similarity to ``<tdoc_id> <title>`` (only when *title*
-           is given; scores below the threshold count as zero).
-        3. Name starts with the TDoc ID (case-insensitive).
-        4. Document carries revision marks (content probe, ``.docx`` only).
-        5. Document type, in ``DocumentType`` declaration order.
-        6. Most recent file timestamp, then name (deterministic tie-break).
-
-    Fallbacks: largest remaining document-suffix file, then largest
-    non-clutter file of any type.
-
-    Args:
-        extract_dir: Directory holding the extracted TDoc contents.
-        tdoc_id: TDoc identifier (e.g. ``S4-261599``).
-        title: Optional portal title of the TDoc, used for fuzzy matching.
-
-    Returns:
-        Path to the selected main file.
-
-    Raises:
-        FileNotFoundError: If no usable file is present.
+    The implementation and its full documentation live in
+    :func:`tdoc_crawler.tdocs.operations.main_file.select_heuristic_main_file`.
+    Kept here because checkout tests and older callers import it from
+    this module; new code should call :func:`resolve_main_file` so the
+    manual override and decision-model layers apply.
     """
-    documents = [
-        p
-        for p in extract_dir.rglob("*")
-        if p.is_file() and p.suffix.lower() in _TDOC_DOCUMENT_SUFFIXES and not is_clutter(p.relative_to(extract_dir).as_posix())
-    ]
-    if documents:
-        if len(documents) == 1:
-            return documents[0]
-        id_folded = tdoc_id.casefold()
-        title_folded = re.sub(r"\W+", " ", f"{tdoc_id} {title or ''}".casefold()).strip()
-
-        def rank(path: Path) -> tuple[bool, float, bool, bool, int, float, str]:
-            stem_folded = path.stem.casefold()
-            exact = stem_folded == id_folded
-            title_score = 0.0
-            if title:
-                ratio = difflib.SequenceMatcher(None, stem_folded, title_folded).ratio()
-                if ratio >= _TITLE_MATCH_THRESHOLD:
-                    title_score = round(ratio, 3)
-            prefixed = stem_folded.startswith(id_folded)
-            marked = _has_revision_marks(path)
-            type_rank = -_TDOC_DOCUMENT_TYPE_ORDER.index(path.suffix.lower())
-            return (exact, title_score, prefixed, marked, type_rank, path.stat().st_mtime, path.name)
-
-        return max(documents, key=rank)
-
-    all_files = [p for p in extract_dir.rglob("*") if p.is_file() and not is_clutter(p.relative_to(extract_dir).as_posix())]
-    if not all_files:
-        msg = "no-files-in-archive"
-        raise FileNotFoundError(msg)
-    return max(all_files, key=lambda p: p.stat().st_size)
-
-
-def _has_revision_marks(path: Path) -> bool:
-    """True when an OOXML document carries tracked changes (revision marks).
-
-    Scans the ``word/`` XML parts for insert/delete/move revision elements.
-    Non-OOXML files (PDF, legacy ``.doc``/``.xls``) cannot be checked
-    cheaply and count as unmarked; unreadable files likewise.
-
-    This is the *only* signal used to prefer a tracked-changes version
-    over a clean one — filename markers (``_clean``, ``_rm``, ...) are
-    inconsistent across authors and are never consulted.
-    """
-    if path.suffix.lower() != ".docx":
-        return False
-    try:
-        with zipfile.ZipFile(path) as archive:
-            return any(_REVISION_MARK_ELEMENTS.search(archive.read(name)) for name in archive.namelist() if name.startswith("word/") and name.endswith(".xml"))
-    except (zipfile.BadZipFile, OSError):
-        return False
+    return select_heuristic_main_file(extract_dir, tdoc_id, title=title)
 
 
 def get_checked_out_tdocs(checkout_dir: Path) -> list[str]:
@@ -305,7 +307,11 @@ def checkout_meeting_tdocs(
         try:
             meeting_folder = get_meeting_checkout_folder(meeting, checkout_dir)
             doclist_path = meeting_folder / f"meeting_{meeting.meeting_id}_doclist.xlsx"
-            tdocs = fetch_meeting_document_list(meeting.meeting_id, http_cache_file, save_doclist_to=doclist_path)
+            tdocs = fetch_meeting_document_list(
+                meeting.meeting_id,
+                http_cache_file=http_cache_file,
+                save_doclist_to=doclist_path,
+            )
         except DocumentListError as exc:
             errors.append(f"{meeting.short_name}: {exc}")
             continue

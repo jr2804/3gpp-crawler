@@ -12,6 +12,7 @@ from tdoc_crawler.config.cache_manager import (
 )
 from tdoc_crawler.config.env_vars import TOML_PATH_TO_ENV_VAR, ConfigEnvVar
 from tdoc_crawler.config.settings import (
+    CheckoutConfig,
     CrawlConfig,
     CredentialsConfig,
     HttpConfig,
@@ -33,10 +34,11 @@ __all__ = [
     # CacheManager
     "CacheManager",
     "CacheManagerNotRegisteredError",
+    # Settings
+    "CheckoutConfig",
     # Config sources
     "ConfigEnvVar",
     "ConfigLoadError",
-    # Settings
     "CrawlConfig",
     "CredentialsConfig",
     "HttpConfig",

@@ -31,26 +31,29 @@ from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
 from tdoc_crawler.cli.crawl import crawl_tdocs
 from tdoc_crawler.cli.formatting import format_output
+from tdoc_crawler.cli.main_file_app import main_file_app
 from tdoc_crawler.cli.printing import statistics_to_dict
 from tdoc_crawler.cli.query import query_tdocs
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
 from tdoc_crawler.database import MeetingDatabase, TDocDatabase
-from tdoc_crawler.database.oxyde_models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import MainFileOverride, TDocMetadata
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat
 from tdoc_crawler.models.statistics import DatabaseStatistics
 from tdoc_crawler.tdocs.models import TDocQueryConfig
-from tdoc_crawler.tdocs.operations.checkout import prepare_tdoc_file
+from tdoc_crawler.tdocs.operations.checkout import prepare_tdoc_selection
 from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 _logger = get_logger(__name__)
 
 tdoc_app = GlobSafeTyper(help="3GPP Crawler - TDocs")
+
+tdoc_app.add_typer(main_file_app, name="main-file", help="Manual main-file overrides for TDoc archives")
 
 
 @tdoc_app.command("version", help="Show installed version")
@@ -114,7 +117,7 @@ def open_tdoc(
 
     with create_cached_session() as session:
 
-        async def _load_tdoc_metadata() -> TDocMetadata:
+        async def _load_tdoc_metadata() -> tuple[TDocMetadata, MainFileOverride | None]:
 
             async with TDocDatabase(crawler_config.path.db_file) as database:
                 results = await database.query_tdocs(config)
@@ -138,20 +141,28 @@ def open_tdoc(
 
                     raise typer.Exit(code=1)
 
-                return refreshed_results[0]
+                override = await database.get_main_file_override(normalized_id)
 
-        metadata = asyncio.run(_load_tdoc_metadata())
+                return refreshed_results[0], override
+
+        metadata, override = asyncio.run(_load_tdoc_metadata())
 
         try:
-            tdoc_file = prepare_tdoc_file(metadata, crawler_config.path.checkout_dir, session=session)
+            selection = prepare_tdoc_selection(
+                metadata,
+                crawler_config.path.checkout_dir,
+                override_member=override.member_path if override is not None else None,
+                config=crawler_config.checkout,
+                session=session,
+            )
 
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             console.print(f"[red]Failed to prepare TDoc {normalized_id}: {exc}")
 
             raise typer.Exit(code=1) from exc
 
-        console.print(f"[green]Opening {tdoc_file}")
-        launch_file(tdoc_file)
+        console.print(f"[green]Opening {selection.path} [dim](main file: {selection.source})")
+        launch_file(selection.path)
 
 
 tdoc_app.command("files", rich_help_panel=HELP_PANEL_MAIN)(list_tdoc_files)

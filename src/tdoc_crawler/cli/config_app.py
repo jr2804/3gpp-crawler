@@ -45,7 +45,7 @@ ConfigValidateStrictOption = Annotated[
 ]
 ConfigDocsSectionOption = Annotated[
     str | None,
-    typer.Option("--section", "-s", help="Show specific section (path, http, credentials, crawl)"),
+    typer.Option("--section", "-s", help="Show specific section (path, http, credentials, crawl, checkout)"),
 ]
 
 config_app = GlobSafeTyper(help="Manage configuration")
@@ -239,6 +239,7 @@ def config_docs(
         "http": [],
         "credentials": [],
         "crawl": [],
+        "checkout": [],
     }
 
     # Introspect ThreeGPPConfig
@@ -250,6 +251,7 @@ def config_docs(
         ("http", config.http),
         ("credentials", config.credentials),
         ("crawl", config.crawl),
+        ("checkout", config.checkout),
     ]:
         model_cls = type(section_model)
         fields = model_cls.model_fields
@@ -287,7 +289,7 @@ def config_docs(
         # Show all sections
         for section_name, fields_list in sections.items():
             _print_section_docs(section_name, fields_list, SECTION_DESCRIPTIONS.get(section_name, ""))
-            if section_name != "crawl":
+            if section_name != "checkout":
                 rprint()
 
 

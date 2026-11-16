@@ -22,6 +22,7 @@ from tdoc_crawler.database.oxyde_models import TDocMetadata, WorkItemRecord
 from tdoc_crawler.database.tags import add_tags, list_tags
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models.base import TagKind
+from tdoc_crawler.models.main_files import MainFileSelection, MainFileSource
 from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
@@ -110,9 +111,7 @@ class TestSubgroupScopeValidation:
     """Sub-working group codes must not be accepted as working groups."""
 
     @pytest.mark.parametrize(("cli_app", "command"), [(tdoc_app, ["crawl"]), (meetings_app, ["crawl"])])
-    def test_subgroup_code_as_working_group_fails_loudly(
-        self, cli_app: typer.Typer, command: list[str], test_cache_dir: Path
-    ) -> None:
+    def test_subgroup_code_as_working_group_fails_loudly(self, cli_app: typer.Typer, command: list[str], test_cache_dir: Path) -> None:
         result = runner.invoke(cli_app, [*command, "--working-group", "SA4"])
 
         # Rich wraps the message panel, so strip borders and collapse whitespace
@@ -460,7 +459,9 @@ class TestQueryCommand:
         result = runner.invoke(tdoc_app, ["query", "SA4AA250001", "--no-fetch"])
 
         assert result.exit_code == 0
-        config = mock_db.query_tdocs.await_args.args[0]
+        query_call = mock_db.query_tdocs.await_args
+        assert query_call is not None
+        config = query_call.args[0]
         assert config.working_groups is None, f"expected no working_group filter, got {config.working_groups!r}"
 
     @patch("tdoc_crawler.cli.query.tdocs.TDocDatabase")
@@ -746,7 +747,7 @@ class TestOpenCommand:
     """Tests for open command."""
 
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_open_existing_tdoc(
@@ -762,10 +763,11 @@ class TestOpenCommand:
         mock_db = MagicMock(spec=TDocDatabase)
         mock_db_class.return_value.__enter__.return_value = mock_db
         mock_db.query_tdocs.return_value = sample_tdocs[:1]
+        mock_db.get_main_file_override = AsyncMock(return_value=None)
         mock_fetch.return_value = FetchMissingResult(refreshed=sample_tdocs[:1])
 
         mock_file = test_cache_dir / "test.pdf"
-        mock_prepare.return_value = mock_file
+        mock_prepare.return_value = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
 
         result = runner.invoke(
             tdoc_app,
@@ -796,7 +798,7 @@ class TestOpenCommand:
         assert "not found" in result.stdout
 
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_open_with_whatthespec_fallback(
@@ -854,7 +856,7 @@ class TestOpenCommand:
         )
 
         mock_file = test_cache_dir / "test.pdf"
-        mock_prepare.return_value = mock_file
+        mock_prepare.return_value = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
 
         result = runner.invoke(
             tdoc_app,
@@ -866,7 +868,7 @@ class TestOpenCommand:
         mock_launch.assert_called_once()
 
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_file")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
     @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     def test_open_with_whatthespec_no_credentials_required(
@@ -921,7 +923,7 @@ class TestOpenCommand:
         )
 
         mock_file = test_cache_dir / "test.pdf"
-        mock_prepare.return_value = mock_file
+        mock_prepare.return_value = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
 
         result = runner.invoke(
             tdoc_app,

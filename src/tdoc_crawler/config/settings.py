@@ -19,6 +19,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from tdoc_crawler.config.env_vars import ConfigEnvVar
 from tdoc_crawler.config.sources import discover_config_files, load_config_file, merge_configs
+from tdoc_crawler.models.main_files import MainFileSelector
 
 # Default values (not constants - just module-level defaults)
 # Actual paths are resolved by CacheManager at runtime
@@ -228,6 +229,58 @@ class CrawlConfig(BaseSettings):
     )
 
 
+class CheckoutConfig(BaseSettings):
+    """Checkout behaviour: how the main file of a TDoc archive is picked.
+
+    A stored manual override always wins; ``selector`` only controls the
+    automatic fallback chain (heuristic ranking, or the optional System One
+    decision model before it).
+    """
+
+    model_config = SettingsConfigDict(env_prefix="TDC_CHECKOUT_", env_nested_delimiter="_", extra="ignore")
+
+    selector: MainFileSelector = Field(
+        default=MainFileSelector.HEURISTIC,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_MAIN_FILE_SELECTOR.name, "selector"),
+        description="Main-file strategy: heuristic | decision_model | manual",
+    )
+    max_model_candidates: int = Field(
+        default=20,
+        ge=1,
+        le=200,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_MAIN_FILE_MAX_CANDIDATES.name, "max_model_candidates"),
+        description="Maximum archive members sent to the decision model as choices",
+    )
+    systemone_base_url: str = Field(
+        default="https://api.typesafe.ai",
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_SYSTEMONE_BASE_URL.name, "systemone_base_url"),
+        description="Base URL of the TypeSafe System One API",
+    )
+    systemone_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_SYSTEMONE_API_KEY.name, "TYPESAFE_API_KEY", "systemone_api_key"),
+        description="TypeSafe API key (TDC_CHECKOUT_SYSTEMONE_API_KEY or TYPESAFE_API_KEY)",
+    )
+    systemone_model: str = Field(
+        default="jev-latest",
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_SYSTEMONE_MODEL.name, "systemone_model"),
+        description="System One model alias used for main-file decisions",
+    )
+    systemone_min_confidence: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_SYSTEMONE_MIN_CONFIDENCE.name, "systemone_min_confidence"),
+        description="Minimum answer confidence before the model's pick replaces the heuristic",
+    )
+    systemone_timeout: float = Field(
+        default=30.0,
+        gt=0,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_SYSTEMONE_TIMEOUT.name, "systemone_timeout"),
+        description="Timeout in seconds for decision-model requests",
+    )
+
+
 class ThreeGPPConfig(BaseSettings):
     """Main configuration class for 3GPP Crawler.
 
@@ -236,9 +289,10 @@ class ThreeGPPConfig(BaseSettings):
     - http: HTTP client and caching behavior
     - credentials: Portal authentication
     - crawl: Crawling filters and limits
+    - checkout: Main-file selection strategy and decision-model settings
 
     Configuration can be overridden via environment variables with the
-    appropriate prefixes (TDC_, TDC_EOL_, TDC_CRAWL_).
+    appropriate prefixes (TDC_, TDC_EOL_, TDC_CRAWL_, TDC_CHECKOUT_).
     """
 
     model_config = SettingsConfigDict(
@@ -251,6 +305,7 @@ class ThreeGPPConfig(BaseSettings):
     http: HttpConfig = Field(default_factory=HttpConfig)
     credentials: CredentialsConfig = Field(default_factory=CredentialsConfig)
     crawl: CrawlConfig = Field(default_factory=CrawlConfig)
+    checkout: CheckoutConfig = Field(default_factory=CheckoutConfig)
 
     def ensure_paths(self) -> None:
         """Ensure all configured paths exist on the filesystem.

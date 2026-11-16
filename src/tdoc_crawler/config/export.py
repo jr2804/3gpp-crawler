@@ -50,7 +50,7 @@ class ConfigExporter:
         """Initialize with config instance (or create with defaults)."""
         self.config = config or ThreeGPPConfig()
 
-    def export(self, format: ConfigFormat = ConfigFormat.TOML) -> str:
+    def export(self, format: ConfigFormat | str = ConfigFormat.TOML) -> str:
         """Export config to string in specified format with comments."""
         if format == ConfigFormat.TOML:
             return self._export_toml()
@@ -61,7 +61,7 @@ class ConfigExporter:
         msg = f"Unsupported format: {format}"
         raise ValueError(msg)
 
-    def save(self, path: Path, format: ConfigFormat = ConfigFormat.TOML, force: bool = False) -> None:
+    def save(self, path: Path, format: ConfigFormat | str = ConfigFormat.TOML, force: bool = False) -> None:
         """Save config to file.
 
         Args:
@@ -85,7 +85,7 @@ class ConfigExporter:
         config_data = self.config.model_dump()
 
         # Walk through all subconfigs
-        for section_name in ("path", "http", "credentials", "crawl", "output", "http_cache", "ai"):
+        for section_name in ("path", "http", "credentials", "crawl", "checkout", "output", "http_cache", "ai"):
             if hasattr(self.config, section_name):
                 section = getattr(self.config, section_name)
                 section_data = config_data.get(section_name, {})
@@ -160,6 +160,7 @@ class ConfigExporter:
             "http": "HTTP client and caching configuration",
             "credentials": "ETSI Online (EOL) portal credentials",
             "crawl": "Crawling behavior and filter configuration",
+            "checkout": "Main-document selection for TDoc archives",
             "output": "Output configuration",
             "http_cache": "HTTP cache settings",
             "ai": "AI/LLM configuration",
