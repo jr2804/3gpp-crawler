@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import time
 from collections.abc import Callable
@@ -16,7 +17,7 @@ from tdoc_crawler.logging import get_logger
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.tdocs.models import TDocCrawlConfig
-from tdoc_crawler.utils.normalization import normalize_tdoc_id
+from tdoc_crawler.utils.normalization import normalize_portal_meeting_name, normalize_tdoc_id
 from tdoc_crawler.workers.tdoc_worker import fetch_meeting_document_list_subinterpreter
 
 logger = get_logger(__name__)
@@ -30,6 +31,10 @@ class TDocCrawlResult:
     inserted: int
     updated: int
     errors: list[str]
+
+
+class MeetingPatternError(ValueError):
+    """Raised when a meeting filter pattern matches no locally known meeting."""
 
 
 class TDocCrawler:
@@ -106,6 +111,7 @@ class TDocCrawler:
         meetings = await self.database.query_meetings(meeting_config)
 
         filtered = self._filter_meetings_by_ids(meetings, config.meeting_ids)
+        filtered = filter_meetings_by_patterns(filtered, config.meeting_patterns)
         filtered = self._filter_meetings_by_start_date(filtered, config.start_date)
         return self._filter_meetings_by_end_date(filtered, config.end_date)
 
@@ -442,6 +448,54 @@ class TDocCrawler:
                 return True
 
         return False
+
+
+def filter_meetings_by_patterns(
+    meetings: list[MeetingMetadata],
+    patterns: list[str] | None,
+) -> list[MeetingMetadata]:
+    """Filter meetings by short-name patterns, normalized names, or numeric IDs.
+
+    Patterns accept the portal spelling (``SA4#138``), the normalized database
+    spelling (``S4-138``), ``fnmatch`` wildcards (``SA4#13*``), and plain
+    numeric meeting IDs. Every pattern must match at least one meeting —
+    silently crawling nothing is worse than failing loudly.
+    """
+    if not patterns:
+        return meetings
+
+    matched_ids: set[int] = set()
+    unmatched: list[str] = []
+    for pattern in patterns:
+        text = str(pattern).strip()
+        if not text:
+            continue
+        matches = [meeting for meeting in meetings if _meeting_matches_pattern(meeting, text)]
+        if not matches:
+            unmatched.append(text)
+            continue
+        matched_ids.update(meeting.meeting_id for meeting in matches)
+
+    if unmatched:
+        msg = f"No meetings matched: {', '.join(unmatched)}"
+        raise MeetingPatternError(msg)
+    return [meeting for meeting in meetings if meeting.meeting_id in matched_ids]
+
+
+def _meeting_matches_pattern(meeting: MeetingMetadata, pattern: str) -> bool:
+    """Return True when ``meeting`` matches a short-name, normalized, or ID pattern."""
+    if pattern.isdigit():
+        return meeting.meeting_id == int(pattern)
+
+    short_name = (meeting.short_name or "").upper()
+    if not short_name:
+        return False
+
+    raw_pattern = pattern.upper()
+    normalized_pattern = normalize_portal_meeting_name(raw_pattern).upper()
+    candidates = {short_name, normalize_portal_meeting_name(short_name).upper()}
+    candidate_patterns = {raw_pattern, normalized_pattern}
+    return any(fnmatch.fnmatchcase(candidate, candidate_pattern) for candidate in candidates for candidate_pattern in candidate_patterns)
 
 
 __all__ = [

@@ -38,12 +38,15 @@ Crawl TDoc metadata from the 3GPP FTP server.
 3gpp-crawler tdoc crawl -w RAN -s R1 -s R2    # specific subgroups
 3gpp-crawler tdoc crawl --start-date 2024     # date-filtered
 3gpp-crawler tdoc crawl --workers 8           # parallel workers
+3gpp-crawler tdoc crawl -m 'SA4#138'          # one meeting
+3gpp-crawler tdoc crawl -m 'SA4#13*'          # wildcard over meeting names
 ```
 
 | Option | Description |
 |--------|-------------|
 | `-w, --working-group WG` | Working groups to crawl (repeatable). |
 | `-s, --sub-group SG` | Sub-working groups to crawl (repeatable). |
+| `-m, --meeting PATTERN` | Restrict the crawl to meetings (repeatable): portal short name (`SA4#138`), normalized name (`S4-138`), fnmatch wildcard (`SA4#13*`), or numeric meeting ID. A pattern that matches no locally known meeting fails the crawl. |
 | `--incremental / --full` | Incremental skips existing TDocs. |
 | `--workers N` | Parallel workers (default: 4). |
 | `--executor TYPE` | Advanced (hidden from `--help`): `serial`, `threading`, `multiprocessing`, `subinterpreter`. |

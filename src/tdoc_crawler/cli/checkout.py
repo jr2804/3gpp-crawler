@@ -82,6 +82,7 @@ def checkout_tdocs(
                     full_metadata=full_metadata,
                     use_whatthespec=use_whatthespec,
                     session=session,
+                    url_only_first=True,
                 )
 
                 if result.fetch_result and result.fetch_result.errors and not machine:

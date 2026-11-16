@@ -107,6 +107,33 @@ class TestCrawlCommand:
         assert result.exit_code == 0
         mock_crawler.crawl.assert_called_once()
 
+    @patch("tdoc_crawler.cli.crawl.tdocs.filter_meetings_by_patterns", side_effect=lambda meetings, _patterns: meetings)
+    @patch("tdoc_crawler.cli.crawl.tdocs.TDocCrawler")
+    @patch("tdoc_crawler.cli.crawl.tdocs.TDocDatabase")
+    def test_crawl_passes_meeting_patterns(
+        self,
+        mock_db_class: MagicMock,
+        mock_crawler_class: MagicMock,
+        mock_filter: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """``-m`` patterns reach the crawl config instead of being dropped."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__aenter__.return_value = mock_db
+        mock_db.log_crawl_start = AsyncMock(return_value="1")
+        mock_db.query_meetings = AsyncMock(return_value=[])
+
+        mock_crawler = MagicMock()
+        mock_crawler_class.return_value = mock_crawler
+        mock_crawler.crawl = AsyncMock(return_value=MagicMock(processed=1, inserted=1, updated=0, errors=[]))
+
+        result = runner.invoke(tdoc_app, ["crawl", "-m", "SA4#138", "-m", "SA4#139*"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_filter.call_args.args[1] == ["SA4#138", "SA4#139*"]
+        crawl_config = mock_crawler.crawl.call_args.args[0]
+        assert crawl_config.meeting_patterns == ["SA4#138", "SA4#139*"]
+
 
 class TestSubgroupScopeValidation:
     """Sub-working group codes must not be accepted as working groups."""

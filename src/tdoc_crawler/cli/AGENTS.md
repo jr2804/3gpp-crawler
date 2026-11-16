@@ -53,6 +53,11 @@ belong in `--sub-group`, and `parse_scope()` enforces that split. Exceptions:
 `query/specs.py` filters on the stored sub-WG string via
 `parse_spec_working_group()` (so `spec query -w SA4` works).
 
+`tdoc crawl --meeting/-m` (`MeetingPatternOption` in `args.py`) narrows the
+meetings to crawl. The patterns are matched in the CLI against meetings already
+in the database, so an unmatched pattern exits 1 with
+`MeetingPatternError` — never silently crawl everything.
+
 ## Import Direction
 
 - CLI (`cli/`) → Core (`tdoc_crawler/`)

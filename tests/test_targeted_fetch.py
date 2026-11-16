@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import niquests as requests
 import pytest
@@ -626,3 +626,16 @@ class TestWhatTheSpecFallback:
             assert results[0].title == "SA4#135 meeting agenda"
             assert results[0].source == "SA WG4 Chair"
             assert results[0].contact == "Gilles Teniou"
+
+
+@pytest.fixture(autouse=True)
+def _stub_meeting_links(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep targeted-fetch tests offline.
+
+    ``fetch_missing_tdocs`` loads parent meetings before a by-ID fetch; these
+    tests cover fetch orchestration, not that download.
+    """
+    monkeypatch.setattr(
+        "tdoc_crawler.tdocs.operations.fetch.ensure_meeting_links",
+        AsyncMock(return_value=0),
+    )

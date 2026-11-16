@@ -79,6 +79,7 @@ async def resolve_tdoc_main_file(
             full_metadata=full_metadata,
             use_whatthespec=use_whatthespec,
             session=session,
+            url_only_first=True,
         )
 
         fetch_errors: tuple[str, ...] = ()

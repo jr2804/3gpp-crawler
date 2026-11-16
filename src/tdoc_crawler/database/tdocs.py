@@ -61,6 +61,7 @@ class TDocDatabase(MeetingDatabase):
             Tuple of (created, changed) booleans
         """
         record = self._prepare_tdoc(metadata)
+        record = await self._resolve_meeting_from_url(record)
         if not record.tbid:
             record = await self._resolve_tbid(record)
         existing = await self._get_tdoc(record.tdoc_id)
@@ -115,6 +116,7 @@ class TDocDatabase(MeetingDatabase):
         prepared: list[TDocMetadata] = []
         for metadata in tdocs_list:
             record = self._prepare_tdoc(metadata)
+            record = await self._resolve_meeting_from_url(record)
             if not record.tbid:
                 record = await self._resolve_tbid(record)
             prepared.append(record)
@@ -620,6 +622,20 @@ class TDocDatabase(MeetingDatabase):
         if meeting is None or meeting.tbid is None:
             return record
         return self._clone_tdoc(record, {"tbid": meeting.tbid})
+
+    async def _resolve_meeting_from_url(self, record: TDocMetadata) -> TDocMetadata:
+        """Fill in ``meeting_id`` from the TDoc's download URL when it is unset.
+
+        By-ID fetches (portal URL lookup, WhatTheSpec, credentialed portal)
+        know the TDoc URL but not its meeting. The portal URL contains the
+        meeting folder, which lets the meeting be linked without guessing.
+        """
+        if record.meeting_id or not record.url:
+            return record
+        meeting_id = await self.find_meeting_id_for_url(record.url)
+        if not meeting_id:
+            return record
+        return self._clone_tdoc(record, {"meeting_id": meeting_id})
 
     @staticmethod
     async def _load_meeting_agenda_map(records: Sequence[TDocMetadata]) -> dict[tuple[int, str], str]:

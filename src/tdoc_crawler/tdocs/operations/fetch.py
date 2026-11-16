@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import types
 import typing
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -17,12 +17,16 @@ from pathlib import Path
 import niquests as requests
 from pydantic import ValidationError
 
+from tdoc_crawler.clients.portal import PortalClient
 from tdoc_crawler.config.settings import HttpConfig, PathConfig
 from tdoc_crawler.credentials import resolve_credentials
 from tdoc_crawler.database import TDocDatabase
-from tdoc_crawler.database.oxyde_models import TDocMetadata
+from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.logging import get_logger
+from tdoc_crawler.meetings.sources.portal import fetch_meetings
 from tdoc_crawler.models.base import TDocFieldValue
+from tdoc_crawler.models.subworking_groups import CODE_INDEX
+from tdoc_crawler.parsers.portal import PortalParsingError
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.sources import (
@@ -32,6 +36,7 @@ from tdoc_crawler.tdocs.sources import (
     WhatTheSpecSource,
 )
 from tdoc_crawler.utils.misc import utc_now
+from tdoc_crawler.utils.parse import parse_agenda_item_nbr
 
 # Names of fields WhatTheSpec cannot supply, derived from ``TDocMetadata``
 # itself by type: db_pk, datetime, and bool audit fields are all server-side
@@ -290,6 +295,7 @@ async def fetch_missing_tdocs(
     session: requests.Session | None = None,
     http_cache_file: Path | None = None,
     db_file: Path | None = None,
+    url_only_first: bool = False,
 ) -> FetchMissingResult:
     """Fetch missing TDocs if any are requested but not found in database.
 
@@ -304,6 +310,8 @@ async def fetch_missing_tdocs(
         session: Optional requests.Session to reuse
         http_cache_file: Optional path to HTTP cache database file
         db_file: Optional path to metadata database file
+        url_only_first: If True, try the public URL-only portal lookup first
+            (checkout and open need a download URL, not full metadata)
 
     Returns:
         FetchMissingResult with updated results and fetch statistics
@@ -324,6 +332,10 @@ async def fetch_missing_tdocs(
         logger.info(f"Fetching missing TDocs with full metadata: {', '.join(missing)}")
     else:
         logger.info(f"Fetching missing TDocs: {', '.join(missing)}")
+
+    # A by-ID fetch bypasses the meeting crawl; make sure the parent meetings
+    # are known so stored records link to them instead of becoming orphans.
+    await ensure_meeting_links(database, missing)
 
     # Handle use_whatthespec flag - always use WhatTheSpec method
     if use_whatthespec:
@@ -360,16 +372,36 @@ async def fetch_missing_tdocs(
         refreshed = await database.query_tdocs(config)
         return FetchMissingResult(refreshed=refreshed, fetch_result=fetch_result)
 
+    url_result: TDocCrawlResult | None = None
+    remaining = missing
+    if url_only_first:
+        logger.info("Resolving portal download URLs: %s", ", ".join(missing))
+        url_result = await fetch_via_portal_url_batch(
+            database,
+            missing,
+            session=session,
+            http_cache_file=http_cache_file,
+        )
+        resolved = {item.tdoc_id for item in await database.query_tdocs(config)}
+        remaining = [tdoc_id for tdoc_id in missing if tdoc_id not in resolved]
+        if not remaining:
+            return FetchMissingResult(
+                refreshed=await database.query_tdocs(config),
+                fetch_result=url_result,
+            )
+
+    used_fallback = False
+
     # Without credentials the portal lookup can only fail; go straight to
     # WhatTheSpec instead of logging an expected failure first.
     if credentials_unavailable:
         logger.info("No portal credentials; fetching missing TDocs via WhatTheSpec")
-        fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
+        fetch_result = await fetch_via_whatthespec_batch(database, remaining, session=session, http_cache_file=http_cache_file, db_file=db_file)
         used_fallback = True
     else:
         fetch_result = await fetch_missing_tdocs_batch(
             database=database,
-            missing_ids=missing,
+            missing_ids=remaining,
             session=session,
             http_cache_file=http_cache_file,
         )
@@ -378,16 +410,132 @@ async def fetch_missing_tdocs(
         has_credentials_error = any("credentials required" in str(err).lower() for err in fetch_result.errors)
         if has_credentials_error:
             logger.info("Falling back to WhatTheSpec for missing TDocs due to credential issues")
-            fetch_result = await fetch_via_whatthespec_batch(database, missing, session=session, http_cache_file=http_cache_file, db_file=db_file)
+            fetch_result = await fetch_via_whatthespec_batch(database, remaining, session=session, http_cache_file=http_cache_file, db_file=db_file)
             used_fallback = True
         else:
             used_fallback = False
+
+    if url_result is not None:
+        fetch_result = _merge_fetch_results(url_result, fetch_result)
 
     refreshed = await database.query_tdocs(config)
     return FetchMissingResult(
         refreshed=refreshed,
         fetch_result=fetch_result,
         used_whatthespec_fallback=used_fallback,
+    )
+
+
+async def ensure_meeting_links(database: TDocDatabase, tdoc_ids: Sequence[str]) -> int:
+    """Load the meetings a by-ID fetch needs so its TDocs link to them.
+
+    Fetching a TDoc by ID bypasses the meeting crawl, so the parent meeting may
+    be unknown locally and the record would end up orphaned (``meeting_id=0``).
+    Loading the missing subgroup meetings once lets the database resolve the
+    meeting from the TDoc's download URL.
+
+    Returns the number of meeting records loaded (0 when nothing was missing).
+    """
+    codes = sorted({code for tdoc_id in tdoc_ids if (code := str(tdoc_id).split("-", 1)[0].upper()) in CODE_INDEX})
+    if not codes:
+        return 0
+
+    missing_codes = [code for code in codes if not await _has_meetings_for_subtb(CODE_INDEX[code].subtb)]
+    if not missing_codes:
+        return 0
+
+    try:
+        meetings = fetch_meetings(subgroups=missing_codes)
+    except Exception as exc:
+        logger.warning("Could not load meeting metadata for %s: %s", ", ".join(missing_codes), exc)
+        return 0
+
+    if not meetings:
+        return 0
+    await database.bulk_upsert_meetings(meetings)
+    logger.info(
+        "Loaded %d meeting record(s) for %s to link fetched TDocs",
+        len(meetings),
+        ", ".join(missing_codes),
+    )
+    return len(meetings)
+
+
+async def _has_meetings_for_subtb(subtb: int) -> bool:
+    """Return True when the local database already knows meetings of ``subtb``."""
+    return await MeetingMetadata.objects.filter(subtb=subtb).first() is not None
+
+
+async def fetch_via_portal_url_batch(
+    database: TDocDatabase,
+    missing_ids: list[str],
+    *,
+    session: requests.Session | None = None,
+    timeout: int = 30,
+    http_cache_file: Path | None = None,
+) -> TDocCrawlResult:
+    """Resolve download URLs for missing TDocs without credentials.
+
+    The portal's ``DownloadTDoc`` endpoint is public: it redirects to the
+    direct file URL, which is all a checkout needs. Records created this way
+    carry the URL and no bibliographic metadata; a later ``tdoc crawl`` (or a
+    credentialed fetch) fills the rest in.
+
+    Args:
+        database: Database instance for storing results
+        missing_ids: TDoc IDs to resolve
+        session: Optional requests.Session to reuse (left open)
+        timeout: Request timeout in seconds
+        http_cache_file: Optional path to HTTP cache database file
+
+    Returns:
+        TDocCrawlResult with fetch statistics
+    """
+    client = PortalClient(session=session, timeout=timeout, http_cache_file=http_cache_file)
+    inserted_count = 0
+    updated_count = 0
+    errors: list[str] = []
+
+    try:
+        for tdoc_id in missing_ids:
+            try:
+                url = client.extract_tdoc_url(tdoc_id)
+            except (PortalParsingError, requests.RequestException) as exc:
+                logger.info("Portal URL lookup failed for %s: %s", tdoc_id, exc)
+                continue
+
+            metadata = TDocMetadata(
+                tdoc_id=tdoc_id.upper(),
+                meeting_id=0,
+                title="",
+                source="",
+                contact="",
+                agenda_item_nbr=parse_agenda_item_nbr("0"),
+                url=url,
+            )
+            inserted, updated = await database.upsert_tdoc(metadata)
+            inserted_count += int(inserted)
+            updated_count += int(updated)
+            logger.info("Resolved portal URL for %s", tdoc_id)
+    finally:
+        if session is None:
+            client.close()
+
+    return TDocCrawlResult(
+        processed=len(missing_ids),
+        inserted=inserted_count,
+        updated=updated_count,
+        errors=errors,
+    )
+
+
+def _merge_fetch_results(first: TDocCrawlResult, second: TDocCrawlResult) -> TDocCrawlResult:
+    """Combine the statistics of two sequential fetch attempts."""
+    return TDocCrawlResult(
+        processed=first.processed + second.processed,
+        inserted=first.inserted + second.inserted,
+        updated=first.updated + second.updated,
+        errors=[*first.errors, *second.errors],
     )
 
 
@@ -533,7 +681,9 @@ __all__ = [
     "FetchMethod",
     "FetchMissingResult",
     "create_source",
+    "ensure_meeting_links",
     "fetch_missing_tdocs",
     "fetch_missing_tdocs_batch",
+    "fetch_via_portal_url_batch",
     "fetch_via_whatthespec_batch",
 ]

@@ -57,13 +57,13 @@ session = requests.Session()
 | `meetings/sources/portal.py` | ✅ |
 | `tdocs/operations/checkout.py` (3 locations) | ✅ |
 
-### 2. `_NiquetsCacheAdapter.init_poolmanager()` — for hishel cached sessions
+### 2. `_NiquetsCacheAdapter` — for hishel cached sessions
 
-`create_cached_session()` mounts a `_NiquetsCacheAdapter` (niquests `HTTPAdapter` subclass running hishel's RFC 9111 state machine). On cache misses it calls its own niquests `HTTPAdapter.send()` → `urllib3` transport. Since niquests installs `urllib3-future` (which supports HTTP/3), the `disable_http3=True` on the `Session` has **no effect** — the adapter creates its own connection pool.
+`create_cached_session()` mounts a `_NiquetsCacheAdapter` (niquests `HTTPAdapter` subclass running hishel's RFC 9111 state machine). On cache misses it calls its own niquests `HTTPAdapter.send()` → `urllib3` transport. Since niquests installs `urllib3-future` (which supports HTTP/3), `disable_http3=True` on the `Session` alone is not enough — the adapter would create its own connection pool.
 
-The fix: `_NiquetsCacheAdapter.init_poolmanager()` injects `disabled_svn={HttpVersion.h3}` into the pool manager kwargs, disabling HTTP/3 at the `urllib3-future` connection level.
+The fix: the adapter passes `disable_http3=True` to `super().__init__()`; niquests adds `HttpVersion.h3` to the pool's `disabled_svn` itself, so no `init_poolmanager()` override is needed (and none exists — do not reintroduce one).
 
-**Enforcement:** If you ever create a raw `niquests.Session()` or `requests.Session()` (aliased from niquests), add `disable_http3=True` without exception. If you create a custom adapter mounted on a cached session, ensure `init_poolmanager` disables HTTP/3.
+**Enforcement:** If you ever create a raw `niquests.Session()` or `requests.Session()` (aliased from niquests), add `disable_http3=True` without exception. If you create a custom adapter mounted on a cached session, pass `disable_http3=True` through to its `HTTPAdapter.__init__`.
 
 ## Multiprocessing Spawn Deadlock Under MCP (CRITICAL)
 
@@ -96,14 +96,39 @@ Search before implementing. Check relevant domain package (`tdocs/`, `meetings/`
 | 3GPP Portal | `tdocs/sources/portal.py` | Yes | ✗ | ✓ | Authenticated fallback |
 | DynaReport WI lists | `workitems/sources/dynareport.py` | No | ✓ | ✓ | Work item catalogue |
 
-Work items come from the public DynaReport pages: the per-lead-body lists
-(`TSG-WG--<WG>--wis.htm`) are the current catalogue source (crawl), and
+Work items come from the public DynaReport pages: the per-lead-body lists(`TSG-WG--<WG>--wis.htm`) are the current catalogue source (crawl), and
 `WorkItemDetails.aspx?workitemId=<UID>` plus `WiSpec--`/`WiCr--<UID>.htm`
 enrich status, parent/child and outputs per work item. The global `WI-List`
 page lags for in-flight work items — discovery and audit only. The portal
 grid pages (`WorkItems.aspx`, `Specifications.aspx`, `ChangeRequests.aspx`)
 are not scraped (Telerik postbacks, login). TDoc→work-item links come from
 the document list `Related WIs` column.
+
+## By-ID Fetching (checkout / open)
+
+`fetch_missing_tdocs()` resolves TDocs that the query did not return. Order:
+
+1. **Public portal URL endpoint** (`PortalClient.extract_tdoc_url()`, no
+   credentials) when `url_only_first=True` — checkout and open pass it, query
+   does not. A URL-only record has empty bibliographic fields; a later crawl
+   or credentialed fetch fills them in.
+2. Credentialed portal metadata (`fetch_missing_tdocs_batch`) when credentials
+   exist.
+3. WhatTheSpec (no credentials, or portal credential/network failure).
+
+Two invariants keep by-ID records from becoming orphans:
+
+- `ensure_meeting_links()` loads the subgroup's meetings once from the public
+  portal API when the local DB has none for that subgroup. `fetch_meetings()`
+  is synchronous and unauthenticated — do not wrap it in a cached session.
+- `TDocDatabase.upsert_tdoc()` / `bulk_upsert_tdocs()` call
+  `_resolve_meeting_from_url()`, which maps the TDoc URL to a meeting through
+  `MeetingDatabase.find_meeting_id_for_url()` (longest `files_url` prefix).
+  `_resolve_tbid()` then derives the parent working group.
+
+`tdoc crawl --meeting/-m` filters by meeting short name (`SA4#138`),
+normalized name (`S4-138`), fnmatch pattern, or meeting ID, and raises
+`MeetingPatternError` (CLI exit 1) for a pattern that matches nothing.
 
 ## Agenda Hierarchy
 

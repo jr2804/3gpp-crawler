@@ -42,6 +42,16 @@ SpecNumberOption = Annotated[
     typer.Option("--spec-number", help="Filter TDocs by specification number from the document list (e.g. '26.114')"),
 ]
 LimitMeetingsOption = Annotated[int | None, typer.Option("--limit-meetings", help="Limit meetings overall", envvar=ConfigEnvVar.TDC_LIMIT_MEETINGS.name)]
+MeetingPatternOption = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--meeting",
+        "-m",
+        help=(
+            "Filter meetings by short name (e.g. 'SA4#138'), fnmatch wildcard ('SA4#13*'), or numeric meeting ID; repeatable. Unknown patterns fail the crawl."
+        ),
+    ),
+]
 LimitMeetingsPerSubWgOption = Annotated[
     int | None,
     typer.Option("--limit-meetings-per-subwg", help="Limit meetings per sub-working group", envvar=ConfigEnvVar.TDC_LIMIT_MEETINGS_PER_SUBWG.name),

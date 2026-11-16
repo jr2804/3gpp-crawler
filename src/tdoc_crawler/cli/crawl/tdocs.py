@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
+import typer
+
 from tdoc_crawler.cli._shared import console, create_progress_bar, parse_scope
 from tdoc_crawler.cli.args import (
     AgendaPatternExcludeOption,
@@ -20,6 +22,7 @@ from tdoc_crawler.cli.args import (
     LimitSubWgsOption,
     LimitTDocsOption,
     MaxRetriesOption,
+    MeetingPatternOption,
     ProgressOption,
     SourcePatternExcludeOption,
     SourcePatternOption,
@@ -42,13 +45,14 @@ from tdoc_crawler.logging import set_verbosity
 from tdoc_crawler.meetings.models import MeetingQueryConfig
 from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
-from tdoc_crawler.tdocs.operations import TDocCrawler
+from tdoc_crawler.tdocs.operations import MeetingPatternError, TDocCrawler, filter_meetings_by_patterns
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdocs
 
 
 def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
+    meeting: MeetingPatternOption = None,
     limit_tdocs: LimitTDocsOption = None,
     limit_meetings: LimitMeetingsOption = None,
     limit_meetings_per_subwg: LimitMeetingsPerSubWgOption = None,
@@ -76,6 +80,7 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
     """Crawl TDoc metadata from 3GPP meeting document lists (Excel).
 
     No credentials needed. Resolves meetings first, then downloads Excel document lists with full metadata.
+    Use ``--meeting`` to restrict the crawl to specific meetings (short name, wildcard, or ID).
     """
     set_verbosity(verbosity)
 
@@ -95,6 +100,7 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
         working_groups=working_groups,
         subgroups=subgroups,
         meeting_ids=None,
+        meeting_patterns=meeting,
         start_date=_parse_date(start_date),
         end_date=_parse_date(end_date, is_end=True),
         incremental=incremental,
@@ -127,6 +133,11 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
             return await meeting_db.query_meetings(query_config)
 
     meetings = asyncio.run(fetch_meetings())
+    try:
+        meetings = filter_meetings_by_patterns(meetings, meeting)
+    except MeetingPatternError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
     scope_parts = _build_scope_description(meetings, subgroups, working_groups)
 
     console.print(f"[cyan]Crawling TDocs ({', '.join(scope_parts)})[/cyan]")

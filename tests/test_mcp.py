@@ -112,6 +112,18 @@ def test_mcp_crawl_tdocs_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> N
     assert captured["subgroup"] == ["SA4"]
 
 
+def test_mcp_crawl_tdocs_forwards_meeting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Meeting patterns must reach the CLI crawl command."""
+    captured: dict[str, JSONValue] = {}
+
+    def fake_cli(**kwargs: JSONValue) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(mcp_server, "cli_crawl_tdocs", fake_cli)
+    mcp_server.crawl_tdocs(subgroup=["SA4"], meeting=["SA4#138"])
+    assert captured["meeting"] == ["SA4#138"]
+
+
 def test_mcp_query_tdocs_forwards_subgroup(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, JSONValue] = {}
 

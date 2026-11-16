@@ -14,7 +14,12 @@ from tdoc_crawler.tdocs.operations.checkout import (
     prepare_tdoc_file,
     prepare_tdoc_selection,
 )
-from tdoc_crawler.tdocs.operations.crawl import TDocCrawler, TDocCrawlResult
+from tdoc_crawler.tdocs.operations.crawl import (
+    MeetingPatternError,
+    TDocCrawler,
+    TDocCrawlResult,
+    filter_meetings_by_patterns,
+)
 from tdoc_crawler.tdocs.operations.fetch import (
     FetchMethod,
     FetchMissingResult,
@@ -22,6 +27,7 @@ from tdoc_crawler.tdocs.operations.fetch import (
     fetch_missing_tdocs,
     fetch_missing_tdocs_batch,
     # fetch_tdoc,
+    fetch_via_portal_url_batch,
     fetch_via_whatthespec_batch,
 )
 from tdoc_crawler.tdocs.operations.main_file import (
@@ -41,6 +47,7 @@ __all__ = [
     "CheckoutResult",
     "FetchMethod",
     "FetchMissingResult",
+    "MeetingPatternError",
     "ReclassifyOutcome",
     "TDocCrawlResult",
     "TDocCrawler",
@@ -53,7 +60,9 @@ __all__ = [
     "create_source",
     "fetch_missing_tdocs",
     "fetch_missing_tdocs_batch",
+    "fetch_via_portal_url_batch",
     "fetch_via_whatthespec_batch",
+    "filter_meetings_by_patterns",
     "get_checked_out_tdocs",
     "get_checkout_path",
     "get_meeting_checkout_folder",

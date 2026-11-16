@@ -21,6 +21,9 @@ _logger = get_logger(__name__)
 class MeetingDatabase(DocDatabase):
     """Database operations for meeting metadata."""
 
+    # Lazily built (files_url prefix, meeting_id) index for URL resolution.
+    _meeting_url_prefix_cache: list[tuple[str, int]] | None = None
+
     # ------------------------------------------------------------------
     # Meeting operations
     # ------------------------------------------------------------------
@@ -34,6 +37,7 @@ class MeetingDatabase(DocDatabase):
             Number of deleted meeting rows.
         """
         counts = await self._clear_tables([MeetingMetadata])
+        self._meeting_url_prefix_cache = None
         return counts.get(MeetingMetadata.get_table_name(), 0)
 
     async def upsert_meeting(self, metadata: MeetingMetadata) -> tuple[bool, bool]:
@@ -46,6 +50,7 @@ class MeetingDatabase(DocDatabase):
             Tuple of (created, changed) booleans
         """
         record = self._prepare_meeting(metadata)
+        self._meeting_url_prefix_cache = None
         existing = await self._get_meeting(record.meeting_id)
         now = utc_now()
 
@@ -189,6 +194,24 @@ class MeetingDatabase(DocDatabase):
 
         return None
 
+    async def find_meeting_id_for_url(self, url: str | None) -> int:
+        """Resolve a meeting ID from a TDoc download URL.
+
+        Matches the longest local ``files_url`` prefix (case-insensitive,
+        trailing slash ignored). Returns 0 when no meeting owns the URL.
+        """
+        if not url:
+            return 0
+
+        normalized = url.rstrip("/").lower()
+        best_id = 0
+        best_length = 0
+        for prefix, meeting_id in await self._meeting_url_prefixes():
+            if normalized.startswith(prefix) and len(prefix) > best_length:
+                best_id = meeting_id
+                best_length = len(prefix)
+        return best_id
+
     # ------------------------------------------------------------------
     # Crawl logging and statistics
     # ------------------------------------------------------------------
@@ -289,6 +312,20 @@ class MeetingDatabase(DocDatabase):
             meetings = meetings[: config.limit]
 
         return meetings
+
+    async def _meeting_url_prefixes(self) -> list[tuple[str, int]]:
+        """Return a lazily built, longest-first ``(files_url prefix, meeting_id)`` list."""
+        if self._meeting_url_prefix_cache is not None:
+            return self._meeting_url_prefix_cache
+
+        prefixes: list[tuple[str, int]] = []
+        for meeting in await MeetingMetadata.objects.all():
+            prefix = (meeting.files_url or "").rstrip("/").lower()
+            if prefix:
+                prefixes.append((prefix, meeting.meeting_id))
+        prefixes.sort(key=lambda item: len(item[0]), reverse=True)
+        self._meeting_url_prefix_cache = prefixes
+        return prefixes
 
     async def _meeting_map(self) -> dict[int, MeetingMetadata]:
         """Get mapping of meeting ID to meeting metadata."""

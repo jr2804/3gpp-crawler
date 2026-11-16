@@ -120,6 +120,7 @@ class _DummyContext(typer.Context):
 def crawl_tdocs(
     working_group: list[str] | None = None,
     subgroup: list[str] | None = None,
+    meeting: list[str] | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
     title: list[str] | None = None,
@@ -133,6 +134,7 @@ def crawl_tdocs(
         cli_crawl_tdocs,
         working_group=working_group,
         subgroup=subgroup,
+        meeting=meeting,
         start_date=start_date,
         end_date=end_date,
         title=title,

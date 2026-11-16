@@ -81,6 +81,12 @@ sub-working-group filtering resolves through the meetings table:
 and filters on the matching `meeting_id`s (falling back to a TDoc-ID prefix
 match when a TDoc-only crawl left `meetingmetadata` empty).
 
+Both upsert paths resolve a missing meeting from the record's URL
+(`_resolve_meeting_from_url()` → `MeetingDatabase.find_meeting_id_for_url()`,
+longest `files_url` prefix, cached per database instance and invalidated by
+`upsert_meeting()`/`clear_meetings()`), then derive `tbid` from it. By-ID
+fetches therefore store linked records, not orphans.
+
 Work item links live in `TDocWorkItem` (`link_id` is `"<TDOC_ID>|<WI_ID>"`, both
 upper case) with counts cached in `WorkItemRecord`; `store_tdoc_work_items()`
 replaces a TDoc's links and `_refresh_work_item_catalog()` recomputes every

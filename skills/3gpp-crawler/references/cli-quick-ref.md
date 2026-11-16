@@ -11,7 +11,14 @@ shortcuts for the `tdoc` and `spec` groups (same commands, no group prefix).
 tdoc-crawler crawl                               # all TDocs
 tdoc-crawler crawl -w SA                         # SA working group
 tdoc-crawler crawl --start-date 2024             # from 2024 onwards
+tdoc-crawler crawl -m "SA4#138"                  # one meeting (portal short name)
+tdoc-crawler crawl -m "S4-138"                   # same meeting, normalized name
+tdoc-crawler crawl -m "SA4#13*"                  # wildcard over meeting names
+tdoc-crawler crawl -m 12345                      # numeric meeting ID
 ```
+
+`-m/--meeting` is repeatable and narrows which meetings' document lists are
+fetched; a pattern that matches no locally known meeting fails the crawl.
 
 ### query (qt)
 
@@ -76,6 +83,11 @@ tdoc-crawler checkout S4-250638 S4-250639     # batch download
 tdoc-crawler checkout S4-250638 --keep-zip    # keep the TDoc zip after extraction
 tdoc-crawler files S4-250638                  # list zip members (--refresh re-reads)
 ```
+
+A TDoc absent from the local DB is resolved by the public portal URL endpoint
+first (no credentials), then credentialed portal metadata, then WhatTheSpec.
+The meeting is linked from the download URL; the subgroup's meetings are
+fetched once if missing, so no orphan records are created.
 
 ### stats
 

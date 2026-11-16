@@ -51,7 +51,9 @@ repeated = AND, same as the CLI). `crawl_tdocs`, `crawl_meetings`,
 `query_tdocs` and `query_meetings` accept `subgroup` (e.g. `["SA4"]`, `["S4"]`,
 `["R1"]`) alongside `working_group`. Working groups are only RAN/SA/CT — passing
 a subgroup code as `working_group` is rejected rather than silently
-collapsing to the plenary (`SA4` → `SA`).
+collapsing to the plenary (`SA4` → `SA`). `crawl_tdocs` accepts `meeting`
+(repeatable patterns: `["SA4#138"]`, `["S4-138"]`, `["SA4#13*"]`, or meeting
+IDs), mirroring `tdoc crawl --meeting`.
 
 `query_tdocs` also accepts `work_item` (e.g. `["ULBC-MED"]`) to select every
 TDoc whose meeting document list row references that 3GPP work item, and

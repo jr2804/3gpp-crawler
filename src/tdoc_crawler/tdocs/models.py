@@ -90,6 +90,14 @@ class TDocCrawlConfig(BaseModel):
     )
     subgroups: list[str] | None = Field(None, description="Filter by sub-working groups")
     meeting_ids: list[int] | None = Field(None, description="Filter by specific meeting IDs")
+    meeting_patterns: list[str] | None = Field(
+        None,
+        description=(
+            "Filter meetings by short name (e.g. 'SA4#138', normalized 'S4-138'), "
+            "wildcard pattern (e.g. 'SA4#13*'), or numeric meeting ID. "
+            "Patterns that match no locally known meeting raise an error."
+        ),
+    )
     start_date: date | None = Field(None, description="Filter meetings from this date")
     end_date: date | None = Field(None, description="Filter meetings until this date")
     incremental: bool = Field(True, description="Incremental crawl (only new items)")

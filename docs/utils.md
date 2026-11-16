@@ -33,6 +33,14 @@ Download and extract TDoc(s) to the checkout folder for offline access.
 3gpp-crawler tdoc checkout S4-250638 --keep-zip   # keep the downloaded zip next to the extracted files
 ```
 
+A TDoc that is not in the local database is looked up by ID first through the
+public portal download endpoint: that yields the file URL without credentials,
+so the checkout (or `open`) works on a cold database. Credentialed portal
+metadata and WhatTheSpec remain the fallbacks. The parent meeting is resolved
+from the download URL, and the meetings of the TDoc's subgroup are fetched
+once when they are missing locally, so fetched records are stored with their
+meeting linkage instead of as orphans.
+
 ### `files`
 
 List the files inside a TDoc's zip archive. The first call reads the listing from the server (HTTP range reads, no full download) and stores it; later calls use the stored listing. `--refresh` re-reads it.
