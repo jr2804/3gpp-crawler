@@ -73,13 +73,13 @@ class ConfigEnvVar(StrEnum):
     TDC_DOC_ONLY = "crawl.doc_only"
     TDC_AUTO_CRAWL_SPECS = "crawl.auto_crawl_specs"
     # Main-file selection (TDC_CHECKOUT_*)
-    TDC_MAIN_FILE_SELECTOR = "checkout.selector"
-    TDC_MAIN_FILE_MAX_CANDIDATES = "checkout.max_model_candidates"
-    TDC_SYSTEMONE_BASE_URL = "checkout.systemone_base_url"
-    TDC_SYSTEMONE_API_KEY = "checkout.systemone_api_key"  # noqa: S105
-    TDC_SYSTEMONE_MODEL = "checkout.systemone_model"
-    TDC_SYSTEMONE_MIN_CONFIDENCE = "checkout.systemone_min_confidence"
-    TDC_SYSTEMONE_TIMEOUT = "checkout.systemone_timeout"
+    TDC_CHECKOUT_SELECTOR = "checkout.selector"
+    TDC_CHECKOUT_MAX_MODEL_CANDIDATES = "checkout.max_model_candidates"
+    TDC_CHECKOUT_SYSTEMONE_BASE_URL = "checkout.systemone_base_url"
+    TDC_CHECKOUT_SYSTEMONE_API_KEY = "checkout.systemone_api_key"  # noqa: S105
+    TDC_CHECKOUT_SYSTEMONE_MODEL = "checkout.systemone_model"
+    TDC_CHECKOUT_SYSTEMONE_MIN_CONFIDENCE = "checkout.systemone_min_confidence"
+    TDC_CHECKOUT_SYSTEMONE_TIMEOUT = "checkout.systemone_timeout"
 
 
 TOML_PATH_TO_ENV_VAR: dict[str, str] = {e.value: e.name for e in ConfigEnvVar}
