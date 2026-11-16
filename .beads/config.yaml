@@ -72,8 +72,6 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 # sync:
-#     remote: "https://forge.3gpp.org/rep/reimes/3gpp-crawler-beads.git"
-export:
-    auto: true
+remote: "https://forge.3gpp.org/rep/reimes/3gpp-crawler-beads.git"
 sync:
     remote: "https://forge.3gpp.org/rep/reimes/3gpp-crawler-beads.git"
