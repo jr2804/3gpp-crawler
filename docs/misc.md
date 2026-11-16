@@ -8,8 +8,7 @@ HTTP requests by default.
 ### Default Behavior
 
 - **Cache location**: `~/.3gpp-crawler/http-cache-v2.sqlite3`
-- **TTL**: 2 hours (7200 seconds).
-- **Refresh**: TTL is extended whenever a cached item is accessed.
+- **TTL**: 2 hours (7200 seconds), configured with `http.cache_ttl` / `HTTP_CACHE_TTL`.
 
 ### Configuration
 
@@ -48,8 +47,7 @@ By default, all data is stored in `~/.3gpp-crawler`:
 |------|---------|
 | `3gpp_crawler.db` | Main metadata database. |
 | `http-cache-v2.sqlite3` | HTTP request cache (hishel 2 schema; older `http-cache.sqlite3` files are not reused). |
-| `tdocs/` | Downloaded and extracted TDoc files. |
-| `checkout/` | Files exported for offline review. |
+| `checkout/` | Downloaded and extracted TDocs and spec files, for offline review. |
 
 Override the root directory with the `--cache-dir` flag on most commands
 or via `TDC_CACHE_DIR`.

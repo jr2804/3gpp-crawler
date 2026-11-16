@@ -33,8 +33,25 @@ tdoc-crawler query --limit 10                    # limit results
 ### open
 
 ```bash
-tdoc-crawler open S4-250638                      # download + open
+tdoc-crawler open S4-250638                      # download + open main document
 ```
+
+The main document is chosen by a stored override, then the optional decision
+model, then the heuristic (`checkout.selector`, `TDC_CHECKOUT_SELECTOR`).
+`checkout.selector = "manual"` disables automatic selection.
+
+### main-file
+
+```bash
+tdoc-crawler main-file set S4-250638 "Cover sheet.pdf" --note "real contribution"
+tdoc-crawler main-file show S4-250638            # stored override
+tdoc-crawler main-file list                      # every override
+tdoc-crawler main-file clear S4-250638           # remove the override
+```
+
+Member paths must match `tdoc-crawler files` output and stay relative to the
+archive root. The `mainfileoverride` table is new: an existing database fails
+with `schema-mismatch` until `3gpp-crawler database clear-all` + re-crawl.
 
 ### checkout
 
@@ -67,6 +84,8 @@ tdoc-crawler stats                               # database statistics
 3gpp-crawler meetings query                      # all meetings
 3gpp-crawler meetings query -s S4                # SA4 subgroup
 3gpp-crawler meetings query -w SA                # SA working group
+3gpp-crawler meetings query -l 10 --order desc    # newest 10
+3gpp-crawler meetings query --checkout            # download their TDocs too
 ```
 
 ## 3gpp-crawler spec (shortcut: spec-crawler)
@@ -137,11 +156,14 @@ spec-crawler files 26260 --release 18.0            # list zip members (--refresh
 
 ## 3gpp-crawler config
 
+`config` is mounted on `3gpp-crawler` only — not on `tdoc-crawler`/`spec-crawler`.
+
 ```bash
 3gpp-crawler config init                         # create default config
 3gpp-crawler config show                         # show active config
 3gpp-crawler config validate                     # validate config
 3gpp-crawler config docs                         # show field documentation
+3gpp-crawler config docs --section checkout      # one section (crawl, http, ...)
 ```
 
 ## 3gpp-crawler mcp
@@ -159,3 +181,6 @@ spec-crawler files 26260 --release 18.0            # list zip members (--refresh
 | `TDC_EOL_PASSWORD` | ETSI Online password |
 | `TDC_WORKING_GROUP` | Default working group filter (`RAN`, `SA`, `CT`) |
 | `TDC_SUB_GROUP` | Default sub-working-group filter (e.g. `S4`, `RAN1`) |
+| `TDC_CHECKOUT_SELECTOR` | Main-file strategy: `heuristic` (default), `decision_model`, `manual` |
+| `TDC_CHECKOUT_SYSTEMONE_API_KEY` | TypeSafe System One key (alias `TYPESAFE_API_KEY`) |
+| `TDC_CHECKOUT_SYSTEMONE_MODEL` | System One model alias (default `jev-latest`) |

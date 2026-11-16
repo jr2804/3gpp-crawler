@@ -30,7 +30,8 @@ config.crawl.workers  # Concurrent workers
 
 `CheckoutConfig` (`checkout:`, `env_prefix="TDC_CHECKOUT_"`) configures
 main-document selection for TDoc archives: `selector` (`heuristic` |
-`decision_model` | `manual`, `MainFileSelector` in `models/main_files.py`),
+`decision_model` | `manual`, `MainFileSelector` in `models/main_files.py`;
+`manual` disables heuristic and model selection entirely),
 `max_model_candidates`, and the TypeSafe System One API settings
 (`systemone_base_url`, `systemone_api_key` — also read from `TYPESAFE_API_KEY`,
 `systemone_model`, `systemone_min_confidence`, `systemone_timeout`). Selection

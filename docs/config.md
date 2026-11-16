@@ -19,9 +19,18 @@ Configuration can be provided via:
 
 Config files are discovered in this order (later files override earlier):
 
-1. `~/.config/3gpp-crawler/config.toml` (global)
-1. `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml` (project)
-1. `.config/3gpp-crawler/conf.d/*.toml` (config directory, alphabetically)
+1. Global: `~/.config/3gpp-crawler/config.toml`
+1. Global `conf.d`: `~/.config/3gpp-crawler/conf.d/*` (alphabetically)
+1. Project `conf.d`: `.config/.3gpp-crawler/conf.d/*` (alphabetically)
+1. `.config/.3gpp-crawler/config.toml`
+1. `.config/3gpp-crawler.toml`
+1. `.3gpp-crawler/config.toml`
+1. `.3gpp-crawler.toml`
+1. `3gpp-crawler.toml` (highest project precedence)
+
+Every location accepts `.toml`, `.yaml`, `.yml`, and `.json`; `conf.d`
+directories take all four in alphabetical order. An explicit `--config` file
+overrides the discovered files entirely.
 
 **Precedence:** CLI args > Config file > Environment variables > Defaults
 
@@ -34,8 +43,9 @@ File system paths for cache, database, and checkout
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `cache_dir` | Path | ~/.3gpp-crawler | Root cache directory for storing downloaded files and metadata |
-| `db_filename` | str | "3gpp_crawler.db" | SQLite database filename for storing crawl metadata |
-| `checkout_dirname` | str | "checkout" | Subdirectory name for checked-out documents |
+
+Database and checkout paths are derived by `CacheManager` from `cache_dir`
+(`3gpp_crawler.db`, `checkout/`); they are not configurable fields.
 
 ### HTTP Settings
 
@@ -45,7 +55,6 @@ HTTP client behavior, caching, timeouts, and retries
 |-------|------|---------|-------------|
 | `cache_ttl` | int | 7200 | Time-to-live for HTTP cache entries in seconds |
 | `cache_enabled` | bool | true | Enable HTTP response caching |
-| `cache_refresh_on_access` | bool | true | Refresh cache TTL on each access |
 | `verify_ssl` | bool | true | Verify SSL certificates for HTTPS requests |
 | `max_retries` | int | 3 | Maximum number of retry attempts for failed requests |
 | `timeout` | int | 30 | HTTP request timeout in seconds |
@@ -82,7 +91,7 @@ Main-document selection for TDoc archives (`TDC_CHECKOUT_*` env prefix)
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `selector` | str | "heuristic" | Strategy: `heuristic`, `decision_model`, or `manual` (overrides only) |
+| `selector` | str | "heuristic" | Strategy: `heuristic`, `decision_model`, or `manual` (stored overrides only; open fails without one) |
 | `max_model_candidates` | int | 20 | Maximum archive members sent to the decision model as choices |
 | `systemone_base_url` | str | "<https://api.typesafe.ai>" | Base URL of the TypeSafe System One API |
 | `systemone_api_key` | str | (none) | TypeSafe API key (`TDC_CHECKOUT_SYSTEMONE_API_KEY` or `TYPESAFE_API_KEY`) |
@@ -96,13 +105,13 @@ Validate your configuration files to catch errors before running:
 
 ```bash
 # Validate discovered config
-tdoc-crawler config validate
+3gpp-crawler config validate
 
 # Validate specific file
-tdoc-crawler config validate --file custom.toml
+3gpp-crawler config validate --file custom.toml
 
 # Treat warnings as errors
-tdoc-crawler config validate --strict
+3gpp-crawler config validate --strict
 ```
 
 **Exit codes:**
@@ -120,10 +129,10 @@ Show configuration documentation from the command line:
 
 ```bash
 # Show all sections
-tdoc-crawler config docs
+3gpp-crawler config docs
 
 # Show specific section
-tdoc-crawler config docs --section path
+3gpp-crawler config docs --section path
 ```
 
 **Available sections:** `path`, `http`, `credentials`, `crawl`, `checkout`
@@ -134,13 +143,13 @@ Generate a default configuration file:
 
 ```bash
 # Generate TOML config (default)
-tdoc-crawler config init 3gpp-crawler.toml
+3gpp-crawler config init 3gpp-crawler.toml
 
 # Generate YAML config
-tdoc-crawler config init 3gpp-crawler.yaml --format yaml
+3gpp-crawler config init 3gpp-crawler.yaml --format yaml
 
 # Force overwrite existing
-tdoc-crawler config init 3gpp-crawler.toml --force
+3gpp-crawler config init 3gpp-crawler.toml --force
 ```
 
 ## Config Show Command
@@ -149,13 +158,13 @@ Display the current resolved configuration:
 
 ```bash
 # Show as TOML (default)
-tdoc-crawler config show
+3gpp-crawler config show
 
 # Show as YAML
-tdoc-crawler config show -o yaml
+3gpp-crawler config show -o yaml
 
 # Show as JSON
-tdoc-crawler config show -o json
+3gpp-crawler config show -o json
 ```
 
 ## Migration from .env
@@ -174,7 +183,7 @@ If you have an existing `.env` file, you can migrate to the new config file appr
 1. **Generate a default config file:**
 
    ```bash
-   tdoc-crawler config init 3gpp-crawler.toml
+   3gpp-crawler config init 3gpp-crawler.toml
    ```
 
 1. **Copy values from your .env:**
@@ -195,7 +204,7 @@ If you have an existing `.env` file, you can migrate to the new config file appr
 1. **Validate your config:**
 
    ```bash
-   tdoc-crawler config validate
+   3gpp-crawler config validate
    ```
 
 1. **Remove .env when ready:**
@@ -206,12 +215,13 @@ If you have an existing `.env` file, you can migrate to the new config file appr
 
 ### Config File Precedence
 
-Config files override env vars (later files override earlier):
+Config files override env vars (later files override earlier, see
+[Config File Discovery](#config-file-discovery)):
 
-1. `~/.config/3gpp-crawler/config.toml` (global)
-1. `./3gpp-crawler.toml` (project)
-1. `./.3gpp-crawler.toml` (project alternative)
-1. `./.config/3gpp-crawler/conf.d/*.toml` (config dir)
+1. `~/.config/3gpp-crawler/config.toml` and `~/.config/3gpp-crawler/conf.d/*`
+1. `.config/.3gpp-crawler/conf.d/*`, `.config/.3gpp-crawler/config.toml`,
+   `.config/3gpp-crawler.toml`
+1. `.3gpp-crawler/config.toml`, `.3gpp-crawler.toml`, `3gpp-crawler.toml`
 
 **CLI args always win** — `--cache-dir` overrides everything.
 
@@ -280,9 +290,11 @@ For backward compatibility, environment variables are still supported:
 | `TDC_SUB_GROUP` | Default sub-working-group filter (e.g. `S4`, `RAN1`) |
 | `TDC_LIMIT_TDOCS` | Document crawl limit |
 | `TDC_WORKERS` | Number of workers |
+| `TDC_CHECKOUT_*` | Main-document selection — see [Checkout Settings](#checkout-settings) (`TDC_CHECKOUT_SELECTOR`, `TDC_CHECKOUT_SYSTEMONE_API_KEY`, …) |
 
 See `.env.example` for the complete list.
 
 ______________________________________________________________________
 
-*This reference is auto-generated. Run `uv run python scripts/generate_config_docs.py` to update.*
+*Field reference: `3gpp-crawler config docs` prints the options for the
+installed version; restrict it with `--section path|http|credentials|crawl|checkout`.*

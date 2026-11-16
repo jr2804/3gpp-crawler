@@ -4,7 +4,7 @@ This guide describes how to set up your environment for contributing to `3gpp-cr
 
 ## Setup
 
-### Using uv (recommended)
+### Using uv + mise (recommended)
 
 1. Clone the repository:
 
@@ -13,9 +13,10 @@ This guide describes how to set up your environment for contributing to `3gpp-cr
    cd 3gpp-crawler
    ```
 
-1. Sync dependencies:
+1. Install the toolchain and dependencies:
 
    ```bash
+   mise install
    uv sync --all-extras
    ```
 
@@ -24,6 +25,8 @@ This guide describes how to set up your environment for contributing to `3gpp-cr
    ```bash
    uv run pre-commit install
    ```
+
+Task definitions live in `.config/mise/conf.d/*.toml`; `mise run` lists them.
 
 ## Workflow
 
@@ -44,16 +47,19 @@ uv run pytest tests/test_database.py -v
 
 ### Code Quality
 
-We use `ruff` for formatting and linting, and `ty` for type checking.
+`mise` provides `pyreorder` (`ty` too), so use the tasks rather than the bare
+tools. These must be clean before a change is handed back:
 
 ```bash
-# Format and lint
-uv run ruff format
-uv run ruff check --fix
-
-# Type checking
-uv run ty check
+mise run format      # pyreorder + ruff format (mutates files)
+mise run lint        # ruff check --fix --unsafe-fixes
+mise run typecheck   # ty check src/ tests/  (never `uv run ty` — ty lives in mise)
 ```
+
+Fix type errors properly; `# type: ignore` is not accepted. Run
+`uv run pytest` for the suite (see above). `mise run all` chains
+test + lint + spell + format + format-md + docs; `typecheck` is not part of
+it, so run it explicitly.
 
 ## Documentation Standards
 
@@ -64,13 +70,16 @@ uv run ty check
 ## Architecture Overview
 
 - **`models/`**: Pydantic models (the "source of truth" for data structures).
-- **`tdocs/`**: TDoc crawling and sources (FTP, Portal, WhatTheSpec).
+- **`tdocs/`**: TDoc crawling, sources (FTP, Portal, WhatTheSpec), checkout, and main-document selection.
 - **`meetings/`**: Meeting data handling.
 - **`specs/`**: Specification operations.
-- **`database/`**: SQLite/Pydantic-SQLite persistence layer.
-- **`cli/`**: Typer-based command definitions.
+- **`workitems/`**: Work item catalogue (DynaReport lists, enrichment, audit).
+- **`database/`**: SQLite/Oxyde persistence layer.
+- **`cli/`**: Typer-based command definitions (`tdoc_app.py`, `spec_app.py`, `mgmt_app.py` entry points).
+- **`executors/`**, **`workers/`**: Crawl execution and parallel workers.
 - **`http_client/`**: Cached HTTP session management.
 - **`config/`**: Configuration management (see below).
+- **`mcp_server.py`**: stdio MCP server exposing the same operations as tools.
 
 ## Configuration System
 
@@ -101,13 +110,12 @@ config.crawl.workers       # Concurrent crawl workers
 
 **Config file discovery order** (later overrides earlier):
 
-1. Global: `~/.config/3gpp-crawler/config.toml`
-1. Project: `3gpp-crawler.toml`, `.3gpp-crawler.toml`, `.3gpp-crawler/config.toml`
-1. Config dir: `.config/.3gpp-crawler/conf.d/*.toml` (alphabetical)
+1. Global: `~/.config/3gpp-crawler/config.toml`, then `~/.config/3gpp-crawler/conf.d/*`
+1. Project: `.config/.3gpp-crawler/conf.d/*`, `.config/.3gpp-crawler/config.toml`, `.config/3gpp-crawler.toml`, `.3gpp-crawler/config.toml`, `.3gpp-crawler.toml`, `3gpp-crawler.toml`
 
 **Precedence:** CLI args > Config file > Environment variables > Defaults
 
-**Supported formats:** TOML (primary), YAML, JSON
+**Supported formats:** TOML (primary), YAML, JSON — accepted at every location.
 
 **Environment variable prefixes:**
 
@@ -115,6 +123,7 @@ config.crawl.workers       # Concurrent crawl workers
 - `TDC_EOL_*` — Portal credentials
 - `TDC_CRAWL_*` — Crawl filters
 - `HTTP_CACHE_*` — HTTP cache settings
+- `TDC_CHECKOUT_*` — Main-document selection (`checkout.selector`, TypeSafe System One settings)
 
 ### CacheManager (Runtime Paths)
 
@@ -182,6 +191,16 @@ manager = resolve_cache_manager()
 
 Avoid `typing.TYPE_CHECKING` as a workaround for circular imports. It indicates structural problems. Refactor instead — extract shared types to a neutral `models/` layer.
 
+### Database Migrations
+
+There are **no migrations** by design (`database/base.py::_ensure_schema`). An
+existing database whose tables/columns do not match the Oxyde models fails
+hard with `schema-mismatch` and the missing `table.column` list. Adding a
+model (e.g. `MainFileOverride`) therefore requires rebuilding the database
+with `3gpp-crawler database clear-all` (backs up tags, deletes the database
+file, clears TDoc checkout entries) and re-crawling. Never add an
+auto-create or auto-alter fallback to paper over it.
+
 ## Design Principles
 
 ### Directory Layout
@@ -189,7 +208,6 @@ Avoid `typing.TYPE_CHECKING` as a workaround for circular imports. It indicates 
 ```text
 ~/.3gpp-crawler/
 ├── checkout/          # Downloaded/extracted documents (TDocs, Specs)
-├── tdocs/             # Crawled TDoc files
 ├── 3gpp_crawler.db
 └── http-cache-v2.sqlite3
 ```
@@ -202,21 +220,26 @@ Checkout and fetch logic branches on the item kind: TDocs and Specs have
 fundamentally different fetch and file-resolution logic:
 
 - **TDocs**: checked out via FTP/meeting folder structure, resolved through
-  `resolve_tdoc_checkout_path()` in `tdocs/operations/checkout.py`
-- **Specs**: checked out from `Specs/archive/{series}/{spec_number}/`,
-  resolved via spec-specific path logic in `specs/operations/checkout.py`
+  `resolve_tdoc_checkout_path()` in `tdocs/operations/checkout.py`; the main
+  document inside the archive is chosen by `resolve_main_file()` in
+  `tdocs/operations/main_file.py`
+- **Specs**: checked out from `Specs/archive/{series}/{spec_number}/`; release
+  and URL resolution live in `SpecDownloader` (`specs/downloads.py`)
 
 Never assume all sources are TDocs.
 
 ### Spec Release Resolution Must Be Concrete
 
-Spec releases must always be resolved to a **full 3-part version** (e.g. `"18.0.0"`) before being stored or used for file resolution. Ambiguous selectors like `"latest"`, `"18"`, or `"18.0"` are resolved via database lookup at the **earliest possible point** via `resolve_spec_release()` in `specs/operations/checkout.py`.
+Spec releases must always be resolved to a **full 3-part version** (e.g. `"18.0.0"`) before being stored or used for file resolution. Ambiguous selectors like `"latest"`, `"18"`, or `"18.0"` are resolved via database lookup at the **earliest possible point**, inside `SpecDownloader._resolve_spec_url()` (`specs/downloads.py`).
 
 **Why:** The spec checkout directory (`checkout/Specs/archive/{series}/{spec}/`) is **shared across all releases** of a spec. After downloading REL19, files for REL18 and REL19 coexist as version-specific subdirectories (e.g. `26261-g00/` for REL19, `26261-i00/` for REL18). If a downstream function receives an unresolved `"latest"` and scans the whole tree, it can return files from the wrong release.
 
 **Two-layer contract:**
 
-1. **Resolve early** — `resolve_spec_release()` pins the concrete version before any file operation.
+1. **Resolve early** — `_resolve_spec_url()` in `specs/downloads.py` matches the
+   requested release through `normalize_release()` +
+   `_filter_versions_by_release()` and pins the concrete 3-part version before
+   any file operation.
 1. **Respect downstream** — `fetch_spec_files()` uses the pinned version to scan only the version-specific extracted directory, never the shared parent.
 
 **Rule:** Never pass ambiguous release selectors to fetch/convert functions. Never scan a shared checkout directory without filtering by release.

@@ -67,6 +67,11 @@ The destructive `database_clear_*` tools refuse to run unless called with
 flag is the confirmation (and costs agents one deliberate extra round-trip).
 Prefer `database_export_tags` first when a backup would help.
 
+Main-document overrides are **CLI-only** (`tdoc main-file`). MCP exposes no
+main-file tools: `checkout_tdocs` downloads the archive, and the stored
+override is applied by `tdoc open` (and any other caller that passes it
+explicitly).
+
 ## Client configuration
 
 Add to any MCP-capable agent client:

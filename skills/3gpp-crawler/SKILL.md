@@ -16,8 +16,8 @@ Crawl, query, tag, and download 3GPP documents locally. One SQLite DB, one main 
 ## Lifecycle
 
 ```text
-meetings crawl → crawl → query → tag → checkout
-      (1)        (2)     (3)    (4)       (5)
+meetings crawl → crawl → query → tag → checkout → main-file/open
+      (1)        (2)     (3)    (4)        (5)          (6)
 ```
 
 1. **Meetings first** — `3gpp-crawler meetings crawl` populates meeting metadata; everything else depends on this.
@@ -25,6 +25,7 @@ meetings crawl → crawl → query → tag → checkout
 3. **Query** — search by ID, working group (`-w RAN|SA|CT`), sub-working group (`-s S4|R1`), date range, title, agenda pattern. `--tag` filters narrow results.
 4. **Tag** — lightweight grouping (spec, tdoc, or other kinds).
 5. **Checkout** - download + extract. `tdoc files` / `spec files` list a document's zip members.
+6. **Main file** — a TDoc zip usually holds one main document plus attachments. `tdoc open` picks it (stored override > optional decision model > heuristic); fix a wrong pick with `tdoc main-file set`.
 
 ## Quick commands
 
@@ -48,6 +49,9 @@ meetings crawl → crawl → query → tag → checkout
 # Checkout
 3gpp-crawler tdoc checkout S4-250638
 3gpp-crawler spec checkout 26260 --release 18.0
+3gpp-crawler tdoc open S4-250638                       # open the main document
+3gpp-crawler tdoc main-file set S4-250638 "Cover sheet.pdf"   # pin a different main file
+3gpp-crawler tdoc main-file list
 
 # MCP server
 3gpp-crawler mcp
@@ -63,6 +67,23 @@ Shortcuts: same commands without the group prefix — `tdoc-crawler crawl`, `spe
 - `--tag a --tag b` → AND across groups (items matching a AND b)
 - Works on `tdoc query` and `spec query`
 - Tag filtering runs **before** `--limit`, so `--tag atias --limit 300` returns tagged rows even when they sort beyond the first 300 (fixed in #3)
+
+## Main-document selection
+
+A TDoc zip holds one main document plus attachments. `tdoc open` resolves it
+with a fixed precedence:
+
+1. Stored manual override (`tdoc main-file set <TDOC> <member-path>`).
+1. TypeSafe System One decision model — only with
+   `checkout.selector = "decision_model"` and
+   `TDC_CHECKOUT_SYSTEMONE_API_KEY`/`TYPESAFE_API_KEY`.
+1. Heuristic ranking (default, offline).
+
+`checkout.selector = "manual"` turns the automatic chain off: opening a TDoc
+without a stored override fails. Overrides are CLI-only (no MCP tool); use the
+exact member path from `tdoc files`, relative to the archive root. Existing
+databases need `database clear-all` + re-crawl after upgrading, because
+`mainfileoverride` is a new table and there are no migrations.
 
 ## MCP server
 

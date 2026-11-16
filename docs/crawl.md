@@ -46,10 +46,16 @@ Crawl TDoc metadata from the 3GPP FTP server.
 | `-s, --sub-group SG` | Sub-working groups to crawl (repeatable). |
 | `--incremental / --full` | Incremental skips existing TDocs. |
 | `--workers N` | Parallel workers (default: 4). |
+| `--executor TYPE` | Advanced (hidden from `--help`): `serial`, `threading`, `multiprocessing`, `subinterpreter`. |
+| `--timeout / --max-retries` | Per-request timeout and retry count. |
 | `--checkout` | Download and extract crawled TDocs to the checkout folder. |
 | `--start-date / --end-date` | ISO 8601 date filters. |
 | `--source / --title / --agenda` | Glob patterns; `-ex` variants exclude. |
 | `--limit-tdocs N` | Limit TDocs per crawl. |
+| `--limit-meetings N` | Limit meetings per working group/subgroup. |
+| `--limit-meetings-per-subwg N` | Limit meetings per sub-working group. |
+| `--limit-subwgs N` | Limit sub-working groups. |
+| `--cache-dir / --http-cache / --verbosity` | Path, HTTP cache and log-level overrides. |
 
 Each crawled meeting document list also carries the `Related WIs` column
 (comma-separated work item IDs) plus the specification and CR columns. Those

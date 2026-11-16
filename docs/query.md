@@ -116,6 +116,10 @@ Browse crawled meeting schedules and metadata.
 |--------|-------------|
 | `-w, --working-group WG` | Filter by working group (`RAN`, `SA`, `CT`). |
 | `-s, --sub-group SG` | Filter by sub-working group (e.g. `S4`, `R1`). |
+| `-l, --limit N` | Maximum rows. |
+| `--order` | `asc` or `desc`. |
+| `--checkout` | Download and extract the TDocs of the matched meetings. |
+| `--include-without-files` | Include meetings whose document list was never crawled. |
 | `-o, --output FORMAT` | `table`, `json`, `yaml`. |
 
 ### `query` (specs)

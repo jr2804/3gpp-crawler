@@ -35,6 +35,9 @@ List the files inside a TDoc's zip archive. The first call reads the listing fro
 
 Manage manual main-document overrides. An override is a stored archive member
 path and takes precedence over the configured selector when opening a TDoc.
+Use the exact member path printed by `tdoc files`; the value must be relative
+to the archive root (`..` and absolute paths are rejected), and `tdoc open`
+fails loudly if the stored member is no longer inside the archive.
 
 ```bash
 3gpp-crawler tdoc main-file set S4-250638 "Cover sheet.pdf" --note "real contribution"
@@ -42,6 +45,9 @@ path and takes precedence over the configured selector when opening a TDoc.
 3gpp-crawler tdoc main-file list
 3gpp-crawler tdoc main-file clear S4-250638
 ```
+
+Setting `checkout.selector = "manual"` (or `TDC_CHECKOUT_SELECTOR=manual`)
+disables the heuristic and the decision model, so only overrides are used.
 
 ## Specifications
 
