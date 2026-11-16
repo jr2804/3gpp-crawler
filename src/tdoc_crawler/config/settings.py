@@ -43,14 +43,6 @@ class PathConfig(BaseSettings):
         validation_alias=AliasChoices(ConfigEnvVar.TDC_CACHE_DIR.name, "cache_dir"),
         description="Root cache directory for storing downloaded files and metadata",
     )
-    db_filename: str = Field(
-        default=_DEFAULT_DATABASE_FILENAME,
-        description="SQLite database filename for storing crawl metadata",
-    )
-    checkout_dirname: str = Field(
-        default=_DEFAULT_CHECKOUT_DIRNAME,
-        description="Subdirectory name for checked-out documents",
-    )
 
     @property
     def db_file(self) -> Path:
