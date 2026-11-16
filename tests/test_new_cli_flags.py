@@ -10,9 +10,9 @@ import pytest
 from typer.testing import CliRunner
 
 from tdoc_crawler.cli import tdoc_app
-from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME
+from tdoc_crawler.config import DEFAULT_HTTP_CACHE_FILENAME, CheckoutConfig
 from tdoc_crawler.database.oxyde_models import TDocMetadata
-from tdoc_crawler.models.main_files import MainFileSelection, MainFileSource
+from tdoc_crawler.models.main_files import MainFileSelection, MainFileSelector, MainFileSource
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult
 
 
@@ -64,6 +64,48 @@ class TestNewCLIFlags:
         args, kwargs = mock_fetch.call_args
         assert kwargs["full_metadata"] is True
         assert kwargs["use_whatthespec"] is False
+
+    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
+    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.set_credentials")
+    @patch("tdoc_crawler.cli.tdoc_app.load_cli_config")
+    def test_open_selector_flag_overrides_config(
+        self,
+        mock_load_config: Mock,
+        mock_set_creds: Mock,
+        mock_launch: Mock,
+        mock_prepare: Mock,
+        mock_fetch: Mock,
+        mock_session: Mock,
+        mock_database_class: Mock,
+        runner: CliRunner,
+        sample_tdoc_metadata: TDocMetadata,
+        tmp_path: Path,
+    ) -> None:
+        """--selector overrides the configured main-file strategy for one run."""
+        mock_config = _make_mock_config(tmp_path)
+        mock_load_config.side_effect = _make_load_cli_config_side_effect(mock_config)
+
+        mock_db_instance = MagicMock()
+        mock_database_class.return_value.__aenter__.return_value = mock_db_instance
+        mock_db_instance.query_tdocs = AsyncMock(return_value=[])
+        mock_db_instance.get_main_file_override = AsyncMock(return_value=None)
+
+        mock_prepare.return_value = MainFileSelection(path=tmp_path / "S4-260001.zip", relative_path="S4-260001.zip", source=MainFileSource.HEURISTIC)
+        mock_fetch.return_value = FetchMissingResult(refreshed=[sample_tdoc_metadata], fetch_result=None)
+        mock_set_creds.return_value = None
+        mock_session.return_value.__enter__.return_value = Mock()
+
+        result = runner.invoke(tdoc_app, ["open", "S4-260001", "--selector", "decision_model"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_prepare.call_args
+        assert kwargs["config"].selector is MainFileSelector.DECISION_MODEL
+        # The shared config object must not be mutated by the one-off override.
+        assert mock_config.checkout.selector is MainFileSelector.HEURISTIC
 
     @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
     @patch("tdoc_crawler.cli.tdoc_app.create_cached_session")
@@ -325,6 +367,7 @@ def _make_mock_config(tmp_path: Path) -> MagicMock:
     mock_config.path.http_cache_file = tmp_path / DEFAULT_HTTP_CACHE_FILENAME
     mock_config.path.checkout_dir = tmp_path / "checkout"
     mock_config.path.cache_dir = tmp_path
+    mock_config.checkout = CheckoutConfig()
     return mock_config
 
 

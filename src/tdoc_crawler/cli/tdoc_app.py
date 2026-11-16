@@ -43,6 +43,7 @@ from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.models.main_files import MainFileSelector
 from tdoc_crawler.models.statistics import DatabaseStatistics
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.checkout import prepare_tdoc_selection
@@ -101,6 +102,13 @@ def open_tdoc(
     eol_username: EolUsernameOption = None,
     eol_password: EolPasswordOption = None,
     prompt_credentials: PromptCredentialsOption = None,
+    selector: Annotated[
+        MainFileSelector | None,
+        typer.Option(
+            "--selector",
+            help="Main-file strategy for this run: heuristic, decision_model, or manual (overrides config)",
+        ),
+    ] = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
     """Download, extract, and open a TDoc file."""
@@ -110,6 +118,10 @@ def open_tdoc(
 
     # Get config from context (set in callback)
     crawler_config = ctx.obj
+
+    checkout_config = crawler_config.checkout
+    if selector is not None:
+        checkout_config = checkout_config.model_copy(update={"selector": selector})
 
     normalized_id = normalize_tdoc_id(tdoc_id)
 
@@ -152,7 +164,7 @@ def open_tdoc(
                 metadata,
                 crawler_config.path.checkout_dir,
                 override_member=override.member_path if override is not None else None,
-                config=crawler_config.checkout,
+                config=checkout_config,
                 session=session,
             )
 

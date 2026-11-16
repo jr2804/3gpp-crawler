@@ -99,6 +99,12 @@ Main-document selection for TDoc archives (`TDC_CHECKOUT_*` env prefix)
 | `systemone_min_confidence` | float | 0.7 | Minimum model confidence accepted before falling back to the heuristic |
 | `systemone_timeout` | float | 30.0 | Timeout in seconds for System One requests |
 
+Selection runs only inside `tdoc open` (and the library's
+`prepare_tdoc_selection()`); `tdoc checkout` just downloads and extracts.
+Override the configured selector for one run with
+`tdoc open <TDOC> --selector decision_model`. The MCP server exposes the
+settings through `config_show` but has no open/main-file tools.
+
 ## Config Validate Command
 
 Validate your configuration files to catch errors before running:

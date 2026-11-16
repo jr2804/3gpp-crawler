@@ -165,7 +165,8 @@ The main file inside an extracted zip is resolved by `resolve_main_file()` in
 `tdocs/operations/main_file.py`, used by `prepare_tdoc_selection()` (from which
 `prepare_tdoc_file()`/`tdoc open` delegates). Precedence: manual override
 (`MainFileOverride` table, `tdoc main-file`) > decision model (`checkout.selector`
-= `decision_model`, TypeSafe System One) > heuristic. `selector = manual`
+= `decision_model`, TypeSafe System One) > heuristic. `tdoc open --selector`
+overrides the configured strategy for one run. `selector = manual`
 turns the automatic chain off (no override stored → `FileNotFoundError`). The heuristic
 (`select_heuristic_main_file`, optional `title` kwarg enables a difflib fuzzy
 match) ranking, in order: exact `<tdoc_id>.<ext>` name > title similarity

@@ -12,6 +12,17 @@ configured selector (`heuristic` by default; see `checkout.selector` in
 [Configuration](config.md)) and can be overridden per TDoc with
 [`main-file`](#main-file).
 
+```bash
+3gpp-crawler tdoc open S4-250638
+3gpp-crawler tdoc open S4-250638 --selector decision_model   # one-off strategy
+```
+
+`--selector` accepts `heuristic`, `decision_model`, or `manual` and overrides
+`checkout.selector` for that run only. Decision-model selection additionally
+requires an API key (`checkout.systemone_api_key` / `TDC_CHECKOUT_SYSTEMONE_API_KEY`
+or `TYPESAFE_API_KEY`); without one, `tdoc open` logs and falls back to the
+heuristic. The resulting source is printed (`main file: heuristic|decision_model|manual_override`).
+
 ### `checkout`
 
 Download and extract TDoc(s) to the checkout folder for offline access.

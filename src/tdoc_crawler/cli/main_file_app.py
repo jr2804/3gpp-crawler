@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich import print as rprint
 
 from tdoc_crawler.cli._shared import GlobSafeTyper
 from tdoc_crawler.cli.args import OutputFormatOption, TDocIdArgument, VerbosityOption
@@ -103,6 +104,9 @@ def main_file_show(
         async with TDocDatabase(_db_file()):
             override = await get_main_file_override(normalized_id)
         if override is None:
+            rprint(
+                f"[dim]No override stored for {normalized_id}; automatic selection applies (see `3gpp-crawler config docs --section checkout`).[/dim]",
+            )
             return []
         return [{"tdoc_id": override.tdoc_id, "member_path": override.member_path, "note": override.note or ""}]
 

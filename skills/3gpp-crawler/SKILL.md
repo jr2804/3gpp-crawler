@@ -74,14 +74,34 @@ A TDoc zip holds one main document plus attachments. `tdoc open` resolves it
 with a fixed precedence:
 
 1. Stored manual override (`tdoc main-file set <TDOC> <member-path>`).
-1. TypeSafe System One decision model — only with
-   `checkout.selector = "decision_model"` and
-   `TDC_CHECKOUT_SYSTEMONE_API_KEY`/`TYPESAFE_API_KEY`.
+1. TypeSafe System One decision model — only when the selector is
+   `decision_model` **and** an API key is configured.
 1. Heuristic ranking (default, offline).
+
+Selection is configuration-driven, not a flag on `checkout`/MCP — the only
+CLI surface is `tdoc open` (plus `--selector` for a one-off run). To enable
+the decision model, set these in `3gpp-crawler.toml` (or the matching
+`TDC_CHECKOUT_*` env vars):
+
+```toml
+[checkout]
+selector = "decision_model"
+systemone_api_key = "..."        # TDC_CHECKOUT_SYSTEMONE_API_KEY (alias TYPESAFE_API_KEY)
+# systemone_base_url = "https://api.typesafe.ai"
+# systemone_model = "jev-latest"
+# systemone_min_confidence = 0.7
+```
+
+Without a key the model is skipped and the heuristic runs. Low-confidence
+answers (below `systemone_min_confidence`) and HTTP errors also fall back to
+the heuristic; `tdoc open` prints which source won. Verify the resolved
+settings with `3gpp-crawler config show` or
+`3gpp-crawler config docs --section checkout`.
 
 `checkout.selector = "manual"` turns the automatic chain off: opening a TDoc
 without a stored override fails. Overrides are CLI-only (no MCP tool); use the
-exact member path from `tdoc files`, relative to the archive root. Existing
+exact member path from `tdoc files`, relative to the archive root. `tdoc
+checkout` never resolves a main file — it only downloads and extracts. Existing
 databases need `database clear-all` + re-crawl after upgrading, because
 `mainfileoverride` is a new table and there are no migrations.
 

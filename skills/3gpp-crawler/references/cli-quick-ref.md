@@ -34,11 +34,17 @@ tdoc-crawler query --limit 10                    # limit results
 
 ```bash
 tdoc-crawler open S4-250638                      # download + open main document
+tdoc-crawler open S4-250638 --selector decision_model   # one-off strategy override
 ```
 
 The main document is chosen by a stored override, then the optional decision
 model, then the heuristic (`checkout.selector`, `TDC_CHECKOUT_SELECTOR`).
-`checkout.selector = "manual"` disables automatic selection.
+`--selector` accepts `heuristic`, `decision_model`, or `manual` and does not
+persist. `checkout.selector = "manual"` disables automatic selection. The
+decision model needs `TDC_CHECKOUT_SYSTEMONE_API_KEY` (or `TYPESAFE_API_KEY`)
+and silently falls back to the heuristic when unkeyed or below
+`TDC_CHECKOUT_SYSTEMONE_MIN_CONFIDENCE`. `tdoc checkout` never resolves a main
+file.
 
 ### main-file
 
@@ -184,3 +190,4 @@ spec-crawler files 26260 --release 18.0            # list zip members (--refresh
 | `TDC_CHECKOUT_SELECTOR` | Main-file strategy: `heuristic` (default), `decision_model`, `manual` |
 | `TDC_CHECKOUT_SYSTEMONE_API_KEY` | TypeSafe System One key (alias `TYPESAFE_API_KEY`) |
 | `TDC_CHECKOUT_SYSTEMONE_MODEL` | System One model alias (default `jev-latest`) |
+| `TDC_CHECKOUT_SYSTEMONE_MIN_CONFIDENCE` | Minimum model confidence before falling back (default `0.7`) |
