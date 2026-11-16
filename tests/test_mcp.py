@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from typing import cast
 
 import pytest
 
 from tdoc_crawler import mcp_server
+from tdoc_crawler.config import CheckoutConfig
 from tdoc_crawler.mcp_server import mcp
+from tdoc_crawler.models.main_files import MainFileSelector
 from tdoc_crawler.utils.json_types import JSONValue
 
 
@@ -37,6 +40,13 @@ def test_mcp_tools_registered() -> None:
         "database_import_tags",
         "config_show",
         "config_validate",
+        "list_tdoc_files",
+        "get_tdoc_main_file",
+        "main_file_set",
+        "main_file_show",
+        "main_file_list",
+        "main_file_clear",
+        "reclassify_main_files",
     ]
     for name in expected:
         assert name in tools, f"Expected tool {name} to be registered"
@@ -47,6 +57,30 @@ def test_mcp_crawl_tools_expose_subgroup() -> None:
     for fn in (mcp_server.crawl_tdocs, mcp_server.crawl_meetings, mcp_server.query_meetings, mcp_server.query_tdocs):
         params = inspect.signature(fn).parameters
         assert "subgroup" in params, f"{fn.__name__} must expose subgroup"
+
+
+def test_mcp_reclassify_requires_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    """MCP must reject an unbounded re-classification before touching the DB."""
+    assert mcp_server.reclassify_main_files().startswith("error:")
+    assert mcp_server.reclassify_main_files(tdoc_ids=["S4-261599"], all_tdocs=True).startswith("error:")
+
+
+def test_mcp_reclassify_forwards_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Selected IDs, the manual flag, and selector reach the shared operation."""
+    captured: dict[str, JSONValue] = {}
+
+    async def fake_reclassify(**kwargs: JSONValue) -> list[object]:
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(mcp_server, "reclassify_tdocs", fake_reclassify)
+    result = mcp_server.reclassify_main_files(tdoc_ids=["S4-261599"], include_manual=True, selector="decision_model")
+
+    assert result == "no stored classifications to re-classify"
+    assert captured["tdoc_ids"] == ["S4-261599"]
+    assert captured["include_manual"] is True
+    checkout_config = cast(CheckoutConfig, captured["checkout_config"])
+    assert checkout_config.selector == MainFileSelector.DECISION_MODEL
 
 
 def test_mcp_query_tdocs_exposes_work_item() -> None:

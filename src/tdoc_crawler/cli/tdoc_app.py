@@ -37,17 +37,14 @@ from tdoc_crawler.cli.query import query_tdocs
 from tdoc_crawler.cli.utils import launch_file
 from tdoc_crawler.config import CacheManager
 from tdoc_crawler.credentials import set_credentials
-from tdoc_crawler.database import MeetingDatabase, TDocDatabase
-from tdoc_crawler.database.oxyde_models import MainFileOverride, TDocMetadata
+from tdoc_crawler.database import MeetingDatabase
 from tdoc_crawler.http_client import create_cached_session
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import get_logger, set_verbosity
 from tdoc_crawler.models.base import OutputFormat
 from tdoc_crawler.models.main_files import MainFileSelector
 from tdoc_crawler.models.statistics import DatabaseStatistics
-from tdoc_crawler.tdocs.models import TDocQueryConfig
-from tdoc_crawler.tdocs.operations.checkout import prepare_tdoc_selection
-from tdoc_crawler.tdocs.operations.fetch import fetch_missing_tdocs
+from tdoc_crawler.tdocs.operations.open import TDocNotFoundError, resolve_tdoc_main_file
 from tdoc_crawler.utils.normalization import normalize_tdoc_id
 
 _logger = get_logger(__name__)
@@ -125,54 +122,34 @@ def open_tdoc(
 
     normalized_id = normalize_tdoc_id(tdoc_id)
 
-    config = TDocQueryConfig(tdoc_ids=[normalized_id])
-
     with create_cached_session() as session:
-
-        async def _load_tdoc_metadata() -> tuple[TDocMetadata, MainFileOverride | None]:
-
-            async with TDocDatabase(crawler_config.path.db_file) as database:
-                results = await database.query_tdocs(config)
-
-                result = await fetch_missing_tdocs(
-                    database,
-                    config,
-                    results,
+        try:
+            result = asyncio.run(
+                resolve_tdoc_main_file(
+                    normalized_id,
+                    db_file=crawler_config.path.db_file,
+                    checkout_dir=crawler_config.path.checkout_dir,
+                    checkout_config=checkout_config,
                     full_metadata=full_metadata,
                     use_whatthespec=use_whatthespec,
                     session=session,
                 )
-
-                if result.fetch_result and result.fetch_result.errors:
-                    console.print(f"[yellow]{len(result.fetch_result.errors)} issues detected during targeted crawl[/yellow]")
-
-                refreshed_results = result.refreshed
-
-                if not refreshed_results:
-                    console.print(f"[red]TDoc {normalized_id} not found[/red]")
-
-                    raise typer.Exit(code=1)
-
-                override = await database.get_main_file_override(normalized_id)
-
-                return refreshed_results[0], override
-
-        metadata, override = asyncio.run(_load_tdoc_metadata())
-
-        try:
-            selection = prepare_tdoc_selection(
-                metadata,
-                crawler_config.path.checkout_dir,
-                override_member=override.member_path if override is not None else None,
-                config=checkout_config,
-                session=session,
             )
+
+        except TDocNotFoundError as exc:
+            console.print(f"[red]{exc}[/red]")
+
+            raise typer.Exit(code=1) from exc
 
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             console.print(f"[red]Failed to prepare TDoc {normalized_id}: {exc}")
 
             raise typer.Exit(code=1) from exc
 
+        if result.fetch_errors:
+            console.print(f"[yellow]{len(result.fetch_errors)} issues detected during targeted crawl[/yellow]")
+
+        selection = result.selection
         console.print(f"[green]Opening {selection.path} [dim](main file: {selection.source})")
         launch_file(selection.path)
 

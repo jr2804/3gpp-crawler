@@ -23,8 +23,8 @@ class MainFileSelector(StrEnum):
     - ``decision_model``: ask the external System One model first, fall
       back to the heuristic when it is unconfigured, errors, or answers
       below the confidence threshold.
-    - ``manual``: never consult the model; only the heuristic and stored
-      overrides are used.
+    - ``manual``: never guess; a stored override is required and an
+      automatic run raises when none exists.
     """
 
     HEURISTIC = "heuristic"
@@ -40,6 +40,15 @@ class MainFileSource(StrEnum):
     HEURISTIC = "heuristic"
 
 
+class ReclassifyStatus(StrEnum):
+    """Outcome of re-running main-file classification for one TDoc."""
+
+    UPDATED = "updated"
+    SKIPPED = "skipped"
+    MISSING = "missing"
+    FAILED = "failed"
+
+
 @dataclass(frozen=True)
 class MainFileSelection:
     """Resolved main file of an extracted TDoc archive."""
@@ -50,4 +59,4 @@ class MainFileSelection:
     confidence: float | None = None
 
 
-__all__ = ["MainFileSelection", "MainFileSelector", "MainFileSource"]
+__all__ = ["MainFileSelection", "MainFileSelector", "MainFileSource", "ReclassifyStatus"]

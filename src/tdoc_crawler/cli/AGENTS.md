@@ -32,7 +32,7 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 |--------|----------------|
 | `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `meetings`, `work-items`, `config`, `tag`, `database`, `mcp` |
 | `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, open, stats, checkout; mounts `main-file` |
-| `main_file_app.py` | `tdoc main-file` group: `set`, `clear`, `show`, `list` — manual main-document overrides (`database/main_files.py`) |
+| `main_file_app.py` | `tdoc main-file` group: `set`, `clear`, `show`, `list`, `reclassify` — manual overrides plus bulk re-classification of checked-out TDocs (`tdocs/operations/reclassify.py`) |
 | `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
 | `config_app.py` | `config init`, `show`, `validate`, `docs` |
 | `tag_app.py` | `tag add`, `remove`, `list` |

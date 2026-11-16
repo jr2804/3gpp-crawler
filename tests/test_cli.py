@@ -27,6 +27,7 @@ from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.tdocs.models import TDocQueryConfig
 from tdoc_crawler.tdocs.operations.crawl import TDocCrawlResult
 from tdoc_crawler.tdocs.operations.fetch import FetchMissingResult, is_orphan_tdoc
+from tdoc_crawler.tdocs.operations.open import TDocNotFoundError, TDocOpenResult
 from tdoc_crawler.workitems.operations import EnrichSummary, WorkItemListComparison
 
 from .conftest import MeetingRow, insert_sample_meetings_async
@@ -747,27 +748,18 @@ class TestOpenCommand:
     """Tests for open command."""
 
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
-    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.resolve_tdoc_main_file")
     def test_open_existing_tdoc(
         self,
-        mock_db_class: MagicMock,
-        mock_fetch: MagicMock,
-        mock_prepare: MagicMock,
+        mock_resolve: AsyncMock,
         mock_launch: MagicMock,
         test_cache_dir: Path,
         sample_tdocs: list[TDocMetadata],
     ) -> None:
         """Test open command for existing TDoc."""
-        mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_tdocs.return_value = sample_tdocs[:1]
-        mock_db.get_main_file_override = AsyncMock(return_value=None)
-        mock_fetch.return_value = FetchMissingResult(refreshed=sample_tdocs[:1])
-
         mock_file = test_cache_dir / "test.pdf"
-        mock_prepare.return_value = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
+        selection = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
+        mock_resolve.return_value = TDocOpenResult(metadata=sample_tdocs[0], selection=selection)
 
         result = runner.invoke(
             tdoc_app,
@@ -775,19 +767,20 @@ class TestOpenCommand:
         )
 
         assert result.exit_code == 0
-        mock_prepare.assert_called_once()
-        mock_launch.assert_called_once()
+        mock_resolve.assert_awaited_once()
+        mock_launch.assert_called_once_with(mock_file)
+        assert "main file: heuristic" in result.output
 
-    @patch("tdoc_crawler.cli.query.tdocs.TDocDatabase")
+    @patch("tdoc_crawler.cli.tdoc_app.launch_file")
+    @patch("tdoc_crawler.cli.tdoc_app.resolve_tdoc_main_file")
     def test_open_missing_tdoc(
         self,
-        mock_db_class: MagicMock,
+        mock_resolve: AsyncMock,
+        mock_launch: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test open command for missing TDoc."""
-        mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_tdocs.return_value = []
+        """Test open command for a TDoc that is neither stored nor fetchable."""
+        mock_resolve.side_effect = TDocNotFoundError("TDoc INVALID-ID not found")
 
         result = runner.invoke(
             tdoc_app,
@@ -795,153 +788,63 @@ class TestOpenCommand:
         )
 
         assert result.exit_code == 1
-        assert "not found" in result.stdout
+        assert "not found" in result.output
+        mock_launch.assert_not_called()
 
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
-    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
-    def test_open_with_whatthespec_fallback(
+    @patch("tdoc_crawler.cli.tdoc_app.resolve_tdoc_main_file")
+    def test_open_reports_targeted_crawl_issues(
         self,
-        mock_db_class: MagicMock,
-        mock_fetch: MagicMock,
-        mock_prepare: MagicMock,
+        mock_resolve: AsyncMock,
         mock_launch: MagicMock,
         test_cache_dir: Path,
+        sample_tdocs: list[TDocMetadata],
     ) -> None:
-        """Test open command uses whatthespec fallback when TDoc missing and no credentials.
-
-        This integration test verifies:
-        1. TDoc not found in database
-        2. fetch_missing_tdocs is called
-        3. whatthespec fallback returns valid metadata
-        4. TDoc is inserted and file is opened
-        """
-        mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        # Database returns no results initially
-        mock_db.query_tdocs.return_value = []
-        # After fetch, database returns the fetched TDoc
-        mock_db.upsert_tdoc.return_value = (True, False)
-
-        # Mock fetch_missing_tdocs to simulate whatthespec fallback
-        metadata = TDocMetadata(
-            tdoc_id="S4-260001",
-            meeting_id=123,
-            title="SA4#135 meeting agenda",
-            url="https://www.3gpp.org/tsg_sa/WG4/s4-260001.zip",
-            source="SA WG4 Chair",
-            contact="Test Contact",
-            tdoc_type="agenda",
-            for_purpose="Approval",
-            agenda_item_nbr="2",
-            agenda_item_text="Agenda item text",
-            status="available",
-            validated=False,
-            validation_failed=False,
-            is_revision_of=None,
-            file_size=None,
-            date_created=None,
-        )
-
-        mock_fetch.return_value = FetchMissingResult(
-            refreshed=[metadata],
-            fetch_result=TDocCrawlResult(
-                processed=1,
-                inserted=1,
-                updated=0,
-                errors=[],
-            ),
-            used_whatthespec_fallback=True,
-        )
-
+        """Failures during the targeted crawl are reported but do not block opening."""
         mock_file = test_cache_dir / "test.pdf"
-        mock_prepare.return_value = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
+        selection = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
+        mock_resolve.return_value = TDocOpenResult(
+            metadata=sample_tdocs[0],
+            selection=selection,
+            fetch_errors=("portal timeout",),
+        )
 
         result = runner.invoke(
             tdoc_app,
-            ["open", "S4-260001"],
+            ["open", "R1-2301234"],
         )
 
         assert result.exit_code == 0
-        mock_prepare.assert_called_once()
-        mock_launch.assert_called_once()
+        assert "1 issues detected" in result.output
+        mock_launch.assert_called_once_with(mock_file)
 
     @patch("tdoc_crawler.cli.tdoc_app.launch_file")
-    @patch("tdoc_crawler.cli.tdoc_app.prepare_tdoc_selection")
-    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
-    def test_open_with_whatthespec_no_credentials_required(
+    @patch("tdoc_crawler.cli.tdoc_app.resolve_tdoc_main_file")
+    def test_open_prepare_failure(
         self,
-        mock_db_class: MagicMock,
-        mock_fetch: MagicMock,
-        mock_prepare: MagicMock,
+        mock_resolve: AsyncMock,
         mock_launch: MagicMock,
         test_cache_dir: Path,
     ) -> None:
-        """Test open command works without EOL credentials when whatthespec available.
-
-        This integration test verifies:
-        1. No EOL credentials set (None)
-        2. TDoc not in database
-        3. whatthespec resolver provides metadata
-        4. TDoc is opened without requiring portal credentials
-        """
-        mock_db = MagicMock(spec=TDocDatabase)
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.query_tdocs.return_value = []
-
-        # Mock fetch_missing_tdocs to simulate whatthespec fallback success
-        metadata = TDocMetadata(
-            tdoc_id="R1-260001",
-            meeting_id=123,
-            title="RAN1 discussion document",
-            url="https://www.3gpp.org/tsg_ran/RAN1/r1-260001.zip",
-            source="RAN1 Chair",
-            contact="Test Contact",
-            tdoc_type="discussion",
-            agenda_item_text="Test agenda item text",
-            for_purpose="Discussion",
-            agenda_item_nbr="3.1",
-            status="available",
-            validated=False,
-            validation_failed=False,
-            is_revision_of=None,
-            file_size=None,
-            date_created=None,
-        )
-
-        mock_fetch.return_value = FetchMissingResult(
-            refreshed=[metadata],
-            fetch_result=TDocCrawlResult(
-                processed=1,
-                inserted=1,
-                updated=0,
-                errors=[],
-            ),
-            used_whatthespec_fallback=True,
-        )
-
-        mock_file = test_cache_dir / "test.pdf"
-        mock_prepare.return_value = MainFileSelection(path=mock_file, relative_path=mock_file.name, source=MainFileSource.HEURISTIC)
+        """Archive problems are reported instead of launching anything."""
+        mock_resolve.side_effect = FileNotFoundError("withdrawn")
 
         result = runner.invoke(
             tdoc_app,
-            ["open", "R1-260001"],
+            ["open", "R1-2301234"],
         )
 
-        # Should succeed (exit code 0) and use whatthespec fallback
-        assert result.exit_code == 0
-        # Verify output indicates whatthespec was used
-        assert "whatthespec" in result.stdout.lower()
+        assert result.exit_code == 1
+        assert "Failed to prepare TDoc R1-2301234: withdrawn" in result.output
+        mock_launch.assert_not_called()
 
 
 class TestCheckoutCommand:
     """Tests for checkout command with whatthespec fallback."""
 
     @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
-    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.checkout.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.checkout.TDocDatabase")
     def test_checkout_with_whatthespec_fallback(
         self,
         mock_db_class: MagicMock,
@@ -1023,8 +926,8 @@ class TestCheckoutCommand:
         assert mock_checkout.call_count == 2
 
     @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
-    @patch("tdoc_crawler.cli.tdoc_app.fetch_missing_tdocs")
-    @patch("tdoc_crawler.cli.tdoc_app.TDocDatabase")
+    @patch("tdoc_crawler.cli.checkout.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.checkout.TDocDatabase")
     def test_checkout_with_whatthespec_graceful_failure(
         self,
         mock_db_class: MagicMock,

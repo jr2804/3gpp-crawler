@@ -325,10 +325,33 @@ class MainFileOverride(Model):
         is_table = True
 
 
+class MainFileRecord(Model):
+    """Last successful main-document classification for one TDoc.
+
+    Records which archive member was chosen, why (manual override, decision
+    model, or heuristic), and which selector mode was active. Re-classifying
+    a TDoc replaces this row; :class:`MainFileOverride` remains the user's
+    explicit choice and always wins unless a re-classification is forced.
+    """
+
+    tdoc_id: str = Field(db_pk=True)
+    member_path: str
+    source: str
+    selector: str
+    confidence: float | None = None
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    class Meta:
+        """Oxyde table configuration."""
+
+        is_table = True
+
+
 __all__ = [
     "ArchiveMember",
     "CrawlLogEntry",
     "MainFileOverride",
+    "MainFileRecord",
     "MeetingAgendaItem",
     "MeetingMetadata",
     "Specification",

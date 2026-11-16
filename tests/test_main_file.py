@@ -186,7 +186,7 @@ class TestMainFileCli:
     """`tdoc main-file` commands against a temporary database."""
 
     def test_set_show_list_clear(self, test_db_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("tdoc_crawler.cli.main_file_app._db_file", lambda: test_db_path)
+        monkeypatch.setattr("tdoc_crawler.cli.main_file_app._db_file", lambda ctx: test_db_path)
         runner = CliRunner()
 
         result = runner.invoke(main_file_app, ["set", "S4-261599", "Cover sheet.pdf", "--note", "manual"])

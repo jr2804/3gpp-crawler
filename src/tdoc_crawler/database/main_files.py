@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
-from tdoc_crawler.database.oxyde_models import MainFileOverride
+from tdoc_crawler.database.oxyde_models import MainFileOverride, MainFileRecord
 from tdoc_crawler.utils.misc import utc_now
 
 
@@ -58,9 +58,57 @@ async def list_main_file_overrides() -> list[MainFileOverride]:
     return sorted(rows, key=lambda row: row.tdoc_id)
 
 
+async def save_main_file_record(
+    tdoc_id: str,
+    *,
+    member_path: str,
+    source: str,
+    selector: str,
+    confidence: float | None = None,
+) -> MainFileRecord:
+    """Create or replace the stored classification of one TDoc."""
+    existing = await get_main_file_record(tdoc_id)
+    if existing is not None:
+        await existing.delete()
+    record = MainFileRecord(
+        tdoc_id=tdoc_id,
+        member_path=member_path,
+        source=source,
+        selector=selector,
+        confidence=confidence,
+        updated_at=utc_now(),
+    )
+    await MainFileRecord.objects.create(instance=record)
+    return record
+
+
+async def clear_main_file_record(tdoc_id: str) -> bool:
+    """Delete the stored classification of one TDoc. Returns True when one existed."""
+    existing = await get_main_file_record(tdoc_id)
+    if existing is None:
+        return False
+    await existing.delete()
+    return True
+
+
+async def get_main_file_record(tdoc_id: str) -> MainFileRecord | None:
+    """Return the last stored classification for one TDoc, or None."""
+    return await MainFileRecord.objects.filter(tdoc_id=tdoc_id).first()
+
+
+async def list_main_file_records() -> list[MainFileRecord]:
+    """All stored classifications, sorted by TDoc ID."""
+    rows = await MainFileRecord.objects.all()
+    return sorted(rows, key=lambda row: row.tdoc_id)
+
+
 __all__ = [
     "clear_main_file_override",
+    "clear_main_file_record",
     "get_main_file_override",
+    "get_main_file_record",
     "list_main_file_overrides",
+    "list_main_file_records",
+    "save_main_file_record",
     "set_main_file_override",
 ]

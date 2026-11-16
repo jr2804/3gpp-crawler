@@ -42,6 +42,10 @@ from tdoc_crawler.cli.database_app import (
 from tdoc_crawler.cli.database_app import (
     tag_import as cli_database_import_tags,
 )
+from tdoc_crawler.cli.main_file_app import main_file_clear as cli_main_file_clear
+from tdoc_crawler.cli.main_file_app import main_file_list as cli_main_file_list
+from tdoc_crawler.cli.main_file_app import main_file_set as cli_main_file_set
+from tdoc_crawler.cli.main_file_app import main_file_show as cli_main_file_show
 from tdoc_crawler.cli.query.meetings import query_meetings as cli_query_meetings
 from tdoc_crawler.cli.query.specs import query_specs as cli_query_specs
 from tdoc_crawler.cli.query.tdocs import query_tdocs as cli_query_tdocs
@@ -60,9 +64,12 @@ from tdoc_crawler.cli.tag_app import (
 from tdoc_crawler.cli.tag_app import (
     tag_remove as cli_tag_remove,
 )
-from tdoc_crawler.config import PathConfig
+from tdoc_crawler.config import CacheManager, ThreeGPPConfig
 from tdoc_crawler.executors import ExecutorType, best_executor_type
 from tdoc_crawler.models.base import SortKey, SortOrder
+from tdoc_crawler.tdocs.operations.open import TDocNotFoundError, resolve_tdoc_main_file
+from tdoc_crawler.tdocs.operations.reclassify import reclassify_tdocs
+from tdoc_crawler.utils.async_helpers import run_async
 
 # Multiprocessing spawn is unsafe under the stdio server (children inherit
 # overlapped stdio handles and deadlock), so processes are excluded here.
@@ -86,14 +93,17 @@ mcp = FastMCP("3gpp-crawler", instructions="3GPP specification & TDoc crawler MC
 
 
 class _DummyContext(typer.Context):
-    """Context stand-in for CLI calls that only read ``ctx.obj``."""
+    """Context stand-in for CLI calls that only read ``ctx.obj``.
 
-    class _Obj:
-        def __init__(self) -> None:
-            self.path = PathConfig()
+    Builds the same configuration the CLI callback would: config files and
+    environment variables are honored, and the CacheManager singleton points
+    at the configured cache directory.
+    """
 
     def __init__(self) -> None:
-        self.obj = self._Obj()
+        config = ThreeGPPConfig.from_settings()
+        CacheManager(config.path.cache_dir).register()
+        self.obj = config
 
 
 # --- CRAWL GROUP ---
@@ -340,6 +350,140 @@ def list_tdoc_files(
         tdoc_id=tdoc_id,
         refresh=refresh,
     )
+
+
+# --- MAIN FILE GROUP ---
+
+
+@mcp.tool(
+    name="get_tdoc_main_file",
+    description=(
+        "Download and extract a TDoc, then resolve its main document without launching it. "
+        "Returns the absolute path, the archive-relative member path, and how it was chosen "
+        "(manual_override, decision_model, or heuristic). selector overrides the configured strategy"
+    ),
+)
+def get_tdoc_main_file(
+    tdoc_id: str,
+    selector: str | None = None,
+    full_metadata: bool = False,
+    use_whatthespec: bool = False,
+) -> str:
+    config = ThreeGPPConfig.from_settings()
+    checkout_config = config.checkout
+    if selector is not None:
+        checkout_config = checkout_config.model_copy(update={"selector": selector})
+
+    try:
+        result = run_async(
+            resolve_tdoc_main_file(
+                tdoc_id,
+                db_file=config.path.db_file,
+                checkout_dir=config.path.checkout_dir,
+                checkout_config=checkout_config,
+                full_metadata=full_metadata,
+                use_whatthespec=use_whatthespec,
+            )
+        )
+    except (TDocNotFoundError, FileNotFoundError, OSError, ValueError) as exc:
+        return f"error: {exc}"
+
+    selection = result.selection
+    lines = [
+        f"tdoc_id: {result.metadata.tdoc_id}",
+        f"path: {selection.path}",
+        f"relative_path: {selection.relative_path}",
+        f"source: {selection.source.value}",
+    ]
+    if selection.confidence is not None:
+        lines.append(f"confidence: {selection.confidence:.3f}")
+    if result.fetch_errors:
+        lines.append(f"fetch_errors: {len(result.fetch_errors)}")
+    return "\n".join(lines)
+
+
+@mcp.tool(
+    name="main_file_set",
+    description=("Store (or replace) the manual main-file override for a TDoc. member_path must be the exact archive-relative path shown by list_tdoc_files"),
+)
+def main_file_set(tdoc_id: str, member_path: str, note: str | None = None) -> str:
+    return _run_captured(
+        cli_main_file_set,
+        ctx=_DummyContext(),
+        tdoc_id=tdoc_id,
+        member_path=member_path,
+        note=note,
+    )
+
+
+@mcp.tool(
+    name="main_file_show",
+    description="Show the stored manual override and last recorded classification (selector, source, confidence) for a TDoc",
+)
+def main_file_show(tdoc_id: str) -> str:
+    return _run_captured(cli_main_file_show, ctx=_DummyContext(), tdoc_id=tdoc_id)
+
+
+@mcp.tool(name="main_file_list", description="List every stored manual main-file override")
+def main_file_list() -> str:
+    return _run_captured(cli_main_file_list, ctx=_DummyContext())
+
+
+@mcp.tool(name="main_file_clear", description="Remove the manual main-file override for a TDoc, restoring automatic selection")
+def main_file_clear(tdoc_id: str) -> str:
+    return _run_captured(cli_main_file_clear, ctx=_DummyContext(), tdoc_id=tdoc_id)
+
+
+@mcp.tool(
+    name="reclassify_main_files",
+    description=(
+        "Re-run main-file classification for checked-out TDocs without downloading anything. "
+        "Manual choices (stored override or selector manual) are skipped unless include_manual is true, "
+        "which deletes those overrides first (destructive). Pass tdoc_ids or all_tdocs=true. "
+        "selector overrides the configured strategy"
+    ),
+)
+def reclassify_main_files(
+    tdoc_ids: list[str] | None = None,
+    all_tdocs: bool = False,
+    include_manual: bool = False,
+    selector: str | None = None,
+) -> str:
+    if tdoc_ids and all_tdocs:
+        return "error: pass either tdoc_ids or all_tdocs=true, not both"
+    if not tdoc_ids and not all_tdocs:
+        return "error: pass tdoc_ids or all_tdocs=true"
+
+    config = ThreeGPPConfig.from_settings()
+    checkout_config = config.checkout
+    if selector is not None:
+        checkout_config = checkout_config.model_copy(update={"selector": selector})
+
+    try:
+        outcomes = run_async(
+            reclassify_tdocs(
+                db_file=config.path.db_file,
+                checkout_dir=config.path.checkout_dir,
+                checkout_config=checkout_config,
+                tdoc_ids=tdoc_ids,
+                include_manual=include_manual,
+            )
+        )
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        return f"error: {exc}"
+
+    if not outcomes:
+        return "no stored classifications to re-classify"
+
+    lines = []
+    for outcome in outcomes:
+        line = f"{outcome.tdoc_id}: {outcome.status.value}"
+        if outcome.selection is not None:
+            line = f"{line} {outcome.selection.relative_path} ({outcome.selection.source.value})"
+        if outcome.message:
+            line = f"{line} - {outcome.message}"
+        lines.append(line)
+    return "\n".join(lines)
 
 
 @mcp.tool(name="checkout_specs", description="Download and extract 3GPP specifications to checkout directory")
