@@ -8,6 +8,7 @@ Re-exports from session module for backward-compatible imports:
 
 from __future__ import annotations
 
+from tdoc_crawler.http_client.cache_maintenance import HttpCacheStats, prune_http_cache
 from tdoc_crawler.http_client.session import (
     PoolConfig,
     create_cached_session,
@@ -16,8 +17,10 @@ from tdoc_crawler.http_client.session import (
 )
 
 __all__ = [
+    "HttpCacheStats",
     "PoolConfig",
     "create_cached_session",
     "download_to_file",
+    "prune_http_cache",
     "resolve_ssl_verify",
 ]

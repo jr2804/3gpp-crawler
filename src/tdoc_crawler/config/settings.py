@@ -101,6 +101,12 @@ class HttpConfig(BaseSettings):
         validation_alias=AliasChoices(ConfigEnvVar.TDC_MAX_RETRIES.name, "max_retries"),
         description="Maximum number of retry attempts for failed requests",
     )
+    cache_max_bytes: int = Field(
+        default=2 * 1024**3,
+        ge=0,
+        validation_alias=AliasChoices(ConfigEnvVar.HTTP_CACHE_MAX_BYTES.name, "cache_max_bytes"),
+        description="Maximum live size of the HTTP cache database in bytes (0 = unlimited)",
+    )
     timeout: int = Field(
         default=30,
         ge=1,
@@ -108,7 +114,7 @@ class HttpConfig(BaseSettings):
         description="HTTP request timeout in seconds",
     )
 
-    @field_validator("cache_ttl", "max_retries", "timeout", mode="before")
+    @field_validator("cache_ttl", "cache_max_bytes", "max_retries", "timeout", mode="before")
     @classmethod
     def _parse_int(cls, value: str | int | None) -> int:
         """Parse integer values from environment strings."""

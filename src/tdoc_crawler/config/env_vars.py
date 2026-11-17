@@ -43,6 +43,7 @@ class ConfigEnvVar(StrEnum):
     # HTTP Cache (HTTP_CACHE_*)
     HTTP_CACHE_TTL = "http.cache_ttl"
     HTTP_CACHE_ENABLED = "http.cache_enabled"
+    HTTP_CACHE_MAX_BYTES = "http.cache_max_bytes"
     # Crawl filters (TDC_ prefixed)
     TDC_WORKING_GROUP = "crawl.working_group"
     TDC_SUB_GROUP = "crawl.sub_group"

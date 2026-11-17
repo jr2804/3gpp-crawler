@@ -351,6 +351,10 @@ def create_cached_session(
     # Resolve cache settings from http_config or defaults
     ttl = http_config.cache_ttl if http_config is not None else 7200
     max_retries_count = http_config.max_retries if http_config is not None else 3
+    # Bound the live cache size. 0 means unlimited (hishel's ``None``), and
+    # hishel evicts least-recently-used entries when this cap is exceeded.
+    cache_max_bytes = http_config.cache_max_bytes if http_config is not None else 2 * 1024**3
+    storage_max_size = cache_max_bytes if cache_max_bytes > 0 else None
 
     # Determine cache file path — use explicit param or fall back to PathConfig default
     cache_file = str(http_cache_file) if http_cache_file is not None else str(PathConfig().http_cache_file)
@@ -374,6 +378,7 @@ def create_cached_session(
     storage = SqliteStorage(
         connection=connection,
         default_ttl=ttl,
+        max_size=storage_max_size,
     )
 
     # Configure retry strategy for the cache adapter.

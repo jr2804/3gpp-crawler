@@ -16,6 +16,7 @@ import typer
 
 from tdoc_crawler import __version__
 from tdoc_crawler.cli._shared import GlobSafeTyper, console
+from tdoc_crawler.cli.cache_app import app as cache_app
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.config_app import config_app
 from tdoc_crawler.cli.database_app import app as database_app
@@ -49,6 +50,7 @@ mgmt_app.add_typer(workitems_app, name="work-items", help="3GPP work item catalo
 mgmt_app.add_typer(tag_app, name="tag", help="Manage tags for TDocs, specs, and other items")
 mgmt_app.add_typer(database_app, name="database", help="Database maintenance: clear, rebuild, import/export tags (shortcut: db)")
 mgmt_app.add_typer(database_app, name="db", help="Shortcut for `database`", hidden=True)
+mgmt_app.add_typer(cache_app, name="cache", help="HTTP cache maintenance: prune expired entries and reclaim disk space")
 mgmt_app.add_typer(mcp_app, name="mcp", help="Run as Model Context Protocol (MCP) server")
 
 
