@@ -2,7 +2,7 @@
 
 ``3gpp-crawler`` is the main CLI: it mounts the TDoc group (``tdoc``),
 the Spec group (``spec``), the Meetings group (``meetings``), plus
-top-level ``config``, ``tag``, ``database``, and ``mcp``.
+top-level ``config``, ``tag``, ``database``, ``cache``, and ``mcp``.
 ``tdoc-crawler`` and ``spec-crawler`` are thin shortcuts that
 invoke the same sub-apps directly.
 """

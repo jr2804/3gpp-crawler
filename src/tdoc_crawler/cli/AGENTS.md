@@ -30,13 +30,14 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 
 | Module | Responsibility |
 |--------|----------------|
-| `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `meetings`, `work-items`, `config`, `tag`, `database`, `mcp` |
+| `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `meetings`, `work-items`, `config`, `tag`, `database`, `cache`, `mcp` |
 | `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, open, stats, checkout; mounts `main-file` |
 | `main_file_app.py` | `tdoc main-file` group: `set`, `clear`, `show`, `list`, `reclassify` — manual overrides plus bulk re-classification of checked-out TDocs (`tdocs/operations/reclassify.py`) |
 | `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
 | `config_app.py` | `config init`, `show`, `validate`, `docs` |
 | `tag_app.py` | `tag add`, `remove`, `list` |
 | `database_app.py` | `database` (alias `db`): `clear-tdocs`, `clear-specs`, `clear-meetings`, `clear-all`, `export-tags`, `import-tags`; owns all destructive DB operations. Clears touch database rows only — `--purge-checkouts` is the sole opt-in that deletes downloaded files |
+| `cache_app.py` | `cache` group: `prune` — deletes expired HTTP-cache rows, evicts to `http.cache_max_bytes`, and VACUUMs the SQLite file. Owns HTTP-cache maintenance CLI; core logic in `http_client/cache_maintenance.py` |
 | `mcp_app.py` | `mcp` command (Model Context Protocol server) |
 | `workitems_app.py` | `3gpp-crawler work-items` group: `crawl` + `enrich` (DynaReport lists / portal pages) and `query` + `audit` (catalogue) |
 | `meetings_app.py` | `3gpp-crawler meetings` group: `crawl` (meeting metadata) and `query` (meeting database) |

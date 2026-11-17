@@ -32,6 +32,8 @@ with create_cached_session() as session:
     response = session.get(url)
 ```
 
+The hishel SQLite cache is bounded by `http.cache_max_bytes` (default 2 GiB, `0` = unlimited) passed as `max_size` to `SqliteStorage`; expired rows and eviction are otherwise only reclaimed lazily and SQLite never shrinks the file. `3gpp-crawler cache prune` (core: `http_client/cache_maintenance.py::prune_http_cache`) removes expired rows, evicts to a size bound, and VACUUMs. Call it for an oversized `http-cache-v2.sqlite3`.
+
 ## HTTP/3 MustDowngradeError (CRITICAL)
 
 `www.3gpp.org` and `portal.3gpp.org` advertise HTTP/3 via `Alt-Svc` header but cannot handle it. This triggers `MustDowngradeError` from `urllib3-future` (bundled with niquests), wasting ~10 seconds per request in retries.
