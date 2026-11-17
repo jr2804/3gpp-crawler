@@ -153,6 +153,12 @@ _Always-injected_ — keep minimal. Everything else → `.agents/` files.
    skips (e.g. withdrawn TDocs) separately and show per-item reasons without
    requiring `-v DEBUG`. This is the most-reported upstream bug class
    (`gh issue list`) — check exit codes and summaries for any new/changed command.
+10. **Documented lint-suppression exceptions** — `# noqa` must justify itself
+   inline; these are the only accepted ones (audited via the `python-ultimate`
+   scanner): `S603`/`S606` in `cli/utils.py` (fixed-path OS file launchers),
+   `S105` in `config/env_vars.py` (dotted config keys, not secrets), and `S314`
+   in `utils/office.py` (doctypes rejected before parsing). Do not add new
+   suppressions without the same level of justification.
 
 ## Project & commands
 

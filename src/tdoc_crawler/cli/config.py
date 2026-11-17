@@ -38,9 +38,10 @@ def load_cli_config(
         typer.Exit: If config validation fails
     """
     try:
+        current_dir = Path.cwd()
         config = ThreeGPPConfig.from_settings(
             config_file=config_file,
-            cwd=Path.cwd(),
+            cwd=current_dir,
         )
 
         ctx.obj = config

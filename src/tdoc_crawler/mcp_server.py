@@ -614,10 +614,11 @@ def database_export_tags(
     kind: str | None = None,
     file: str | None = None,
 ) -> str:
+    export_file = Path(file) if file else None
     return _run_captured(
         cli_database_export_tags,
         kind=TagKindChoice(kind.lower()) if kind else None,
-        file=Path(file) if file else None,
+        file=export_file,
     )
 
 

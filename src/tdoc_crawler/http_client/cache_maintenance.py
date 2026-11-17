@@ -61,13 +61,13 @@ def prune_http_cache(cache_file: str | Path, *, max_bytes: int | None = None, no
     Returns:
         :class:`HttpCacheStats` describing what was reclaimed.
     """
-    path = Path(cache_file)
+    cache_file_path = Path(cache_file)
     empty = HttpCacheStats(0, 0, 0, 0, 0, 0, False)
-    if not path.exists():
+    if not cache_file_path.exists():
         return empty
 
     now = time.time() if now is None else now
-    connection = sqlite3.connect(str(path), timeout=5)
+    connection = sqlite3.connect(str(cache_file_path), timeout=5)
     connection.execute("PRAGMA busy_timeout=5000")
     # Cascading deletes of stream chunks depend on foreign keys being enabled,
     # the same way hishel's own connection does.
@@ -77,7 +77,7 @@ def prune_http_cache(cache_file: str | Path, *, max_bytes: int | None = None, no
         if "entries" not in tables:
             return empty
 
-        bytes_before = path.stat().st_size
+        bytes_before = cache_file_path.stat().st_size
         entries_before = int(connection.execute("SELECT COUNT(*) FROM entries").fetchone()[0])
 
         expired = connection.execute(
@@ -107,10 +107,10 @@ def prune_http_cache(cache_file: str | Path, *, max_bytes: int | None = None, no
             connection.execute("VACUUM")
         except sqlite3.Error:
             vacuumed = False
-            logger.debug("Could not vacuum HTTP cache %s (a writer may hold a lock)", path)
+            logger.debug("Could not vacuum HTTP cache %s (a writer may hold a lock)", cache_file_path)
 
         entries_after = int(connection.execute("SELECT COUNT(*) FROM entries").fetchone()[0])
-        bytes_after = path.stat().st_size
+        bytes_after = cache_file_path.stat().st_size
         return HttpCacheStats(
             entries_before=entries_before,
             entries_after=entries_after,

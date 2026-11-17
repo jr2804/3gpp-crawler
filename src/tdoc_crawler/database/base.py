@@ -195,7 +195,7 @@ class DocDatabase:
             table = model.get_table_name()
             try:
                 count = await model.objects.count()
-                await execute_raw(f"DELETE FROM {table}", using="default")  # noqa: S608
+                await model.objects.query().delete(using="default")
                 counts[table] = count
             except (OSError, ValueError) as exc:
                 _logger.exception("Failed to clear table %s: %s", table, exc)

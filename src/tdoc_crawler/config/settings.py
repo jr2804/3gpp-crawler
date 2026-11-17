@@ -61,13 +61,13 @@ class PathConfig(BaseSettings):
 
     @field_validator("cache_dir", mode="before")
     @classmethod
-    def _resolve_cache_dir(cls, value: str | Path | None) -> Path:
+    def _resolve_cache_dir(cls, cache_dir: str | Path | None) -> Path:
         """Resolve and validate the cache directory path."""
-        if value is None:
+        if cache_dir is None:
             return Path(_DEFAULT_CACHE_DIR_STR).expanduser().resolve()
-        if isinstance(value, str):
-            value = Path(value)
-        return value.expanduser().resolve()
+        if isinstance(cache_dir, str):
+            cache_dir = Path(cache_dir)
+        return cache_dir.expanduser().resolve()
 
 
 class HttpConfig(BaseSettings):

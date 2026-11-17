@@ -49,8 +49,9 @@ from tdoc_crawler.tdocs.operations.fetch import (
 )
 
 
-def query_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
+def query_tdocs(
     tdoc_ids: TDocIdsArgument = None,
+    *,  # Typer command: one keyword-only param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     work_item: WorkItemOption = None,

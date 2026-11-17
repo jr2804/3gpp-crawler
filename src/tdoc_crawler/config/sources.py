@@ -28,8 +28,10 @@ import re
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time
-from importlib import import_module
 from pathlib import Path
+
+import yaml
+from yaml.scanner import ScannerError
 
 from tdoc_crawler.utils.json_types import JSONScalar
 
@@ -73,10 +75,9 @@ def discover_config_files(cwd: Path | None = None) -> list[Path]:
     Returns:
         List of Path objects in discovery order (lowest precedence first).
     """
-    if cwd is None:
-        cwd = Path.cwd()
-    home = Path.home()
-    global_dir = home / ".config" / "3gpp-crawler"
+    cwd_dir = Path(cwd) if cwd is not None else Path.cwd()
+    home_dir = Path.home()
+    global_dir = home_dir / ".config" / "3gpp-crawler"
 
     files: list[Path] = []
 
@@ -85,12 +86,12 @@ def discover_config_files(cwd: Path | None = None) -> list[Path]:
     _collect_conf_d(global_dir / "conf.d", files)
 
     # Project-level configs (CWD relative, higher precedence)
-    _collect_conf_d(cwd / ".config" / ".3gpp-crawler" / "conf.d", files)
-    _add_if_exists(cwd / ".config" / ".3gpp-crawler" / "config.toml", files)
-    _add_if_exists(cwd / ".config" / "3gpp-crawler.toml", files)
-    _add_if_exists(cwd / ".3gpp-crawler" / "config.toml", files)
-    _add_if_exists(cwd / ".3gpp-crawler.toml", files)
-    _add_if_exists(cwd / "3gpp-crawler.toml", files)
+    _collect_conf_d(cwd_dir / ".config" / ".3gpp-crawler" / "conf.d", files)
+    _add_if_exists(cwd_dir / ".config" / ".3gpp-crawler" / "config.toml", files)
+    _add_if_exists(cwd_dir / ".config" / "3gpp-crawler.toml", files)
+    _add_if_exists(cwd_dir / ".3gpp-crawler" / "config.toml", files)
+    _add_if_exists(cwd_dir / ".3gpp-crawler.toml", files)
+    _add_if_exists(cwd_dir / "3gpp-crawler.toml", files)
 
     return files
 
@@ -146,10 +147,6 @@ def load_config_file(config_file: Path) -> ConfigDocument:
         raise ConfigLoadError(config_file, f"Permission denied: {e}") from e
     except (ValueError, json.JSONDecodeError) as e:
         raise ConfigLoadError(config_file, f"Parse error: {e}") from e
-    except ImportError as e:
-        if "yaml" in str(e):
-            raise ConfigLoadError(config_file, "PyYAML is required for YAML files but is not installed") from e
-        raise
 
     return _to_config_document(config_file, data)
 
@@ -182,12 +179,10 @@ def _load_toml(config_file: Path) -> ConfigValue:
 
 def _load_yaml(config_file: Path) -> ConfigValue:
     """Load and interpolate a YAML config file."""
-    yaml = import_module("yaml")
-    scanner = import_module("yaml.scanner")
     with config_file.open("r", encoding="utf-8") as f:
         try:
             data = yaml.safe_load(f)
-        except scanner.ScannerError as e:
+        except ScannerError as e:
             raise ConfigLoadError(config_file, f"Parse error: {e}") from e
     if data is None:
         data = {}

@@ -24,6 +24,7 @@ from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.logging import DEFAULT_LEVEL as DEFAULT_VERBOSITY
 from tdoc_crawler.logging import LogLevel, set_verbosity
 from tdoc_crawler.models.base import OutputFormat
+from tdoc_crawler.models.working_groups import WorkingGroup
 from tdoc_crawler.workitems import WorkItemSourceError, discover_lead_bodies, fetch_work_items
 from tdoc_crawler.workitems.operations import enrich_work_items, expand_area_codes, normalize_wg_codes
 
@@ -102,7 +103,7 @@ def crawl_work_items(
     console.print(format_output([summary], output_format))
 
 
-def _parse_areas(working_group):  # noqa: ANN001, ANN202
+def _parse_areas(working_group: list[str] | None) -> list[WorkingGroup] | None:
     """Parse the working group option into WorkingGroup values (may stay empty)."""
     working_groups, _ = parse_scope(working_group, None, default_to_all=False)
     return working_groups

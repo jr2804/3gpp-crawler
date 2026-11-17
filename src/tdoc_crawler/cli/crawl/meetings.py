@@ -37,7 +37,8 @@ from tdoc_crawler.models.base import SortOrder
 from tdoc_crawler.tdocs.operations.checkout import checkout_meeting_tdocs
 
 
-def crawl_meetings(  # noqa: PLR0917 -- Typer command, one param per CLI option
+def crawl_meetings(
+    *,  # Typer command: one keyword-only param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     limit_meetings: LimitMeetingsOption = None,

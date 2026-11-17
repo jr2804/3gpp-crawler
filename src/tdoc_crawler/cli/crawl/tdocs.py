@@ -49,7 +49,8 @@ from tdoc_crawler.tdocs.operations import MeetingPatternError, TDocCrawler, filt
 from tdoc_crawler.tdocs.operations.checkout import checkout_tdocs
 
 
-def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
+def crawl_tdocs(
+    *,  # Typer command: one keyword-only param per CLI option
     working_group: WorkingGroupOption = None,
     subgroup: SubgroupOption = None,
     meeting: MeetingPatternOption = None,

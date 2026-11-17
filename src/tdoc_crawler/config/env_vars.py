@@ -34,7 +34,7 @@ class ConfigEnvVar(StrEnum):
     TDC_CACHE_DIR = "path.cache_dir"
     # Credentials (TDC_*)
     TDC_EOL_USERNAME = "credentials.username"
-    TDC_EOL_PASSWORD = "credentials.password"  # noqa: S105
+    TDC_EOL_PASSWORD = "credentials.password"  # noqa: S105 -- dotted config key, not a secret value
     TDC_EOL_PROMPT = "credentials.prompt"
     # HTTP/SQLite (overrides)
     TDC_VERIFY_SSL = "http.verify_ssl"
@@ -77,7 +77,7 @@ class ConfigEnvVar(StrEnum):
     TDC_CHECKOUT_SELECTOR = "checkout.selector"
     TDC_CHECKOUT_MAX_MODEL_CANDIDATES = "checkout.max_model_candidates"
     TDC_CHECKOUT_SYSTEMONE_BASE_URL = "checkout.systemone_base_url"
-    TDC_CHECKOUT_SYSTEMONE_API_KEY = "checkout.systemone_api_key"  # noqa: S105
+    TDC_CHECKOUT_SYSTEMONE_API_KEY = "checkout.systemone_api_key"  # noqa: S105 -- dotted config key, not a secret value
     TDC_CHECKOUT_SYSTEMONE_MODEL = "checkout.systemone_model"
     TDC_CHECKOUT_SYSTEMONE_MIN_CONFIDENCE = "checkout.systemone_min_confidence"
     TDC_CHECKOUT_SYSTEMONE_TIMEOUT = "checkout.systemone_timeout"

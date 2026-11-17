@@ -22,18 +22,18 @@ def launch_file(filename: Path) -> None:
 
     try:
         if sys.platform.startswith("win"):
-            os.startfile(filename)  # noqa: S606
+            os.startfile(filename)  # noqa: S606 -- OS file launcher, not a shell command
         elif sys.platform == "darwin":
-            open_cmd = Path("/usr/bin/open")
-            if open_cmd.exists():
-                subprocess.run([str(open_cmd), str(filename)], check=False)  # noqa: S603
+            open_cmd_file = Path("/usr/bin/open")
+            if open_cmd_file.exists():
+                subprocess.run([str(open_cmd_file), str(filename)], check=False)  # noqa: S603 -- fixed binary + one file arg, shell=False
             else:
                 logger.warning("/usr/bin/open not available")
         else:
             # Linux and other Unix-like systems
-            xdg_cmd = Path("/usr/bin/xdg-open")
-            if xdg_cmd.exists():
-                subprocess.run([str(xdg_cmd), str(filename)], check=False)  # noqa: S603
+            xdg_cmd_file = Path("/usr/bin/xdg-open")
+            if xdg_cmd_file.exists():
+                subprocess.run([str(xdg_cmd_file), str(filename)], check=False)  # noqa: S603 -- fixed binary + one file arg, shell=False
             else:
                 logger.warning("xdg-open command not available")
     except OSError as exc:

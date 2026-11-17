@@ -138,21 +138,29 @@ def _expand_dash_range(left: str, right: str, original: str) -> Generator[str]:
     """
     series1, num1, format1, digits1 = _parse_spec_number(left)
 
-    # Try right as a full spec number first; fall back to short suffix
+    # Try right as a full spec number first; fall back to a short suffix when it
+    # does not fit. The reason it does not fit is kept as an exception object so
+    # the original error is re-raised unchanged if the suffix fallback fails too,
+    # without using an exception as local control flow (TRY301).
+    parse_error: NormalizationError | None = None
     try:
-        series2, num2, format2, digits2 = _parse_spec_number(right)
+        parsed_right = _parse_spec_number(right)
+    except NormalizationError as exc:
+        parse_error = exc
+    else:
+        series2, num2, format2, digits2 = parsed_right
         if series1 != series2:
-            # Series mismatch — maybe right is a short numeric suffix?
             msg = f"Series numbers don't match: {series1} vs {series2}"
-            raise NormalizationError(msg)  # noqa: TRY301
-        if format1 != format2 and (digits1 == 1 or digits2 == 1):
-            # Format mismatch due to 1-digit increment — treat as short suffix
-            raise NormalizationError  # noqa: TRY301
-    except NormalizationError:
+            parse_error = NormalizationError(msg)
+        elif format1 != format2 and (digits1 == 1 or digits2 == 1):
+            # Format mismatch due to a 1-digit increment.
+            parse_error = NormalizationError()
+
+    if parse_error is not None:
         # Right side is a short numeric suffix (e.g. "132" in "26.131-132")
         right_stripped = right.strip()
         if not right_stripped.isdigit():
-            raise
+            raise parse_error
         # Reuse the series and format from the left side
         series2 = series1
         num2 = right_stripped.zfill(3)
