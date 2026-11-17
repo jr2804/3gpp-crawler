@@ -130,6 +130,28 @@ source, selector, confidence), and `tdoc main-file show` prints it. That is
 what `tdoc main-file reclassify` replays in bulk; manual choices are skipped
 unless `--include-manual --confirm-overwrite` is passed.
 
+### Extract Settings
+
+Zip extraction of TDoc archives. This section is file-only — it has no
+environment variable and no CLI flag, so it must be set in a config file.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `flatten_single_root` | bool | true | When an archive wraps everything in one top-level folder (e.g. `S4-262108/S4-262108.docx`), extract its contents into the TDoc folder root |
+| `exclude` | list[str] | [".git/", ".hg/", ".svn/"] | gitignore-style patterns skipped during extraction (added on top of `clutter-ignore`) |
+
+```toml
+[extract]
+flatten_single_root = true
+exclude = [".git/", ".hg/", ".svn/", "node_modules/", "*.log"]
+```
+
+Excluded members are never written to disk — nothing is extracted and then
+deleted. The built-in
+[clutter rules](https://github.com/jr2804/3gpp-crawler) (`__MACOSX/`, `.DS_Store`,
+`Thumbs.db`, `~$*`, …) always apply and can be tuned in the cache
+directory's `clutter-ignore` file.
+
 ## Config Validate Command
 
 Validate your configuration files to catch errors before running:
@@ -166,7 +188,7 @@ Show configuration documentation from the command line:
 3gpp-crawler config docs --section path
 ```
 
-**Available sections:** `path`, `http`, `credentials`, `crawl`, `checkout`
+**Available sections:** `path`, `http`, `credentials`, `crawl`, `checkout`, `extract`
 
 ## Config Init Command
 

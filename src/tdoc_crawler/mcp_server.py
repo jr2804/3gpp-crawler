@@ -385,6 +385,7 @@ def get_tdoc_main_file(
                 checkout_config=checkout_config,
                 full_metadata=full_metadata,
                 use_whatthespec=use_whatthespec,
+                extract_config=config.extract,
             )
         )
     except (TDocNotFoundError, FileNotFoundError, OSError, ValueError) as exc:

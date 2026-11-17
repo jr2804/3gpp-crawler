@@ -3,46 +3,101 @@
 from __future__ import annotations
 
 import ipaddress
+import shutil
 import socket
 import zipfile
+from collections.abc import Sequence
 from pathlib import Path
 from urllib.parse import urlparse
+
+from pathspec import GitIgnoreSpec
 
 from tdoc_crawler.utils.clutter import is_clutter
 
 
-def safe_extract_zip(zip_path: Path, extract_dir: Path) -> None:
+def safe_extract_zip(
+    zip_path: Path,
+    extract_dir: Path,
+    *,
+    exclude: Sequence[str] = (),
+    flatten_single_root: bool = False,
+) -> None:
     """Extract a zip file safely, validating member paths and dropping clutter.
 
-    Two jobs, one boundary:
+    Three jobs, one boundary:
 
     * Path-traversal protection: no member may escape ``extract_dir``.
     * Clutter filtering: members matching the gitignore-style patterns in
       ``<cache-dir>/clutter-ignore`` (defaults ship in the package) are not
       extracted — see :mod:`tdoc_crawler.utils.clutter`.
+    * Configurable skips: *exclude* adds gitignore patterns (e.g. ``.git/``)
+      whose members are never written, so VCS metadata and similar folders do
+      not have to be deleted afterwards.
 
-    Filtering here (not in consumers) is deliberate: macOS sidecars inherit
-    the original's suffix, so suffix-based consumers
-    cannot distinguish them from real documents by name or extension.
+    Filtering happens before any write (not after extraction): a member that
+    matches a pattern is never materialized at all.
 
     Args:
         zip_path: Path to the zip file to extract.
         extract_dir: Directory to extract into.
+        exclude: Extra gitignore-style patterns whose members are skipped.
+        flatten_single_root: When every file sits under one top-level folder,
+            extract that folder's contents directly into ``extract_dir`` so
+            the payload is immediately at the root.
 
     Raises:
         ValueError: If any zip member would escape the target directory.
         zipfile.BadZipFile: If the zip file is corrupt.
     """
     extract_dir = extract_dir.resolve()
+    extra_spec = GitIgnoreSpec.from_lines(exclude) if exclude else None
     with zipfile.ZipFile(zip_path) as zf:
-        for member in zf.infolist():
-            if is_clutter(member.filename):
-                continue
-            member_path = (extract_dir / member.filename).resolve()
+        members = [member for member in zf.infolist() if not is_clutter(member.filename) and not _matches(extra_spec, member.filename)]
+        prefix = _single_root_prefix(members) if flatten_single_root else ""
+        for member in members:
+            name = member.filename
+            if prefix:
+                if not name.startswith(prefix):
+                    continue
+                name = name[len(prefix) :]
+                if not name:
+                    continue
+            member_path = (extract_dir / name).resolve()
             if not str(member_path).startswith(str(extract_dir)):
                 msg = f"Zip member {member.filename!r} escapes target directory {extract_dir}"
                 raise ValueError(msg)
-            zf.extract(member, extract_dir)
+            if name.endswith("/"):
+                member_path.mkdir(parents=True, exist_ok=True)
+                continue
+            member_path.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(member) as source, member_path.open("wb") as target:
+                shutil.copyfileobj(source, target)
+
+
+def _matches(spec: GitIgnoreSpec | None, name: str) -> bool:
+    """Return True when *name* matches the extra exclusion patterns."""
+    return spec is not None and spec.match_file(name)
+
+
+def _single_root_prefix(members: list[zipfile.ZipInfo]) -> str:
+    """Return the ``root/`` prefix when all files share one top-level folder.
+
+    Conservative by design: a root-level file (``readme.txt`` next to
+    ``S4-1/``) leaves the layout untouched, because flattening would then
+    silently drop the folder boundary the archive author chose.
+    """
+    roots: set[str] = set()
+    for member in members:
+        name = member.filename
+        if not name or name.endswith("/"):
+            continue
+        head, separator, _ = name.partition("/")
+        if not separator:
+            return ""
+        roots.add(head)
+        if len(roots) > 1:
+            return ""
+    return f"{next(iter(roots))}/" if roots else ""
 
 
 def validate_api_url(url: str) -> str:

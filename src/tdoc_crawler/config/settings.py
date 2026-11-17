@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from tdoc_crawler.config.env_vars import ConfigEnvVar
@@ -273,6 +273,31 @@ class CheckoutConfig(BaseSettings):
     )
 
 
+class ExtractConfig(BaseModel):
+    """Archive extraction behaviour for downloaded TDoc zips.
+
+    Config-file only by design: no CLI option and no environment variable is
+    generated for these settings, because they describe how files land on
+    disk rather than how a single run behaves.
+
+    Exclusion patterns use gitignore syntax and layer on top of the
+    ``<cache-dir>/clutter-ignore`` file (macOS/Windows/Office clutter).
+    """
+
+    flatten_single_root: bool = Field(
+        default=True,
+        description=(
+            "When an archive wraps every entry in one top-level folder (e.g. "
+            "S4-262108/S4-262108.docx), extract that folder's contents directly "
+            "into the TDoc directory"
+        ),
+    )
+    exclude: list[str] = Field(
+        default_factory=lambda: [".git/", ".hg/", ".svn/"],
+        description=("Extra gitignore-style patterns whose archive members are never extracted; clutter-ignore patterns still apply"),
+    )
+
+
 class ThreeGPPConfig(BaseSettings):
     """Main configuration class for 3GPP Crawler.
 
@@ -282,6 +307,7 @@ class ThreeGPPConfig(BaseSettings):
     - credentials: Portal authentication
     - crawl: Crawling filters and limits
     - checkout: Main-file selection strategy and decision-model settings
+    - extract: Archive extraction (flattening and skip patterns), config file only
 
     Configuration can be overridden via environment variables with the
     appropriate prefixes (TDC_, TDC_EOL_, TDC_CRAWL_, TDC_CHECKOUT_).
@@ -298,6 +324,7 @@ class ThreeGPPConfig(BaseSettings):
     credentials: CredentialsConfig = Field(default_factory=CredentialsConfig)
     crawl: CrawlConfig = Field(default_factory=CrawlConfig)
     checkout: CheckoutConfig = Field(default_factory=CheckoutConfig)
+    extract: ExtractConfig = Field(default_factory=ExtractConfig)
 
     def ensure_paths(self) -> None:
         """Ensure all configured paths exist on the filesystem.

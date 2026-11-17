@@ -6,14 +6,10 @@ import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from functools import partial
 
-try:
-    from concurrent.futures import InterpreterPoolExecutor
-except (ImportError, AttributeError):
-    InterpreterPoolExecutor = None  # type: ignore[misc]
-
 import pytest
 
 from tdoc_crawler.executors import ExecutorType, SerialPoolExecutor, create_executor
+from tdoc_crawler.executors.factory import InterpreterPoolExecutor
 
 
 class TestSerialFuture:

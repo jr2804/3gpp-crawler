@@ -5,15 +5,20 @@ from __future__ import annotations
 import logging
 import sys
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
+from importlib import import_module
 from typing import Any
 
 from tdoc_crawler.executors.serial import SerialPoolExecutor
 from tdoc_crawler.executors.types import ExecutorType
 
-try:
-    from concurrent.futures import InterpreterPoolExecutor
-except ImportError:
-    InterpreterPoolExecutor = None  # type: ignore[assignment, misc]
+
+def _load_interpreter_pool_executor() -> type[Executor] | None:
+    """Return ``concurrent.futures.InterpreterPoolExecutor`` when the runtime has it (3.14+)."""
+    candidate = getattr(import_module("concurrent.futures"), "InterpreterPoolExecutor", None)
+    return candidate if isinstance(candidate, type) else None
+
+
+InterpreterPoolExecutor: type[Executor] | None = _load_interpreter_pool_executor()
 
 logger = logging.getLogger(__name__)
 

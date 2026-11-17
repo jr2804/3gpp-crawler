@@ -25,18 +25,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time
 from importlib import import_module
 from pathlib import Path
 
 from tdoc_crawler.utils.json_types import JSONScalar
-
-try:
-    import tomllib
-except ImportError:
-    # Python < 3.11 fallback; install tomli in that case
-    import tomli as tomllib  # type: ignore[no-redef]
 
 type ConfigValue = JSONScalar | date | datetime | time | Sequence[ConfigValue] | Mapping[str, ConfigValue]
 """A value that can appear in a configuration file (TOML, YAML or JSON)."""

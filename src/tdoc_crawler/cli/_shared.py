@@ -31,7 +31,7 @@ class GlobSafeTyper(typer.Typer):
     that hasn't already been parsed through Typer's normal option machinery.
     """
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         try:
             if not args and "windows_expand_args" not in kwargs and getattr(sys, "argv", None):
                 return get_command(self).main(windows_expand_args=False, **kwargs)

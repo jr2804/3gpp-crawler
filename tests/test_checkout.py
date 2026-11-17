@@ -3,12 +3,14 @@
 import io
 import os
 import zipfile
+from collections.abc import Sequence
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 from pathspec import GitIgnoreSpec
 
+from tdoc_crawler.config.settings import ExtractConfig
 from tdoc_crawler.database.oxyde_models import TDocMetadata
 from tdoc_crawler.tdocs.models import TDocStatus
 from tdoc_crawler.tdocs.operations.checkout import (
@@ -763,6 +765,138 @@ class TestSafeExtractZipClutterIgnore:
         out.mkdir()
         safe_extract_zip(tmp_path / "src.zip", out)
         return out
+
+
+class TestSafeExtractZipOptions:
+    """Extraction options flatten wrapper folders and skip configured patterns."""
+
+    def test_flattens_single_top_level_folder(self, tmp_path: Path) -> None:
+        """An archive may wrap everything in ``<tdoc_id>/``; the payload moves to the root."""
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr("S4-262108/S4-262108.docx", b"doc")
+            zf.writestr("S4-262108/source/main.c", b"code")
+
+        out = self._extract(tmp_path, flatten_single_root=True)
+
+        assert (out / "S4-262108.docx").exists()
+        assert (out / "source" / "main.c").exists()
+        assert not (out / "S4-262108").exists()
+
+    def test_flatten_disabled_keeps_layout(self, tmp_path: Path) -> None:
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr("S4-262108/S4-262108.docx", b"doc")
+
+        out = self._extract(tmp_path)
+
+        assert (out / "S4-262108" / "S4-262108.docx").exists()
+
+    def test_flatten_skipped_with_root_level_file(self, tmp_path: Path) -> None:
+        """A root-level file means the wrapper is intentional; keep the layout."""
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr("readme.txt", b"notes")
+            zf.writestr("S4-262108/S4-262108.docx", b"doc")
+
+        out = self._extract(tmp_path, flatten_single_root=True)
+
+        assert (out / "readme.txt").exists()
+        assert (out / "S4-262108" / "S4-262108.docx").exists()
+
+    def test_flatten_after_excluding_clutter(self, tmp_path: Path) -> None:
+        """Excluded clutter must not count as a second root."""
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr("S4-262108/__MACOSX/._S4-262108.docx", b"x")
+            zf.writestr("S4-262108/S4-262108.docx", b"doc")
+
+        out = self._extract(tmp_path, flatten_single_root=True)
+
+        assert (out / "S4-262108.docx").exists()
+        assert not (out / "S4-262108").exists()
+
+    def test_exclude_patterns_are_never_extracted(self, tmp_path: Path) -> None:
+        """VCS metadata is skipped at extraction time, not deleted afterwards."""
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr(".git/", b"")
+            zf.writestr(".git/config", b"[core]")
+            zf.writestr(".git/objects/ab/cdef", b"obj")
+            zf.writestr("doc.docx", b"doc")
+
+        out = self._extract(tmp_path, exclude=[".git/"])
+
+        assert (out / "doc.docx").exists()
+        assert not (out / ".git").exists()
+
+    def test_exclude_layers_on_clutter_ignore(self, tmp_path: Path) -> None:
+        with zipfile.ZipFile(tmp_path / "src.zip", "w") as zf:
+            zf.writestr("__MACOSX/._doc.docx", b"x")
+            zf.writestr(".git/config", b"[core]")
+            zf.writestr("doc.docx", b"doc")
+
+        out = self._extract(tmp_path, exclude=[".git/"])
+
+        assert (out / "doc.docx").exists()
+        assert not (out / "__MACOSX").exists()
+        assert not (out / ".git").exists()
+
+    def _extract(
+        self,
+        tmp_path: Path,
+        *,
+        exclude: Sequence[str] = (),
+        flatten_single_root: bool = False,
+    ) -> Path:
+        out = tmp_path / "out"
+        out.mkdir()
+        safe_extract_zip(tmp_path / "src.zip", out, exclude=exclude, flatten_single_root=flatten_single_root)
+        return out
+
+
+class TestCheckoutExtractionOptions:
+    """checkout_tdoc forwards the configured extraction behaviour."""
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
+    def test_checkout_flattens_wrapper_and_skips_git(
+        self,
+        mock_download_to_file: Mock,
+        sample_tdoc_metadata: TDocMetadata,
+        checkout_dir: Path,
+    ) -> None:
+        def mock_download(url: str, destination: Path, session: object = None) -> None:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            content = io.BytesIO()
+            with zipfile.ZipFile(content, "w") as zf:
+                zf.writestr(f"{sample_tdoc_metadata.tdoc_id}/{sample_tdoc_metadata.tdoc_id}.docx", b"doc")
+                zf.writestr(f"{sample_tdoc_metadata.tdoc_id}/.git/config", b"[core]")
+                zf.writestr(f"{sample_tdoc_metadata.tdoc_id}/__MACOSX/._x", b"x")
+            destination.write_bytes(content.getvalue())
+
+        mock_download_to_file.side_effect = mock_download
+
+        result = checkout_tdoc(sample_tdoc_metadata, checkout_dir, extract=ExtractConfig())
+
+        assert (result / f"{sample_tdoc_metadata.tdoc_id}.docx").exists()
+        assert not (result / sample_tdoc_metadata.tdoc_id).exists()
+        assert not (result / ".git").exists()
+        assert not (result / "__MACOSX").exists()
+
+    @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
+    def test_checkout_honours_flatten_switch_off(
+        self,
+        mock_download_to_file: Mock,
+        sample_tdoc_metadata: TDocMetadata,
+        checkout_dir: Path,
+    ) -> None:
+        def mock_download(url: str, destination: Path, session: object = None) -> None:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            content = io.BytesIO()
+            with zipfile.ZipFile(content, "w") as zf:
+                zf.writestr(f"{sample_tdoc_metadata.tdoc_id}/doc.docx", b"doc")
+            destination.write_bytes(content.getvalue())
+
+        mock_download_to_file.side_effect = mock_download
+
+        result = checkout_tdoc(sample_tdoc_metadata, checkout_dir, extract=ExtractConfig(flatten_single_root=False))
+
+        assert (result / sample_tdoc_metadata.tdoc_id / "doc.docx").exists()
 
 
 class TestSelectMainFileIgnoresLegacyClutter:

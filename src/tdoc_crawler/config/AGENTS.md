@@ -37,6 +37,12 @@ main-document selection for TDoc archives: `selector` (`heuristic` |
 `systemone_model`, `systemone_min_confidence`, `systemone_timeout`). Selection
 logic lives in `tdocs/operations/main_file.py`, never in config.
 
+`ExtractConfig` (`extract:`) configures zip extraction and is a plain
+`BaseModel`: file-only on purpose, no env prefix and no CLI flag.
+`flatten_single_root` (default true) lifts a single wrapper folder's contents
+to the TDoc folder root; `exclude` (default `.git/`, `.hg/`, `.svn/`) adds
+gitignore-style skip patterns on top of `utils/clutter.py`.
+
 ## CacheManager (Runtime Paths)
 
 Single source of truth for all file paths. Register once at program start, then resolve everywhere.

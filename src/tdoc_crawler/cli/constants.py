@@ -12,4 +12,5 @@ SECTION_DESCRIPTIONS = {
     "credentials": "ETSI Online portal credentials (username, password)",
     "crawl": "Crawling filters and limits (working_group, date range, workers)",
     "checkout": "Main-document selection for TDoc archives (selector, decision model)",
+    "extract": "Archive extraction: flatten single-folder archives and skip VCS clutter",
 }

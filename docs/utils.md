@@ -45,6 +45,16 @@ A TDoc without any downloadable document (WhatTheSpec knows the ID but returns
 an empty link, e.g. a numbering gap or a meeting that is not published yet)
 fails immediately with `no download URL`; no checkout folder is created.
 
+Extraction is configurable per config file (`[extract]`, no CLI flag or env
+var): `flatten_single_root = true` (default) moves the contents of a single
+top-level wrapper folder into the TDoc folder root, so an archive containing
+`S4-262108/S4-262108.docx` is extracted as `<tdoc-folder>/S4-262108.docx`.
+`exclude` holds gitignore-style
+patterns that are skipped during extraction (defaults: `.git/`, `.hg/`,
+`.svn/`); excluded members are never written, and the built-in clutter rules
+(`__MACOSX/`, `.DS_Store`, …) keep applying. See
+[Configuration](config.md#extract-settings).
+
 ### `files`
 
 List the files inside a TDoc's zip archive. The first call reads the listing from the server (HTTP range reads, no full download) and stores it; later calls use the stored listing. `--refresh` re-reads it.

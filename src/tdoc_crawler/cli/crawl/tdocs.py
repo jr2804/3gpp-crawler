@@ -194,7 +194,13 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
                 results = await database.query_tdocs(query_config)
 
                 with create_cached_session(http_cache_enabled=http_cache_enabled) as session:
-                    checkout_result = checkout_tdocs(results, crawler_config.path.checkout_dir, force=False, session=session)
+                    checkout_result = checkout_tdocs(
+                        results,
+                        crawler_config.path.checkout_dir,
+                        force=False,
+                        session=session,
+                        extract=crawler_config.extract,
+                    )
                 await save_archive_records(checkout_result.archives)
 
                 console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")

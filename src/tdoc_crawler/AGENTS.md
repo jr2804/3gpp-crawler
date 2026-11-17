@@ -215,6 +215,8 @@ Fallbacks: largest document-suffix file, then largest non-clutter file.
 
 Clutter filtering: gitignore-style patterns from `utils/clutter.py`. Defaults ship as packaged data (`utils/clutter-ignore`), copied to `<cache-dir>/clutter-ignore` for user editing (`!` negation re-includes; deleting the file restores defaults). The filter runs at zip extraction (`safe_extract_zip`), because sidecars inherit the original's suffix and suffix-based consumers cannot tell them apart, and in the main-file selector (covers checkout dirs with legacy clutter on disk).
 
+Extraction options come from `[extract]` (`ExtractConfig`: `flatten_single_root`, `exclude`) and reach `safe_extract_zip()` through `checkout_tdoc(..., extract=...)`. File-only config: `ExtractConfig` is a plain `BaseModel`, deliberately without `BaseSettings`/env prefix, and no CLI flag exists. Flattening only triggers when every non-directory member sits under one top-level folder (a root-level file disables it); `exclude` layers on top of clutter-ignore and excluded members are never written, not deleted afterwards.
+
 ## Archive Member Tracking
 
 Zip member listings are stored in the `ArchiveMember` table (`database/archives.py`, `utils/archive.py`), keyed `kind:item_id:member_path` (`kind` = `tdoc` | `spec`). Rows are written only on checkout (local zip listing) and on explicit `tdoc files` / `spec files` / `list_*_files` requests (remote HTTP range listing via `unzip_http.RemoteZipFile`). Nothing is crawled eagerly.

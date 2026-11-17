@@ -111,7 +111,15 @@ def checkout_tdocs(
         with nullcontext() if machine else progress:
             for metadata in results:
                 try:
-                    checkout_path = checkout_tdoc(metadata, checkout_dir, force=force, session=session, keep_zip=keep_zip, archive_sink=archives)
+                    checkout_path = checkout_tdoc(
+                        metadata,
+                        checkout_dir,
+                        force=force,
+                        session=session,
+                        keep_zip=keep_zip,
+                        archive_sink=archives,
+                        extract=crawler_config.extract,
+                    )
 
                     rows.append({"tdoc_id": metadata.tdoc_id, "status": "ok", "path": str(checkout_path)})
 

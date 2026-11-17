@@ -13,7 +13,7 @@ from pathlib import Path
 
 import niquests as requests
 
-from tdoc_crawler.config.settings import CheckoutConfig
+from tdoc_crawler.config.settings import CheckoutConfig, ExtractConfig
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.main_files import save_main_file_record
 from tdoc_crawler.database.oxyde_models import TDocMetadata
@@ -46,6 +46,7 @@ async def resolve_tdoc_main_file(
     full_metadata: bool = False,
     use_whatthespec: bool = False,
     session: requests.Session | None = None,
+    extract_config: ExtractConfig | None = None,
 ) -> TDocOpenResult:
     """Ensure a TDoc is stored, extract it, and resolve its main document.
 
@@ -57,6 +58,7 @@ async def resolve_tdoc_main_file(
         full_metadata: If True, fetch full metadata from the portal.
         use_whatthespec: If True, always use WhatTheSpec for missing TDocs.
         session: Optional HTTP session to reuse.
+        extract_config: Extraction settings; defaults to ``ExtractConfig()``.
 
     Returns:
         The TDoc metadata and the resolved main-document selection.
@@ -100,6 +102,7 @@ async def resolve_tdoc_main_file(
         override_member=override.member_path if override is not None else None,
         config=checkout_config,
         session=session,
+        extract=extract_config,
     )
 
     selector = MainFileSelector.MANUAL if override is not None else checkout_config.selector

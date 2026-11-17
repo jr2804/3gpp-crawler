@@ -133,6 +133,7 @@ def open_tdoc(
                     full_metadata=full_metadata,
                     use_whatthespec=use_whatthespec,
                     session=session,
+                    extract_config=crawler_config.extract,
                 )
             )
 

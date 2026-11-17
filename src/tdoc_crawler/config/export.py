@@ -85,7 +85,7 @@ class ConfigExporter:
         config_data = self.config.model_dump()
 
         # Walk through all subconfigs
-        for section_name in ("path", "http", "credentials", "crawl", "checkout", "output", "http_cache", "ai"):
+        for section_name in ("path", "http", "credentials", "crawl", "checkout", "extract", "output", "http_cache", "ai"):
             if hasattr(self.config, section_name):
                 section = getattr(self.config, section_name)
                 section_data = config_data.get(section_name, {})
@@ -161,6 +161,7 @@ class ConfigExporter:
             "credentials": "ETSI Online (EOL) portal credentials",
             "crawl": "Crawling behavior and filter configuration",
             "checkout": "Main-document selection for TDoc archives",
+            "extract": "Archive extraction: output flattening and skip patterns",
             "output": "Output configuration",
             "http_cache": "HTTP cache settings",
             "ai": "AI/LLM configuration",

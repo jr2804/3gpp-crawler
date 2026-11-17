@@ -9,6 +9,7 @@ from typing import Annotated
 
 import typer
 from pydantic import ValidationError
+from pydantic_core import PydanticUndefined
 from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
@@ -46,7 +47,7 @@ ConfigValidateStrictOption = Annotated[
 ]
 ConfigDocsSectionOption = Annotated[
     str | None,
-    typer.Option("--section", "-s", help="Show specific section (path, http, credentials, crawl, checkout)"),
+    typer.Option("--section", "-s", help="Show specific section (path, http, credentials, crawl, checkout, extract)"),
 ]
 
 config_app = GlobSafeTyper(help="Manage configuration")
@@ -241,6 +242,7 @@ def config_docs(
         "credentials": [],
         "crawl": [],
         "checkout": [],
+        "extract": [],
     }
 
     # Introspect ThreeGPPConfig
@@ -253,14 +255,15 @@ def config_docs(
         ("credentials", config.credentials),
         ("crawl", config.crawl),
         ("checkout", config.checkout),
+        ("extract", config.extract),
     ]:
         model_cls = type(section_model)
         fields = model_cls.model_fields
 
         for field_name, field_info in fields.items():
             description = field_info.description or ""
-            default = field_info.default
-            if callable(default):
+            default: object = field_info.get_default(call_default_factory=True)
+            if callable(default) or default is PydanticUndefined:
                 default = None
 
             # Get current value
@@ -290,7 +293,7 @@ def config_docs(
         # Show all sections
         for section_name, fields_list in sections.items():
             _print_section_docs(section_name, fields_list, SECTION_DESCRIPTIONS.get(section_name, ""))
-            if section_name != "checkout":
+            if section_name != "extract":
                 rprint()
 
 

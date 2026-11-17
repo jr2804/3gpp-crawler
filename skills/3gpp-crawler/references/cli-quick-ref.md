@@ -90,6 +90,11 @@ The meeting is linked from the download URL; the subgroup's meetings are
 fetched once if missing, so no orphan records are created. An ID with no
 downloadable document fails fast with `no download URL` and creates no folder.
 
+Extraction options live in `[extract]` of a config file (no flag or env var):
+`flatten_single_root = true` (default) extracts a single wrapper folder's
+contents directly into the TDoc folder; `exclude` lists gitignore-style
+patterns skipped at extraction time (defaults `.git/`, `.hg/`, `.svn/`).
+
 ### stats
 
 ```bash

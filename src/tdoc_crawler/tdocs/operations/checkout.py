@@ -17,7 +17,7 @@ from urllib.parse import urljoin, urlparse
 import niquests as requests
 from bs4 import BeautifulSoup
 
-from tdoc_crawler.config.settings import CheckoutConfig
+from tdoc_crawler.config.settings import CheckoutConfig, ExtractConfig
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.http_client import download_to_file
 from tdoc_crawler.logging import get_logger
@@ -71,6 +71,7 @@ def prepare_tdoc_file(
     *,
     override_member: str | None = None,
     config: CheckoutConfig | None = None,
+    extract: ExtractConfig | None = None,
 ) -> Path:
     """Prepare the local file for a TDoc, downloading/extracting if needed.
 
@@ -94,6 +95,7 @@ def prepare_tdoc_file(
         session: Optional requests.Session to reuse for downloads.
         override_member: Stored manual override (archive-relative path).
         config: Checkout settings; defaults to ``CheckoutConfig()``.
+        extract: Extraction settings; defaults to ``ExtractConfig()``.
 
     Returns:
         Path to the picked main file, or the extract directory when
@@ -106,7 +108,7 @@ def prepare_tdoc_file(
         ValueError: If ``metadata.url`` is missing.
     """
     if return_dir:
-        filename, extract_dir = _resolve_archive(metadata, checkout_dir, session=session)
+        filename, extract_dir = _resolve_archive(metadata, checkout_dir, session=session, extract=extract)
         if extract_dir is not None:
             return extract_dir
         return _download_loose_tdoc(metadata, checkout_dir, filename, session=session)
@@ -117,6 +119,7 @@ def prepare_tdoc_file(
         override_member=override_member,
         config=config,
         session=session,
+        extract=extract,
     ).path
 
 
@@ -127,6 +130,7 @@ def prepare_tdoc_selection(
     override_member: str | None = None,
     config: CheckoutConfig | None = None,
     session: requests.Session | None = None,
+    extract: ExtractConfig | None = None,
 ) -> MainFileSelection:
     """Prepare a TDoc and report *which* file was chosen as its main file.
 
@@ -140,6 +144,7 @@ def prepare_tdoc_selection(
         override_member: Stored manual override (archive-relative path).
         config: Checkout settings; defaults to ``CheckoutConfig()``.
         session: Optional requests.Session to reuse for downloads.
+        extract: Extraction settings; defaults to ``ExtractConfig()``.
 
     Returns:
         The resolved main file plus its source.
@@ -149,7 +154,7 @@ def prepare_tdoc_selection(
             or the archive contains no usable (or no overridden) file.
         ValueError: If ``metadata.url`` is missing.
     """
-    filename, extract_dir = _resolve_archive(metadata, checkout_dir, session=session)
+    filename, extract_dir = _resolve_archive(metadata, checkout_dir, session=session, extract=extract)
     if extract_dir is None:
         # A loose (non-zip) TDoc *is* its own main file; the heuristic
         # source is reported because no choice was made.
@@ -170,7 +175,13 @@ def prepare_tdoc_selection(
     )
 
 
-def _resolve_archive(metadata: TDocMetadata, checkout_dir: Path, *, session: requests.Session | None) -> tuple[str, Path | None]:
+def _resolve_archive(
+    metadata: TDocMetadata,
+    checkout_dir: Path,
+    *,
+    session: requests.Session | None,
+    extract: ExtractConfig | None = None,
+) -> tuple[str, Path | None]:
     """Validate the TDoc and resolve its local container.
 
     Returns:
@@ -193,7 +204,7 @@ def _resolve_archive(metadata: TDocMetadata, checkout_dir: Path, *, session: req
     filename = str(posixpath.basename(urlparse(metadata.url).path))
     if Path(filename).suffix.lower() != ".zip":
         return filename, None
-    return filename, checkout_tdoc(metadata, checkout_dir, session=session)
+    return filename, checkout_tdoc(metadata, checkout_dir, session=session, extract=extract)
 
 
 def _download_loose_tdoc(metadata: TDocMetadata, checkout_dir: Path, filename: str, *, session: requests.Session | None) -> Path:
@@ -285,6 +296,7 @@ def checkout_meeting_tdocs(
     http_cache_file: Path,
     session: requests.Session | None = None,
     cache_manager_name: str | None = None,
+    extract: ExtractConfig | None = None,
 ) -> CheckoutResult:
     """Checkout TDoc files from a list of meetings.
 
@@ -294,6 +306,7 @@ def checkout_meeting_tdocs(
         http_cache_file: Path to HTTP cache database
         session: Optional requests.Session to reuse for downloads
         cache_manager_name: Optional cache manager name for HTTP caching
+        extract: Extraction settings; defaults to ``ExtractConfig()``
 
     Returns:
         CheckoutResult with success/error counts
@@ -323,7 +336,14 @@ def checkout_meeting_tdocs(
             if metadata.tdoc_id not in unique:
                 unique[metadata.tdoc_id] = metadata
 
-    return checkout_tdocs(list(unique.values()), checkout_dir, force=False, session=session, cache_manager_name=cache_manager_name)
+    return checkout_tdocs(
+        list(unique.values()),
+        checkout_dir,
+        force=False,
+        session=session,
+        cache_manager_name=cache_manager_name,
+        extract=extract,
+    )
 
 
 def checkout_tdocs(
@@ -333,6 +353,7 @@ def checkout_tdocs(
     session: requests.Session | None = None,
     cache_manager_name: str | None = None,
     keep_zip: bool = False,
+    extract: ExtractConfig | None = None,
 ) -> CheckoutResult:
     """Checkout multiple TDoc files to the checkout directory.
 
@@ -343,6 +364,7 @@ def checkout_tdocs(
         session: Optional requests.Session to reuse for downloads
         cache_manager_name: Optional cache manager name for HTTP caching
         keep_zip: If True, keep each downloaded zip next to its extracted files
+        extract: Extraction settings; defaults to ``ExtractConfig()``
 
     Returns:
         CheckoutResult with success/error counts and the archive listings
@@ -361,7 +383,7 @@ def checkout_tdocs(
             if not metadata.url:
                 msg = "missing URL"
                 raise ValueError(msg)
-            checkout_tdoc(metadata, checkout_dir, force=force, session=session, keep_zip=keep_zip, archive_sink=archives)
+            checkout_tdoc(metadata, checkout_dir, force=force, session=session, keep_zip=keep_zip, archive_sink=archives, extract=extract)
             success_count += 1
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             error_message = str(exc)
@@ -383,6 +405,7 @@ def checkout_tdoc(
     session: requests.Session | None = None,
     keep_zip: bool = False,
     archive_sink: list[ArchiveRecord] | None = None,
+    extract: ExtractConfig | None = None,
 ) -> Path:
     """Download and extract a TDoc to the checkout folder.
 
@@ -394,6 +417,8 @@ def checkout_tdoc(
         keep_zip: If True, keep the downloaded zip in the checkout folder
         archive_sink: If given, the zip member listing is appended to it when
             a download happens (an already checked-out TDoc records nothing)
+        extract: Extraction settings (flattening, skip patterns); defaults to
+            ``ExtractConfig()``
 
     Returns:
         Path to the extracted TDoc directory
@@ -450,7 +475,13 @@ def checkout_tdoc(
                 archive_members = list_zip_members(temp_zip_file)
             else:
                 raise
-        safe_extract_zip(temp_zip_file, checkout_path)
+        extraction = extract or ExtractConfig()
+        safe_extract_zip(
+            temp_zip_file,
+            checkout_path,
+            exclude=extraction.exclude,
+            flatten_single_root=extraction.flatten_single_root,
+        )
         if archive_sink is not None:
             archive_sink.append(ArchiveRecord(kind=ArchiveKind.TDOC, item_id=metadata.tdoc_id, archive_name=temp_zip_file.name, members=archive_members))
         logger.info("Checked out %s to %s", metadata.tdoc_id, checkout_path)
