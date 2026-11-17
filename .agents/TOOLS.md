@@ -23,7 +23,7 @@ If this file grows past its size budget, split detail into
 | ---- | ---- | ------- |
 | `uv` | Python deps & scripts | Package manager: `uv run`, `uv add` |
 | `mise` | Running tasks | Task runner; definitions in `.config/mise/conf.d/*.toml` |
-| `bd` / beads | Issue tracking | Task lifecycle, dependencies, session persistence; embedded Dolt store synced to private repo `3gpp-crawler-beads` (push: `DOLT_REMOTE_USER=oauth2 DOLT_REMOTE_PASSWORD=$GITLAB_TOKEN bd dolt push`) |
+| `bd` / beads | Issue tracking | Task lifecycle, dependencies, session persistence; embedded Dolt store synced to private forge repo `3gpp-crawler-beads` via `bd sync` — needs auth helper: `mise exec -- env GIT_ASKPASS=/tmp/opencode/forge_askpass.sh GIT_TERMINAL_PROMPT=0 bd sync` (askpass answers `oauth2`/`$GITLAB_TOKEN`; recreate it if missing) |
 | `glab` | GitLab (forge.3gpp.org) | Forge mirror admin (tokens, mirror checks); primary repo is GitHub |
 | `gh` | GitHub (github.com/jr2804/3gpp-crawler) | Primary repo, releases, Pages, secrets (`FORGE_MIRROR_TOKEN`) |
 
