@@ -148,6 +148,11 @@ _Always-injected_ — keep minimal. Everything else → `.agents/` files.
 7. **Multi-value CLI options** must be `StrEnum` — see `src/tdoc_crawler/cli/AGENTS.md`.
 8. **SQLite** via Oxyde, one model per table in
    `database/oxyde_models.py` — see `src/tdoc_crawler/database/AGENTS.md`.
+9. **No silent partial failure** — A command that can fail on some items must
+   print a failure/skip summary and exit non-zero on real errors; count deliberate
+   skips (e.g. withdrawn TDocs) separately and show per-item reasons without
+   requiring `-v DEBUG`. This is the most-reported upstream bug class
+   (`gh issue list`) — check exit codes and summaries for any new/changed command.
 
 ## Project & commands
 
