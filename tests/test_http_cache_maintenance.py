@@ -42,10 +42,15 @@ def test_prune_respects_soft_delete_ttl(tmp_path: Path) -> None:
     path = tmp_path / "cache.sqlite3"
     connection = sqlite3.connect(str(path))
     connection.execute(
-        "CREATE TABLE entries (id BLOB PRIMARY KEY, cache_key BLOB, data BLOB, expires_at REAL, last_accessed_at REAL NOT NULL, chunk_count INTEGER, ttl_deadline REAL, tti REAL)"
+        "CREATE TABLE entries (id BLOB PRIMARY KEY, cache_key BLOB, data BLOB, "
+        "expires_at REAL, last_accessed_at REAL NOT NULL, chunk_count INTEGER, "
+        "ttl_deadline REAL, tti REAL)"
     )
     now = time.time()
-    connection.execute("INSERT INTO entries VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (b"recent", b"k", b"d", now - 10, now, 1, None, None))
+    connection.execute(
+        "INSERT INTO entries VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (b"recent", b"k", b"d", now - 10, now, 1, None, None),
+    )
     connection.commit()
     connection.close()
 

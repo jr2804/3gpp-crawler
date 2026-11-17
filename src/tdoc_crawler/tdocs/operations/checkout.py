@@ -10,9 +10,10 @@ from __future__ import annotations
 import posixpath
 import shutil
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import niquests as requests
 from bs4 import BeautifulSoup
@@ -347,6 +348,34 @@ def checkout_meeting_tdocs(
     )
 
 
+def _checkout_one(
+    metadata: TDocMetadata,
+    checkout_dir: Path,
+    *,
+    force: bool,
+    session: requests.Session | None,
+    keep_zip: bool,
+    extract: ExtractConfig | None,
+) -> tuple[bool, bool, str | None, list[ArchiveRecord]]:
+    """Checkout a single TDoc, returning ``(ok, skipped, error, archives)``.
+
+    Each call owns its own ``archives`` list so parallel workers never share
+    mutable state; the caller merges them in input order.
+    """
+    archives: list[ArchiveRecord] = []
+    try:
+        if not metadata.url:
+            msg = "missing URL"
+            raise ValueError(msg)
+        checkout_tdoc(metadata, checkout_dir, force=force, session=session, keep_zip=keep_zip, archive_sink=archives, extract=extract)
+        return (True, False, None, archives)
+    except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+        if str(exc) == "withdrawn":  # Withdrawn TDocs are skipped, not failures.
+            logger.debug(f"Skipped withdrawn TDoc {metadata.tdoc_id}")
+            return (False, True, None, archives)
+        return (False, False, f"{metadata.tdoc_id}: {exc}", archives)
+
+
 def checkout_tdocs(
     results: list[TDocMetadata],
     checkout_dir: Path,
@@ -355,6 +384,7 @@ def checkout_tdocs(
     cache_manager_name: str | None = None,
     keep_zip: bool = False,
     extract: ExtractConfig | None = None,
+    workers: int = 1,
 ) -> CheckoutResult:
     """Checkout multiple TDoc files to the checkout directory.
 
@@ -362,10 +392,13 @@ def checkout_tdocs(
         results: List of TDocMetadata to checkout
         checkout_dir: Base checkout directory
         force: If True, re-download even if already exists
-        session: Optional requests.Session to reuse for downloads
+        session: Optional requests.Session to reuse for downloads (sequential
+            mode only; parallel mode uses per-download sessions for thread safety)
         cache_manager_name: Optional cache manager name for HTTP caching
         keep_zip: If True, keep each downloaded zip next to its extracted files
         extract: Extraction settings; defaults to ``ExtractConfig()``
+        workers: Number of parallel downloads. 1 (default) keeps sequential
+            behavior; >1 downloads concurrently while preserving input order.
 
     Returns:
         CheckoutResult with success/error counts and the archive listings
@@ -380,24 +413,69 @@ def checkout_tdocs(
     errors: list[str] = []
     archives: list[ArchiveRecord] = []
 
-    for metadata in results:
-        try:
-            if not metadata.url:
-                msg = "missing URL"
-                raise ValueError(msg)
-            checkout_tdoc(metadata, checkout_dir, force=force, session=session, keep_zip=keep_zip, archive_sink=archives, extract=extract)
+    def _record(outcome: tuple[bool, bool, str | None, list[ArchiveRecord]]) -> None:
+        nonlocal success_count, error_count, skipped_count
+        ok, skipped, error, item_archives = outcome
+        archives.extend(item_archives)
+        if ok:
             success_count += 1
-        except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
-            error_message = str(exc)
-            # Withdrawn TDocs are skipped, not failures: nothing to download.
-            if error_message == "withdrawn":  # This matches the FileNotFoundError message
-                logger.debug(f"Skipped withdrawn TDoc {metadata.tdoc_id}")
-                skipped_count += 1
-            else:
-                errors.append(f"{metadata.tdoc_id}: {exc}")
-                error_count += 1
+        elif skipped:
+            skipped_count += 1
+        else:
+            errors.append(error or "unknown error")
+            error_count += 1
+
+    if workers <= 1:
+        for metadata in results:
+            _record(_checkout_one(metadata, checkout_dir, force=force, session=session, keep_zip=keep_zip, extract=extract))
+    else:
+        # Do not share the niquests Session across threads; per-download sessions
+        # (session=None) are created and closed inside download_to_file.
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [
+                executor.submit(
+                    _checkout_one,
+                    metadata,
+                    checkout_dir,
+                    force=force,
+                    session=None,
+                    keep_zip=keep_zip,
+                    extract=extract,
+                )
+                for metadata in results
+            ]
+            # Consume in input order so results/errors are deterministic.
+            for future in futures:
+                _record(future.result())
 
     return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors, archives=archives, skipped_count=skipped_count)
+
+
+class _EmptyDownloadError(Exception):
+    """Internal signal that a download produced a zero-byte file."""
+
+
+def _download_and_list_members(
+    metadata: TDocMetadata,
+    url: str,
+    target_file: Path,
+    session: requests.Session | None,
+) -> list:
+    """Download ``url`` to ``target_file`` and return its validated member list.
+
+    Raises ``_EmptyDownloadError`` for a zero-byte response (which
+    ``download_to_file`` does not itself report) and ``ValueError`` for a valid
+    but zero-member archive. Both are surfaced to callers as checkout errors.
+    """
+    download_to_file(url, target_file, session=session)
+    if target_file.stat().st_size == 0:
+        msg = f"TDoc {metadata.tdoc_id}: downloaded archive is empty (0 bytes)"
+        raise _EmptyDownloadError(msg)
+    members = list_zip_members(target_file)
+    if not members:
+        msg = f"TDoc {metadata.tdoc_id}: archive {target_file.name} contains no members"
+        raise ValueError(msg)
+    return members
 
 
 def checkout_tdoc(
@@ -458,24 +536,25 @@ def checkout_tdoc(
 
     try:
         try:
-            download_to_file(metadata.url, temp_zip_file, session=session)
-        except requests.HTTPError:
+            archive_members = _download_and_list_members(metadata, metadata.url, temp_zip_file, session)
+        except _EmptyDownloadError:
+            # A 0-byte response (HTTP 200, no body) is not raised by
+            # download_to_file, so a corrected URL must be tried for it too —
+            # not just for HTTPError/BadZipFile.
             corrected_url = _resolve_corrected_url(metadata)
             if corrected_url and corrected_url != metadata.url:
-                logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
+                logger.info("Retrying empty archive %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
                 with requests.Session(disable_http3=True) as plain_session:
-                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
+                    archive_members = _download_and_list_members(metadata, corrected_url, temp_zip_file, plain_session)
             else:
-                raise
-        try:
-            archive_members = list_zip_members(temp_zip_file)
-        except zipfile.BadZipFile:
+                msg = f"TDoc {metadata.tdoc_id}: downloaded archive is empty (0 bytes)"
+                raise ValueError(msg)
+        except (requests.HTTPError, zipfile.BadZipFile):
             corrected_url = _resolve_corrected_url(metadata)
             if corrected_url and corrected_url != metadata.url:
                 logger.info("Retrying %s with corrected URL: %s", metadata.tdoc_id, corrected_url)
                 with requests.Session(disable_http3=True) as plain_session:
-                    download_to_file(corrected_url, temp_zip_file, session=plain_session)
-                archive_members = list_zip_members(temp_zip_file)
+                    archive_members = _download_and_list_members(metadata, corrected_url, temp_zip_file, plain_session)
             else:
                 raise
         extraction = extract or ExtractConfig()
@@ -523,6 +602,18 @@ def get_checkout_path(metadata: TDocMetadata, checkout_dir: Path) -> Path:
     return checkout_dir.joinpath(*relative_parts) / metadata.tdoc_id if relative_parts else checkout_dir / metadata.tdoc_id
 
 
+def _normalized_archive_key(filename: str) -> str:
+    """Normalize an archive filename for loose matching against a TDoc ID.
+
+    Handles URL percent-encoding, case differences, and trailing whitespace in
+    the stem (e.g. ``S4-250486%20.zip`` and ``S4-250486.zip`` both normalize to
+    ``s4-250486``).
+    """
+    decoded = unquote(filename).strip()
+    stem, _ = posixpath.splitext(decoded)
+    return stem.strip().casefold()
+
+
 def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | None = None) -> str | None:
     """Fetch directory listing and find the correct URL for the TDoc zip.
 
@@ -536,7 +627,7 @@ def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | N
         return None
 
     expected_filename = posixpath.basename(metadata.url)
-    expected_lower = expected_filename.lower()
+    expected_lower = _normalized_archive_key(expected_filename)
 
     # Build candidate directory URLs: direct parent, then grandparents
     url_parts = metadata.url.rsplit("/", 1)
@@ -568,7 +659,7 @@ def _resolve_corrected_url(metadata: TDocMetadata, session: requests.Session | N
                     continue
                 full_url = urljoin(dir_url, href)
                 actual_filename = posixpath.basename(full_url)
-                if actual_filename.lower() == expected_lower:
+                if _normalized_archive_key(actual_filename) == expected_lower:
                     return full_url
 
     return None

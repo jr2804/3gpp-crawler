@@ -62,6 +62,9 @@ in the database, so an unmatched pattern exits 1 with
 All crawl and checkout commands exit 1 when per-item errors remain (every
 error is printed, never truncated); withdrawn TDocs count as skipped, not
 failed. `work-items enrich` follows the same rule via `summary.failed`.
+`tdoc checkout --workers/-j` (>1) downloads in parallel via per-TDoc sessions
+and records results in input order; the CLI owns only the option and progress
+reporting — the parallel loop lives in core `checkout_tdocs(..., workers=...)`.
 
 ## Import Direction
 

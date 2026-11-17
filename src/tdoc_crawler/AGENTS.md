@@ -142,7 +142,13 @@ non-empty error list exits 1 — never exit 0 with silently dropped meetings.
 result is a skip, not a failure: it increments `CheckoutResult.skipped_count`
 and is reported as `Skipped: N withdrawn`. Zip members whose directory name
 has trailing spaces/dots are sanitized to the on-disk spelling before the
-zip-slip check.
+zip-slip check. `--workers/-j` (core `checkout_tdocs(..., workers=...)`) runs
+downloads in a `ThreadPoolExecutor` with per-download sessions; results are
+merged in input order. A 0-byte or zero-member archive fails the checkout
+(`ValueError`), and a 0-byte response retries the corrected URL.
+`_resolve_corrected_url()` matches directory listings loosely (case-insensitive,
+whitespace/percent-encoding ignored) to find archives published under a
+trailing-space or case-variant filename such as `S4-250486 .zip`.
 
 WhatTheSpec records for TDocs without a document carry `link: ""`. Both
 `checkout_tdoc()` and `_resolve_archive()` reject an empty `metadata.url`

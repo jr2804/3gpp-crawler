@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 
 import typer
@@ -24,6 +25,7 @@ from tdoc_crawler.cli.args import (
     TDocIdArgument,
     UseWhatTheSpecOption,
     VerbosityOption,
+    WorkersOption,
 )
 from tdoc_crawler.cli.formatting import print_structured_output
 from tdoc_crawler.cli.printing import print_archive_members
@@ -54,6 +56,7 @@ def checkout_tdocs(
     prompt_credentials: PromptCredentialsOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
     output_format: OutputFormatOption = OutputFormat.TABLE,
+    workers: WorkersOption = 1,
 ) -> None:
     """Download and extract TDoc(s) to checkout folder."""
     set_verbosity(verbosity)
@@ -112,47 +115,57 @@ def checkout_tdocs(
 
         archives: list[ArchiveRecord] = []
 
-        with nullcontext() if machine else progress:
-            for metadata in results:
-                try:
-                    checkout_path = checkout_tdoc(
-                        metadata,
-                        checkout_dir,
-                        force=force,
-                        session=session,
-                        keep_zip=keep_zip,
-                        archive_sink=archives,
-                        extract=crawler_config.extract,
-                    )
+        def _checkout_one(metadata: TDocMetadata) -> tuple[str, str, str | None, list[ArchiveRecord]]:
+            """Checkout one TDoc; return (status, path, failure, archives)."""
+            item_archives: list[ArchiveRecord] = []
+            try:
+                checkout_path = checkout_tdoc(
+                    metadata,
+                    checkout_dir,
+                    force=force,
+                    session=None if workers > 1 else session,
+                    keep_zip=keep_zip,
+                    archive_sink=item_archives,
+                    extract=crawler_config.extract,
+                )
+                return ("ok", str(checkout_path), None, item_archives)
+            except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+                if str(exc) == "withdrawn":
+                    return ("skipped", "withdrawn", None, item_archives)
+                return ("failed", str(exc), f"{metadata.tdoc_id}: {exc}", item_archives)
 
-                    rows.append({"tdoc_id": metadata.tdoc_id, "status": "ok", "path": str(checkout_path)})
-
-                    if not machine:
-                        progress.console.print(f"[green]ok {metadata.tdoc_id} -> {checkout_path}")
-
-                    success_count += 1
-
-                except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
-                    # Withdrawn TDocs are skipped, not failures: nothing to download.
-                    if str(exc) == "withdrawn":
-                        rows.append({"tdoc_id": metadata.tdoc_id, "status": "skipped", "path": "withdrawn"})
-
-                        if not machine:
-                            progress.console.print(f"[yellow]SKIP {metadata.tdoc_id}: withdrawn")
-
-                        skipped_count += 1
-                        continue
-
-                    rows.append({"tdoc_id": metadata.tdoc_id, "status": "failed", "path": str(exc)})
-
-                    if not machine:
-                        progress.console.print(f"[red]FAIL {metadata.tdoc_id}: {exc}")
-
-                    failures.append(f"{metadata.tdoc_id}: {exc}")
-                    error_count += 1
-
+        def _record(metadata: TDocMetadata, outcome: tuple[str, str, str | None, list[ArchiveRecord]]) -> None:
+            nonlocal success_count, error_count, skipped_count
+            status, path, failure, item_archives = outcome
+            archives.extend(item_archives)
+            rows.append({"tdoc_id": metadata.tdoc_id, "status": status, "path": path})
+            if status == "ok":
                 if not machine:
-                    progress.advance(task)
+                    progress.console.print(f"[green]ok {metadata.tdoc_id} -> {path}")
+                success_count += 1
+            elif status == "skipped":
+                if not machine:
+                    progress.console.print(f"[yellow]SKIP {metadata.tdoc_id}: withdrawn")
+                skipped_count += 1
+            else:
+                if not machine:
+                    progress.console.print(f"[red]FAIL {metadata.tdoc_id}: {path}")
+                failures.append(failure or f"{metadata.tdoc_id}: unknown error")
+                error_count += 1
+            if not machine:
+                progress.advance(task)
+
+        with nullcontext() if machine else progress:
+            if workers <= 1:
+                for metadata in results:
+                    _record(metadata, _checkout_one(metadata))
+            else:
+                # Per-TDoc sessions keep parallel downloads thread-safe; results
+                # are recorded in input order for deterministic output.
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    futures = [executor.submit(_checkout_one, metadata) for metadata in results]
+                    for metadata, future in zip(results, futures, strict=False):
+                        _record(metadata, future.result())
 
         if archives:
 
