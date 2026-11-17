@@ -181,8 +181,8 @@ def _resolve_archive(metadata: TDocMetadata, checkout_dir: Path, *, session: req
         ValueError: If ``metadata.url`` is missing.
         FileNotFoundError: If the TDoc is withdrawn.
     """
-    if metadata.url is None:
-        msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None"
+    if not metadata.url or not metadata.url.strip():
+        msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: no download URL"
         raise ValueError(msg)
 
     if metadata.status == TDocStatus.WITHDRAWN:
@@ -198,8 +198,8 @@ def _resolve_archive(metadata: TDocMetadata, checkout_dir: Path, *, session: req
 
 def _download_loose_tdoc(metadata: TDocMetadata, checkout_dir: Path, filename: str, *, session: requests.Session | None) -> Path:
     """Download a non-zip TDoc under the mirror path and return its path."""
-    if metadata.url is None:
-        msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: URL is None"
+    if not metadata.url or not metadata.url.strip():
+        msg = f"Cannot prepare TDoc file for {metadata.tdoc_id}: no download URL"
         raise ValueError(msg)
     target_dir = get_checkout_path(metadata, checkout_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -403,6 +403,15 @@ def checkout_tdoc(
         msg = "withdrawn"
         raise FileNotFoundError(msg)
 
+    # Validate the URL *before* touching the filesystem: WhatTheSpec records
+    # for TDocs without a downloadable document carry an empty link, and
+    # creating the directory first used to leave empty ``<checkout>/<id>``
+    # folders behind (the path mirrors the URL, so an empty URL maps to the
+    # root of the checkout tree).
+    if not metadata.url or not metadata.url.strip():
+        msg = f"TDoc {metadata.tdoc_id} has no download URL (the metadata source provided no file link)"
+        raise ValueError(msg)
+
     checkout_path = get_checkout_path(metadata, checkout_dir)
 
     if checkout_path.exists() and not force:
@@ -414,10 +423,6 @@ def checkout_tdoc(
 
     checkout_path.mkdir(parents=True, exist_ok=True)
     temp_zip_file = checkout_path / f"{metadata.tdoc_id}.zip"
-
-    if metadata.url is None:
-        msg = f"TDoc {metadata.tdoc_id} has no URL"
-        raise ValueError(msg)
 
     try:
         try:

@@ -253,12 +253,13 @@ def download_to_file(
         ValueError: If URL scheme is not supported
         FileNotFoundError: If download fails
     """
-    target_file.parent.mkdir(parents=True, exist_ok=True)
     lowered = url.lower()
     allowed_schemes = ("ftp://", "http://", "https://")
     if not lowered.startswith(allowed_schemes):
-        msg = "unsupported-url-scheme"
+        msg = f"unsupported-url-scheme: {url!r}"
         raise ValueError(msg)
+
+    target_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Use provided session or create a new one (might be used for multiple downloads, so we don't want to create a new session for each)
     temp_session: requests.Session | None = None

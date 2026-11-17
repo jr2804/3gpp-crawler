@@ -195,9 +195,7 @@ class TestPortalUrlOnlyFetch:
     async def test_url_only_first_skips_metadata_sources(self, test_db_path: Path) -> None:
         config = TDocQueryConfig(tdoc_ids=["S4-251501"])
 
-        async def _fake_url_batch(
-            database: TDocDatabase, missing_ids: list[str], **_kwargs: object
-        ) -> TDocCrawlResult:
+        async def _fake_url_batch(database: TDocDatabase, missing_ids: list[str], **_kwargs: object) -> TDocCrawlResult:
             assert missing_ids == ["S4-251501"]
             await database.upsert_tdoc(_tdoc("S4-251501", url=TDOC_URL))
             return TDocCrawlResult(processed=1, inserted=1, updated=0, errors=[])

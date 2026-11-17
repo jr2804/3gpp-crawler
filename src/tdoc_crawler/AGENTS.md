@@ -130,6 +130,13 @@ Two invariants keep by-ID records from becoming orphans:
 normalized name (`S4-138`), fnmatch pattern, or meeting ID, and raises
 `MeetingPatternError` (CLI exit 1) for a pattern that matches nothing.
 
+WhatTheSpec records for TDocs without a document carry `link: ""`. Both
+`checkout_tdoc()` and `_resolve_archive()` reject an empty `metadata.url`
+with `no download URL` *before* creating directories: the checkout path
+mirrors the URL, so an empty URL would otherwise map to `<checkout>/<tdoc_id>`
+and strand an empty folder. `download_to_file()` likewise validates the URL
+scheme before creating parent directories.
+
 ## Agenda Hierarchy
 
 Document lists carry only the leaf agenda item a document was filed under.

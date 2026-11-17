@@ -176,6 +176,24 @@ class TestCheckoutTDoc:
         with pytest.raises(ValueError, match="unsupported-url-scheme"):
             checkout_tdoc(metadata, checkout_dir)
 
+    def test_missing_url_leaves_no_directory(
+        self,
+        sample_tdoc_metadata: TDocMetadata,
+        checkout_dir: Path,
+    ) -> None:
+        """Link-less metadata (WhatTheSpec) must not leave an empty checkout dir.
+
+        The checkout path mirrors the TDoc URL, so an empty URL maps to
+        ``<checkout>/<tdoc_id>``; creating that folder before validating the
+        URL used to strand empty directories for TDocs that have no document.
+        """
+        metadata = sample_tdoc_metadata.model_copy(update={"url": ""})
+
+        with pytest.raises(ValueError, match="no download URL"):
+            checkout_tdoc(metadata, checkout_dir)
+
+        assert not (checkout_dir / metadata.tdoc_id).exists()
+
     @patch("tdoc_crawler.tdocs.operations.checkout._resolve_corrected_url")
     @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
     def test_case_correct_fallback_on_bad_zip(
@@ -658,7 +676,7 @@ class TestPrepareTDocFile:
 
     def test_missing_url_raises(self, checkout_dir: Path) -> None:
         metadata = _make_metadata("S4-261602", None)
-        with pytest.raises(ValueError, match="URL is None"):
+        with pytest.raises(ValueError, match="no download URL"):
             prepare_tdoc_file(metadata, checkout_dir)
 
     @patch("tdoc_crawler.tdocs.operations.checkout.download_to_file")
