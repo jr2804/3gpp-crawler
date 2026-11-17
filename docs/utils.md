@@ -41,6 +41,10 @@ from the download URL, and the meetings of the TDoc's subgroup are fetched
 once when they are missing locally, so fetched records are stored with their
 meeting linkage instead of as orphans.
 
+A TDoc without any downloadable document (WhatTheSpec knows the ID but returns
+an empty link, e.g. a numbering gap or a meeting that is not published yet)
+fails immediately with `no download URL`; no checkout folder is created.
+
 ### `files`
 
 List the files inside a TDoc's zip archive. The first call reads the listing from the server (HTTP range reads, no full download) and stores it; later calls use the stored listing. `--refresh` re-reads it.

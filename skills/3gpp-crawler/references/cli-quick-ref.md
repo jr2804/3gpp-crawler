@@ -87,7 +87,8 @@ tdoc-crawler files S4-250638                  # list zip members (--refresh re-r
 A TDoc absent from the local DB is resolved by the public portal URL endpoint
 first (no credentials), then credentialed portal metadata, then WhatTheSpec.
 The meeting is linked from the download URL; the subgroup's meetings are
-fetched once if missing, so no orphan records are created.
+fetched once if missing, so no orphan records are created. An ID with no
+downloadable document fails fast with `no download URL` and creates no folder.
 
 ### stats
 
