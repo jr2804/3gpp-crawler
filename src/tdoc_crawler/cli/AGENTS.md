@@ -36,7 +36,7 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 | `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
 | `config_app.py` | `config init`, `show`, `validate`, `docs` |
 | `tag_app.py` | `tag add`, `remove`, `list` |
-| `database_app.py` | `database` (alias `db`): `clear-tdocs`, `clear-specs`, `clear-meetings`, `clear-all`, `export-tags`, `import-tags`; owns all destructive DB operations |
+| `database_app.py` | `database` (alias `db`): `clear-tdocs`, `clear-specs`, `clear-meetings`, `clear-all`, `export-tags`, `import-tags`; owns all destructive DB operations. Clears touch database rows only — `--purge-checkouts` is the sole opt-in that deletes downloaded files |
 | `mcp_app.py` | `mcp` command (Model Context Protocol server) |
 | `workitems_app.py` | `3gpp-crawler work-items` group: `crawl` + `enrich` (DynaReport lists / portal pages) and `query` + `audit` (catalogue) |
 | `meetings_app.py` | `3gpp-crawler meetings` group: `crawl` (meeting metadata) and `query` (meeting database) |

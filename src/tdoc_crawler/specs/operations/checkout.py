@@ -17,13 +17,13 @@ from tdoc_crawler.specs.sources.whatthespec import fetch_whatthespec_metadata
 
 
 def clear_checkout_specs(checkout_dir: Path) -> int:
-    """Clear spec checkout entries from the checkout directory.
+    """Delete the downloaded ``Specs`` subtree from the checkout directory.
 
-    Args:
-        checkout_dir: Base checkout directory
+    Destructive by design and never called automatically: only the explicit
+    ``--purge-checkouts`` switch on ``database clear-*`` reaches this helper.
 
     Returns:
-        Number of entries removed (always 1 if Specs directory existed)
+        1 when a ``Specs`` directory existed and was removed, else 0
     """
     specs_dir = checkout_dir / "Specs"
     if not specs_dir.exists():

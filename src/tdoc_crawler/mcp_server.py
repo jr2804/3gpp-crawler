@@ -563,22 +563,22 @@ def tag_list(
 
 @mcp.tool(
     name="database_clear_tdocs",
-    description="Delete all TDoc records and their checkout entries from the database (destructive)",
+    description="Delete all TDoc records from the database; downloaded files stay unless purge_checkouts is true (destructive)",
 )
-def database_clear_tdocs(confirm: bool = False) -> str:
+def database_clear_tdocs(confirm: bool = False, purge_checkouts: bool = False) -> str:
     if not confirm:
         return _DATABASE_REFUSAL
-    return _run_captured(cli_database_clear_tdocs)
+    return _run_captured(cli_database_clear_tdocs, purge_checkouts=purge_checkouts)
 
 
 @mcp.tool(
     name="database_clear_specs",
-    description="Delete all specification records and their checkout entries from the database (destructive)",
+    description="Delete all specification records from the database; the Specs checkout stays unless purge_checkouts is true (destructive)",
 )
-def database_clear_specs(confirm: bool = False) -> str:
+def database_clear_specs(confirm: bool = False, purge_checkouts: bool = False) -> str:
     if not confirm:
         return _DATABASE_REFUSAL
-    return _run_captured(cli_database_clear_specs)
+    return _run_captured(cli_database_clear_specs, purge_checkouts=purge_checkouts)
 
 
 @mcp.tool(
@@ -594,13 +594,15 @@ def database_clear_meetings(confirm: bool = False) -> str:
 @mcp.tool(
     name="database_clear_all",
     description=(
-        "Delete the whole database file and recreate it on next use, preserving tags (destructive; this is the rebuild path named by schema-mismatch errors)"
+        "Delete the whole database file and recreate it on next use, preserving "
+        "tags; downloaded files stay unless purge_checkouts is true (destructive; "
+        "this is the rebuild path named by schema-mismatch errors)"
     ),
 )
-def database_clear_all(confirm: bool = False) -> str:
+def database_clear_all(confirm: bool = False, purge_checkouts: bool = False) -> str:
     if not confirm:
         return _DATABASE_REFUSAL
-    return _run_captured(cli_database_clear_all, yes=True)
+    return _run_captured(cli_database_clear_all, yes=True, purge_checkouts=purge_checkouts)
 
 
 @mcp.tool(

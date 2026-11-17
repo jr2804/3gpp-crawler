@@ -52,12 +52,26 @@ YesOption = Annotated[
     typer.Option("--yes", "-y", help="Skip the confirmation prompt (for scripts)"),
 ]
 
+PurgeCheckoutsOption = Annotated[
+    bool,
+    typer.Option(
+        "--purge-checkouts",
+        help="Also delete the downloaded files (TDoc and/or Specs) from the checkout directory — irreversible",
+    ),
+]
+
 
 def clear_tdocs(
+    purge_checkouts: PurgeCheckoutsOption = False,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
-    """Delete all TDoc records (and their archive listings) from the database."""
+    """Delete all TDoc records (and their archive listings) from the database.
+
+    Downloaded files under the checkout directory are kept unless
+    ``--purge-checkouts`` is given: TDocs never change, so keeping them avoids
+    re-downloading a large collection during the next crawl.
+    """
     set_verbosity(verbosity)
     paths = _path_config(cache_dir)
 
@@ -67,16 +81,21 @@ def clear_tdocs(
 
     deleted = run_async(run())
     console.print(f"[yellow]Cleared {deleted} TDocs from database[/yellow]")
-    removed = clear_checkout_tdocs(paths.checkout_dir)
-    if removed:
-        console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
+    if purge_checkouts:
+        removed = clear_checkout_tdocs(paths.checkout_dir)
+        if removed:
+            console.print(f"[yellow]Deleted {removed} TDoc checkout entries from {paths.checkout_dir}[/yellow]")
 
 
 def clear_specs(
+    purge_checkouts: PurgeCheckoutsOption = False,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
-    """Delete all spec-related records (and their archive listings) from the database."""
+    """Delete all spec-related records (and their archive listings) from the database.
+
+    The ``Specs`` checkout subtree is kept unless ``--purge-checkouts`` is given.
+    """
     set_verbosity(verbosity)
     paths = _path_config(cache_dir)
 
@@ -87,8 +106,8 @@ def clear_specs(
     spec_counts = run_async(run())
     total_specs = sum(spec_counts.values())
     console.print(f"[yellow]Cleared {total_specs} spec rows from database[/yellow]")
-    if clear_checkout_specs(paths.checkout_dir):
-        console.print("[yellow]Cleared checkout entries for specs[/yellow]")
+    if purge_checkouts and clear_checkout_specs(paths.checkout_dir):
+        console.print(f"[yellow]Deleted the Specs checkout subtree from {paths.checkout_dir}[/yellow]")
 
 
 def clear_meetings(
@@ -109,15 +128,18 @@ def clear_meetings(
 
 def clear_all(
     yes: YesOption = False,
+    purge_checkouts: PurgeCheckoutsOption = False,
     cache_dir: CacheDirOption = None,
     verbosity: VerbosityOption = DEFAULT_VERBOSITY,
 ) -> None:
-    """Delete the entire database and rebuild it, preserving tags.
+    """Delete and rebuild the database, preserving tags.
 
     This is the rebuild path named by the schema-mismatch error: tags are
-    saved to a backup file, the database file is deleted, TDoc checkout
-    entries are cleared, the schema is recreated on the next open, and the
-    tags are re-imported.
+    saved to a backup file, the database file is deleted, the schema is
+    recreated on the next open, and the tags are re-imported. Downloaded
+    TDoc/spec files under the checkout directory are left in place — they
+    never change, so there is no reason to re-download them. Pass
+    ``--purge-checkouts`` to delete them too.
     """
     set_verbosity(verbosity)
     paths = _path_config(cache_dir)
@@ -132,9 +154,9 @@ def clear_all(
     if paths.db_file.exists():
         paths.db_file.unlink()
         console.print(f"[yellow]Deleted database file: {paths.db_file}[/yellow]")
-    removed = clear_checkout_tdocs(paths.checkout_dir)
-    if removed:
-        console.print(f"[yellow]Cleared {removed} checkout entries for TDocs[/yellow]")
+    if purge_checkouts:
+        removed = clear_checkout_tdocs(paths.checkout_dir, keep_specs=False)
+        console.print(f"[yellow]Deleted {removed} checkout entr{'y' if removed == 1 else 'ies'} from {paths.checkout_dir}[/yellow]")
 
     async def run() -> int:
         async with TDocDatabase(paths.db_file):

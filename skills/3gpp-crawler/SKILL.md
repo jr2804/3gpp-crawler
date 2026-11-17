@@ -127,7 +127,7 @@ migrations.
 | checkout | `checkout_tdocs`, `checkout_specs`, `list_tdoc_files`, `list_spec_files` |
 | main-file | `get_tdoc_main_file`, `main_file_set`, `main_file_show`, `main_file_list`, `main_file_clear`, `reclassify_main_files` |
 | tag | `tag_add`, `tag_remove`, `tag_list` |
-| database | `database_clear_tdocs`, `database_clear_specs`, `database_clear_meetings`, `database_clear_all` (destructive, need `confirm=true`), `database_export_tags`, `database_import_tags` |
+| database | `database_clear_tdocs`, `database_clear_specs`, `database_clear_meetings`, `database_clear_all` (destructive, need `confirm=true`; downloaded files stay unless `purge_checkouts=true`), `database_export_tags`, `database_import_tags` |
 | config | `config_show`, `config_validate` |
 
 `crawl_tdocs`, `crawl_meetings` and `query_meetings` take a `subgroup` list
@@ -177,6 +177,7 @@ parent work item, impacted specs) with the TDoc count per work item.
 - `tdoc checkout`/`tdoc open` resolve a TDoc missing from the DB through the public portal URL endpoint first (no credentials needed); the parent meeting is resolved from the download URL, and the subgroup's meetings are fetched once if missing, so the record is not stored as an orphan
 - A TDoc ID with no downloadable document (WhatTheSpec knows it but returns an empty link, e.g. a numbering gap or an unpublished meeting) fails with `no download URL`; no checkout folder is created — delete such empty folders from older versions
 - Sub-working groups go in `-s/--sub-group` (`S4`, `R1`, `C3`); `-w/--working-group` accepts only `RAN`/`SA`/`CT` and rejects `SA4` instead of silently dropping to `SA`
+- `database clear-*` never deletes the checkout directory unless you pass `--purge-checkouts`; TDocs never change, so a re-crawl reuses the downloads
 - Work item links (`--work-item`) come from the document list `Related WIs` column and the catalogue (`work-items query`) from the DynaReport lists (`work-items crawl` + `work-items enrich`); a database crawled before work item support has neither — `database clear-all` plus a re-crawl is required
 - Tags are independent per kind: a tag on a TDoc doesn't affect spec queries
 - DB lives at `~/.3gpp-crawler/3gpp_crawler.db` by default (configurable via `TDC_CACHE_DIR`). `[crawl].working_group`/`[crawl].sub_group` (or `TDC_WORKING_GROUP`/`TDC_SUB_GROUP`) provide default scope filters when `-w`/`-s` are omitted; CLI flags take precedence.

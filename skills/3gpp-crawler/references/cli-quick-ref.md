@@ -180,7 +180,14 @@ spec-crawler files 26260 --release 18.0            # list zip members (--refresh
 3gpp-crawler tag list --tag codec                # filter by tag
 3gpp-crawler database export-tags -f tags.json     # backup dump (natural keys)
 3gpp-crawler database import-tags tags.json        # batch import, skips existing
+3gpp-crawler database clear-all -y                 # drop DB records, KEEP downloads
+3gpp-crawler database clear-all -y --purge-checkouts  # also delete downloaded files
 ```
+
+`database clear-*` only touches the database. Downloading a large TDoc
+collection takes hours and TDocs never change, so the checkout directory
+survives by default; `--purge-checkouts` is the explicit destructive opt-in
+(also available as `purge_checkouts=true` on the MCP tools).
 
 ## 3gpp-crawler config
 

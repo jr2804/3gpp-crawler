@@ -44,6 +44,10 @@ Tools mirror the CLI groups:
 | database | `database_export_tags` | `database export-tags` |
 | database | `database_import_tags` | `database import-tags` |
 | config | `config_show` | `config show` |
+
+The `database_clear_*` tools delete records only. Downloaded TDoc and Spec
+files stay in the checkout directory unless `purge_checkouts=true` is passed;
+that is irreversible and rarely needed, because TDocs never change.
 | config | `config_validate` | `config validate` |
 
 Notable parameters: `query_tdocs` accepts a `tag` list (comma = OR,

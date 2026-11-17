@@ -252,20 +252,24 @@ def get_checked_out_tdocs(checkout_dir: Path) -> list[str]:
     return tdoc_ids
 
 
-def clear_checkout_tdocs(checkout_dir: Path) -> int:
-    """Clear TDoc checkout entries from the checkout directory.
+def clear_checkout_tdocs(checkout_dir: Path, *, keep_specs: bool = True) -> int:
+    """Delete downloaded TDoc files from the checkout directory.
+
+    Destructive by design and never called automatically: only the explicit
+    ``--purge-checkouts`` switch on ``database clear-*`` reaches this helper.
 
     Args:
         checkout_dir: Base checkout directory
+        keep_specs: Preserve the ``Specs`` subtree (TDoc-only clears)
 
     Returns:
-        Number of entries removed
+        Number of top-level entries removed
     """
     if not checkout_dir.exists():
         return 0
     removed = 0
     for entry in checkout_dir.iterdir():
-        if entry.name == "Specs":
+        if keep_specs and entry.name == "Specs":
             continue
         if entry.is_dir():
             shutil.rmtree(entry)

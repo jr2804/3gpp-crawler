@@ -1269,6 +1269,76 @@ class TestDatabaseCommand:
         assert remaining == []
         assert [(t.kind, t.item_id, t.tag) for t in tags] == [(TagKind.TDOC, "S4-250001", "keepme")]
 
+    def test_clear_all_keeps_checkout_files(
+        self,
+        test_db_path: Path,
+        test_cache_dir: Path,
+    ) -> None:
+        """Database commands never delete downloaded files on disk."""
+
+        async def seed() -> None:
+            async with TDocDatabase(test_db_path):
+                pass  # create the file
+
+        asyncio.run(seed())
+
+        checkout_dir = PathConfig(cache_dir=test_cache_dir).checkout_dir
+        tdoc_file = checkout_dir / "tsg_sa" / "WG4_CODEC" / "TSGS4_133-e" / "Docs" / "S4-250001" / "S4-250001.docx"
+        tdoc_file.parent.mkdir(parents=True)
+        tdoc_file.write_text("tdoc")
+        spec_file = checkout_dir / "Specs" / "24.301" / "24301-g00.zip"
+        spec_file.parent.mkdir(parents=True)
+        spec_file.write_text("spec")
+
+        result = runner.invoke(mgmt_app, ["database", "clear-all", "--yes"])
+
+        assert result.exit_code == 0, result.output
+        assert tdoc_file.exists()
+        assert spec_file.exists()
+
+    def test_selective_clears_keep_checkout_files(self, test_cache_dir: Path) -> None:
+        """`clear-tdocs` and `clear-specs` only touch the database."""
+        checkout_dir = PathConfig(cache_dir=test_cache_dir).checkout_dir
+        tdoc_file = checkout_dir / "tsg_sa" / "WG4_CODEC" / "TSGS4_133-e" / "Docs" / "S4-250002" / "S4-250002.docx"
+        tdoc_file.parent.mkdir(parents=True)
+        tdoc_file.write_text("tdoc")
+        spec_file = checkout_dir / "Specs" / "24.301" / "24301-g00.zip"
+        spec_file.parent.mkdir(parents=True)
+        spec_file.write_text("spec")
+
+        for command in ("clear-tdocs", "clear-specs"):
+            result = runner.invoke(mgmt_app, ["database", command])
+            assert result.exit_code == 0, result.output
+
+        assert tdoc_file.exists()
+        assert spec_file.exists()
+
+    def test_purge_checkouts_flag_deletes_files(self, test_db_path: Path, test_cache_dir: Path) -> None:
+        """`--purge-checkouts` is the only path that deletes downloaded files."""
+
+        async def seed() -> None:
+            async with TDocDatabase(test_db_path):
+                pass  # create the file
+
+        asyncio.run(seed())
+
+        checkout_dir = PathConfig(cache_dir=test_cache_dir).checkout_dir
+        tdoc_file = checkout_dir / "tsg_sa" / "WG4_CODEC" / "TSGS4_133-e" / "Docs" / "S4-250003" / "S4-250003.docx"
+        tdoc_file.parent.mkdir(parents=True)
+        tdoc_file.write_text("tdoc")
+        spec_file = checkout_dir / "Specs" / "24.301" / "24301-g00.zip"
+        spec_file.parent.mkdir(parents=True)
+        spec_file.write_text("spec")
+
+        result = runner.invoke(mgmt_app, ["database", "clear-tdocs", "--purge-checkouts"])
+        assert result.exit_code == 0, result.output
+        assert not tdoc_file.exists()
+        assert spec_file.exists()  # TDoc clears never touch Specs
+
+        result = runner.invoke(mgmt_app, ["database", "clear-all", "--yes", "--purge-checkouts"])
+        assert result.exit_code == 0, result.output
+        assert not spec_file.exists()
+
     def test_clear_all_prompts_and_aborts_without_yes(self, test_db_path: Path) -> None:
         """Without --yes, declining the confirmation keeps the database."""
 

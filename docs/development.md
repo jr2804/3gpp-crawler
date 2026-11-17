@@ -198,8 +198,9 @@ existing database whose tables/columns do not match the Oxyde models fails
 hard with `schema-mismatch` and the missing `table.column` list. Adding a
 model (e.g. `MainFileOverride`) therefore requires rebuilding the database
 with `3gpp-crawler database clear-all` (backs up tags, deletes the database
-file, clears TDoc checkout entries) and re-crawling. Never add an
-auto-create or auto-alter fallback to paper over it.
+file, keeps the downloaded TDocs) and re-crawling. Add `--purge-checkouts`
+only when the files themselves are suspect. Never add an auto-create or
+auto-alter fallback to paper over it.
 
 ## Design Principles
 

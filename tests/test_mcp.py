@@ -187,6 +187,19 @@ def test_mcp_enrich_work_items_forwards_filters(monkeypatch: pytest.MonkeyPatch)
     assert captured["limit"] == 3
 
 
+def test_mcp_database_clear_forwards_purge_checkouts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The checkout purge is opt-in and must reach the CLI layer unchanged."""
+    captured: dict[str, JSONValue] = {}
+
+    def fake_cli(**kwargs: JSONValue) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(mcp_server, "cli_database_clear_all", fake_cli)
+    mcp_server.database_clear_all(confirm=True, purge_checkouts=True)
+    assert captured["yes"] is True
+    assert captured["purge_checkouts"] is True
+
+
 def test_database_tools_refuse_without_confirm() -> None:
     """Destructive database tools must not run unless confirm=true is passed."""
     for fn in (
