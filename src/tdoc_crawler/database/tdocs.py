@@ -263,6 +263,36 @@ class TDocDatabase(MeetingDatabase):
         records = await TDocMetadata.objects.filter(tbid__in=allowed_tbids).all()
         return {record.tdoc_id for record in records}
 
+    @staticmethod
+    async def query_tdocs_by_meeting_ids(meeting_ids: Iterable[int]) -> list[TDocMetadata]:
+        """Return all TDocs linked to the given meeting IDs.
+
+        Used to snapshot metadata before and after a refresh so field-level
+        changes can be reported. Queries are chunked to respect SQLite's
+        host-variable limit.
+        """
+        ids = list(meeting_ids)
+        if not ids:
+            return []
+        records: list[TDocMetadata] = []
+        for i in range(0, len(ids), SQLITE_MAX_VARS):
+            chunk = ids[i : i + SQLITE_MAX_VARS]
+            records.extend(await TDocMetadata.objects.filter(meeting_id__in=chunk).all())
+        return records
+
+    async def update_tdoc_url(self, tdoc_id: str, url: str) -> bool:
+        """Persist a corrected document URL for one TDoc.
+
+        Returns True when the stored URL actually changed. ``date_updated`` is
+        refreshed so downstream consumers see the repair.
+        """
+        record = await self._get_tdoc(tdoc_id)
+        if record is None or record.url == url:
+            return False
+        corrected = self._clone_tdoc(record, {"url": url, "date_updated": utc_now()})
+        await corrected.save()
+        return True
+
     async def store_tdoc_work_items(self, work_items: dict[str, list[str]]) -> None:
         """Replace the stored work item references of the given TDocs.
 

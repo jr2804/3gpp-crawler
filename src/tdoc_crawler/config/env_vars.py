@@ -49,6 +49,7 @@ class ConfigEnvVar(StrEnum):
     TDC_SUB_GROUP = "crawl.sub_group"
     TDC_START_DATE = "crawl.date_start"
     TDC_END_DATE = "crawl.date_end"
+    TDC_REFRESH_LOOKBACK_DAYS = "crawl.refresh_lookback_days"
     TDC_LIMIT_TDOCS = "crawl.limit"
     TDC_WORKERS = "crawl.workers"
     TDC_LIMIT_MEETINGS = "crawl.limit_meetings"

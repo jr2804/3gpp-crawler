@@ -42,13 +42,25 @@ from tdoc_crawler.tdocs.operations.open import (
     resolve_tdoc_main_file,
 )
 from tdoc_crawler.tdocs.operations.reclassify import ReclassifyOutcome, reclassify_tdocs
+from tdoc_crawler.tdocs.operations.refresh import (
+    FieldChange,
+    MeetingRefreshSummary,
+    RefreshResult,
+    TDocChange,
+    diff_tdoc,
+    refresh_tdocs,
+)
 
 __all__ = [
     "CheckoutResult",
     "FetchMethod",
     "FetchMissingResult",
+    "FieldChange",
     "MeetingPatternError",
+    "MeetingRefreshSummary",
     "ReclassifyOutcome",
+    "RefreshResult",
+    "TDocChange",
     "TDocCrawlResult",
     "TDocCrawler",
     "TDocNotFoundError",
@@ -58,6 +70,7 @@ __all__ = [
     "checkout_tdocs",
     "clear_checkout_tdocs",
     "create_source",
+    "diff_tdoc",
     "fetch_missing_tdocs",
     "fetch_missing_tdocs_batch",
     "fetch_via_portal_url_batch",
@@ -71,6 +84,7 @@ __all__ = [
     "prepare_tdoc_file",
     "prepare_tdoc_selection",
     "reclassify_tdocs",
+    "refresh_tdocs",
     "resolve_main_file",
     "resolve_tdoc_main_file",
     "select_heuristic_main_file",

@@ -198,6 +198,12 @@ class CrawlConfig(BaseSettings):
         validation_alias=AliasChoices(ConfigEnvVar.TDC_END_DATE.name, "date_end"),
         description="End date filter (YYYY-MM-DD, YYYY-MM, or YYYY format)",
     )
+    refresh_lookback_days: int = Field(
+        default=14,
+        ge=1,
+        validation_alias=AliasChoices(ConfigEnvVar.TDC_REFRESH_LOOKBACK_DAYS.name, "refresh_lookback_days"),
+        description="Number of past days of meetings to re-scan on `tdoc refresh` (meetings that started within this window, including concluded ones)",
+    )
     limit: int = Field(
         default=1000,
         ge=1,

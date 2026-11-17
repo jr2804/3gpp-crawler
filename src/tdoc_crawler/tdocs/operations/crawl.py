@@ -56,7 +56,7 @@ class TDocCrawler:
         Returns:
             Summary of crawl results
         """
-        meetings = await self._get_meetings_to_crawl(config)
+        meetings = await self.get_meetings_to_crawl(config)
         if not meetings:
             logger.warning("No meetings found matching criteria")
             return TDocCrawlResult(processed=0, inserted=0, updated=0, errors=["No meetings found"])
@@ -98,7 +98,7 @@ class TDocCrawler:
             errors=errors,
         )
 
-    async def _get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list[MeetingMetadata]:
+    async def get_meetings_to_crawl(self, config: TDocCrawlConfig) -> list[MeetingMetadata]:
         """Query meetings from the database based on configuration filters."""
         meeting_config = MeetingQueryConfig(
             working_groups=config.working_groups,

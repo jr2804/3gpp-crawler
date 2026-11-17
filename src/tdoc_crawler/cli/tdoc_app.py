@@ -29,7 +29,7 @@ from tdoc_crawler.cli.args import (
 from tdoc_crawler.cli.checkout import checkout_tdocs, list_tdoc_files
 from tdoc_crawler.cli.config import load_cli_config
 from tdoc_crawler.cli.constants import HELP_PANEL_CRAWLING, HELP_PANEL_MAIN, HELP_PANEL_QUERY
-from tdoc_crawler.cli.crawl import crawl_tdocs
+from tdoc_crawler.cli.crawl import crawl_tdocs, refresh_meeting_tdocs
 from tdoc_crawler.cli.formatting import format_output
 from tdoc_crawler.cli.main_file_app import main_file_app
 from tdoc_crawler.cli.printing import statistics_to_dict
@@ -84,6 +84,7 @@ def _app_callback(
 
 # Register crawl commands
 tdoc_app.command("crawl", rich_help_panel=HELP_PANEL_CRAWLING)(crawl_tdocs)
+tdoc_app.command("refresh", rich_help_panel=HELP_PANEL_CRAWLING)(refresh_meeting_tdocs)
 
 
 # Register query commands

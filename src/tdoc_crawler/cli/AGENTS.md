@@ -31,7 +31,7 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 | Module | Responsibility |
 |--------|----------------|
 | `mgmt_app.py` | `3gpp-crawler` entry point; mounts `tdoc`, `spec`, `meetings`, `work-items`, `config`, `tag`, `database`, `cache`, `mcp` |
-| `tdoc_app.py` | `tdoc-crawler` entry point: crawl, query, open, stats, checkout; mounts `main-file` |
+| `tdoc_app.py` | `tdoc-crawler` entry point: crawl, refresh, query, open, stats, checkout; mounts `main-file` |
 | `main_file_app.py` | `tdoc main-file` group: `set`, `clear`, `show`, `list`, `reclassify` — manual overrides plus bulk re-classification of checked-out TDocs (`tdocs/operations/reclassify.py`) |
 | `spec_app.py` | `spec-crawler` entry point: crawl, query, checkout, open |
 | `config_app.py` | `config init`, `show`, `validate`, `docs` |
@@ -44,6 +44,7 @@ CLI-only code conventions for the `tdoc_crawler` CLI.
 | `checkout.py` | `tdoc checkout` command; standalone so `mcp_server` can import it without cycling through `tdoc_app` |
 | `specs.py` | `spec checkout` and `spec open` commands |
 | `crawl/`, `query/` | Command implementations for the crawl and query subcommands |
+| `crawl/refresh.py` | `tdoc refresh`: `--days` (lookback, default `crawl.refresh_lookback_days`), `--no-repair-urls`, `--output`, `--workers`; prints a per-meeting change table. Core logic in `tdocs/operations/refresh.py` |
 | `args.py` | Typer `Annotated` option and argument types |
 | `_shared.py` | Shared Typer helpers (`GlobSafeTyper`, `parse_scope` for `--working-group`/`--sub-group`) |
 | `utils.py`, `formatting.py`, `printing.py` | CLI helpers, output formatting, Rich tables |
@@ -65,6 +66,9 @@ failed. `work-items enrich` follows the same rule via `summary.failed`.
 `tdoc checkout --workers/-j` (>1) downloads in parallel via per-TDoc sessions
 and records results in input order; the CLI owns only the option and progress
 reporting — the parallel loop lives in core `checkout_tdocs(..., workers=...)`.
+`tdoc refresh` is a data-output command: it must accept `--output` and print
+per-meeting changes. It is exposed on both `tdoc-crawler` and
+`3gpp-crawler tdoc` (via `mgmt_app.py`).
 
 ## Import Direction
 

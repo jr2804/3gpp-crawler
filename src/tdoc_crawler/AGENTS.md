@@ -108,15 +108,11 @@ the document list `Related WIs` column.
 
 ## By-ID Fetching (checkout / open)
 
-`fetch_missing_tdocs()` resolves TDocs that the query did not return. Order:
-
-1. **Public portal URL endpoint** (`PortalClient.extract_tdoc_url()`, no
-   credentials) when `url_only_first=True` — checkout and open pass it, query
-   does not. A URL-only record has empty bibliographic fields; a later crawl
-   or credentialed fetch fills them in.
-2. Credentialed portal metadata (`fetch_missing_tdocs_batch`) when credentials
-   exist.
-3. WhatTheSpec (no credentials, or portal credential/network failure).
+`fetch_missing_tdocs()` resolves TDocs the query did not return, in order:
+(1) public portal URL endpoint (`PortalClient.extract_tdoc_url()`) when
+`url_only_first=True` — checkout/open pass it, query does not; URL-only records
+have empty bibliographic fields, (2) credentialed portal metadata when available,
+(3) WhatTheSpec (no credentials, or portal credential/network failure).
 
 Two invariants keep by-ID records from becoming orphans:
 
@@ -143,19 +139,22 @@ result is a skip, not a failure: it increments `CheckoutResult.skipped_count`
 and is reported as `Skipped: N withdrawn`. Zip members whose directory name
 has trailing spaces/dots are sanitized to the on-disk spelling before the
 zip-slip check. `--workers/-j` (core `checkout_tdocs(..., workers=...)`) runs
-downloads in a `ThreadPoolExecutor` with per-download sessions; results are
-merged in input order. A 0-byte or zero-member archive fails the checkout
-(`ValueError`), and a 0-byte response retries the corrected URL.
-`_resolve_corrected_url()` matches directory listings loosely (case-insensitive,
-whitespace/percent-encoding ignored) to find archives published under a
-trailing-space or case-variant filename such as `S4-250486 .zip`.
+downloads in a `ThreadPoolExecutor` with per-download sessions, merged in input
+order; a 0-byte or zero-member archive fails (`ValueError`), and 0-byte responses
+retry the corrected URL. `_resolve_corrected_url()` matches directory listings
+loosely (case/whitespace/encoding ignored) for names like `S4-250486 .zip`.
 
 WhatTheSpec records for TDocs without a document carry `link: ""`. Both
 `checkout_tdoc()` and `_resolve_archive()` reject an empty `metadata.url`
-with `no download URL` *before* creating directories: the checkout path
-mirrors the URL, so an empty URL would otherwise map to `<checkout>/<tdoc_id>`
-and strand an empty folder. `download_to_file()` likewise validates the URL
-scheme before creating parent directories.
+with `no download URL` *before* creating directories (the checkout path mirrors
+the URL); `download_to_file()` also validates the URL scheme first.
+
+`tdoc refresh` re-reads document lists for meetings started within
+`crawl.refresh_lookback_days` (default 14, concluded meetings included) with
+`incremental=False`. Core `tdocs/operations/refresh.py::refresh_tdocs()` snapshots
+before/after and reports field-level changes per meeting, and persists corrected
+URLs found by `_resolve_corrected_url()`; its change report excludes local
+bookkeeping fields (`date_updated`, `date_retrieved`, validated flags, file size).
 
 ## Agenda Hierarchy
 

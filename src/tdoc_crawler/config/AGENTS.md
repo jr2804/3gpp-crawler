@@ -37,6 +37,11 @@ main-document selection for TDoc archives: `selector` (`heuristic` |
 `systemone_model`, `systemone_min_confidence`, `systemone_timeout`). Selection
 logic lives in `tdocs/operations/main_file.py`, never in config.
 
+`CrawlConfig.refresh_lookback_days` (`crawl.refresh_lookback_days`, default 14,
+min 1) is the only relative-date setting: `tdoc refresh` uses it to select
+meetings that started within that many days, including concluded meetings.
+Keep absolute date filters (`date_start`/`date_end`) separate from this.
+
 `ExtractConfig` (`extract:`) configures zip extraction and is a plain
 `BaseModel`: file-only on purpose, no env prefix and no CLI flag.
 `flatten_single_root` (default true) lifts a single wrapper folder's contents
