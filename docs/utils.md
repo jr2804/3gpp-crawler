@@ -45,6 +45,10 @@ A TDoc without any downloadable document (WhatTheSpec knows the ID but returns
 an empty link, e.g. a numbering gap or a meeting that is not published yet)
 fails immediately with `no download URL`; no checkout folder is created.
 
+The command exits with code 1 when any TDoc fails, after printing every
+failure reason. Withdrawn TDocs are reported as skipped and do not fail the
+run.
+
 Extraction is configurable per config file (`[extract]`, no CLI flag or env
 var): `flatten_single_root = true` (default) moves the contents of a single
 top-level wrapper folder into the TDoc folder root, so an archive containing

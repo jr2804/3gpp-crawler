@@ -62,9 +62,19 @@ def safe_extract_zip(
                 name = name[len(prefix) :]
                 if not name:
                     continue
+            # Windows path segments cannot end with a space or dot: the OS
+            # silently strips them, so the resolved path would no longer match
+            # the target directory and the member would be refused as an
+            # "escape". Sanitize each segment instead (e.g. ``"S4aA260016 … /"``
+            # becomes ``"S4aA260016 …/"``), keeping the layout extractable.
+            name = _sanitize_member_path(name)
             member_path = (extract_dir / name).resolve()
             if not str(member_path).startswith(str(extract_dir)):
-                msg = f"Zip member {member.filename!r} escapes target directory {extract_dir}"
+                msg = (
+                    f"Zip member {member.filename!r} escapes target directory {extract_dir} "
+                    "(the archive itself downloaded successfully; this member path "
+                    "is not extractable on this platform)"
+                )
                 raise ValueError(msg)
             if name.endswith("/"):
                 member_path.mkdir(parents=True, exist_ok=True)
@@ -72,6 +82,30 @@ def safe_extract_zip(
             member_path.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(member) as source, member_path.open("wb") as target:
                 shutil.copyfileobj(source, target)
+
+
+def _sanitize_member_path(name: str) -> str:
+    """Strip trailing spaces/dots from each path segment of a zip member.
+
+    Windows cannot represent a segment ending in a space or dot on disk and
+    silently strips it, which used to trip the zip-slip guard. Each segment
+    is sanitized instead (e.g. ``"S4aA260016 … /"`` becomes
+    ``"S4aA260016 …/"``), keeping the layout extractable.
+
+    ``.``, ``..`` and a leading ``/`` are preserved verbatim so the
+    zip-slip guard still sees (and rejects) genuine escapes; an emptied
+    segment (e.g. ``"..."``) becomes ``"_"`` so the member stays
+    addressable.
+    """
+    is_dir = name.endswith("/")
+    segments = [segment for segment in name.split("/") if segment != ""]
+    sanitized = [segment if segment in (".", "..") else segment.rstrip(" .") or "_" for segment in segments]
+    rebuilt = "/".join(sanitized)
+    if name.startswith("/"):
+        rebuilt = f"/{rebuilt}"
+    if is_dir:
+        rebuilt = f"{rebuilt}/"
+    return rebuilt
 
 
 def _matches(spec: GitIgnoreSpec | None, name: str) -> bool:

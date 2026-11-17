@@ -59,6 +59,10 @@ meetings to crawl. The patterns are matched in the CLI against meetings already
 in the database, so an unmatched pattern exits 1 with
 `MeetingPatternError` — never silently crawl everything.
 
+All crawl and checkout commands exit 1 when per-item errors remain (every
+error is printed, never truncated); withdrawn TDocs count as skipped, not
+failed. `work-items enrich` follows the same rule via `summary.failed`.
+
 ## Import Direction
 
 - CLI (`cli/`) → Core (`tdoc_crawler/`)

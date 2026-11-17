@@ -19,6 +19,7 @@ tdoc-crawler crawl -m 12345                      # numeric meeting ID
 
 `-m/--meeting` is repeatable and narrows which meetings' document lists are
 fetched; a pattern that matches no locally known meeting fails the crawl.
+A leading `3GPP` is ignored (`-m SA4#134` matches `3GPPSA4#134`).
 
 ### query (qt)
 
@@ -89,6 +90,8 @@ first (no credentials), then credentialed portal metadata, then WhatTheSpec.
 The meeting is linked from the download URL; the subgroup's meetings are
 fetched once if missing, so no orphan records are created. An ID with no
 downloadable document fails fast with `no download URL` and creates no folder.
+Checkout exits 1 after listing every failed TDoc; withdrawn TDocs are skipped
+without failing the run.
 
 Extraction options live in `[extract]` of a config file (no flag or env var):
 `flatten_single_root = true` (default) extracts a single wrapper folder's

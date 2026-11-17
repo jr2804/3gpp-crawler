@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import typer
+
 from tdoc_crawler.cli._shared import console
 from tdoc_crawler.database.oxyde_models import MeetingMetadata
 from tdoc_crawler.meetings.operations.crawl import MeetingCrawlResult
@@ -44,8 +46,9 @@ def _print_crawl_result(result: TDocCrawlResult, throughput: float) -> None:
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
     if result.errors:
         console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
-        for error in result.errors[:5]:
+        for error in result.errors:
             console.print(f"  - {error}")
+        raise typer.Exit(code=1)
 
 
 def _print_meeting_crawl_result(result: MeetingCrawlResult) -> None:
@@ -53,5 +56,6 @@ def _print_meeting_crawl_result(result: MeetingCrawlResult) -> None:
     console.print(f"[green]Inserted {result.inserted}, updated {result.updated}[/green]")
     if result.errors:
         console.print(f"[yellow]{len(result.errors)} issues detected[/yellow]")
-        for error in result.errors[:5]:
+        for error in result.errors:
             console.print(f"  - {error}")
+        raise typer.Exit(code=1)

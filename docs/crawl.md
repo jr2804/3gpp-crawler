@@ -46,11 +46,11 @@ Crawl TDoc metadata from the 3GPP FTP server.
 |--------|-------------|
 | `-w, --working-group WG` | Working groups to crawl (repeatable). |
 | `-s, --sub-group SG` | Sub-working groups to crawl (repeatable). |
-| `-m, --meeting PATTERN` | Restrict the crawl to meetings (repeatable): portal short name (`SA4#138`), normalized name (`S4-138`), fnmatch wildcard (`SA4#13*`), or numeric meeting ID. A pattern that matches no locally known meeting fails the crawl. |
+| `-m, --meeting PATTERN` | Restrict the crawl to meetings (repeatable): portal short name (`SA4#138`), normalized name (`S4-138`), fnmatch wildcard (`SA4#13*`), or numeric meeting ID. A leading `3GPP` on either side is ignored (`SA4#134` matches a meeting stored as `3GPPSA4#134`). A pattern that matches no locally known meeting fails the crawl with suggestions. |
 | `--incremental / --full` | Incremental skips existing TDocs. |
 | `--workers N` | Parallel workers (default: 4). |
 | `--executor TYPE` | Advanced (hidden from `--help`): `serial`, `threading`, `multiprocessing`, `subinterpreter`. |
-| `--timeout / --max-retries` | Per-request timeout and retry count. |
+| `--timeout / --max-retries` | Per-request timeout and retry count for meeting document lists (default 3 retries with backoff); a meeting that keeps failing is reported per meeting instead of silently dropped. |
 | `--checkout` | Download and extract crawled TDocs to the checkout folder. |
 | `--start-date / --end-date` | ISO 8601 date filters. |
 | `--source / --title / --agenda` | Glob patterns; `-ex` variants exclude. |
@@ -72,6 +72,9 @@ The meeting's agenda document (the document-list row of type `agenda`) is
 parsed during the crawl to recover the parent agenda items that the document
 list does not contain. Agenda filters then match leaf and parent items
 together — see [Querying metadata](query.md).
+
+A crawl that ends with per-meeting errors lists every failed meeting and
+exits with code 1, so a dropped meeting can no longer pass as a clean run.
 
 ### `crawl` (work items)
 
@@ -95,7 +98,10 @@ publishes its own current list, including in-flight work items.
 Without `-w`/`-s` the lead bodies are discovered from the global
 `WI-List` page. `work-items enrich` then fills status, parent/child and
 spec/CR links from the portal detail pages, and `work-items audit` compares
-the catalogue against the global list.
+the catalogue against the global list. Transient blocks (HTTP 403/429) are
+retried with backoff; a genuinely missing page fails fast as `not found`.
+The command lists every failure and exits with code 1 while any work item
+remains unfilled.
 
 ### `crawl` (specs)
 

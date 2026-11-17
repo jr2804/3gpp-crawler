@@ -996,6 +996,88 @@ class TestCheckoutCommand:
         # Should report issues in output
         assert "issues detected" in result.stdout.lower() or "error" in result.stdout.lower()
 
+    @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
+    @patch("tdoc_crawler.cli.checkout.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.checkout.TDocDatabase")
+    def test_checkout_failure_lists_reasons_and_exits_nonzero(
+        self,
+        mock_db_class: MagicMock,
+        mock_fetch: MagicMock,
+        mock_checkout: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """A failed checkout exits 1 and prints every failure reason (issue #2)."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_tdocs.return_value = []
+        tdoc1 = self._checkout_metadata("S4-260001")
+        tdoc2 = self._checkout_metadata("S4-260002")
+        mock_fetch.return_value = self._fetch_result([tdoc1, tdoc2])
+
+        def _checkout(metadata: TDocMetadata, *args: object, **kwargs: object) -> Path:
+            if metadata.tdoc_id == "S4-260002":
+                raise ValueError("boom")
+            return test_cache_dir / metadata.tdoc_id
+
+        mock_checkout.side_effect = _checkout
+
+        result = runner.invoke(tdoc_app, ["checkout", "S4-260001", "S4-260002"])
+
+        assert result.exit_code == 1
+        assert "S4-260002: boom" in result.stdout
+
+    @patch("tdoc_crawler.cli.checkout.checkout_tdoc")
+    @patch("tdoc_crawler.cli.checkout.fetch_missing_tdocs")
+    @patch("tdoc_crawler.cli.checkout.TDocDatabase")
+    def test_checkout_withdrawn_is_skipped_not_failed(
+        self,
+        mock_db_class: MagicMock,
+        mock_fetch: MagicMock,
+        mock_checkout: MagicMock,
+        test_cache_dir: Path,
+    ) -> None:
+        """A withdrawn TDoc is reported as skipped and does not fail the run."""
+        mock_db = MagicMock(spec=TDocDatabase)
+        mock_db_class.return_value.__enter__.return_value = mock_db
+        mock_db.query_tdocs.return_value = []
+        mock_fetch.return_value = self._fetch_result([self._checkout_metadata("S4-260001")])
+        mock_checkout.side_effect = FileNotFoundError("withdrawn")
+
+        result = runner.invoke(tdoc_app, ["checkout", "S4-260001"])
+
+        assert result.exit_code == 0
+        assert "Skipped" in result.stdout
+        assert "Failed" not in result.stdout
+
+    @staticmethod
+    def _checkout_metadata(tdoc_id: str) -> TDocMetadata:
+        return TDocMetadata(
+            tdoc_id=tdoc_id,
+            meeting_id=123,
+            title="test document",
+            url=f"https://www.3gpp.org/tsg_sa/WG4/{tdoc_id.lower()}.zip",
+            source="SA WG4 Chair",
+            contact="Test Contact",
+            tdoc_type="discussion",
+            agenda_item_text="Test agenda item text",
+            for_purpose="Discussion",
+            agenda_item_nbr="3",
+            status="available",
+            validated=False,
+            validation_failed=False,
+            is_revision_of=None,
+            file_size=None,
+            date_created=None,
+        )
+
+    @staticmethod
+    def _fetch_result(tdocs: list[TDocMetadata]) -> FetchMissingResult:
+        return FetchMissingResult(
+            refreshed=tdocs,
+            fetch_result=TDocCrawlResult(processed=len(tdocs), inserted=0, updated=0, errors=[]),
+            used_whatthespec_fallback=False,
+        )
+
 
 class TestEnvironmentVariables:
     """Tests for environment variable support in CLI options."""

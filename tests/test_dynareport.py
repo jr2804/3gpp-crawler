@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
+import niquests
 import pytest
 
 from tdoc_crawler.workitems import (
@@ -15,6 +18,7 @@ from tdoc_crawler.workitems import (
     wg_work_items_url,
     work_item_details_url,
 )
+from tdoc_crawler.workitems.sources.dynareport import _fetch_html
 
 _WG_PAGE = """
 <html><body><table>
@@ -173,3 +177,73 @@ class TestUrlBuilders:
     def test_urls_use_dynareport_templates(self) -> None:
         assert wg_work_items_url("s4") == "https://www.3gpp.org/dynareport?code=TSG-WG--S4--wis.htm"
         assert work_item_details_url(1120096) == "https://portal.3gpp.org/desktopmodules/WorkItem/WorkItemDetails.aspx?workitemId=1120096"
+
+
+class TestFetchHtmlRetry:
+    """Transient DynaReport blocks (403/429) are retried; 404 fails fast."""
+
+    def test_403_then_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A blocked first attempt is retried and the page is returned."""
+        monkeypatch.setattr("time.sleep", lambda _seconds: None)
+        session = self._ok_session(self._http_error(403), self._ok_response())
+
+        html = _fetch_html(
+            "https://www.3gpp.org/dynareport?code=WiSpec--430046.htm",
+            timeout=5,
+            http_config=None,
+            http_cache_file=None,
+            session=session,
+        )
+
+        assert html == "<html>ok</html>"
+        assert session.get.call_count == 2
+
+    def test_persistent_403_raises_after_retries(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Three blocked attempts raise instead of silently returning nothing."""
+        monkeypatch.setattr("time.sleep", lambda _seconds: None)
+        session = self._ok_session(*(self._http_error(403) for _ in range(5)))
+
+        with pytest.raises(WorkItemSourceError, match="Failed to fetch"):
+            _fetch_html(
+                "https://www.3gpp.org/dynareport?code=WiSpec--430046.htm",
+                timeout=5,
+                http_config=None,
+                http_cache_file=None,
+                session=session,
+            )
+
+        assert session.get.call_count == 3
+
+    def test_404_fails_immediately(self) -> None:
+        """A genuinely missing page is reported as not found without retry."""
+        session = self._ok_session(self._http_error(404))
+
+        with pytest.raises(WorkItemSourceError, match="not found"):
+            _fetch_html(
+                "https://www.3gpp.org/dynareport?code=WiSpec--0.htm",
+                timeout=5,
+                http_config=None,
+                http_cache_file=None,
+                session=session,
+            )
+
+        assert session.get.call_count == 1
+
+    @staticmethod
+    def _http_error(status: int) -> niquests.HTTPError:
+        exc = niquests.HTTPError(f"{status} Client Error")
+        exc.response = MagicMock(status_code=status)
+        return exc
+
+    @staticmethod
+    def _ok_session(*effects: object) -> MagicMock:
+        session = MagicMock()
+        session.get.side_effect = list(effects)
+        return session
+
+    @staticmethod
+    def _ok_response() -> MagicMock:
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.text = "<html>ok</html>"
+        return response

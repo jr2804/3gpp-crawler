@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from tdoc_crawler.cli._shared import console, parse_scope, resolve_scope_args
@@ -153,8 +154,12 @@ def enrich_work_items_command(
             console.print(f"[yellow]{summary.skipped} skipped, {summary.failed} failed[/yellow]")
         for error in summary.errors:
             console.print(f"  [dim]{error}[/dim]")
+        if summary.failed:
+            raise typer.Exit(code=1)
         return
     console.print(format_output([payload], output_format))
+    if summary.failed:
+        raise typer.Exit(code=1)
 
 
 def _load_config(cache_dir: Path | None, verbosity: LogLevel) -> tuple[ThreeGPPConfig, PathConfig]:

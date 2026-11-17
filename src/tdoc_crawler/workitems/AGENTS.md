@@ -44,6 +44,8 @@ and `cli/AGENTS.md`; this package must not import either.
   `N2`, `T3`, `SMG`, `GP`, …); `normalize_wg_codes` passes them through
   uppercased.
 - Fetchers accept `session=` so enrichment walks many WIs on one session.
+- DynaReport detail fetch retries HTTP 403/429 (3 attempts, backoff) and fails
+  fast on 404; `work-items enrich` exits 1 while any item stays unfilled.
 - Do not scrape `Specifications.aspx`/`ChangeRequests.aspx` grids or
   `WorkItems.aspx` — they render through Telerik postbacks and need a login.
   The FTP work plan spreadsheet (`Work_plan_*.xlsx`) was removed on purpose:

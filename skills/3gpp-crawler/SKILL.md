@@ -173,7 +173,8 @@ parent work item, impacted specs) with the TDoc count per work item.
 ## Gotchas
 
 - `meetings crawl` must run before `crawl` — TDocs reference meeting metadata
-- `tdoc crawl -m 'SA4#138'` narrows a crawl to selected meetings (portal short name, normalized `S4-138`, wildcard `SA4#13*`, or numeric ID); a pattern that matches no locally known meeting fails the crawl instead of silently crawling nothing
+- `tdoc crawl -m 'SA4#138'` narrows a crawl to selected meetings (portal short name, normalized `S4-138`, wildcard `SA4#13*`, or numeric ID; a leading `3GPP` is ignored); a pattern that matches no locally known meeting fails the crawl instead of silently crawling nothing
+- `tdoc checkout` exits 1 when any TDoc fails (every failure is listed); withdrawn TDocs are reported as skipped and do not fail the run
 - `tdoc checkout`/`tdoc open` resolve a TDoc missing from the DB through the public portal URL endpoint first (no credentials needed); the parent meeting is resolved from the download URL, and the subgroup's meetings are fetched once if missing, so the record is not stored as an orphan
 - A TDoc ID with no downloadable document (WhatTheSpec knows it but returns an empty link, e.g. a numbering gap or an unpublished meeting) fails with `no download URL`; no checkout folder is created — delete such empty folders from older versions
 - Extraction honours `[extract]` from a config file only (no CLI flag, no env var): `flatten_single_root = true` (default) lifts a single wrapper folder's contents to the TDoc folder root; `exclude` holds gitignore-style patterns (defaults `.git/`, `.hg/`, `.svn/`) skipped during extraction while the built-in clutter rules (`__MACOSX/`, `.DS_Store`, `~$*`, …) still apply

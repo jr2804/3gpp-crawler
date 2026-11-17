@@ -137,34 +137,70 @@ class TDocCrawler:
 
         start_time = time.monotonic()
 
-        with executor:
-            futures = self._submit_meeting_futures(executor, meetings, config)
+        pending = list(meetings)
+        attempts = 0
 
-            for future in as_completed(futures):
-                meeting = futures[future]
-                json_payload = self._handle_future_error(future, meeting, errors)
-                if json_payload is None:
+        with executor:
+            while pending:
+                futures = self._submit_meeting_futures(executor, pending, config)
+                attempt_errors: list[str] = []
+                failed: list[MeetingMetadata] = []
+                stop = False
+
+                for future in as_completed(futures):
+                    meeting = futures[future]
+                    json_payload = self._handle_future_error(future, meeting, attempt_errors)
+                    if json_payload is None:
+                        failed.append(meeting)
+                        continue
+
+                    errors_before = len(attempt_errors)
+                    limit_reached = self._process_document_list_response(
+                        json_payload,
+                        meeting,
+                        collected,
+                        work_items,
+                        agenda_items,
+                        seen_ids,
+                        existing_ids,
+                        config.incremental,
+                        targets,
+                        max_tdocs,
+                        attempt_errors,
+                    )
+                    if len(attempt_errors) > errors_before:
+                        # Transient portal failure (timeout, 5xx, unparsable)
+                        # recorded inside _process_document_list_response.
+                        failed.append(meeting)
+                        continue
+
+                    timeout_exceeded, elapsed = self._timeout_exceeded(config.overall_timeout, start_time)
+                    if self._should_stop_processing(limit_reached, targets, timeout_exceeded):
+                        self._cancel_pending_futures(futures)
+                        self._append_timeout_error_if_needed(timeout_exceeded, config.overall_timeout, elapsed, attempt_errors)
+                        stop = True
+                        break
+
+                if stop:
+                    errors.extend(attempt_errors)
+                    break
+
+                if failed and attempts < config.max_retries:
+                    # Errors from this attempt belong to meetings we retry;
+                    # drop them so the final report lists each failure once.
+                    attempts += 1
+                    logger.warning(
+                        "Retrying %d failed meeting(s) (attempt %d of %d)",
+                        len(failed),
+                        attempts + 1,
+                        config.max_retries + 1,
+                    )
+                    time.sleep(min(2 * attempts, 10))
+                    pending = failed
                     continue
 
-                limit_reached = self._process_document_list_response(
-                    json_payload,
-                    meeting,
-                    collected,
-                    work_items,
-                    agenda_items,
-                    seen_ids,
-                    existing_ids,
-                    config.incremental,
-                    targets,
-                    max_tdocs,
-                    errors,
-                )
-
-                timeout_exceeded, elapsed = self._timeout_exceeded(config.overall_timeout, start_time)
-                if self._should_stop_processing(limit_reached, targets, timeout_exceeded):
-                    self._cancel_pending_futures(futures)
-                    self._append_timeout_error_if_needed(timeout_exceeded, config.overall_timeout, elapsed, errors)
-                    break
+                errors.extend(attempt_errors)
+                break
 
         return errors
 
@@ -458,8 +494,10 @@ def filter_meetings_by_patterns(
 
     Patterns accept the portal spelling (``SA4#138``), the normalized database
     spelling (``S4-138``), ``fnmatch`` wildcards (``SA4#13*``), and plain
-    numeric meeting IDs. Every pattern must match at least one meeting —
-    silently crawling nothing is worse than failing loudly.
+    numeric meeting IDs. A leading ``3GPP`` on either side is ignored, so
+    ``SA4#134`` matches a meeting stored as ``3GPPSA4#134``. Every pattern
+    must match at least one meeting — silently crawling nothing is worse
+    than failing loudly.
     """
     if not patterns:
         return meetings
@@ -477,7 +515,9 @@ def filter_meetings_by_patterns(
         matched_ids.update(meeting.meeting_id for meeting in matches)
 
     if unmatched:
-        msg = f"No meetings matched: {', '.join(unmatched)}"
+        known = sorted({meeting.short_name for meeting in meetings if meeting.short_name})[:10]
+        hint = f" (known meetings include: {', '.join(known)})" if known else ""
+        msg = f"No meetings matched: {', '.join(unmatched)}{hint}"
         raise MeetingPatternError(msg)
     return [meeting for meeting in meetings if meeting.meeting_id in matched_ids]
 
@@ -493,9 +533,28 @@ def _meeting_matches_pattern(meeting: MeetingMetadata, pattern: str) -> bool:
 
     raw_pattern = pattern.upper()
     normalized_pattern = normalize_portal_meeting_name(raw_pattern).upper()
-    candidates = {short_name, normalize_portal_meeting_name(short_name).upper()}
-    candidate_patterns = {raw_pattern, normalized_pattern}
+    candidates = {
+        short_name,
+        _strip_3gpp_prefix(short_name),
+        normalize_portal_meeting_name(short_name).upper(),
+        normalize_portal_meeting_name(_strip_3gpp_prefix(short_name)).upper(),
+    }
+    candidate_patterns = {
+        raw_pattern,
+        _strip_3gpp_prefix(raw_pattern),
+        normalized_pattern,
+        normalize_portal_meeting_name(_strip_3gpp_prefix(raw_pattern)).upper(),
+    }
     return any(fnmatch.fnmatchcase(candidate, candidate_pattern) for candidate in candidates for candidate_pattern in candidate_patterns)
+
+
+def _strip_3gpp_prefix(name: str) -> str:
+    """Strip a leading ``3GPP`` from a meeting short name for matching.
+
+    The portal spells some meetings ``3GPPSA4#134`` while the documented
+    pattern form is ``SA4#134``; both denote the same meeting.
+    """
+    return name[4:] if name.startswith("3GPP") else name
 
 
 __all__ = [

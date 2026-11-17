@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,8 +12,8 @@ import pytest
 from tdoc_crawler.database import TDocDatabase
 from tdoc_crawler.database.oxyde_models import MeetingMetadata, TDocMetadata
 from tdoc_crawler.parsers.portal import PortalParsingError
-from tdoc_crawler.tdocs.models import TDocQueryConfig
-from tdoc_crawler.tdocs.operations.crawl import MeetingPatternError, TDocCrawlResult, filter_meetings_by_patterns
+from tdoc_crawler.tdocs.models import TDocCrawlConfig, TDocQueryConfig
+from tdoc_crawler.tdocs.operations.crawl import MeetingPatternError, TDocCrawler, TDocCrawlResult, filter_meetings_by_patterns
 from tdoc_crawler.tdocs.operations.fetch import (
     ensure_meeting_links,
     fetch_missing_tdocs,
@@ -78,6 +80,24 @@ class TestFilterMeetingsByPatterns:
     def test_accepts_numeric_id(self) -> None:
         matched = filter_meetings_by_patterns(MEETINGS, ["12347"])
         assert [meeting.meeting_id for meeting in matched] == [12347]
+
+    def test_ignores_3gpp_prefix_on_meeting(self) -> None:
+        """A meeting stored as ``3GPPSA4#140`` matches pattern ``SA4#140``."""
+        meetings = [
+            *MEETINGS,
+            _meeting(12348, "3GPPSA4#140", "https://www.3gpp.org/ftp/tsg_sa/WG4_CODEC/TSGS4_140/Docs/"),
+        ]
+        matched = filter_meetings_by_patterns(meetings, ["SA4#140"])
+        assert [meeting.meeting_id for meeting in matched] == [12348]
+
+    def test_ignores_3gpp_prefix_on_pattern(self) -> None:
+        """Pattern ``3GPPSA4#138`` matches a meeting stored as ``SA4#138``."""
+        matched = filter_meetings_by_patterns(MEETINGS, ["3GPPSA4#138"])
+        assert [meeting.meeting_id for meeting in matched] == [12345]
+
+    def test_unmatched_error_suggests_known_meetings(self) -> None:
+        with pytest.raises(MeetingPatternError, match="known meetings include"):
+            filter_meetings_by_patterns(MEETINGS, ["SA9#999"])
 
     def test_unmatched_pattern_raises(self) -> None:
         with pytest.raises(MeetingPatternError, match=r"No meetings matched: SA4#999"):
@@ -222,6 +242,86 @@ class TestPortalUrlOnlyFetch:
         assert [item.tdoc_id for item in fetch_result.refreshed] == ["S4-251501"]
         assert fetch_result.fetch_result is not None
         assert fetch_result.fetch_result.inserted == 1
+
+
+class TestCrawlMeetingRetry:
+    """A meeting whose document list fails transiently is retried, not dropped."""
+
+    def test_failed_meeting_retried_then_succeeds(self, monkeypatch: pytest.MonkeyPatch, test_db_path: Path) -> None:
+        """First attempt times out, second succeeds: no error, TDoc collected."""
+        error_payload = json.dumps({"_error": {"error": "portal document list timed out"}})
+        calls = {"count": 0}
+
+        def _fake_worker(*, meeting_id: int, timeout: int, http_config: object, files_url: str | None) -> str:
+            calls["count"] += 1
+            return error_payload if calls["count"] == 1 else TestCrawlMeetingRetry._ok_payload()
+
+        monkeypatch.setattr(
+            "tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter",
+            _fake_worker,
+        )
+        monkeypatch.setattr("time.sleep", lambda _seconds: None)
+
+        async def _run() -> tuple[list[str], list[TDocMetadata]]:
+            async with TDocDatabase(test_db_path) as database:
+                crawler = TDocCrawler(database)
+                config = TDocCrawlConfig(workers=1, incremental=False)
+                collected: list[TDocMetadata] = []
+                errors = crawler._crawl_meetings(
+                    [_meeting(12345, "SA4#138", DOCS_SA4_138)],
+                    config,
+                    collected,
+                    {},
+                    {},
+                    set(),
+                    None,
+                )
+                return errors, collected
+
+        errors, collected = asyncio.run(_run())
+        assert errors == []
+        assert [item.tdoc_id for item in collected] == ["S4-900001"]
+        assert calls["count"] == 2
+
+    def test_persistent_failure_reported_once(self, monkeypatch: pytest.MonkeyPatch, test_db_path: Path) -> None:
+        """A meeting failing every attempt is reported exactly once."""
+        error_payload = json.dumps({"_error": {"error": "portal document list timed out"}})
+        calls = {"count": 0}
+
+        def _fake_worker(*, meeting_id: int, timeout: int, http_config: object, files_url: str | None) -> str:
+            calls["count"] += 1
+            return error_payload
+
+        monkeypatch.setattr(
+            "tdoc_crawler.tdocs.operations.crawl.fetch_meeting_document_list_subinterpreter",
+            _fake_worker,
+        )
+        monkeypatch.setattr("time.sleep", lambda _seconds: None)
+
+        async def _run() -> list[str]:
+            async with TDocDatabase(test_db_path) as database:
+                crawler = TDocCrawler(database)
+                config = TDocCrawlConfig(workers=1, incremental=False, max_retries=2)
+                collected: list[TDocMetadata] = []
+                return crawler._crawl_meetings(
+                    [_meeting(12345, "SA4#138", DOCS_SA4_138)],
+                    config,
+                    collected,
+                    {},
+                    {},
+                    set(),
+                    None,
+                )
+
+        errors = asyncio.run(_run())
+        assert len(errors) == 1
+        assert "SA4#138" in errors[0]
+        assert calls["count"] == 3
+
+    @staticmethod
+    def _ok_payload() -> str:
+        tdoc = _tdoc("S4-900001", url=TDOC_URL)
+        return json.dumps([tdoc.model_dump_json()])
 
 
 @pytest.fixture(autouse=True)

@@ -204,11 +204,15 @@ def crawl_tdocs(  # noqa: PLR0917 -- Typer command, one param per CLI option
                 await save_archive_records(checkout_result.archives)
 
                 console.print(f"\n[cyan]Checked out {checkout_result.success_count} TDoc(s)[/cyan]")
+                if checkout_result.skipped_count:
+                    console.print(f"[yellow]Skipped: {checkout_result.skipped_count} withdrawn TDoc(s)[/yellow]")
                 if checkout_result.error_count:
                     console.print(f"[red]Failed: {checkout_result.error_count} TDoc(s)[/red]")
                 if checkout_result.errors:
-                    for error in checkout_result.errors[:5]:
+                    for error in checkout_result.errors:
                         console.print(f"  - {error}")
+                if checkout_result.error_count:
+                    raise typer.Exit(code=1)
 
             return result, throughput
 

@@ -102,6 +102,10 @@ def checkout_tdocs(
 
         error_count = 0
 
+        skipped_count = 0
+
+        failures: list[str] = []
+
         rows: list[dict[str, str]] = []
 
         progress, task = create_progress_bar("Checking out TDocs...", total=len(results))
@@ -129,11 +133,22 @@ def checkout_tdocs(
                     success_count += 1
 
                 except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
+                    # Withdrawn TDocs are skipped, not failures: nothing to download.
+                    if str(exc) == "withdrawn":
+                        rows.append({"tdoc_id": metadata.tdoc_id, "status": "skipped", "path": "withdrawn"})
+
+                        if not machine:
+                            progress.console.print(f"[yellow]SKIP {metadata.tdoc_id}: withdrawn")
+
+                        skipped_count += 1
+                        continue
+
                     rows.append({"tdoc_id": metadata.tdoc_id, "status": "failed", "path": str(exc)})
 
                     if not machine:
                         progress.console.print(f"[red]FAIL {metadata.tdoc_id}: {exc}")
 
+                    failures.append(f"{metadata.tdoc_id}: {exc}")
                     error_count += 1
 
                 if not machine:
@@ -149,12 +164,20 @@ def checkout_tdocs(
 
         if machine:
             print_structured_output(rows, output_format, console=console)
+            if error_count:
+                raise typer.Exit(code=1)
             return
 
         console.print(f"\n[cyan]Checked out {success_count} TDoc(s)[/cyan]")
 
+        if skipped_count:
+            console.print(f"[yellow]Skipped: {skipped_count} withdrawn TDoc(s)[/yellow]")
+
         if error_count:
             console.print(f"[red]Failed: {error_count} TDoc(s)[/red]")
+            for failure in failures:
+                console.print(f"  - {failure}")
+            raise typer.Exit(code=1)
 
 
 def list_tdoc_files(

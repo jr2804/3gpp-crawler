@@ -713,6 +713,47 @@ class TestSafeExtractZipPathTraversal:
         with pytest.raises(ValueError, match="escapes target directory"):
             safe_extract_zip(zip_path, out)
 
+    def test_rejects_absolute_member(self, tmp_path: Path) -> None:
+        zip_path = tmp_path / "abs.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("/etc/passwd", b"x")
+
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="escapes target directory"):
+            safe_extract_zip(zip_path, out)
+
+
+class TestSanitizedMemberNames:
+    """Windows strips trailing spaces/dots from path segments on disk.
+
+    Members that are valid on the server but not representable verbatim on
+    Windows (e.g. issue #6: ``S4aA260016 … /``) are sanitized to their
+    on-disk spelling instead of being rejected as escapes.
+    """
+
+    def test_trailing_space_dir_extracts(self, tmp_path: Path) -> None:
+        zip_path = tmp_path / "src.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("S4aA260016 \u2026 /S4aA260016.docx", b"payload")
+
+        out = tmp_path / "out"
+        out.mkdir()
+        safe_extract_zip(zip_path, out)
+
+        assert (out / "S4aA260016 \u2026/S4aA260016.docx").read_bytes() == b"payload"
+
+    def test_trailing_dot_segment_extracts(self, tmp_path: Path) -> None:
+        zip_path = tmp_path / "src.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("notes./readme.txt", b"hi")
+
+        out = tmp_path / "out"
+        out.mkdir()
+        safe_extract_zip(zip_path, out)
+
+        assert (out / "notes/readme.txt").read_bytes() == b"hi"
+
 
 class TestSafeExtractZipClutterIgnore:
     """safe_extract_zip drops clutter per the gitignore-style pattern file."""

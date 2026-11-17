@@ -129,8 +129,20 @@ Two invariants keep by-ID records from becoming orphans:
   `_resolve_tbid()` then derives the parent working group.
 
 `tdoc crawl --meeting/-m` filters by meeting short name (`SA4#138`),
-normalized name (`S4-138`), fnmatch pattern, or meeting ID, and raises
-`MeetingPatternError` (CLI exit 1) for a pattern that matches nothing.
+normalized name (`S4-138`), fnmatch pattern, or meeting ID — a leading `3GPP`
+on either side is ignored. It raises `MeetingPatternError` (CLI exit 1) for
+a pattern that matches nothing, with up to 10 known short names as hints.
+
+`tdoc crawl` retries a meeting whose document list fails (`max_retries`,
+default 3, capped backoff) and retries only the still-failed meetings; a
+meeting that keeps failing is reported in the final error list, and any
+non-empty error list exits 1 — never exit 0 with silently dropped meetings.
+
+`tdoc checkout` exits 1 after listing every failed TDoc. A `withdrawn`
+result is a skip, not a failure: it increments `CheckoutResult.skipped_count`
+and is reported as `Skipped: N withdrawn`. Zip members whose directory name
+has trailing spaces/dots are sanitized to the on-disk spelling before the
+zip-slip check.
 
 WhatTheSpec records for TDocs without a document carry `link: ""`. Both
 `checkout_tdoc()` and `_resolve_archive()` reject an empty `metadata.url`

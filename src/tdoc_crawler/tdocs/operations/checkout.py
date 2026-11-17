@@ -43,6 +43,7 @@ class CheckoutResult:
     error_count: int
     errors: list[str]
     archives: list[ArchiveRecord] = field(default_factory=list)
+    skipped_count: int = 0
 
 
 def resolve_tdoc_file_sizes(results: list[TDocMetadata], checkout_dir: Path) -> None:
@@ -375,6 +376,7 @@ def checkout_tdocs(
 
     success_count = 0
     error_count = 0
+    skipped_count = 0
     errors: list[str] = []
     archives: list[ArchiveRecord] = []
 
@@ -387,14 +389,15 @@ def checkout_tdocs(
             success_count += 1
         except (FileNotFoundError, OSError, ValueError, zipfile.BadZipFile) as exc:
             error_message = str(exc)
-            # For withdrawn TDocs, log debug instead of adding to errors
+            # Withdrawn TDocs are skipped, not failures: nothing to download.
             if error_message == "withdrawn":  # This matches the FileNotFoundError message
                 logger.debug(f"Skipped withdrawn TDoc {metadata.tdoc_id}")
+                skipped_count += 1
             else:
                 errors.append(f"{metadata.tdoc_id}: {exc}")
                 error_count += 1
 
-    return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors, archives=archives)
+    return CheckoutResult(success_count=success_count, error_count=error_count, errors=errors, archives=archives, skipped_count=skipped_count)
 
 
 def checkout_tdoc(

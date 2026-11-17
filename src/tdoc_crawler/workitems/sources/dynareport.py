@@ -18,6 +18,7 @@ need no login:
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -46,6 +47,11 @@ _WG_LIST_LINK = re.compile(r"TSG-WG--([A-Za-z0-9]+)--wis\.htm", re.IGNORECASE)
 _ORDINAL_LEVEL = re.compile(r"(\d+)(?:st|nd|rd|th)\s+level", re.IGNORECASE)
 _SPEC_HREF = re.compile(r"/DynaReport/([0-9]+[A-Za-z]?)\.htm", re.IGNORECASE)
 _PLACEHOLDER_TEXTS = frozenset({"-", "", "none", "no data available for the current query."})
+
+
+# HTTP statuses worth retrying with backoff (rate limiting / transient blocks).
+_RETRYABLE_STATUS_CODES: Final[frozenset[int]] = frozenset({403, 429})
+_MAX_FETCH_ATTEMPTS: Final[int] = 3
 
 _logger = get_logger(__name__)
 
@@ -497,16 +503,39 @@ def _fetch_html(
     http_cache_file: Path | None,
     session: requests.Session | None,
 ) -> str:
-    """GET a work item page as text using the given or a fresh session."""
+    """GET a work item page as text using the given or a fresh session.
+
+    Transient blocks (HTTP 403/429, e.g. DynaReport rate limiting) are
+    retried with exponential backoff; a 404 means the page genuinely does
+    not exist and fails immediately with a ``not found`` reason so the
+    caller can distinguish it from a block.
+    """
     own_session = session is None
     active = session if session is not None else create_cached_session(http_config=http_config, http_cache_file=http_cache_file)
     try:
-        response = active.get(url, timeout=timeout)
-        response.raise_for_status()
-        return response.text or ""
-    except requests.RequestException as exc:
-        msg = f"Failed to fetch {url}: {exc}"
-        raise WorkItemSourceError(msg) from exc
+        last_exc: requests.RequestException | None = None
+        for attempt in range(1, _MAX_FETCH_ATTEMPTS + 1):
+            try:
+                response = active.get(url, timeout=timeout)
+                response.raise_for_status()
+                return response.text or ""
+            except requests.HTTPError as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                if status == 404:
+                    msg = f"Failed to fetch {url}: not found (404)"
+                    raise WorkItemSourceError(msg) from exc
+                last_exc = exc
+                if status not in _RETRYABLE_STATUS_CODES or attempt == _MAX_FETCH_ATTEMPTS:
+                    msg = f"Failed to fetch {url}: {exc}"
+                    raise WorkItemSourceError(msg) from exc
+                _logger.warning("Blocked fetching %s (HTTP %s), retrying (%d/%d)", url, status, attempt, _MAX_FETCH_ATTEMPTS)
+                time.sleep(min(2**attempt, 8))
+            except requests.RequestException as exc:
+                last_exc = exc
+                msg = f"Failed to fetch {url}: {exc}"
+                raise WorkItemSourceError(msg) from exc
+        msg = f"Failed to fetch {url}: {last_exc}"
+        raise WorkItemSourceError(msg) from last_exc
     finally:
         if own_session:
             active.close()
